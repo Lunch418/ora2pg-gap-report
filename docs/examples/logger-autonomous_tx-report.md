@@ -7,8 +7,8 @@ package body `LOGGER`, ≈3300 строк).
 
 ```python
 from pathlib import Path
-from src.detectors.autonomous_tx import find_autonomous_transactions
-from src.report_generator import to_markdown
+from ora2pg_gap_report.detectors.autonomous_tx import find_autonomous_transactions
+from ora2pg_gap_report.report_generator import to_markdown
 
 source = Path("docs/research/samples/logger.pkb").read_text()
 findings = find_autonomous_transactions(source)

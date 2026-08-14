@@ -213,6 +213,8 @@ def test_every_detector_registered_in_cli_has_a_remediation_hint():
         "dbms_utl_calls",
         "merge_delete_clause",
         "bulk_collect",
+        "database_link",
+        "model_clause",
         "connect_by",  # opt-in via --check-connect-by, not in cli._DETECTORS
     }
     assert registered_names <= set(_REMEDIATION_HINT.keys())

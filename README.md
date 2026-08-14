@@ -1,5 +1,7 @@
 # ora2pg-gap-report
 
+[![tests](https://github.com/Lunch418/ora2pg-gap-report/actions/workflows/tests.yml/badge.svg)](https://github.com/Lunch418/ora2pg-gap-report/actions/workflows/tests.yml)
+
 Инструмент для оценки миграции Oracle → PostgreSQL Pro (Standard/Certified) **до** её начала.
 
 ## Проблема
@@ -206,8 +208,53 @@ tests/
 docs/research/                 # step 0: валидация предпосылок, реальные PL/SQL примеры
 docs/examples/                 # примеры вывода детекторов на реальных данных
 scripts/
-└── build_offline_bundle.py     # сборка автономного архива для установки без интернета
+├── build_offline_bundle.py     # сборка автономного архива для установки без интернета
+├── oracle-test-compose.yml     # Oracle Free 23ai в Docker для живой проверки
+├── setup_oracle_test_schema.sql
+└── verify_against_live_oracle.py
+.github/workflows/tests.yml     # CI: pytest на 3.10-3.13 + сборка и smoke-test пакета
 ```
+
+### Проверка на живой Oracle (Docker)
+
+Юнит-тесты `oracle_connector.py` идут на fake-соединении
+(`tests/fakes/fake_oracle.py`) — быстро, детерминированно, не требует
+Oracle. Но живой путь ("подключился к настоящей Oracle → выгрузил через
+`DBMS_METADATA.GET_DDL` → проанализировал") ими не покрыт. Для этого:
+
+```sh
+docker compose -f scripts/oracle-test-compose.yml up -d
+docker compose -f scripts/oracle-test-compose.yml logs -f   # ждать "DATABASE IS READY TO USE"
+
+pip install -e ".[oracle]"
+ORACLE_DSN=localhost:1521/FREEPDB1 ORACLE_USER=testuser ORACLE_PASSWORD=testpass1 \
+  python scripts/verify_against_live_oracle.py
+```
+
+Скрипт создаёт пару служебных таблиц (`scripts/setup_oracle_test_schema.sql`
+— триггерам, в отличие от пакетов, нужна реально существующая целевая
+таблица), заливает реальные фикстуры из `docs/research/samples/` как
+есть, выгружает их обратно живым `DBMS_METADATA.GET_DDL`, прогоняет
+детекторы и сверяет счётчики с уже независимо проверенными на этих же
+файлах как на тексте (`tests/`). Если в `PATH` есть `ora2pg` — заодно
+пробует `SHOW_REPORT` против живого подключения, впервые проверяя вживую
+(а не только по чтению исходников) те места
+`docs/research/step0-show-report-baseline.md`, что были помечены "по
+коду, не подтверждено".
+
+`gvenzl/oracle-free:23-slim` — контейнерный пакет официального
+бесплатного дистрибутива Oracle (не подделка, тот же движок), просто с
+более удобной для CI/тестов оберткой, чем прямой образ Oracle Container
+Registry.
+
+**Дисклеймер:** этот конкретный сценарий не проверен мной вживую — сеть
+песочницы, где вёлся остальной проект, блокирует и Docker Hub, и
+`container-registry.oracle.com` на уровне политики организации (см.
+`recentRelayFailures` в статусе прокси), поэтому живого прогона на
+настоящей Oracle не было. SQL-парсинг фикстур (`split_sql_statements`)
+проверен юнит-тестом на реальных файлах — резка на стейтменты корректна;
+сама живая часть (создание объектов, `DBMS_METADATA.GET_DDL`, сравнение
+счётчиков) — нет.
 
 ## Как проверялась корректность
 

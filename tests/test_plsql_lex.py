@@ -1,8 +1,8 @@
 """Regression tests for bugs found in code review of the shared lexer."""
 
-from src.detectors.autonomous_tx import find_autonomous_transactions
-from src.detectors.compound_triggers import find_compound_triggers
-from src.plsql_lex import mask_strings_and_comments
+from ora2pg_gap_report.detectors.autonomous_tx import find_autonomous_transactions
+from ora2pg_gap_report.detectors.compound_triggers import find_compound_triggers
+from ora2pg_gap_report.plsql_lex import mask_strings_and_comments
 
 
 def test_q_quote_literal_with_embedded_apostrophe_is_fully_masked():

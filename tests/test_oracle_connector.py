@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src import oracle_connector
+from ora2pg_gap_report import oracle_connector
 from tests.fakes.fake_oracle import FakeConnection, FakeLob
 
 PKG_BODY_ROW = ("LOGGER",)

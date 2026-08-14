@@ -1,5 +1,5 @@
 """CLI: export a live Oracle schema's DDL to flat files for offline
-analysis via `python -m src.cli`.
+analysis via `ora2pg-gap-report`.
 
 Deliberately a separate entry point from cli.py, not a flag on it: the
 export step needs live Oracle network access; the analysis step (all four
@@ -20,11 +20,11 @@ from . import oracle_connector
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="oracle-export",
+        prog="ora2pg-gap-export",
         description=(
             "Выгружает DDL PACKAGE BODY и TRIGGER из живой Oracle-схемы "
             "в отдельные .sql файлы — для последующего анализа через "
-            "`python -m src.cli`."
+            "`ora2pg-gap-report`."
         ),
     )
     parser.add_argument("--dsn", required=True, help="Oracle connect string, напр. host:1521/ORCLPDB1")

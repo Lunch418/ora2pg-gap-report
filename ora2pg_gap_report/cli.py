@@ -56,7 +56,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Дополнительно: для файлов с CONNECT BY реально прогнать ora2pg и "
             "проверить сгенерированный WITH RECURSIVE на известный баг с LEVEL. "
-            "Требует установленный ora2pg (не входит в requirements.txt — это "
+            "Требует установленный ora2pg (не ставится через pip — это "
             "отдельный Perl-инструмент, см. README)."
         ),
     )

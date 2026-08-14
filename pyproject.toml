@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ora2pg-gap-report"
+version = "0.1.0"
+description = "Сканер Oracle-схемы, дополняющий ora2pg: находит объекты, которые он не перенесёт или перенесёт некорректно, до начала миграции на Postgres Pro."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+# Только для oracle_connector.py / oracle_export.py (живая выгрузка DDL из
+# Oracle). Три детектора и сам CLI-анализ в этом не нуждаются вообще.
+oracle = ["oracledb>=2.0"]
+dev = ["pytest>=7.0"]
+
+[project.urls]
+Repository = "https://github.com/Lunch418/ora2pg-gap-report"
+
+[project.scripts]
+ora2pg-gap-report = "ora2pg_gap_report.cli:main"
+ora2pg-gap-export = "ora2pg_gap_report.oracle_export:main"
+
+[tool.setuptools.packages.find]
+include = ["ora2pg_gap_report*"]

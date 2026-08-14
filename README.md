@@ -34,7 +34,8 @@
 трудозатрат есть (Задача 3), плюс живая выгрузка DDL прямо из Oracle-схемы
 — то есть весь MVP из брифа закрыт. Всё покрыто тестами на реальном
 открытом PL/SQL-коде (включая живые прогоны настоящего `ora2pg`, не
-только чтение исходников), собрано в CLI через `python -m src.cli`.
+только чтение исходников), ставится через `pip install` и сразу даёт
+консольные команды.
 
 Не сделана только Задача 4 (частичная автоматизация переноса простых
 пакетов) — по брифу это осознанный бэклог, не MVP.
@@ -48,41 +49,54 @@
 | `ora2pg_wrapper.py` | готово (Задача 2) | Запуск `ora2pg` по типам объектов на выгруженном DDL, парсинг `--estimate_cost` |
 | `oracle_connector.py` / `oracle_export.py` | готово | Живая выгрузка `PACKAGE BODY`/`TRIGGER` DDL прямо из Oracle-схемы через `DBMS_METADATA.GET_DDL` (thin-режим `python-oracledb`, без Oracle Instant Client) |
 
-## Использование
+## Установка и использование
 
 ```sh
-pip install -r requirements.txt   # только pytest, детекторы — чистый stdlib
+pip install ora2pg-gap-report   # (или: pip install . из клона репозитория)
+```
 
-python -m src.cli path/to/schema_dump.pkb another_file.sql \
+Детекторы и CLI-анализ — чистый Python без единой внешней зависимости,
+ничего больше ставить не нужно. Сразу после установки доступна команда:
+
+```sh
+ora2pg-gap-report path/to/schema_dump.pkb another_file.sql \
   --format markdown            # или --format json
   --output report.md           # необязательно, по умолчанию — stdout
 
 # Опционально: линтинг сгенерированного ora2pg кода для CONNECT BY.
 # Требует установленный ora2pg (см. https://github.com/darold/ora2pg) — 
-# единственная внешняя зависимость во всём проекте, и только для этой проверки.
-python -m src.cli path/to/schema_dump.pkb --check-connect-by
+# единственная внешняя (не-Python) зависимость во всём проекте, и только
+# для этой конкретной проверки.
+ora2pg-gap-report path/to/schema_dump.pkb --check-connect-by
 ```
 
 Файлы с DDL можно передавать как есть — один файл может содержать сразу
 несколько пакетов/триггеров, детекторы разбирают границы объектов сами.
+
+Для разработки/тестов из клона репозитория:
+
+```sh
+pip install -e ".[dev]"   # editable-режим + pytest
+pytest
+```
 
 ### Выгрузка DDL прямо из Oracle (опционально)
 
 Если под рукой живая Oracle-схема, а не уже готовый DDL-дамп:
 
 ```sh
-pip install -r requirements-oracle.txt   # только для этого шага, thin-режим, без Instant Client
+pip install "ora2pg-gap-report[oracle]"   # добавляет python-oracledb, thin-режим, без Instant Client
 
-python -m src.oracle_export --dsn host:1521/ORCLPDB1 --user hr --output-dir dumps/
+ora2pg-gap-export --dsn host:1521/ORCLPDB1 --user hr --output-dir dumps/
 # пароль — из переменной окружения ORACLE_PASSWORD, либо будет запрошен интерактивно
 
-python -m src.cli dumps/*.sql
+ora2pg-gap-report dumps/*.sql
 ```
 
-`oracle_export.py` — отдельная команда, не флаг у `src.cli`, специально:
-выгрузка требует сетевого доступа к Oracle, анализ — никогда. В закрытом
-контуре это часто две разные машины (jump host с доступом к БД и
-изолированная рабочая станция для анализа) — единственное, что должно
+`ora2pg-gap-export` — отдельная команда, не флаг у `ora2pg-gap-report`,
+специально: выгрузка требует сетевого доступа к Oracle, анализ — никогда.
+В закрытом контуре это часто две разные машины (jump host с доступом к БД
+и изолированная рабочая станция для анализа) — единственное, что должно
 пересечь границу между ними, это уже выгруженные `.sql` файлы.
 
 Пример реального вывода на открытом пакете —
@@ -112,20 +126,21 @@ ora2pg-код, а не исходник (ora2pg сам неплохо счита
 `--check-connect-by`.
 
 ```
-src/
+pyproject.toml                 # единственный источник правды по зависимостям/точкам входа
+ora2pg_gap_report/
 ├── models.py                 # Finding — общая структура находки для всех детекторов
 ├── plsql_lex.py               # общая инфраструктура: маскирование строк/комментариев
 │                               # (включая q-quote), сопоставление блоков BEGIN/CASE/IF/LOOP...END,
 │                               # разбор идентификаторов — используется всеми детекторами
 ├── oracle_connector.py         # готово: живая выгрузка PACKAGE BODY/TRIGGER через DBMS_METADATA.GET_DDL
-├── oracle_export.py            # готово: отдельный CLI поверх oracle_connector.py
+├── oracle_export.py            # готово: консольная команда ora2pg-gap-export
 ├── detectors/
 │   ├── autonomous_tx.py       # готово: PRAGMA AUTONOMOUS_TRANSACTION в PACKAGE BODY
 │   ├── compound_triggers.py   # готово: COMPOUND TRIGGER — тихий провал парсинга у ora2pg
 │   ├── dbms_utl_calls.py      # готово: классификатор конкретных DBMS_*/UTL_* функций
 │   └── connect_by.py          # готово: линтинг сгенерированного WITH RECURSIVE (нужен ora2pg)
 ├── ora2pg_wrapper.py           # готово: запуск ora2pg по типам объектов, парсинг --estimate_cost
-├── cli.py                     # готово: точка входа, объединяет все детекторы в один прогон
+├── cli.py                     # готово: консольная команда ora2pg-gap-report
 ├── effort_estimator.py         # готово: грубая эвристика по severity, диапазон часов
 └── report_generator.py         # готово: JSON + Markdown
 tests/

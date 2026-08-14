@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.detectors.compound_triggers import find_compound_triggers
+from ora2pg_gap_report.detectors.compound_triggers import find_compound_triggers
 
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 

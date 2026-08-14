@@ -1,5 +1,5 @@
-from src.effort_estimator import estimate_hours, summarize_by_severity
-from src.models import Finding
+from ora2pg_gap_report.effort_estimator import estimate_hours, summarize_by_severity
+from ora2pg_gap_report.models import Finding
 
 
 def _finding(severity: str) -> Finding:

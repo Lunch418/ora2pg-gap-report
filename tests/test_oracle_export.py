@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from src import oracle_connector, oracle_export
+from ora2pg_gap_report import oracle_connector, oracle_export
 
 
 class _FakeConn:

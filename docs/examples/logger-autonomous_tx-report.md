@@ -32,4 +32,4 @@ print(to_markdown(findings))
 | `LOGGER.INS_LOGGER_LOGS` | 2782 | high | `pragma autonomous_transaction;` | (то же объяснение) |
 
 Полный текст комментария одинаков для всех строк — сокращён здесь для
-читаемости, см. `src/detectors/autonomous_tx.py::_MESSAGE`.
+читаемости, см. `ora2pg_gap_report/detectors/autonomous_tx.py::_MESSAGE`.

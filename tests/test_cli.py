@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from src import cli
-from src.cli import main, scan_source
+from ora2pg_gap_report import cli
+from ora2pg_gap_report.cli import main, scan_source
 
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"

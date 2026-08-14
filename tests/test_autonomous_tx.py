@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.detectors.autonomous_tx import find_autonomous_transactions
+from ora2pg_gap_report.detectors.autonomous_tx import find_autonomous_transactions
 
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 

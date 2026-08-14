@@ -11,11 +11,14 @@ Run this on a machine WITH internet access, from a checkout of this repo:
 
 This writes ora2pg-gap-report-offline.tar.gz to --out (default: repo root).
 Move it to the target machine however your contour allows (scp, sftp,
-USB, a jump host you paste it through by hand) and there run:
+USB, a jump host you paste it through by hand) and there run, passing
+back whichever extras you built with (comma- or space-separated, same
+thing — matters only if you used --oracle/--dev above):
 
     tar xzf ora2pg-gap-report-offline.tar.gz
     cd ora2pg-gap-report-offline
-    ./install.sh                 # or: python3 install.py
+    ./install.sh oracle dev            # or: python3 install.py oracle dev
+    ./install.sh                       # no extras — base install only
 
 Both installers call `pip install --no-index --find-links=./wheels ...`
 — pip resolves entirely from the bundled wheels, no PyPI contact at all.
@@ -31,6 +34,7 @@ for the exact values your target needs.
 """
 
 import argparse
+import glob
 import shutil
 import subprocess
 import sys
@@ -43,24 +47,30 @@ _INSTALL_SH = """\
 #!/bin/sh
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
-EXTRAS="$1"
+EXTRAS=""
+for arg in "$@"; do
+    if [ -z "$EXTRAS" ]; then EXTRAS="$arg"; else EXTRAS="$EXTRAS,$arg"; fi
+done
 if [ -n "$EXTRAS" ]; then
     PKG="ora2pg-gap-report[$EXTRAS]"
 else
     PKG="ora2pg-gap-report"
 fi
-pip install --no-index --find-links="$DIR/wheels" "$PKG"
+PY="$(command -v python3 || command -v python)"
+"$PY" -m pip install --no-index --find-links="$DIR/wheels" "$PKG"
 """
 
 _INSTALL_PY = '''\
 #!/usr/bin/env python3
-"""Offline install helper — run on the target (no-internet) machine."""
+"""Offline install helper — run on the target (no-internet) machine.
+Usage: python3 install.py [extra ...]   e.g. python3 install.py oracle dev
+"""
 import subprocess
 import sys
 from pathlib import Path
 
 wheels_dir = Path(__file__).resolve().parent / "wheels"
-extras = sys.argv[1] if len(sys.argv) > 1 else ""
+extras = ",".join(sys.argv[1:])
 package = f"ora2pg-gap-report[{extras}]" if extras else "ora2pg-gap-report"
 subprocess.check_call(
     [sys.executable, "-m", "pip", "install", "--no-index",
@@ -75,10 +85,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dev", action="store_true", help="include pytest (to run the test suite offline too)")
     parser.add_argument("--out", type=Path, default=REPO_ROOT, help="directory to write the .tar.gz into")
     parser.add_argument(
-        "--platform", default=None, help="target platform tag for pip download (e.g. manylinux2014_x86_64)"
+        "--platform",
+        default=None,
+        help="target platform tag, e.g. manylinux2014_x86_64 (passed to `pip download`, "
+        "for building the bundle on a different machine than the install target)",
     )
-    parser.add_argument("--python-version", default=None, help="target Python version for pip download (e.g. 311)")
-    parser.add_argument("--abi", default=None, help="target ABI tag for pip download (e.g. cp311)")
+    parser.add_argument("--python-version", default=None, help="target Python version, e.g. 311 (see --platform)")
+    parser.add_argument("--abi", default=None, help="target ABI tag, e.g. cp311 (see --platform)")
     return parser
 
 
@@ -90,7 +103,6 @@ def main(argv: list[str] | None = None) -> int:
         extras.append("oracle")
     if args.dev:
         extras.append("dev")
-    requirement = f".[{','.join(extras)}]" if extras else "."
 
     staging = args.out / "ora2pg-gap-report-offline"
     wheels_dir = staging / "wheels"
@@ -98,7 +110,32 @@ def main(argv: list[str] | None = None) -> int:
         shutil.rmtree(staging)
     wheels_dir.mkdir(parents=True)
 
-    cmd = [sys.executable, "-m", "pip", "wheel", requirement, "-w", str(wheels_dir)]
+    # Step 1: build our own wheel. Always via `pip wheel` on the *current*
+    # machine, regardless of --platform/etc — the package itself is pure
+    # Python (py3-none-any), so there is nothing target-platform-specific
+    # to cross-build here; only its dependencies (oracledb, specifically)
+    # can differ by platform.
+    print("+ building the project's own wheel", file=sys.stderr)
+    subprocess.check_call(
+        [sys.executable, "-m", "pip", "wheel", ".", "--no-deps", "-w", str(wheels_dir)],
+        cwd=REPO_ROOT,
+    )
+    own_wheels = glob.glob(str(wheels_dir / "ora2pg_gap_report-*.whl"))
+    if not own_wheels:
+        print("error: pip wheel didn't produce ora2pg_gap_report-*.whl", file=sys.stderr)
+        return 1
+    own_wheel = own_wheels[0]
+
+    # Step 2: resolve and download every dependency (base + requested
+    # extras). Deliberately `pip download` pointed at the *wheel file*
+    # from step 1, not `pip wheel .` on the source directory: only
+    # `pip download` accepts --platform/--python-version/--abi for
+    # cross-platform bundling, and (verified directly) `pip download`
+    # given a local *directory* requirement reports success but does not
+    # reliably place the built artifact in -d in this pip version — giving
+    # it an already-built wheel file sidesteps that entirely.
+    requirement = f"{own_wheel}[{','.join(extras)}]" if extras else own_wheel
+    cmd = [sys.executable, "-m", "pip", "download", requirement, "-d", str(wheels_dir)]
     if args.platform or args.python_version or args.abi:
         cmd += ["--only-binary=:all:"]
         if args.platform:
@@ -114,12 +151,13 @@ def main(argv: list[str] | None = None) -> int:
     (staging / "install.sh").chmod(0o755)
     (staging / "install.py").write_text(_INSTALL_PY)
     (staging / "install.py").chmod(0o755)
+    extras_hint = " " + " ".join(extras) if extras else ""
     (staging / "README.txt").write_text(
         "Офлайн-установка ora2pg-gap-report\n"
         "===================================\n\n"
         "На машине БЕЗ интернета, после переноса и распаковки этого архива:\n\n"
-        "    ./install.sh" + (f" {','.join(extras)}" if extras else "") + "\n"
-        "    (или: python3 install.py" + (f" {','.join(extras)}" if extras else "") + ")\n\n"
+        f"    ./install.sh{extras_hint}\n"
+        f"    (или: python3 install.py{extras_hint})\n\n"
         "Ничего не обращается в сеть — pip ставит только из wheels/ рядом с "
         "этим файлом (--no-index --find-links).\n"
     )

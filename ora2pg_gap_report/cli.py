@@ -4,12 +4,13 @@ import sys
 from pathlib import Path
 
 from rich.console import Console
+from rich.markup import escape
 
 from .detectors.autonomous_tx import find_autonomous_transactions
 from .detectors.compound_triggers import find_compound_triggers
 from .detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
 from .detectors.dbms_utl_calls import find_dbms_utl_calls
-from .effort_estimator import estimate_hours, summarize_by_severity
+from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .models import Finding
 from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError, run_estimate_cost
 from .report_generator import to_json, to_markdown
@@ -100,7 +101,7 @@ def _render(findings: list[Finding], fmt: str) -> str:
         return to_json(findings)
 
     counts = summarize_by_severity(findings)
-    counts_text = ", ".join(f"{name}: {n}" for name, n in counts.items())
+    counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
     lo, hi = estimate_hours(findings)
     header = (
         "# Отчёт ora2pg-gap-report\n\n"
@@ -130,13 +131,15 @@ def main(argv: list[str] | None = None) -> int:
     had_error = False
     for path in args.paths:
         if not path.is_file():
-            err_console.print(f"[yellow]Пропущен (не найден):[/yellow] {path}")
+            err_console.print(f"[yellow]Пропущен (не найден):[/yellow] {escape(str(path))}")
             had_error = True
             continue
         try:
             source = path.read_text(errors="replace")
         except OSError as exc:
-            err_console.print(f"[yellow]Пропущен (не читается: {exc}):[/yellow] {path}")
+            err_console.print(
+                f"[yellow]Пропущен (не читается: {escape(str(exc))}):[/yellow] {escape(str(path))}"
+            )
             had_error = True
             continue
         all_findings.extend(
@@ -147,14 +150,21 @@ def main(argv: list[str] | None = None) -> int:
             findings, warning = _connect_by_check(path, source, args.ora2pg_bin)
             all_findings.extend(findings)
             if warning:
-                err_console.print(f"[yellow]{warning}[/yellow]")
+                err_console.print(f"[yellow]{escape(warning)}[/yellow]")
 
     _sort_findings(all_findings)
 
     if fmt == "terminal":
         if args.output:
-            with args.output.open("w", encoding="utf-8") as fh:
-                render_terminal(all_findings, console=Console(file=fh))
+            try:
+                with args.output.open("w", encoding="utf-8") as fh:
+                    render_terminal(all_findings, console=Console(file=fh))
+            except OSError as exc:
+                err_console.print(
+                    f"[red]Не удалось записать отчёт в {escape(str(args.output))}: "
+                    f"{escape(str(exc))}[/red]"
+                )
+                return 2
         else:
             render_terminal(all_findings)
     else:
@@ -163,7 +173,10 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 args.output.write_text(report, encoding="utf-8")
             except OSError as exc:
-                err_console.print(f"[red]Не удалось записать отчёт в {args.output}: {exc}[/red]")
+                err_console.print(
+                    f"[red]Не удалось записать отчёт в {escape(str(args.output))}: "
+                    f"{escape(str(exc))}[/red]"
+                )
                 return 2
         else:
             print(report)

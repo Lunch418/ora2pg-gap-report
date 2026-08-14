@@ -11,6 +11,7 @@ _HOURS_BY_SEVERITY: dict[str, tuple[float, float]] = {
     "low": (0.25, 1.0),
 }
 _DEFAULT_RANGE = (1.0, 4.0)
+_SEVERITY_ORDER = ("high", "medium", "low")
 
 
 def estimate_hours(findings: list[Finding]) -> tuple[float, float]:
@@ -40,3 +41,14 @@ def summarize_by_severity(findings: list[Finding]) -> dict[str, int]:
     if other:
         counts["other"] = other
     return counts
+
+
+def ordered_counts(counts: dict[str, int]) -> list[tuple[str, int]]:
+    """(name, count) pairs ordered high/medium/low first, then any other
+    bucket — shared so cli.py's Markdown header and terminal_report.py's
+    summary panel present the same ordering instead of each composing it
+    independently (and, before this, inconsistently: the Markdown header
+    used to fall back to plain dict order)."""
+    ordered = [(sev, counts[sev]) for sev in _SEVERITY_ORDER if counts.get(sev)]
+    ordered += [(name, n) for name, n in counts.items() if name not in _SEVERITY_ORDER and n]
+    return ordered

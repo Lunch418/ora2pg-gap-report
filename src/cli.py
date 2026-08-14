@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .detectors.autonomous_tx import find_autonomous_transactions
 from .detectors.compound_triggers import find_compound_triggers
-from .detectors.connect_by import find_connect_by_risks, has_connect_by
+from .detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
 from .detectors.dbms_utl_calls import find_dbms_utl_calls
 from .effort_estimator import estimate_hours, summarize_by_severity
 from .models import Finding
@@ -76,7 +76,7 @@ def _connect_by_check(path: Path, source: str, ora2pg_bin: str) -> tuple[list[Fi
     if not has_connect_by(source):
         return [], None
     try:
-        output = run_estimate_cost(path, "PACKAGE", ora2pg_bin=ora2pg_bin)
+        output = run_estimate_cost(path, guess_object_type(source), ora2pg_bin=ora2pg_bin)
     except Ora2PgNotFoundError:
         return [], f"{path}: содержит CONNECT BY, но ora2pg не найден — проверка пропущена"
     except Ora2PgRunError as exc:

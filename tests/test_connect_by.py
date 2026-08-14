@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.detectors.connect_by import find_connect_by_risks, has_connect_by
+from src.detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
@@ -25,9 +25,43 @@ def test_finds_the_real_level_alias_bug_in_generated_output():
     assert len(findings) == 1
     f = findings[0]
     assert f.detector == "connect_by"
-    assert f.object_name == "CTE"
+    # ora2pg always names the generated CTE "cte" regardless of source —
+    # useless for identifying which object is affected — so the object
+    # name must come from the enclosing generated function instead.
+    assert f.object_name == "HIERARCHY_DEMO_PKG_GET_ORG_CHART"
     assert f.severity == "high"
     assert f.snippet.lower() == "c.level"
+
+
+def test_finds_the_bug_in_standalone_function_mode_output_too():
+    # Fixture captured from a real run:
+    # ora2pg -t FUNCTION -i standalone_func.sql --estimate_cost
+    output = (FIXTURES / "ora2pg_estimate_cost_standalone_function.sql").read_text()
+    findings = find_connect_by_risks(output)
+
+    assert len(findings) == 1
+    assert findings[0].object_name == "GET_ORG_CHART_STANDALONE"
+
+
+def test_guess_object_type_package_body():
+    source = (SAMPLES / "connect_by_hierarchy_pkg.sql").read_text()
+    assert guess_object_type(source) == "PACKAGE"
+
+
+def test_guess_object_type_standalone_function():
+    source = """
+    create or replace function get_org_chart(p_top_id number) return sys_refcursor
+    is
+    begin
+      null;
+    end;
+    /
+    """
+    assert guess_object_type(source) == "FUNCTION"
+
+
+def test_guess_object_type_defaults_to_package_when_unrecognized():
+    assert guess_object_type("select 1 from dual;") == "PACKAGE"
 
 
 def test_no_false_positive_on_a_correctly_generated_with_recursive():

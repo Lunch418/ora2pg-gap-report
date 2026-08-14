@@ -36,12 +36,16 @@ class FunctionCost:
 
 
 _FUNCTION_COST_RE = re.compile(
-    r"--\s*Function\s+(\S+)\s+total estimated cost:\s*([\d.]+)",
+    # -t PACKAGE: "... total estimated cost: N"
+    # -t FUNCTION/PROCEDURE: "... estimated cost: N" (no "total")
+    r"--\s*Function\s+(\S+)\s+(?:total\s+)?estimated cost:\s*([\d.]+)",
     re.IGNORECASE,
 )
 _KEYWORD_COST_RE = re.compile(r"^--\s*([A-Za-z_ ]+?)\s*=>\s*(\d+)")
-_PACKAGE_TOTAL_RE = re.compile(
-    r"--\s*Total estimated cost for package\s+(\S+):\s*([\d.]+)\s*units,"
+_TOTAL_RE = re.compile(
+    # -t PACKAGE: "Total estimated cost for package NAME: N units, M person-day(s)"
+    # -t FUNCTION/PROCEDURE: "Total estimated cost: N units, M person-day(s)." (no package name)
+    r"--\s*Total estimated cost(?:\s+for package\s+(\S+))?:\s*([\d.]+)\s*units,"
     r"\s*([\d.]+)\s*person-day",
     re.IGNORECASE,
 )
@@ -73,9 +77,14 @@ def run_estimate_cost(
                 text=True,
                 timeout=timeout,
             )
-        except FileNotFoundError as exc:
+        except OSError as exc:
+            # Covers FileNotFoundError (binary missing) as well as
+            # PermissionError/IsADirectoryError (e.g. a bad --ora2pg-bin) —
+            # all of these mean "couldn't even start ora2pg", which callers
+            # are meant to treat the same way: skip this check gracefully.
             raise Ora2PgNotFoundError(
-                f"ora2pg executable not found ({ora2pg_bin!r}) — see README для установки"
+                f"ora2pg executable not found or not runnable ({ora2pg_bin!r}: {exc}) "
+                "— see README для установки"
             ) from exc
         except subprocess.TimeoutExpired as exc:
             raise Ora2PgRunError(f"ora2pg не ответил за {timeout}с") from exc
@@ -118,10 +127,14 @@ def parse_function_costs(ora2pg_output: str) -> list[FunctionCost]:
     return functions
 
 
-def parse_package_total(ora2pg_output: str):
-    """Return (package_name, total_units, person_days) or None if the
-    package-level total summary line isn't present in the output."""
-    m = _PACKAGE_TOTAL_RE.search(ora2pg_output)
-    if not m:
-        return None
-    return m.group(1), float(m.group(2)), float(m.group(3))
+def parse_totals(ora2pg_output: str) -> list[tuple]:
+    """Return (package_name_or_None, total_units, person_days) for every
+    "Total estimated cost..." summary line in the output. -t PACKAGE mode
+    emits one such line per package (named); -t FUNCTION/PROCEDURE mode
+    emits one unnamed line for the whole run. A list, not a single value —
+    a -t PACKAGE run against a multi-package DDL file emits one such line
+    per package, not just one."""
+    return [
+        (m.group(1), float(m.group(2)), float(m.group(3)))
+        for m in _TOTAL_RE.finditer(ora2pg_output)
+    ]

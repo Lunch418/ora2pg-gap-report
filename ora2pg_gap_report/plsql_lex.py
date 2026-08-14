@@ -154,6 +154,28 @@ def find_matching_end(text: str, begin_pos: int, hard_boundary: int) -> int | No
     return None
 
 
+def _own_is_as(text: str, name_end: int, hard_boundary: int):
+    """The IS/AS match belonging to the routine whose name ends at
+    `name_end`, or None if this is a forward declaration ('PROCEDURE
+    helper;', used to allow mutual recursion between subprograms) rather
+    than a real definition. A forward declaration has no IS/AS of its own —
+    a bare ';' terminates its signature first — so searching forward
+    unconditionally would find some later, unrelated routine's IS/AS
+    instead (commonly the real body of this same forward-declared name),
+    misattributing everything in between (including sibling declarations
+    like a PRAGMA) to it."""
+    pos = name_end
+    while pos < hard_boundary and text[pos] in " \t\r\n":
+        pos += 1
+    if pos < hard_boundary and text[pos] == "(":
+        pos = skip_balanced_parens(text, pos)
+    semi = text.find(";", pos)
+    is_as = _IS_AS_RE.search(text, pos, hard_boundary)
+    if is_as is None or (semi != -1 and semi < is_as.start()):
+        return None
+    return is_as
+
+
 def _find_own_begin(text: str, is_as_end: int, hard_boundary: int, nested_spans: list):
     """Return the index of the BEGIN starting THIS routine's own body,
     recursively skipping any nested subprogram declarations found first
@@ -166,9 +188,15 @@ def _find_own_begin(text: str, is_as_end: int, hard_boundary: int, nested_spans:
             return None
         if not nested or begin.start() < nested.start():
             return begin.start()
-        nested_is_as = _IS_AS_RE.search(text, nested.end(), hard_boundary)
-        if not nested_is_as:
-            return None
+        nested_is_as = _own_is_as(text, nested.end(), hard_boundary)
+        if nested_is_as is None:
+            # Forward declaration, not a definition — nothing to recurse
+            # into here; skip past its own ';' and keep scanning.
+            semi = text.find(";", nested.end())
+            if semi == -1 or semi >= hard_boundary:
+                return None
+            cursor = semi + 1
+            continue
         nested_begin = _find_own_begin(text, nested_is_as.end(), hard_boundary, nested_spans)
         if nested_begin is None:
             return None
@@ -185,13 +213,8 @@ def declare_and_begin(text: str, routine_name_end: int, hard_boundary: int):
     with any nested subprogram spans it contains called out separately so
     callers can exclude them. Returns None for forward declarations / specs
     with no body. Returns (declare_start, begin_pos, nested_spans)."""
-    pos = routine_name_end
-    while pos < hard_boundary and text[pos] in " \t\r\n":
-        pos += 1
-    if pos < hard_boundary and text[pos] == "(":
-        pos = skip_balanced_parens(text, pos)
-    is_as = _IS_AS_RE.search(text, pos, hard_boundary)
-    if not is_as:
+    is_as = _own_is_as(text, routine_name_end, hard_boundary)
+    if is_as is None:
         return None
     nested_spans: list = []
     begin_pos = _find_own_begin(text, is_as.end(), hard_boundary, nested_spans)

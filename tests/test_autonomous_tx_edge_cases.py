@@ -128,3 +128,55 @@ def test_if_and_loop_blocks_do_not_confuse_block_matching():
     """
     findings = find_autonomous_transactions(source)
     assert {f.object_name for f in findings} == {"DEMO.FOO"}
+
+
+def test_pragma_before_a_forward_declared_nested_procedures_real_body_is_not_swallowed():
+    # A forward declaration ('procedure helper;', used to allow mutual
+    # recursion between private nested subprograms) has no IS/AS of its
+    # own. _find_own_begin used to search forward for the next IS/AS
+    # regardless, land on the *real* body's IS/AS declared later, and treat
+    # everything from the forward declaration through that real body's end
+    # as one nested span to blank out — silently erasing outer_proc's own
+    # PRAGMA AUTONOMOUS_TRANSACTION, which sits in between, along the way.
+    source = """
+    create or replace package body pkg1 as
+      procedure outer_proc is
+        procedure helper;
+        pragma autonomous_transaction;
+        procedure helper is begin null; end helper;
+      begin
+        helper();
+        commit;
+      end outer_proc;
+    end pkg1;
+    /
+    """
+    findings = find_autonomous_transactions(source)
+    assert {f.object_name for f in findings} == {"PKG1.OUTER_PROC"}
+
+
+def test_pragma_in_a_routine_after_a_package_level_forward_declaration_is_not_lost():
+    # Same bug class as the nested case above, but at PACKAGE BODY scope:
+    # declare_and_begin used to search forward for the next IS/AS
+    # unconditionally, so a package-level forward declaration ('procedure
+    # helper;') would make it land on the *next* routine's IS/AS and
+    # misattribute that routine's entire body (including its own PRAGMA) to
+    # the forward-declared name instead.
+    source = """
+    create or replace package body pkg as
+      procedure helper;
+      procedure caller is
+        pragma autonomous_transaction;
+      begin
+        helper();
+        commit;
+      end caller;
+      procedure helper is
+      begin
+        null;
+      end helper;
+    end pkg;
+    /
+    """
+    findings = find_autonomous_transactions(source)
+    assert {f.object_name for f in findings} == {"PKG.CALLER"}

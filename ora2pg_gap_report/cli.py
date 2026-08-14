@@ -91,8 +91,18 @@ def _connect_by_check(path: Path, source: str, ora2pg_bin: str) -> tuple[list[Fi
         return [], f"{path}: содержит CONNECT BY, но ora2pg не найден — проверка пропущена"
     except Ora2PgRunError as exc:
         return [], f"{path}: содержит CONNECT BY, но запуск ora2pg завершился ошибкой ({exc})"
+
+    # `line` in each risk is a position inside ora2pg's *generated*
+    # PostgreSQL output (a tempfile.TemporaryDirectory in run_estimate_cost,
+    # already deleted by the time this returns) — it does not correspond to
+    # any line in `path`. source_file=path is still correct (that's genuinely
+    # the Oracle input that produced this), but stamping ora2pg's internal
+    # line number onto it would point the user at an unrelated line in their
+    # own file; 0 signals "not a line in this file" instead of a wrong one.
+    # object_name/snippet (the enclosing routine and the exact bad LEVEL
+    # reference) still identify the problem unambiguously without it.
     return [
-        dataclasses.replace(f, source_file=str(path)) for f in find_connect_by_risks(output)
+        dataclasses.replace(f, source_file=str(path), line=0) for f in find_connect_by_risks(output)
     ], None
 
 

@@ -1,6 +1,7 @@
 # ora2pg-gap-report
 
 [![tests](https://github.com/Lunch418/ora2pg-gap-report/actions/workflows/tests.yml/badge.svg)](https://github.com/Lunch418/ora2pg-gap-report/actions/workflows/tests.yml)
+[![PyPI](https://img.shields.io/pypi/v/ora2pg-gap-report)](https://pypi.org/project/ora2pg-gap-report/)
 
 Инструмент для оценки миграции Oracle → PostgreSQL Pro (Standard/Certified) **до** её начала.
 

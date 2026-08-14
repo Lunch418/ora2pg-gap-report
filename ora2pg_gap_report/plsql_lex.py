@@ -234,3 +234,75 @@ def own_declare_text(text: str, declare_start: int, begin_pos: int, nested_spans
             if chars[i - declare_start] != "\n":
                 chars[i - declare_start] = " "
     return "".join(chars)
+
+
+_PACKAGE_BODY_NAME_RE = re.compile(qualified_name_pattern(r"PACKAGE\s+BODY"), re.IGNORECASE)
+# A standalone 'CREATE [OR REPLACE] PROCEDURE/FUNCTION name' — distinct from
+# ROUTINE_START_RE, which only matches routines declared *inside* a package
+# body ('PROCEDURE name IS', at the start of a line with no CREATE prefix).
+_STANDALONE_ROUTINE_RE = re.compile(
+    rf"CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+({IDENTIFIER})",
+    re.IGNORECASE,
+)
+_TRIGGER_NAME_RE = re.compile(
+    qualified_name_pattern(r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:EDITIONABLE\s+|NONEDITIONABLE\s+)?TRIGGER"),
+    re.IGNORECASE,
+)
+
+
+def enclosing_object_name_index(text: str) -> list[tuple[int, str, str]]:
+    """Every 'named container' start position in `text` (already masked),
+    tagged by kind ('package' / 'nested_routine' / 'standalone_routine' /
+    'trigger'), sorted by position. Build once per source file and pass to
+    enclosing_object_name() for each finding — cheaper than re-scanning the
+    whole file per finding, and keeps the attribution logic in one place
+    instead of duplicated (and liable to silently diverge) across every
+    detector that needs "which object contains this position"."""
+    tagged = (
+        [(m.start(), "package", m.group(1).upper()) for m in _PACKAGE_BODY_NAME_RE.finditer(text)]
+        + [(m.start(), "nested_routine", m.group(1).upper()) for m in ROUTINE_START_RE.finditer(text)]
+        + [(m.start(), "standalone_routine", m.group(1).upper()) for m in _STANDALONE_ROUTINE_RE.finditer(text)]
+        + [(m.start(), "trigger", m.group(1).upper()) for m in _TRIGGER_NAME_RE.finditer(text)]
+    )
+    return sorted(tagged, key=lambda t: t[0])
+
+
+def enclosing_object_name(index: list[tuple[int, str, str]], position: int) -> str:
+    """Best-effort 'what named object contains this position': a
+    PACKAGE_BODY.ROUTINE for something nested inside a package, a bare
+    standalone routine/trigger name, or a bare package name if only a
+    package (not yet inside any of its own routines) precedes it. 'UNKNOWN'
+    if nothing precedes at all — e.g. a construct in a bare anonymous block
+    with no enclosing named object.
+
+    package/standalone_routine/trigger are treated as mutually exclusive
+    top-level containers: whichever one starts most recently is "current",
+    and starting a new one implicitly ends the previous one (mirroring
+    compound_triggers.py's "bounded by the next CREATE TRIGGER" — a
+    standalone routine or trigger can't itself be inside a package body, so
+    its start must mean any earlier package's scope has ended). Without
+    this, a package's name would otherwise leak into a later, unrelated
+    standalone routine or trigger's own nested finds. There is deliberately
+    no explicit "package body's own END" tracking — this module's actual
+    input is DBMS_METADATA.GET_DDL-exported object DDL (PACKAGE BODY /
+    TRIGGER / standalone PROCEDURE/FUNCTION definitions), which never
+    contains free-standing anonymous PL/SQL blocks between them; a
+    theoretical anonymous block right after a package body and before the
+    next named object would still (incorrectly) inherit that package's
+    name, but that shape of input is outside this tool's actual scope."""
+    package_name = None
+    leaf: tuple[str, bool] | None = None  # (name, needs_package_prefix)
+    for pos, kind, name in index:
+        if pos > position:
+            break
+        if kind == "package":
+            package_name = name
+            leaf = None
+        else:
+            if kind != "nested_routine":
+                package_name = None  # a standalone routine/trigger can't be inside a package
+            leaf = (name, kind == "nested_routine")
+    if leaf:
+        name, needs_prefix = leaf
+        return f"{package_name}.{name}" if needs_prefix and package_name else name
+    return package_name or "UNKNOWN"

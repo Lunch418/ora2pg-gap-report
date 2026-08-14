@@ -35,6 +35,8 @@
 | `compound_triggers` | `COMPOUND TRIGGER` — файловый парсер ora2pg тихо возвращает 0 триггеров, без единой ошибки |
 | `dbms_utl_calls` | Классификатор конкретных вызовов `DBMS_*`/`UTL_*` — что из них ora2pg реально конвертирует, а что остаётся как есть |
 | `connect_by` | Линтинг сгенерированного ora2pg `WITH RECURSIVE` на баг с `LEVEL`. Включается флагом `--check-connect-by` и, в отличие от остальных, требует установленный `ora2pg` |
+| `merge_delete_clause` | `MERGE ... WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ...` — составная Oracle-конструкция без аналога в MERGE PostgreSQL. Обычный MERGE без DELETE WHERE не ловится — не проблема |
+| `bulk_collect` | Локальные `TYPE ... IS TABLE OF`, `BULK COLLECT INTO`, `FORALL` — практически не конвертируются ora2pg. Самый частый в реальном коде из всех детекторов проекта |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -198,7 +200,9 @@ ora2pg_gap_report/
 │   ├── autonomous_tx.py        # PRAGMA AUTONOMOUS_TRANSACTION в PACKAGE BODY
 │   ├── compound_triggers.py    # COMPOUND TRIGGER — тихий провал парсинга у ora2pg
 │   ├── dbms_utl_calls.py       # классификатор конкретных DBMS_*/UTL_* функций
-│   └── connect_by.py           # линтинг сгенерированного WITH RECURSIVE (нужен ora2pg)
+│   ├── connect_by.py            # линтинг сгенерированного WITH RECURSIVE (нужен ora2pg)
+│   ├── merge_delete_clause.py   # MERGE ... DELETE WHERE — не имеет аналога в MERGE PostgreSQL
+│   └── bulk_collect.py          # TYPE ... IS TABLE OF / BULK COLLECT INTO / FORALL
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── cli.py                      # консольная команда ora2pg-gap-report
 ├── effort_estimator.py          # грубая эвристика по severity, диапазон часов

@@ -11,8 +11,10 @@ from .detectors.autonomous_tx import find_autonomous_transactions
 from .detectors.bulk_collect import find_bulk_collect_usage
 from .detectors.compound_triggers import find_compound_triggers
 from .detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
+from .detectors.database_link import find_database_link_references
 from .detectors.dbms_utl_calls import find_dbms_utl_calls
 from .detectors.merge_delete_clause import find_merge_delete_clauses
+from .detectors.model_clause import find_model_clauses
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .models import Finding
 from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError, run_estimate_cost
@@ -26,6 +28,8 @@ _DETECTORS = (
     find_dbms_utl_calls,
     find_merge_delete_clauses,
     find_bulk_collect_usage,
+    find_database_link_references,
+    find_model_clauses,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 

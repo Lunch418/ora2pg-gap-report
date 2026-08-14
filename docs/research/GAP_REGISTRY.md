@@ -19,6 +19,8 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-003 | `TYPE ... IS TABLE OF` / `BULK COLLECT INTO` / `FORALL` | `bulk_collect` | confirmed | 25.0 | [gap-003](gap-003-bulk-collect-forall.md) |
 | GAP-004 | `COMPOUND TRIGGER` — тихий провал файлового парсера | `compound_triggers` | confirmed | 25.0 | [gap-004](gap-004-compound-trigger.md) |
 | GAP-005 | `CONNECT BY` — баг подстановки `LEVEL` в `WITH RECURSIVE` | `connect_by` | confirmed | 25.0 | [gap-005](gap-005-connect-by-level.md) |
+| GAP-006 | `table@dblink_name` — прямая ссылка на удалённую БД | `database_link` | confirmed | 25.0 | [gap-006](gap-006-database-link.md) |
+| GAP-007 | `MODEL PARTITION BY ... DIMENSION BY ... MEASURES ... RULES` | `model_clause` | confirmed | 25.0 | [gap-007](gap-007-model-clause.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

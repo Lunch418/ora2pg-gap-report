@@ -90,3 +90,38 @@ def test_main_reports_missing_oracledb_driver_gracefully(monkeypatch, tmp_path, 
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "oracledb" in captured.err
+
+
+def test_main_reports_connection_failure_without_a_traceback(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("ORACLE_PASSWORD", "secret")
+
+    def fake_connect(dsn, user, password):
+        raise RuntimeError("DPY-6005: cannot connect to database (unreachable host)")
+
+    monkeypatch.setattr(oracle_connector, "connect", fake_connect)
+
+    exit_code = oracle_export.main(
+        ["--dsn", "badhost:1521/orclpdb1", "--user", "hr", "--output-dir", str(tmp_path)]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 3
+    assert "Не удалось подключиться" in captured.err
+    assert "unreachable host" in captured.err
+
+
+def test_main_reports_export_failure_without_a_traceback(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("ORACLE_PASSWORD", "secret")
+    monkeypatch.setattr(oracle_connector, "connect", lambda *a, **k: _FakeConn())
+
+    def fake_export_schema(conn, owner, output_dir):
+        raise RuntimeError("ORA-00942: table or view does not exist (ALL_TRIGGERS)")
+
+    monkeypatch.setattr(oracle_connector, "export_schema", fake_export_schema)
+
+    exit_code = oracle_export.main(
+        ["--dsn", "host:1521/orclpdb1", "--user", "hr", "--output-dir", str(tmp_path)]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 3
+    assert "Ошибка при выгрузке" in captured.err
+    assert "ALL_TRIGGERS" in captured.err

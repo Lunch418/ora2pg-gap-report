@@ -23,6 +23,7 @@ owner), and EXECUTE on DBMS_METADATA (granted via SELECT_CATALOG_ROLE in
 most environments).
 """
 
+import re
 from pathlib import Path
 
 
@@ -105,6 +106,30 @@ def get_ddl(conn, object_type: str, name: str, owner: str) -> str:
         return value.read() if hasattr(value, "read") else str(value)
 
 
+_UNSAFE_FILENAME_CHAR_RE = re.compile(r"[^A-Za-z0-9_$#]")
+
+
+def _safe_stem(name: str) -> str:
+    """Sanitize an Oracle object name into a filename component. Oracle
+    quoted identifiers can contain almost anything, including '/' and
+    '..' — object names come straight from the database and must never be
+    trusted as filesystem-safe on their own (path traversal)."""
+    sanitized = _UNSAFE_FILENAME_CHAR_RE.sub("_", name).strip("_")
+    return (sanitized or "_").lower()
+
+
+def _unique_output_path(output_dir: Path, stem: str, suffix: str) -> Path:
+    """Sanitizing distinct quoted names (e.g. "Logger" vs "LOGGER") can
+    make them collide once lowercased — never silently overwrite one
+    object's export with another's."""
+    candidate = output_dir / f"{stem}{suffix}"
+    n = 2
+    while candidate.exists():
+        candidate = output_dir / f"{stem}_{n}{suffix}"
+        n += 1
+    return candidate
+
+
 def export_schema(conn, owner: str, output_dir: Path) -> list[Path]:
     """Export every PACKAGE BODY and TRIGGER in `owner`'s schema as one
     .sql file per object into output_dir. Returns the written paths — feed
@@ -120,16 +145,16 @@ def export_schema(conn, owner: str, output_dir: Path) -> list[Path]:
         ddl = get_ddl(conn, "PACKAGE_BODY", name, owner)
         if not ddl:
             continue
-        path = output_dir / f"{name.lower()}.pkb.sql"
-        path.write_text(ddl)
+        path = _unique_output_path(output_dir, _safe_stem(name), ".pkb.sql")
+        path.write_text(ddl, encoding="utf-8")
         written.append(path)
 
     for name in list_triggers(conn, owner):
         ddl = get_ddl(conn, "TRIGGER", name, owner)
         if not ddl:
             continue
-        path = output_dir / f"{name.lower()}.trg.sql"
-        path.write_text(ddl)
+        path = _unique_output_path(output_dir, _safe_stem(name), ".trg.sql")
+        path.write_text(ddl, encoding="utf-8")
         written.append(path)
 
     return written

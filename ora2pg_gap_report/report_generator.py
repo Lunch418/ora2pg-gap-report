@@ -17,10 +17,12 @@ def to_markdown(findings: list[Finding]) -> str:
         "|---|---|---|---|---|---|",
     ]
     for f in findings:
+        source_file = f.source_file.replace("|", "\\|")
+        object_name = f.object_name.replace("|", "\\|")
         snippet = f.snippet.replace("|", "\\|")
         message = f.message.replace("|", "\\|").replace("\n", " ")
         lines.append(
-            f"| {f.source_file} | `{f.object_name}` | {f.line} | {f.severity} "
+            f"| {source_file} | `{object_name}` | {f.line} | {f.severity} "
             f"| `{snippet}` | {message} |"
         )
     return "\n".join(lines) + "\n"

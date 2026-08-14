@@ -200,10 +200,18 @@ def main() -> int:
     # earlier same-named plain trigger is DROPped before the COMPOUND
     # TRIGGER version is created) — list_triggers() has no status filter,
     # so both are expected to be exported and detected.
+    # bulk_collect: logger.pkb's own 'type ts_array is table of timestamp
+    # index by varchar2(100);' (1) plus a local collection TYPE and a
+    # FORALL in each of apress's and dlee's compound-trigger fixtures (2
+    # each) = 5. merge_delete_clause: 0 — none of these six fixtures use
+    # MERGE's DELETE WHERE clause; asserting 0 here still confirms no false
+    # positives on a real, varied set of open-source PL/SQL.
     expected_totals = {
         "autonomous_tx": 8,
         "dbms_utl_calls": 17 + 40 + 11,
         "compound_triggers": 2,
+        "bulk_collect": 5,
+        "merge_delete_clause": 0,
     }
     for detector, expected in expected_totals.items():
         got = actual_counts.get(detector, 0)

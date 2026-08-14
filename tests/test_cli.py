@@ -30,12 +30,18 @@ def test_resolve_format_defaults_to_markdown_when_writing_to_a_file_even_on_a_tt
     assert resolve_format(None, Path("report.md"), True) == "markdown"
 
 
-def test_scan_source_runs_all_three_detectors_on_logger():
+def test_scan_source_runs_all_detectors_on_logger():
     source = (SAMPLES / "logger.pkb").read_text()
     findings = scan_source(source)
     detectors_seen = {f.detector for f in findings}
-    assert detectors_seen == {"autonomous_tx", "dbms_utl_calls"}
-    assert len(findings) == 8 + 17  # autonomous_tx + dbms_utl_calls, verified in their own tests
+    assert detectors_seen == {"autonomous_tx", "dbms_utl_calls", "bulk_collect"}
+    # autonomous_tx + dbms_utl_calls (verified in their own tests) +
+    # bulk_collect: logger.pkb genuinely declares a local associative array
+    # ('type ts_array is table of timestamp index by varchar2(100);') —
+    # confirmed as a real, reproducible ora2pg gap on this exact snippet
+    # (see docs/research/gap-003-bulk-collect-forall.md), not a synthetic-
+    # only finding.
+    assert len(findings) == 8 + 17 + 1
 
 
 def test_scan_source_sorts_high_severity_first():

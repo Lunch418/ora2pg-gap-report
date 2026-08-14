@@ -5,6 +5,8 @@
 
 Инструмент для оценки миграции Oracle → PostgreSQL Pro (Standard/Certified) **до** её начала.
 
+![ora2pg-gap-report — пример вывода в терминале](docs/screenshot.svg)
+
 ## Проблема
 
 При миграции с Oracle на Postgres Pro в сегменте Standard/Certified (то есть без

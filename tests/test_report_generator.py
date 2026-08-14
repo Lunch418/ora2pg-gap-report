@@ -1,7 +1,7 @@
 import json
 
-from src.models import Finding
-from src.report_generator import to_json, to_markdown
+from ora2pg_gap_report.models import Finding
+from ora2pg_gap_report.report_generator import to_json, to_markdown
 
 SAMPLE_FINDING = Finding(
     detector="autonomous_tx",

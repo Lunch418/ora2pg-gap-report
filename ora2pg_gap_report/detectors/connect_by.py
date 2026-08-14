@@ -64,7 +64,7 @@ def find_connect_by_risks(ora2pg_output: str) -> list[Finding]:
     Oracle-only LEVEL pseudocolumn instead of the depth counter ora2pg
     itself introduces in the anchor branch. Unlike the other three
     detectors (which analyze Oracle source directly), this one's input is
-    ora2pg's own output — see src/ora2pg_wrapper.run_estimate_cost().
+    ora2pg's own output — see ora2pg_gap_report/ora2pg_wrapper.run_estimate_cost().
 
     ora2pg's own cost estimator already counts CONNECT BY correctly (see
     step0-show-report-baseline.md section 3) — the gap this closes isn't

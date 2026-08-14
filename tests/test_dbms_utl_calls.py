@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.detectors.dbms_utl_calls import find_dbms_utl_calls
+from ora2pg_gap_report.detectors.dbms_utl_calls import find_dbms_utl_calls
 
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 

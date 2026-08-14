@@ -9,8 +9,8 @@ networks, air-gapped environments) can actually use, so that's the only
 mode this wrapper supports.
 
 Requires a working `ora2pg` install on PATH (or pass ora2pg_bin=). Not
-declared in requirements.txt — it's a Perl tool, not a Python package; see
-README for setup.
+installable via pip — it's a Perl tool, not a Python package; see README
+for setup.
 """
 
 import re

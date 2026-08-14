@@ -5,9 +5,10 @@ Instant Client to install. That matters for this project's audience: a
 PAM jump host in a closed contour is exactly the kind of place you can't
 casually install a native Oracle client onto.
 
-Optional dependency: not in requirements.txt (the rest of the project is
-pure stdlib + an optional external `ora2pg`). See requirements-oracle.txt.
-`connect()` is the only function that actually imports oracledb — every
+Optional dependency: not required by the base package (the rest of the
+project is pure stdlib + an optional external `ora2pg`). Install with
+`pip install ora2pg-gap-report[oracle]`. `connect()` is the only function
+that actually imports oracledb — every
 other function here takes an already-open connection, so this module
 stays importable (and testable against a fake connection) without
 oracledb installed at all.
@@ -37,7 +38,7 @@ def _oracledb():
     except ImportError as exc:
         raise OracleDriverMissingError(
             "python-oracledb не установлен. Установите: "
-            "pip install -r requirements-oracle.txt"
+            "pip install ora2pg-gap-report[oracle]"
         ) from exc
     return oracledb
 
@@ -133,7 +134,7 @@ def _unique_output_path(output_dir: Path, stem: str, suffix: str) -> Path:
 def export_schema(conn, owner: str, output_dir: Path) -> list[Path]:
     """Export every PACKAGE BODY and TRIGGER in `owner`'s schema as one
     .sql file per object into output_dir. Returns the written paths — feed
-    them straight into `python -m src.cli`.
+    them straight into `ora2pg-gap-report`.
 
     One file per object (not one combined dump) so a partial re-export
     after a schema change only touches the objects that changed, and so a

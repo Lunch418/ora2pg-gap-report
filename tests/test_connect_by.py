@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
+from ora2pg_gap_report.detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"

@@ -6,3 +6,5 @@ venv/
 .pytest_cache/
 .env
 *.log
+build/
+dist/

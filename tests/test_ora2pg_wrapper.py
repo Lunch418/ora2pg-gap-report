@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.ora2pg_wrapper import (
+from ora2pg_gap_report.ora2pg_wrapper import (
     Ora2PgNotFoundError,
     parse_function_costs,
     parse_totals,

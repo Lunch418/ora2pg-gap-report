@@ -2,7 +2,7 @@
 module existed: nested subprograms, string/comment-unaware scanning, and
 multiple package bodies in one file."""
 
-from src.detectors.autonomous_tx import find_autonomous_transactions
+from ora2pg_gap_report.detectors.autonomous_tx import find_autonomous_transactions
 
 
 def test_outer_pragma_survives_a_nested_subprogram_before_it():

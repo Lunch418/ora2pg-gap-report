@@ -65,7 +65,8 @@ and only errors at runtime — a migration could pass a "does everything
 compile" smoke check and still break in production the first time this
 code path executes.
 
-Candidate detector: flag `DELETE\s+WHERE` appearing inside a `MERGE`
-statement's `WHEN MATCHED` branch in the Oracle source (cheap, source-level
-check — no `ora2pg` invocation needed, same design as `autonomous_tx`/
+Detector implemented: `ora2pg_gap_report/detectors/merge_delete_clause.py`
+— flags `DELETE\s+WHERE` appearing inside a `MERGE` statement's `WHEN
+MATCHED` branch in the Oracle source (cheap, source-level check — no
+`ora2pg` invocation needed, same design as `autonomous_tx`/
 `compound_triggers`/`dbms_utl_calls`).

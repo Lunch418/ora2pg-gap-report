@@ -1,0 +1,34 @@
+# Oracle Database Free 23ai for live-testing this project against a real
+# Oracle instance — the one part of the test suite that can't run inside
+# this sandbox itself, since its network policy blocks pulling from both
+# Docker Hub and container-registry.oracle.com. Run this wherever you do
+# have registry access.
+#
+# gvenzl/oracle-free packages Oracle's own official Free distribution —
+# same DB engine — with a much faster/friendlier Docker setup (health
+# check, env-var-based user creation) than Oracle's own image, which is
+# why it's used here instead of container-registry.oracle.com directly.
+#
+# Usage:
+#   docker compose -f scripts/oracle-test-compose.yml up -d
+#   docker compose -f scripts/oracle-test-compose.yml logs -f   # wait for "DATABASE IS READY TO USE"
+#   # then, from repo root:
+#   ORACLE_DSN=localhost:1521/FREEPDB1 ORACLE_USER=testuser ORACLE_PASSWORD=testpass1 \
+#     python scripts/verify_against_live_oracle.py
+#
+#   docker compose -f scripts/oracle-test-compose.yml down -v   # tear down when done
+
+services:
+  oracle-free:
+    image: gvenzl/oracle-free:23-slim
+    environment:
+      ORACLE_PASSWORD: testpass1        # SYS/SYSTEM password
+      APP_USER: testuser
+      APP_USER_PASSWORD: testpass1
+    ports:
+      - "1521:1521"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30

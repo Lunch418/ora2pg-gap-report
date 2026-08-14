@@ -1,6 +1,7 @@
 import argparse
 import dataclasses
 import sys
+import time
 from pathlib import Path
 
 from rich.console import Console
@@ -15,6 +16,7 @@ from .detectors.merge_delete_clause import find_merge_delete_clauses
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .models import Finding
 from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError, run_estimate_cost
+from .plsql_lex import enclosing_object_name_index, mask_strings_and_comments
 from .report_generator import to_json, to_markdown
 from .terminal_report import render as render_terminal
 
@@ -38,6 +40,27 @@ def scan_source(source: str) -> list[Finding]:
         findings.extend(detector(source))
     _sort_findings(findings)
     return findings
+
+
+def count_objects(source: str) -> int:
+    """How many top-level Oracle objects (PACKAGE BODY, standalone
+    PROCEDURE/FUNCTION, TRIGGER) this source declares — not lines, not
+    findings, just what the file itself declares, via the same masking/
+    attribution infrastructure the detectors use. Nested routines inside a
+    package aren't counted separately: the package as a whole is the
+    migration unit, same as Oracle's own object model.
+
+    Counts every declaration, not distinct names: qualified_name_pattern()
+    only captures the final (unqualified) name component, so deduplicating
+    by name would silently collapse two genuinely different objects that
+    happen to share a bare name in different schemas (hr.emp_pkg vs
+    sales.emp_pkg) into one. A file re-declaring the exact same object
+    twice (DROP + CREATE under the same name, as in
+    docs/research/samples/compound_trigger_dlee.sql) is comparatively rare
+    and only affects this display count, not any detector's findings."""
+    clean = mask_strings_and_comments(source)
+    index = enclosing_object_name_index(clean)
+    return sum(1 for _, kind, _ in index if kind in ("package", "standalone_routine", "trigger"))
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
@@ -79,7 +102,27 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default="ora2pg",
         help="Путь к исполняемому файлу ora2pg (по умолчанию ищется в PATH)",
     )
+    parser.add_argument(
+        "--severity",
+        choices=("high", "medium", "low"),
+        default=None,
+        help="Показать только находки с этим уровнем серьёзности",
+    )
+    parser.add_argument(
+        "--object",
+        default=None,
+        help="Показать только находки для объектов, чьё имя содержит эту подстроку (без учёта регистра)",
+    )
     return parser
+
+
+def _apply_filters(findings: list[Finding], severity: str | None, object_substring: str | None) -> list[Finding]:
+    if severity is not None:
+        findings = [f for f in findings if f.severity == severity]
+    if object_substring is not None:
+        needle = object_substring.upper()
+        findings = [f for f in findings if needle in f.object_name.upper()]
+    return findings
 
 
 def _connect_by_check(path: Path, source: str, ora2pg_bin: str) -> tuple[list[Finding], str | None]:
@@ -141,7 +184,9 @@ def main(argv: list[str] | None = None) -> int:
 
     fmt = resolve_format(args.format, args.output, sys.stdout.isatty())
 
+    start_time = time.perf_counter()
     all_findings: list[Finding] = []
+    objects_scanned = 0
     had_error = False
     for path in args.paths:
         if not path.is_file():
@@ -156,6 +201,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             had_error = True
             continue
+        objects_scanned += count_objects(source)
         all_findings.extend(
             dataclasses.replace(f, source_file=str(path)) for f in scan_source(source)
         )
@@ -166,13 +212,20 @@ def main(argv: list[str] | None = None) -> int:
             if warning:
                 err_console.print(f"[yellow]{escape(warning)}[/yellow]")
 
+    elapsed_seconds = time.perf_counter() - start_time
+    all_findings = _apply_filters(all_findings, args.severity, args.object)
     _sort_findings(all_findings)
 
     if fmt == "terminal":
         if args.output:
             try:
                 with args.output.open("w", encoding="utf-8") as fh:
-                    render_terminal(all_findings, console=Console(file=fh))
+                    render_terminal(
+                        all_findings,
+                        console=Console(file=fh),
+                        elapsed_seconds=elapsed_seconds,
+                        objects_scanned=objects_scanned,
+                    )
             except OSError as exc:
                 err_console.print(
                     f"[red]Не удалось записать отчёт в {escape(str(args.output))}: "
@@ -180,7 +233,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 return 2
         else:
-            render_terminal(all_findings)
+            render_terminal(all_findings, elapsed_seconds=elapsed_seconds, objects_scanned=objects_scanned)
     else:
         report = _render(all_findings, fmt)
         if args.output:

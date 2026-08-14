@@ -304,3 +304,74 @@ def test_main_without_explicit_format_uses_markdown_under_pytest_capture(capsys)
     captured = capsys.readouterr()
     assert exit_code == 0
     assert captured.out.startswith("# Отчёт ora2pg-gap-report")
+
+
+def test_severity_filter_only_shows_matching_findings(capsys):
+    exit_code = main(
+        [str(SAMPLES / "logger.pkb"), "--format", "json", "--severity", "medium"]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    data = json.loads(captured.out)
+    assert data
+    assert {d["severity"] for d in data} == {"medium"}
+
+
+def test_object_filter_matches_a_case_insensitive_substring(capsys):
+    exit_code = main(
+        [str(SAMPLES / "logger.pkb"), "--format", "json", "--object", "purge"]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    data = json.loads(captured.out)
+    assert data
+    assert all("PURGE" in d["object_name"] for d in data)
+
+
+def test_severity_and_object_filters_combine():
+    exit_code = main(
+        [
+            str(SAMPLES / "logger.pkb"),
+            "--format",
+            "json",
+            "--severity",
+            "high",
+            "--object",
+            "does-not-exist-anywhere",
+        ]
+    )
+    assert exit_code == 0
+
+
+def test_count_objects_counts_top_level_objects_not_nested_routines():
+    source = (SAMPLES / "logger.pkb").read_text()
+    # LOGGER is one PACKAGE BODY, however many procedures/functions it
+    # declares inside — the package itself is the migration unit.
+    assert cli.count_objects(source) == 1
+
+
+def test_count_objects_counts_multiple_triggers_separately():
+    source = (SAMPLES / "compound_trigger_dlee.sql").read_text()
+    assert cli.count_objects(source) > 1
+
+
+def test_count_objects_does_not_collapse_same_named_objects_in_different_schemas():
+    # qualified_name_pattern() only captures the final (unqualified) name
+    # component -- deduplicating by bare name used to silently collapse
+    # hr.emp_pkg and sales.emp_pkg (two genuinely different migration
+    # units) into one counted object.
+    source = """
+    CREATE OR REPLACE PACKAGE BODY hr.emp_pkg AS
+      PROCEDURE noop IS BEGIN NULL; END noop;
+    END emp_pkg;
+    /
+    CREATE OR REPLACE PACKAGE BODY sales.emp_pkg AS
+      PROCEDURE noop IS BEGIN NULL; END noop;
+    END emp_pkg;
+    /
+    CREATE OR REPLACE TRIGGER hr.log_error AFTER INSERT ON t BEGIN NULL; END;
+    /
+    CREATE OR REPLACE TRIGGER sales.log_error AFTER INSERT ON t BEGIN NULL; END;
+    /
+    """
+    assert cli.count_objects(source) == 4

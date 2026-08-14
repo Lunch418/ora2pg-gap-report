@@ -92,3 +92,73 @@ def test_render_does_not_strip_content_that_looks_like_a_valid_style_tag():
     console = Console(record=True, width=200)
     render(findings, console=console)
     assert "v_colors[red] := 1;" in console.export_text()
+
+
+def test_render_shows_top_objects_tree_when_multiple_objects_present():
+    findings = [
+        _finding(object_name="PKG.A", severity="high"),
+        _finding(object_name="PKG.A", severity="medium", snippet="s2"),
+        _finding(object_name="PKG.B", severity="low", snippet="s3"),
+    ]
+    console = Console(record=True, width=200)
+    render(findings, console=console)
+    text = console.export_text()
+    assert "Объекты с наибольшим числом находок" in text
+    assert "PKG.A" in text
+    assert "2 находок" in text
+
+
+def test_render_skips_top_objects_tree_when_only_one_object():
+    findings = [_finding(object_name="PKG.A"), _finding(object_name="PKG.A", snippet="s2")]
+    console = Console(record=True, width=200)
+    render(findings, console=console)
+    assert "Объекты с наибольшим числом находок" not in console.export_text()
+
+
+def test_render_shows_elapsed_time_and_objects_scanned_when_provided():
+    findings = [_finding()]
+    console = Console(record=True, width=200)
+    render(findings, console=console, elapsed_seconds=1.23, objects_scanned=7)
+    text = console.export_text()
+    assert "Время анализа: 1.2 с" in text
+    assert "Объектов просканировано: 7" in text
+
+
+def test_render_omits_elapsed_time_and_objects_scanned_when_not_provided():
+    findings = [_finding()]
+    console = Console(record=True, width=200)
+    render(findings, console=console)
+    text = console.export_text()
+    assert "Время анализа" not in text
+    assert "Объектов просканировано" not in text
+
+
+def test_render_shows_best_expected_worst_case_effort():
+    findings = [_finding(severity="high")]
+    console = Console(record=True, width=200)
+    render(findings, console=console)
+    text = console.export_text()
+    assert "лучший случай" in text
+    assert "среднее" in text
+    assert "худший случай" in text
+
+
+def test_top_objects_tree_truncates_beyond_the_limit_and_notes_the_remainder():
+    findings = [_finding(object_name=f"PKG.OBJ{i}", snippet=f"s{i}") for i in range(15)]
+    console = Console(record=True, width=200)
+    render(findings, console=console)
+    text = console.export_text()
+    assert "и ещё 5 объект(ов)" in text
+
+
+def test_render_shows_stats_even_when_filters_leave_no_findings():
+    # objects_scanned/elapsed_seconds are computed before any --severity/
+    # --object filtering happens in cli.py -- if the filters legitimately
+    # exclude every finding, render() used to hit the empty-findings early
+    # return before ever looking at those parameters, silently dropping
+    # them from the output.
+    console = Console(record=True, width=200)
+    render([], console=console, elapsed_seconds=2.5, objects_scanned=3)
+    text = console.export_text()
+    assert "Объектов просканировано: 3" in text
+    assert "Время анализа: 2.5 с" in text

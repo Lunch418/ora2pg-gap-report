@@ -108,6 +108,11 @@ def mask_strings_and_comments(source: str) -> str:
     return "".join(out)
 
 
+def line_at(text: str, pos: int) -> int:
+    """1-indexed line number of `pos` within `text`."""
+    return text.count("\n", 0, pos) + 1
+
+
 def skip_balanced_parens(text: str, start: int) -> int:
     """`start` points at '('; returns the index just after the matching ')'."""
     depth = 0

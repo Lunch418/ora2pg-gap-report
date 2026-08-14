@@ -5,6 +5,7 @@ from ..plsql_lex import (
     ROUTINE_START_RE,
     declare_and_begin,
     find_matching_end,
+    line_at,
     mask_strings_and_comments,
     own_declare_text,
     qualified_name_pattern,
@@ -76,7 +77,7 @@ def find_autonomous_transactions(source: str) -> list[Finding]:
             continue
 
         absolute_pos = declare_start + pragma_match.start()
-        line_no = clean.count("\n", 0, absolute_pos) + 1
+        line_no = line_at(clean, absolute_pos)
         package_name = _package_name_at(package_matches, match.start())
 
         findings.append(

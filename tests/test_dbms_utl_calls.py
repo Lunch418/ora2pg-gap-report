@@ -89,3 +89,34 @@ def test_no_false_positive_on_source_without_any_dbms_or_utl_reference():
     /
     """
     assert find_dbms_utl_calls(source) == []
+
+
+def test_dollar_prefixed_local_identifier_is_not_mistaken_for_utl_file():
+    # A locally-scoped custom type happening to end in "UTL_FILE" must not
+    # be parsed as the real UTL_FILE package — \\b alone would treat '$' as
+    # a boundary and misfire here.
+    source = """
+    create or replace package body demo as
+      procedure foo is
+        v_x my_pkg$utl_file.some_type;
+      begin
+        null;
+      end foo;
+    end demo;
+    /
+    """
+    assert find_dbms_utl_calls(source) == []
+
+
+def test_dollar_and_hash_in_function_name_are_captured_fully():
+    source = """
+    create or replace package body demo as
+      procedure foo is
+      begin
+        utl_file.put_line$legacy#1(l_file, 'x');
+      end foo;
+    end demo;
+    /
+    """
+    findings = find_dbms_utl_calls(source)
+    assert {f.object_name for f in findings} == {"UTL_FILE.PUT_LINE$LEGACY#1"}

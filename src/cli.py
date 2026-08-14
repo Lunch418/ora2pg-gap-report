@@ -1,4 +1,5 @@
 import argparse
+import dataclasses
 import sys
 from pathlib import Path
 
@@ -17,11 +18,15 @@ _DETECTORS = (
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
+def _sort_findings(findings: list[Finding]) -> None:
+    findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.object_name, f.line))
+
+
 def scan_source(source: str) -> list[Finding]:
     findings: list[Finding] = []
     for detector in _DETECTORS:
         findings.extend(detector(source))
-    findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.object_name, f.line))
+    _sort_findings(findings)
     return findings
 
 
@@ -51,11 +56,11 @@ def _render(findings: list[Finding], fmt: str) -> str:
         return to_json(findings)
 
     counts = summarize_by_severity(findings)
+    counts_text = ", ".join(f"{name}: {n}" for name, n in counts.items())
     lo, hi = estimate_hours(findings)
     header = (
         "# Отчёт ora2pg-gap-report\n\n"
-        f"Найдено проблемных объектов: {len(findings)} "
-        f"(high: {counts['high']}, medium: {counts['medium']}, low: {counts['low']})\n\n"
+        f"Найдено проблемных объектов: {len(findings)} ({counts_text})\n\n"
         f"Грубая оценка ручной доработки: {lo:g}–{hi:g} ч. "
         "— неоткалиброванная эвристика по severity, не измерение "
         "(см. PROJECT_BRIEF.md).\n\n"
@@ -73,12 +78,25 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Пропущен (не найден): {path}", file=sys.stderr)
             had_error = True
             continue
-        all_findings.extend(scan_source(path.read_text(errors="replace")))
+        try:
+            source = path.read_text(errors="replace")
+        except OSError as exc:
+            print(f"Пропущен (не читается: {exc}): {path}", file=sys.stderr)
+            had_error = True
+            continue
+        all_findings.extend(
+            dataclasses.replace(f, source_file=str(path)) for f in scan_source(source)
+        )
 
+    _sort_findings(all_findings)
     report = _render(all_findings, args.format)
 
     if args.output:
-        args.output.write_text(report)
+        try:
+            args.output.write_text(report)
+        except OSError as exc:
+            print(f"Не удалось записать отчёт в {args.output}: {exc}", file=sys.stderr)
+            return 2
     else:
         print(report)
 

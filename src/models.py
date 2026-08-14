@@ -9,3 +9,4 @@ class Finding:
     line: int
     snippet: str
     message: str
+    source_file: str = ""

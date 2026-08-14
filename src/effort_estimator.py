@@ -26,7 +26,17 @@ def estimate_hours(findings: list[Finding]) -> tuple[float, float]:
 
 
 def summarize_by_severity(findings: list[Finding]) -> dict[str, int]:
+    """Counts always sum to len(findings): an unrecognized severity value
+    (should not happen with the detectors in this repo today, but nothing
+    enforces it at the type level) lands in "other" instead of silently
+    vanishing from the displayed total."""
     counts = {"high": 0, "medium": 0, "low": 0}
+    other = 0
     for f in findings:
-        counts[f.severity] = counts.get(f.severity, 0) + 1
+        if f.severity in counts:
+            counts[f.severity] += 1
+        else:
+            other += 1
+    if other:
+        counts["other"] = other
     return counts

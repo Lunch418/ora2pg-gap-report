@@ -13,13 +13,14 @@ def to_markdown(findings: list[Finding]) -> str:
         return "Проблемных конструкций не найдено.\n"
 
     lines = [
-        "| Объект | Строка | Серьёзность | Фрагмент | Комментарий |",
-        "|---|---|---|---|---|",
+        "| Файл | Объект | Строка | Серьёзность | Фрагмент | Комментарий |",
+        "|---|---|---|---|---|---|",
     ]
     for f in findings:
         snippet = f.snippet.replace("|", "\\|")
         message = f.message.replace("|", "\\|").replace("\n", " ")
         lines.append(
-            f"| `{f.object_name}` | {f.line} | {f.severity} | `{snippet}` | {message} |"
+            f"| {f.source_file} | `{f.object_name}` | {f.line} | {f.severity} "
+            f"| `{snippet}` | {message} |"
         )
     return "\n".join(lines) + "\n"

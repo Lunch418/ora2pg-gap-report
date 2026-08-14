@@ -1,7 +1,7 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import mask_strings_and_comments, qualified_name_pattern
+from ..plsql_lex import line_at, mask_strings_and_comments, qualified_name_pattern
 
 _TRIGGER_START_RE = re.compile(
     qualified_name_pattern(
@@ -52,7 +52,7 @@ def find_compound_triggers(source: str) -> list[Finding]:
             continue
 
         absolute_pos = match.end() + compound_match.start()
-        line_no = clean.count("\n", 0, absolute_pos) + 1
+        line_no = line_at(clean, absolute_pos)
 
         findings.append(
             Finding(

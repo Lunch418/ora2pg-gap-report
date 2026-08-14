@@ -1,9 +1,15 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import mask_strings_and_comments
+from ..plsql_lex import IDENTIFIER, line_at, mask_strings_and_comments
 
-_CALL_RE = re.compile(r"\b(DBMS_\w+|UTL_\w+)\.(\w+)", re.IGNORECASE)
+# A plain \b boundary would treat '$'/'#' as non-word, so e.g.
+# "MY_PKG$UTL_FILE" would be misread as a real UTL_FILE reference — use a
+# lookbehind consistent with plsql_lex.IDENTIFIER's character set instead.
+_CALL_RE = re.compile(
+    rf"(?<![A-Za-z0-9_$#])(DBMS_[A-Za-z0-9_$#]*|UTL_[A-Za-z0-9_$#]*)\.({IDENTIFIER})",
+    re.IGNORECASE,
+)
 
 # Calls ora2pg genuinely rewrites to a working PostgreSQL equivalent
 # (confirmed in docs/research/step0-show-report-baseline.md, section 4).
@@ -46,7 +52,7 @@ def find_dbms_utl_calls(source: str) -> list[Finding]:
         if object_name in _CONVERTED:
             continue
 
-        line_no = clean.count("\n", 0, m.start()) + 1
+        line_no = line_at(clean, m.start())
         findings.append(
             Finding(
                 detector="dbms_utl_calls",

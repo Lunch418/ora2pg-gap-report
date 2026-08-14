@@ -1,0 +1,232 @@
+<svg class="rich-terminal" viewBox="0 0 1385 1099.2" xmlns="http://www.w3.org/2000/svg">
+    <!-- Generated with Rich https://www.textualize.io -->
+    <style>
+
+    @font-face {
+        font-family: "Fira Code";
+        src: local("FiraCode-Regular"),
+                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff2/FiraCode-Regular.woff2") format("woff2"),
+                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff/FiraCode-Regular.woff") format("woff");
+        font-style: normal;
+        font-weight: 400;
+    }
+    @font-face {
+        font-family: "Fira Code";
+        src: local("FiraCode-Bold"),
+                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff2/FiraCode-Bold.woff2") format("woff2"),
+                url("https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/woff/FiraCode-Bold.woff") format("woff");
+        font-style: bold;
+        font-weight: 700;
+    }
+
+    .terminal-3033111830-matrix {
+        font-family: Fira Code, monospace;
+        font-size: 20px;
+        line-height: 24.4px;
+        font-variant-east-asian: full-width;
+    }
+
+    .terminal-3033111830-title {
+        font-size: 18px;
+        font-weight: bold;
+        font-family: arial;
+    }
+
+    .terminal-3033111830-r1 { fill: #68a0b3 }
+.terminal-3033111830-r2 { fill: #c5c8c6 }
+.terminal-3033111830-r3 { fill: #c5c8c6;font-weight: bold }
+.terminal-3033111830-r4 { fill: #cc555a;font-weight: bold }
+.terminal-3033111830-r5 { fill: #d0b344;font-weight: bold }
+.terminal-3033111830-r6 { fill: #868887 }
+.terminal-3033111830-r7 { fill: #98729f }
+    </style>
+
+    <defs>
+    <clipPath id="terminal-3033111830-clip-terminal">
+      <rect x="0" y="0" width="1365.3999999999999" height="1048.2" />
+    </clipPath>
+    <clipPath id="terminal-3033111830-line-0">
+    <rect x="0" y="1.5" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-1">
+    <rect x="0" y="25.9" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-2">
+    <rect x="0" y="50.3" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-3">
+    <rect x="0" y="74.7" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-4">
+    <rect x="0" y="99.1" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-5">
+    <rect x="0" y="123.5" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-6">
+    <rect x="0" y="147.9" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-7">
+    <rect x="0" y="172.3" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-8">
+    <rect x="0" y="196.7" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-9">
+    <rect x="0" y="221.1" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-10">
+    <rect x="0" y="245.5" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-11">
+    <rect x="0" y="269.9" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-12">
+    <rect x="0" y="294.3" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-13">
+    <rect x="0" y="318.7" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-14">
+    <rect x="0" y="343.1" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-15">
+    <rect x="0" y="367.5" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-16">
+    <rect x="0" y="391.9" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-17">
+    <rect x="0" y="416.3" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-18">
+    <rect x="0" y="440.7" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-19">
+    <rect x="0" y="465.1" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-20">
+    <rect x="0" y="489.5" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-21">
+    <rect x="0" y="513.9" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-22">
+    <rect x="0" y="538.3" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-23">
+    <rect x="0" y="562.7" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-24">
+    <rect x="0" y="587.1" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-25">
+    <rect x="0" y="611.5" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-26">
+    <rect x="0" y="635.9" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-27">
+    <rect x="0" y="660.3" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-28">
+    <rect x="0" y="684.7" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-29">
+    <rect x="0" y="709.1" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-30">
+    <rect x="0" y="733.5" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-31">
+    <rect x="0" y="757.9" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-32">
+    <rect x="0" y="782.3" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-33">
+    <rect x="0" y="806.7" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-34">
+    <rect x="0" y="831.1" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-35">
+    <rect x="0" y="855.5" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-36">
+    <rect x="0" y="879.9" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-37">
+    <rect x="0" y="904.3" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-38">
+    <rect x="0" y="928.7" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-39">
+    <rect x="0" y="953.1" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-40">
+    <rect x="0" y="977.5" width="1366.4" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-3033111830-line-41">
+    <rect x="0" y="1001.9" width="1366.4" height="24.65"/>
+            </clipPath>
+    </defs>
+
+    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1383" height="1097.2" rx="8"/><text class="terminal-3033111830-title" fill="#c5c8c6" text-anchor="middle" x="691" y="27">ora2pg-gap-report</text>
+            <g transform="translate(26,22)">
+            <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
+            <circle cx="22" cy="0" r="7" fill="#febc2e"/>
+            <circle cx="44" cy="0" r="7" fill="#28c840"/>
+            </g>
+        
+    <g transform="translate(9, 41)" clip-path="url(#terminal-3033111830-clip-terminal)">
+    
+    <g class="terminal-3033111830-matrix">
+    <text class="terminal-3033111830-r1" x="0" y="20" textLength="24.4" clip-path="url(#terminal-3033111830-line-0)">╭─</text><text class="terminal-3033111830-r1" x="24.4" y="20" textLength="536.8" clip-path="url(#terminal-3033111830-line-0)">────────────────────────────────────────────</text><text class="terminal-3033111830-r1" x="561.2" y="20" textLength="231.8" clip-path="url(#terminal-3033111830-line-0)">&#160;ora2pg-gap-report&#160;</text><text class="terminal-3033111830-r1" x="793" y="20" textLength="549" clip-path="url(#terminal-3033111830-line-0)">─────────────────────────────────────────────</text><text class="terminal-3033111830-r1" x="1342" y="20" textLength="24.4" clip-path="url(#terminal-3033111830-line-0)">─╮</text><text class="terminal-3033111830-r2" x="1366.4" y="20" textLength="12.2" clip-path="url(#terminal-3033111830-line-0)">
+</text><text class="terminal-3033111830-r1" x="0" y="44.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-1)">│</text><text class="terminal-3033111830-r2" x="24.4" y="44.4" textLength="353.8" clip-path="url(#terminal-3033111830-line-1)">Найдено&#160;проблемных&#160;объектов:&#160;</text><text class="terminal-3033111830-r3" x="378.2" y="44.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-1)">3</text><text class="terminal-3033111830-r2" x="390.4" y="44.4" textLength="36.6" clip-path="url(#terminal-3033111830-line-1)">&#160;&#160;(</text><text class="terminal-3033111830-r4" x="427" y="44.4" textLength="85.4" clip-path="url(#terminal-3033111830-line-1)">high:&#160;2</text><text class="terminal-3033111830-r2" x="512.4" y="44.4" textLength="24.4" clip-path="url(#terminal-3033111830-line-1)">,&#160;</text><text class="terminal-3033111830-r5" x="536.8" y="44.4" textLength="109.8" clip-path="url(#terminal-3033111830-line-1)">medium:&#160;1</text><text class="terminal-3033111830-r2" x="646.6" y="44.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-1)">)</text><text class="terminal-3033111830-r1" x="1354.2" y="44.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-1)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="44.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-1)">
+</text><text class="terminal-3033111830-r1" x="0" y="68.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-2)">│</text><text class="terminal-3033111830-r2" x="24.4" y="68.8" textLength="390.4" clip-path="url(#terminal-3033111830-line-2)">Грубая&#160;оценка&#160;ручной&#160;доработки:&#160;</text><text class="terminal-3033111830-r3" x="414.8" y="68.8" textLength="85.4" clip-path="url(#terminal-3033111830-line-2)">5–20&#160;ч.</text><text class="terminal-3033111830-r6" x="500.2" y="68.8" textLength="683.2" clip-path="url(#terminal-3033111830-line-2)">&#160;—&#160;неоткалиброванная&#160;эвристика&#160;по&#160;severity,&#160;не&#160;измерение</text><text class="terminal-3033111830-r1" x="1354.2" y="68.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-2)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="68.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-2)">
+</text><text class="terminal-3033111830-r1" x="0" y="93.2" textLength="1366.4" clip-path="url(#terminal-3033111830-line-3)">╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-3033111830-r2" x="1366.4" y="93.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-3)">
+</text><text class="terminal-3033111830-r2" x="0" y="117.6" textLength="1366.4" clip-path="url(#terminal-3033111830-line-4)">┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓</text><text class="terminal-3033111830-r2" x="1366.4" y="117.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-4)">
+</text><text class="terminal-3033111830-r2" x="0" y="142" textLength="12.2" clip-path="url(#terminal-3033111830-line-5)">┃</text><text class="terminal-3033111830-r3" x="24.4" y="142" textLength="244" clip-path="url(#terminal-3033111830-line-5)">Файл&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="280.6" y="142" textLength="12.2" clip-path="url(#terminal-3033111830-line-5)">┃</text><text class="terminal-3033111830-r3" x="305" y="142" textLength="231.8" clip-path="url(#terminal-3033111830-line-5)">Объект&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="549" y="142" textLength="12.2" clip-path="url(#terminal-3033111830-line-5)">┃</text><text class="terminal-3033111830-r3" x="573.4" y="142" textLength="85.4" clip-path="url(#terminal-3033111830-line-5)">&#160;Строка</text><text class="terminal-3033111830-r2" x="671" y="142" textLength="12.2" clip-path="url(#terminal-3033111830-line-5)">┃</text><text class="terminal-3033111830-r3" x="695.4" y="142" textLength="109.8" clip-path="url(#terminal-3033111830-line-5)">Severity&#160;</text><text class="terminal-3033111830-r2" x="817.4" y="142" textLength="12.2" clip-path="url(#terminal-3033111830-line-5)">┃</text><text class="terminal-3033111830-r3" x="841.8" y="142" textLength="231.8" clip-path="url(#terminal-3033111830-line-5)">Детектор&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="1085.8" y="142" textLength="12.2" clip-path="url(#terminal-3033111830-line-5)">┃</text><text class="terminal-3033111830-r3" x="1110.2" y="142" textLength="231.8" clip-path="url(#terminal-3033111830-line-5)">Фрагмент&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="1354.2" y="142" textLength="12.2" clip-path="url(#terminal-3033111830-line-5)">┃</text><text class="terminal-3033111830-r2" x="1366.4" y="142" textLength="12.2" clip-path="url(#terminal-3033111830-line-5)">
+</text><text class="terminal-3033111830-r2" x="0" y="166.4" textLength="1366.4" clip-path="url(#terminal-3033111830-line-6)">┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩</text><text class="terminal-3033111830-r2" x="1366.4" y="166.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-6)">
+</text><text class="terminal-3033111830-r2" x="0" y="190.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-7)">│</text><text class="terminal-3033111830-r6" x="24.4" y="190.8" textLength="244" clip-path="url(#terminal-3033111830-line-7)">demo_pkg.sql&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="280.6" y="190.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-7)">│</text><text class="terminal-3033111830-r3" x="305" y="190.8" textLength="231.8" clip-path="url(#terminal-3033111830-line-7)">BILLING_PKG.WRITE_…</text><text class="terminal-3033111830-r2" x="549" y="190.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-7)">│</text><text class="terminal-3033111830-r2" x="573.4" y="190.8" textLength="85.4" clip-path="url(#terminal-3033111830-line-7)">&#160;&#160;&#160;&#160;&#160;&#160;4</text><text class="terminal-3033111830-r2" x="671" y="190.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-7)">│</text><text class="terminal-3033111830-r4" x="695.4" y="190.8" textLength="109.8" clip-path="url(#terminal-3033111830-line-7)">high&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="817.4" y="190.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-7)">│</text><text class="terminal-3033111830-r7" x="841.8" y="190.8" textLength="231.8" clip-path="url(#terminal-3033111830-line-7)">autonomous_tx&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="1085.8" y="190.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-7)">│</text><text class="terminal-3033111830-r1" x="1110.2" y="190.8" textLength="231.8" clip-path="url(#terminal-3033111830-line-7)">PRAGMA&#160;AUTONOMOUS_…</text><text class="terminal-3033111830-r2" x="1354.2" y="190.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-7)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="190.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-7)">
+</text><text class="terminal-3033111830-r2" x="0" y="215.2" textLength="1366.4" clip-path="url(#terminal-3033111830-line-8)">├──────────────────────┼─────────────────────┼─────────┼───────────┼─────────────────────┼─────────────────────┤</text><text class="terminal-3033111830-r2" x="1366.4" y="215.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-8)">
+</text><text class="terminal-3033111830-r2" x="0" y="239.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-9)">│</text><text class="terminal-3033111830-r6" x="24.4" y="239.6" textLength="244" clip-path="url(#terminal-3033111830-line-9)">compound_trigger_ap…</text><text class="terminal-3033111830-r2" x="280.6" y="239.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-9)">│</text><text class="terminal-3033111830-r3" x="305" y="239.6" textLength="231.8" clip-path="url(#terminal-3033111830-line-9)">TR_CONSTRUCTORS_CTI</text><text class="terminal-3033111830-r2" x="549" y="239.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-9)">│</text><text class="terminal-3033111830-r2" x="573.4" y="239.6" textLength="85.4" clip-path="url(#terminal-3033111830-line-9)">&#160;&#160;&#160;&#160;&#160;&#160;3</text><text class="terminal-3033111830-r2" x="671" y="239.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-9)">│</text><text class="terminal-3033111830-r4" x="695.4" y="239.6" textLength="109.8" clip-path="url(#terminal-3033111830-line-9)">high&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="817.4" y="239.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-9)">│</text><text class="terminal-3033111830-r7" x="841.8" y="239.6" textLength="231.8" clip-path="url(#terminal-3033111830-line-9)">compound_triggers&#160;&#160;</text><text class="terminal-3033111830-r2" x="1085.8" y="239.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-9)">│</text><text class="terminal-3033111830-r1" x="1110.2" y="239.6" textLength="231.8" clip-path="url(#terminal-3033111830-line-9)">compound&#160;trigger&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="1354.2" y="239.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-9)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="239.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-9)">
+</text><text class="terminal-3033111830-r2" x="0" y="264" textLength="1366.4" clip-path="url(#terminal-3033111830-line-10)">├──────────────────────┼─────────────────────┼─────────┼───────────┼─────────────────────┼─────────────────────┤</text><text class="terminal-3033111830-r2" x="1366.4" y="264" textLength="12.2" clip-path="url(#terminal-3033111830-line-10)">
+</text><text class="terminal-3033111830-r2" x="0" y="288.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-11)">│</text><text class="terminal-3033111830-r6" x="24.4" y="288.4" textLength="244" clip-path="url(#terminal-3033111830-line-11)">demo_pkg.sql&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="280.6" y="288.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-11)">│</text><text class="terminal-3033111830-r3" x="305" y="288.4" textLength="231.8" clip-path="url(#terminal-3033111830-line-11)">DBMS_LOCK.SLEEP&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="549" y="288.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-11)">│</text><text class="terminal-3033111830-r2" x="573.4" y="288.4" textLength="85.4" clip-path="url(#terminal-3033111830-line-11)">&#160;&#160;&#160;&#160;&#160;12</text><text class="terminal-3033111830-r2" x="671" y="288.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-11)">│</text><text class="terminal-3033111830-r5" x="695.4" y="288.4" textLength="109.8" clip-path="url(#terminal-3033111830-line-11)">medium&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="817.4" y="288.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-11)">│</text><text class="terminal-3033111830-r7" x="841.8" y="288.4" textLength="231.8" clip-path="url(#terminal-3033111830-line-11)">dbms_utl_calls&#160;&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="1085.8" y="288.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-11)">│</text><text class="terminal-3033111830-r1" x="1110.2" y="288.4" textLength="231.8" clip-path="url(#terminal-3033111830-line-11)">DBMS_LOCK.SLEEP&#160;&#160;&#160;&#160;</text><text class="terminal-3033111830-r2" x="1354.2" y="288.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-11)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="288.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-11)">
+</text><text class="terminal-3033111830-r2" x="0" y="312.8" textLength="1366.4" clip-path="url(#terminal-3033111830-line-12)">└──────────────────────┴─────────────────────┴─────────┴───────────┴─────────────────────┴─────────────────────┘</text><text class="terminal-3033111830-r2" x="1366.4" y="312.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-12)">
+</text><text class="terminal-3033111830-r2" x="1366.4" y="337.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-13)">
+</text><text class="terminal-3033111830-r3" x="0" y="361.6" textLength="109.8" clip-path="url(#terminal-3033111830-line-14)">Пояснения</text><text class="terminal-3033111830-r2" x="1366.4" y="361.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-14)">
+</text><text class="terminal-3033111830-r6" x="0" y="386" textLength="24.4" clip-path="url(#terminal-3033111830-line-15)">╭─</text><text class="terminal-3033111830-r6" x="24.4" y="386" textLength="366" clip-path="url(#terminal-3033111830-line-15)">&#160;autonomous_tx&#160;—&#160;1&#160;объект(ов)&#160;</text><text class="terminal-3033111830-r6" x="390.4" y="386" textLength="951.6" clip-path="url(#terminal-3033111830-line-15)">──────────────────────────────────────────────────────────────────────────────</text><text class="terminal-3033111830-r6" x="1342" y="386" textLength="24.4" clip-path="url(#terminal-3033111830-line-15)">─╮</text><text class="terminal-3033111830-r2" x="1366.4" y="386" textLength="12.2" clip-path="url(#terminal-3033111830-line-15)">
+</text><text class="terminal-3033111830-r6" x="0" y="410.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-16)">│</text><text class="terminal-3033111830-r2" x="24.4" y="410.4" textLength="1281" clip-path="url(#terminal-3033111830-line-16)">ora2pg&#160;перенесёт&#160;эту&#160;процедуру/функцию&#160;через&#160;dblink-обёртку&#160;(переименует&#160;в&#160;*_atx,&#160;уберёт&#160;COMMIT&#160;из&#160;тела,&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="410.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-16)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="410.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-16)">
+</text><text class="terminal-3033111830-r6" x="0" y="434.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-17)">│</text><text class="terminal-3033111830-r2" x="24.4" y="434.8" textLength="1232.2" clip-path="url(#terminal-3033111830-line-17)">добавит&#160;функцию-прокси,&#160;вызывающую&#160;её&#160;через&#160;dblink()).&#160;Стратегия&#160;рабочая,&#160;но&#160;не&#160;бесшовная:&#160;требуется&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="434.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-17)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="434.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-17)">
+</text><text class="terminal-3033111830-r6" x="0" y="459.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-18)">│</text><text class="terminal-3033111830-r2" x="24.4" y="459.2" textLength="1268.8" clip-path="url(#terminal-3033111830-line-18)">расширение&#160;dblink&#160;и&#160;ручная&#160;настройка&#160;connection&#160;string&#160;—&#160;то&#160;есть&#160;сетевая&#160;зависимость&#160;между&#160;процедурами,&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="459.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-18)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="459.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-18)">
+</text><text class="terminal-3033111830-r6" x="0" y="483.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-19)">│</text><text class="terminal-3033111830-r2" x="24.4" y="483.6" textLength="1220" clip-path="url(#terminal-3033111830-line-19)">которая&#160;может&#160;быть&#160;неприемлема&#160;в&#160;контуре&#160;с&#160;жёсткими&#160;требованиями&#160;к&#160;изоляции.&#160;При&#160;этом&#160;SHOW_REPORT&#160;и&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="483.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-19)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="483.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-19)">
+</text><text class="terminal-3033111830-r6" x="0" y="508" textLength="12.2" clip-path="url(#terminal-3033111830-line-20)">│</text><text class="terminal-3033111830-r2" x="24.4" y="508" textLength="1305.4" clip-path="url(#terminal-3033111830-line-20)">--estimate_cost&#160;систематически&#160;недооценивают&#160;стоимость&#160;этой&#160;конструкции&#160;именно&#160;для&#160;функций/процедур&#160;внутри&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="508" textLength="12.2" clip-path="url(#terminal-3033111830-line-20)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="508" textLength="12.2" clip-path="url(#terminal-3033111830-line-20)">
+</text><text class="terminal-3033111830-r6" x="0" y="532.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-21)">│</text><text class="terminal-3033111830-r2" x="24.4" y="532.4" textLength="1317.6" clip-path="url(#terminal-3033111830-line-21)">PACKAGE&#160;BODY&#160;—&#160;сама&#160;PRAGMA&#160;стоит&#160;в&#160;декларативной&#160;секции&#160;(до&#160;BEGIN),&#160;которая&#160;не&#160;попадает&#160;в&#160;подсчёт&#160;стоимости&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="532.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-21)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="532.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-21)">
+</text><text class="terminal-3033111830-r6" x="0" y="556.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-22)">│</text><text class="terminal-3033111830-r2" x="24.4" y="556.8" textLength="622.2" clip-path="url(#terminal-3033111830-line-22)">(declare/code&#160;split&#160;в&#160;Ora2Pg.pm::_lookup_function).</text><text class="terminal-3033111830-r6" x="1354.2" y="556.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-22)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="556.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-22)">
+</text><text class="terminal-3033111830-r6" x="0" y="581.2" textLength="1366.4" clip-path="url(#terminal-3033111830-line-23)">╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-3033111830-r2" x="1366.4" y="581.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-23)">
+</text><text class="terminal-3033111830-r6" x="0" y="605.6" textLength="24.4" clip-path="url(#terminal-3033111830-line-24)">╭─</text><text class="terminal-3033111830-r6" x="24.4" y="605.6" textLength="414.8" clip-path="url(#terminal-3033111830-line-24)">&#160;compound_triggers&#160;—&#160;1&#160;объект(ов)&#160;</text><text class="terminal-3033111830-r6" x="439.2" y="605.6" textLength="902.8" clip-path="url(#terminal-3033111830-line-24)">──────────────────────────────────────────────────────────────────────────</text><text class="terminal-3033111830-r6" x="1342" y="605.6" textLength="24.4" clip-path="url(#terminal-3033111830-line-24)">─╮</text><text class="terminal-3033111830-r2" x="1366.4" y="605.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-24)">
+</text><text class="terminal-3033111830-r6" x="0" y="630" textLength="12.2" clip-path="url(#terminal-3033111830-line-25)">│</text><text class="terminal-3033111830-r2" x="24.4" y="630" textLength="1317.6" clip-path="url(#terminal-3033111830-line-25)">COMPOUND&#160;TRIGGER:&#160;секции&#160;BEFORE&#160;STATEMENT&#160;/&#160;BEFORE&#160;EACH&#160;ROW&#160;/&#160;AFTER&#160;EACH&#160;ROW&#160;/&#160;AFTER&#160;STATEMENT&#160;внутри&#160;одного</text><text class="terminal-3033111830-r6" x="1354.2" y="630" textLength="12.2" clip-path="url(#terminal-3033111830-line-25)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="630" textLength="12.2" clip-path="url(#terminal-3033111830-line-25)">
+</text><text class="terminal-3033111830-r6" x="0" y="654.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-26)">│</text><text class="terminal-3033111830-r2" x="24.4" y="654.4" textLength="1293.2" clip-path="url(#terminal-3033111830-line-26)">триггера.&#160;У&#160;ora2pg&#160;нет&#160;отдельного&#160;пути&#160;конвертации&#160;для&#160;этого&#160;синтаксиса.&#160;В&#160;файловом&#160;режиме&#160;(-t&#160;TRIGGER&#160;-i&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="654.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-26)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="654.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-26)">
+</text><text class="terminal-3033111830-r6" x="0" y="678.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-27)">│</text><text class="terminal-3033111830-r2" x="24.4" y="678.8" textLength="1293.2" clip-path="url(#terminal-3033111830-line-27)">file.sql)&#160;его&#160;regex-парсер&#160;(read_trigger_from_file)&#160;рассчитан&#160;на&#160;классическую&#160;форму&#160;&#x27;ON&#160;&lt;table&gt;&#160;[FOR&#160;EACH&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="678.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-27)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="678.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-27)">
+</text><text class="terminal-3033111830-r6" x="0" y="703.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-28)">│</text><text class="terminal-3033111830-r2" x="24.4" y="703.2" textLength="1293.2" clip-path="url(#terminal-3033111830-line-28)">ROW]&#160;[WHEN&#160;(...)]&#160;BEGIN...END&#x27;&#160;и&#160;на&#160;составном&#160;триггере&#160;тихо&#160;возвращает&#160;0&#160;найденных&#160;триггеров&#160;—&#160;без&#160;единой&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="703.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-28)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="703.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-28)">
+</text><text class="terminal-3033111830-r6" x="0" y="727.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-29)">│</text><text class="terminal-3033111830-r2" x="24.4" y="727.6" textLength="1317.6" clip-path="url(#terminal-3033111830-line-29)">ошибки&#160;или&#160;предупреждения&#160;(эмпирически&#160;подтверждено,&#160;docs/research/step0-show-report-baseline.md,&#160;раздел&#160;5).</text><text class="terminal-3033111830-r6" x="1354.2" y="727.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-29)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="727.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-29)">
+</text><text class="terminal-3033111830-r6" x="0" y="752" textLength="12.2" clip-path="url(#terminal-3033111830-line-30)">│</text><text class="terminal-3033111830-r2" x="24.4" y="752" textLength="1305.4" clip-path="url(#terminal-3033111830-line-30)">В&#160;режиме&#160;живого&#160;подключения&#160;счётчик&#160;объектов&#160;SHOW_REPORT&#160;покажет&#160;этот&#160;триггер&#160;как&#160;обычный&#160;валидный&#160;(данные&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="752" textLength="12.2" clip-path="url(#terminal-3033111830-line-30)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="752" textLength="12.2" clip-path="url(#terminal-3033111830-line-30)">
+</text><text class="terminal-3033111830-r6" x="0" y="776.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-31)">│</text><text class="terminal-3033111830-r2" x="24.4" y="776.4" textLength="1305.4" clip-path="url(#terminal-3033111830-line-31)">берутся&#160;из&#160;каталога&#160;Oracle,&#160;а&#160;не&#160;из&#160;попытки&#160;конвертации)&#160;—&#160;то&#160;есть&#160;само&#160;число&#160;объектов&#160;проблему&#160;не&#160;выдаст.&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="776.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-31)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="776.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-31)">
+</text><text class="terminal-3033111830-r6" x="0" y="800.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-32)">│</text><text class="terminal-3033111830-r2" x="24.4" y="800.8" textLength="1293.2" clip-path="url(#terminal-3033111830-line-32)">По&#160;структуре&#160;export_trigger()&#160;в&#160;Ora2Pg.pm&#160;крайне&#160;вероятно,&#160;что&#160;и&#160;в&#160;живом&#160;режиме&#160;конвертация&#160;тела&#160;COMPOUND&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="800.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-32)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="800.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-32)">
+</text><text class="terminal-3033111830-r6" x="0" y="825.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-33)">│</text><text class="terminal-3033111830-r2" x="24.4" y="825.2" textLength="1232.2" clip-path="url(#terminal-3033111830-line-33)">TRIGGER&#160;даёт&#160;синтаксически&#160;неверный&#160;или&#160;тихо&#160;испорченный&#160;код.&#160;Нужен&#160;ручной&#160;перенос&#160;—&#160;как&#160;правило,&#160;на&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="825.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-33)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="825.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-33)">
+</text><text class="terminal-3033111830-r6" x="0" y="849.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-34)">│</text><text class="terminal-3033111830-r2" x="24.4" y="849.6" textLength="1281" clip-path="url(#terminal-3033111830-line-34)">несколько&#160;независимых&#160;обычных&#160;триггеров&#160;(BEFORE/AFTER&#160;×&#160;STATEMENT/ROW)&#160;с&#160;общим&#160;состоянием&#160;через&#160;пакетную&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="849.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-34)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="849.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-34)">
+</text><text class="terminal-3033111830-r6" x="0" y="874" textLength="12.2" clip-path="url(#terminal-3033111830-line-35)">│</text><text class="terminal-3033111830-r2" x="24.4" y="874" textLength="793" clip-path="url(#terminal-3033111830-line-35)">переменную&#160;или&#160;временную&#160;таблицу&#160;вместо&#160;секций&#160;компаунд-триггера.</text><text class="terminal-3033111830-r6" x="1354.2" y="874" textLength="12.2" clip-path="url(#terminal-3033111830-line-35)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="874" textLength="12.2" clip-path="url(#terminal-3033111830-line-35)">
+</text><text class="terminal-3033111830-r6" x="0" y="898.4" textLength="1366.4" clip-path="url(#terminal-3033111830-line-36)">╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-3033111830-r2" x="1366.4" y="898.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-36)">
+</text><text class="terminal-3033111830-r6" x="0" y="922.8" textLength="24.4" clip-path="url(#terminal-3033111830-line-37)">╭─</text><text class="terminal-3033111830-r6" x="24.4" y="922.8" textLength="378.2" clip-path="url(#terminal-3033111830-line-37)">&#160;dbms_utl_calls&#160;—&#160;1&#160;объект(ов)&#160;</text><text class="terminal-3033111830-r6" x="402.6" y="922.8" textLength="939.4" clip-path="url(#terminal-3033111830-line-37)">─────────────────────────────────────────────────────────────────────────────</text><text class="terminal-3033111830-r6" x="1342" y="922.8" textLength="24.4" clip-path="url(#terminal-3033111830-line-37)">─╮</text><text class="terminal-3033111830-r2" x="1366.4" y="922.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-37)">
+</text><text class="terminal-3033111830-r6" x="0" y="947.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-38)">│</text><text class="terminal-3033111830-r2" x="24.4" y="947.2" textLength="1195.6" clip-path="url(#terminal-3033111830-line-38)">Специальной&#160;конвертации&#160;в&#160;ora2pg&#160;для&#160;этого&#160;конкретного&#160;вызова&#160;не&#160;найдено&#160;(проверено&#160;по&#160;исходникам&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="947.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-38)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="947.2" textLength="12.2" clip-path="url(#terminal-3033111830-line-38)">
+</text><text class="terminal-3033111830-r6" x="0" y="971.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-39)">│</text><text class="terminal-3033111830-r2" x="24.4" y="971.6" textLength="1317.6" clip-path="url(#terminal-3033111830-line-39)">Ora2Pg/PLSQL.pm&#160;на&#160;шаге&#160;0)&#160;—&#160;он&#160;попадёт&#160;только&#160;в&#160;обезличенный&#160;счётчик&#160;DBMS_/UTL_&#160;(вес&#160;3&#160;в&#160;estimate_cost),&#160;а&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="971.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-39)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="971.6" textLength="12.2" clip-path="url(#terminal-3033111830-line-39)">
+</text><text class="terminal-3033111830-r6" x="0" y="996" textLength="12.2" clip-path="url(#terminal-3033111830-line-40)">│</text><text class="terminal-3033111830-r2" x="24.4" y="996" textLength="1244.4" clip-path="url(#terminal-3033111830-line-40)">сам&#160;код&#160;останется&#160;как&#160;есть&#160;и&#160;не&#160;скомпилируется&#160;в&#160;PostgreSQL&#160;без&#160;ручного&#160;переписывания&#160;или&#160;подключения&#160;</text><text class="terminal-3033111830-r6" x="1354.2" y="996" textLength="12.2" clip-path="url(#terminal-3033111830-line-40)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="996" textLength="12.2" clip-path="url(#terminal-3033111830-line-40)">
+</text><text class="terminal-3033111830-r6" x="0" y="1020.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-41)">│</text><text class="terminal-3033111830-r2" x="24.4" y="1020.4" textLength="841.8" clip-path="url(#terminal-3033111830-line-41)">расширения&#160;orafce&#160;(если&#160;для&#160;этой&#160;функции&#160;там&#160;вообще&#160;есть&#160;эквивалент).</text><text class="terminal-3033111830-r6" x="1354.2" y="1020.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-41)">│</text><text class="terminal-3033111830-r2" x="1366.4" y="1020.4" textLength="12.2" clip-path="url(#terminal-3033111830-line-41)">
+</text><text class="terminal-3033111830-r6" x="0" y="1044.8" textLength="1366.4" clip-path="url(#terminal-3033111830-line-42)">╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-3033111830-r2" x="1366.4" y="1044.8" textLength="12.2" clip-path="url(#terminal-3033111830-line-42)">
+</text>
+    </g>
+    </g>
+</svg>

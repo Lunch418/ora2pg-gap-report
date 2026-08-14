@@ -60,6 +60,10 @@ _REMEDIATION_HINT = {
     "bulk_collect": "Переписать TYPE/BULK COLLECT на массив PostgreSQL (type[]) или временную таблицу, FORALL — на цикл или UNNEST()",
     "database_link": "Настроить postgres_fdw/dblink с реальными connection-параметрами удалённой базы вместо @dblink_name",
     "model_clause": "Переписать вручную на оконные функции или рекурсивные CTE — прямого эквивалента MODEL в PostgreSQL нет",
+    "pivot_clause": "Переписать на условную агрегацию (FILTER/CASE WHEN) или расширение tablefunc (crosstab())",
+    "object_type": "Переписать на composite type + отдельные функции — у PostgreSQL нет объектных типов с методами",
+    "with_function": "Вынести встроенную функцию в обычную функцию/процедуру PostgreSQL вручную — ora2pg ломает структуру запроса",
+    "flashback_query": "Спроектировать отдельный механизм истории/аудита — прямого эквивалента AS OF в PostgreSQL нет",
 }
 
 

@@ -4,9 +4,9 @@
 подтверждено (не предположено), что `ora2pg` конвертирует её некорректно
 или пропускает без предупреждения. См. «Методология» в основном
 [README](../../README.md) — детектор появляется только после того, как
-гипотеза прошла этот цикл; отклонённые гипотезы в реестр не попадают (они
-задокументированы в `step0-show-report-baseline.md`, разделы 1 и частично
-4, как явно отклонённые).
+гипотеза прошла этот цикл; отклонённые гипотезы в реестр не попадают —
+они задокументированы отдельно, в `step0-show-report-baseline.md`
+(разделы 1 и частично 4) и `rejected-hypotheses.md`.
 
 Номера присвоены в порядке документирования, не в порядке значимости или
 хронологии реализации — GAP-002/003 были задокументированы раньше
@@ -21,6 +21,10 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-005 | `CONNECT BY` — баг подстановки `LEVEL` в `WITH RECURSIVE` | `connect_by` | confirmed | 25.0 | [gap-005](gap-005-connect-by-level.md) |
 | GAP-006 | `table@dblink_name` — прямая ссылка на удалённую БД | `database_link` | confirmed | 25.0 | [gap-006](gap-006-database-link.md) |
 | GAP-007 | `MODEL PARTITION BY ... DIMENSION BY ... MEASURES ... RULES` | `model_clause` | confirmed | 25.0 | [gap-007](gap-007-model-clause.md) |
+| GAP-008 | `PIVOT`/`UNPIVOT` | `pivot_clause` | confirmed | 25.0 | [gap-008](gap-008-pivot-unpivot.md) |
+| GAP-009 | `CREATE TYPE ... AS OBJECT` / `TYPE BODY` — вне оценки трудозатрат вообще | `object_type` | confirmed | 25.0 | [gap-009](gap-009-object-type.md) |
+| GAP-010 | `WITH FUNCTION`/`WITH PROCEDURE` — парсер разваливает структуру исходника | `with_function` | confirmed | 25.0 | [gap-010](gap-010-with-function.md) |
+| GAP-011 | `AS OF TIMESTAMP`/`AS OF SCN` — flashback-запрос | `flashback_query` | confirmed | 25.0 | [gap-011](gap-011-flashback-query.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

@@ -1,18 +1,20 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import line_at, mask_strings_and_comments, skip_balanced_parens
+from ..plsql_lex import IDENTIFIER, line_at, mask_strings_and_comments, skip_balanced_parens
 
 _CONNECT_BY_RE = re.compile(r"\bCONNECT\s+BY\b", re.IGNORECASE)
-_WITH_RECURSIVE_NAME_RE = re.compile(r"\bWITH\s+RECURSIVE\s+(\w+)\s+AS\s*\(", re.IGNORECASE)
+_WITH_RECURSIVE_NAME_RE = re.compile(rf"\bWITH\s+RECURSIVE\s+({IDENTIFIER})\s+AS\s*\(", re.IGNORECASE)
 _LEVEL_REF_RE = re.compile(r"(?<![A-Za-z0-9_$#])(?:\w+\.)?LEVEL\b", re.IGNORECASE)
 # ora2pg always names the generated CTE "cte" regardless of the source
 # query, so it's useless for identifying *which* function is affected in a
 # report — find the nearest enclosing "CREATE [OR REPLACE] FUNCTION/
 # PROCEDURE name" instead (ora2pg always emits one of these around a
-# CONNECT BY conversion, package-scoped or standalone alike).
+# CONNECT BY conversion, package-scoped or standalone alike). Uses the same
+# IDENTIFIER pattern as the rest of the codebase (not \w+) so names
+# containing $/# aren't silently truncated.
 _ENCLOSING_ROUTINE_RE = re.compile(
-    r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+(\w+)",
+    rf"CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+({IDENTIFIER})",
     re.IGNORECASE,
 )
 
@@ -35,7 +37,10 @@ _MESSAGE = (
     "(docs/research/step0-show-report-baseline.md, раздел 3; воспроизведено "
     "на реальном прогоне ora2pg). Сгенерированный SQL в этом виде не "
     "выполнится в PostgreSQL без ручной правки — LEVEL нужно заменить на "
-    "настоящее имя колонки-счётчика."
+    "настоящее имя колонки-счётчика. Строка в этой находке относится к "
+    "сгенерированному ora2pg коду, а не к исходному Oracle-файлу — "
+    "используйте имя объекта и фрагмент ниже, чтобы найти проблему, а не "
+    "номер строки."
 )
 
 

@@ -162,6 +162,13 @@ def test_check_connect_by_reports_the_level_bug_via_mocked_ora2pg(monkeypatch, c
     connect_by_findings = [d for d in data if d["detector"] == "connect_by"]
     assert len(connect_by_findings) == 1
     assert connect_by_findings[0]["snippet"].lower() == "c.level"
+    # find_connect_by_risks() computes `line` against ora2pg's *generated*
+    # output, not against connect_by_hierarchy_pkg.sql — stamping that
+    # number onto source_file=connect_by_hierarchy_pkg.sql would point a
+    # user at an unrelated line in their own file. 0 signals "not a line in
+    # this file" instead of silently lying about which one it is.
+    assert connect_by_findings[0]["line"] == 0
+    assert connect_by_findings[0]["source_file"] == str(SAMPLES / "connect_by_hierarchy_pkg.sql")
 
 
 def test_check_connect_by_warns_gracefully_when_ora2pg_not_found(capsys):

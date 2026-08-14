@@ -103,3 +103,23 @@ def test_level_reference_outside_a_with_recursive_block_is_not_flagged():
     $$ LANGUAGE plpgsql;
     """
     assert find_connect_by_risks(output) == []
+
+
+def test_enclosing_routine_name_keeps_dollar_and_hash():
+    # _ENCLOSING_ROUTINE_RE used to match names with \w+, which excludes
+    # '$'/'#' — a routine named my_proc$v2 would get truncated to MY_PROC
+    # in the report, pointing at the wrong (possibly nonexistent) object.
+    output = """
+    CREATE OR REPLACE FUNCTION my_proc$v2() RETURNS void AS $body$
+    BEGIN
+    WITH RECURSIVE cte AS (
+      SELECT id, 1 AS level FROM t
+      UNION ALL
+      SELECT t.id, cte.level + 1 FROM t JOIN cte ON t.parent_id = cte.id
+    )
+    SELECT * FROM cte WHERE cte.level < 5;
+    END;
+    $body$ LANGUAGE plpgsql;
+    """
+    findings = find_connect_by_risks(output)
+    assert [f.object_name for f in findings] == ["MY_PROC$V2"]

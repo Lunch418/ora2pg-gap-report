@@ -37,6 +37,18 @@ def test_list_package_bodies_binds_owner_not_string_formats_it():
     assert "HR" not in sql
 
 
+def test_list_package_bodies_does_not_filter_by_status():
+    # INVALID in Oracle's dictionary usually just means "needs
+    # recompiling" (a missing grant, a touched dependency) — the DDL is
+    # still real code that needs migrating. A status filter here would
+    # silently under-report gaps on exactly the kind of not-pristine
+    # schema this tool exists for.
+    conn = FakeConnection(_schema_provider(package_bodies=["LOGGER"]))
+    oracle_connector.list_package_bodies(conn, "hr")
+    sql, _ = conn.calls[0]
+    assert "STATUS" not in sql.upper()
+
+
 def test_list_triggers_binds_owner():
     conn = FakeConnection(_schema_provider(triggers=["TRG_AUDIT"]))
     names = oracle_connector.list_triggers(conn, "hr")

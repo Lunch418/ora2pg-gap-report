@@ -51,9 +51,10 @@ def test_real_compound_trigger_apress_is_a_single_statement():
 
 def test_real_dlee_file_captures_the_compound_trigger_targeting_mfe_customers():
     # This file mixes comments, an ordinary trigger, two anonymous PL/SQL
-    # blocks, a package, three plain triggers, and (at the end) the one
-    # COMPOUND TRIGGER our detector actually cares about — real-world
-    # messiness the splitter has to get right, not a clean synthetic case.
+    # blocks, a package, three plain triggers, a DROP TRIGGER, and (at the
+    # end) the one COMPOUND TRIGGER our detector actually cares about —
+    # real-world messiness the splitter has to get right, not a clean
+    # synthetic case.
     text = (SAMPLES / "compound_trigger_dlee.sql").read_text()
     stmts = verify.split_sql_statements(text)
 
@@ -61,6 +62,56 @@ def test_real_dlee_file_captures_the_compound_trigger_targeting_mfe_customers():
     assert len(compound_chunks) == 1
     assert "mfe_customers" in compound_chunks[0].lower()
     assert "equitable_salary_trg" in compound_chunks[0].lower()
+
+
+def test_a_lone_slash_inside_a_comment_does_not_split_the_statement():
+    # A '/*...*/' comment illustrating division (or any divider using '/'
+    # on its own line) must not be mistaken for a SQL*Plus statement
+    # terminator — this must reuse the same comment-masking the detectors
+    # use, not a naive line-by-line "/" check.
+    text = (
+        "create or replace package body demo as\n"
+        "/*\n"
+        "division example:\n"
+        "a\n"
+        "/\n"
+        "b\n"
+        "*/\n"
+        "  procedure noop is\n"
+        "  begin\n"
+        "    null;\n"
+        "  end noop;\n"
+        "end demo;\n"
+        "/\n"
+    )
+    stmts = verify.split_sql_statements(text)
+    assert len(stmts) == 1
+    assert "end demo;" in stmts[0]
+
+
+def test_trailing_comment_only_chunk_is_not_treated_as_a_statement():
+    # A trailing attribution/license comment block with no code after it
+    # (as docs/research/samples/compound_trigger_dlee.sql actually has)
+    # must be dropped, not handed to cursor.execute() as if it were SQL.
+    text = (
+        "create or replace package body demo as\n"
+        "  procedure noop is begin null; end noop;\n"
+        "end demo;\n"
+        "/\n"
+        "\n"
+        "/*\n"
+        "Copyright someone, some year. All rights reserved.\n"
+        "*/\n"
+    )
+    stmts = verify.split_sql_statements(text)
+    assert len(stmts) == 1
+    assert "Copyright" not in stmts[0]
+
+
+def test_real_dlee_file_has_no_trailing_comment_only_statement():
+    text = (SAMPLES / "compound_trigger_dlee.sql").read_text()
+    stmts = verify.split_sql_statements(text)
+    assert "Supplement to the fifth edition" not in stmts[-1]
 
 
 def test_dsn_regex_parses_host_port_service():

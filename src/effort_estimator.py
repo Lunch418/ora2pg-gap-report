@@ -1,0 +1,32 @@
+from .models import Finding
+
+# Deliberately a range per severity, not a single number, and deliberately
+# not lines-of-code-weighted: this is an uncalibrated heuristic, not a
+# measurement. See PROJECT_BRIEF.md — presenting a fake-precise number here
+# is a trust risk with exactly the audience this tool is for. Calibrate
+# against real migration outcomes before treating these as commitments.
+_HOURS_BY_SEVERITY: dict[str, tuple[float, float]] = {
+    "high": (2.0, 8.0),
+    "medium": (1.0, 4.0),
+    "low": (0.25, 1.0),
+}
+_DEFAULT_RANGE = (1.0, 4.0)
+
+
+def estimate_hours(findings: list[Finding]) -> tuple[float, float]:
+    """Sum of per-finding (low, high) hour ranges. A range, not a point
+    estimate — do not collapse it to an average and quote that as a
+    number; the spread itself is the honest part of the answer."""
+    total_low = total_high = 0.0
+    for f in findings:
+        lo, hi = _HOURS_BY_SEVERITY.get(f.severity, _DEFAULT_RANGE)
+        total_low += lo
+        total_high += hi
+    return total_low, total_high
+
+
+def summarize_by_severity(findings: list[Finding]) -> dict[str, int]:
+    counts = {"high": 0, "medium": 0, "low": 0}
+    for f in findings:
+        counts[f.severity] = counts.get(f.severity, 0) + 1
+    return counts

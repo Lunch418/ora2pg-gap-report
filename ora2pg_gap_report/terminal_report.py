@@ -58,6 +58,8 @@ _REMEDIATION_HINT = {
     "connect_by": "Заменить LEVEL на настоящую колонку-счётчик в сгенерированном WITH RECURSIVE",
     "merge_delete_clause": "Разбить MERGE на две ветки WHEN MATCHED со взаимоисключающими условиями вместо DELETE WHERE",
     "bulk_collect": "Переписать TYPE/BULK COLLECT на массив PostgreSQL (type[]) или временную таблицу, FORALL — на цикл или UNNEST()",
+    "database_link": "Настроить postgres_fdw/dblink с реальными connection-параметрами удалённой базы вместо @dblink_name",
+    "model_clause": "Переписать вручную на оконные функции или рекурсивные CTE — прямого эквивалента MODEL в PostgreSQL нет",
 }
 
 

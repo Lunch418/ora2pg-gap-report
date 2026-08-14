@@ -100,6 +100,58 @@ def test_export_schema_skips_objects_with_no_ddl(tmp_path):
     assert written == []
 
 
+def test_export_schema_writes_utf8_for_non_ascii_ddl(tmp_path):
+    # Realistic for the target audience: Cyrillic comments/identifiers in
+    # Russian government PL/SQL codebases. Path.write_text() without an
+    # explicit encoding falls back to the process locale, which is often
+    # ASCII/C on a minimal jump-host container.
+    ddl = "-- Комментарий на русском\nCREATE OR REPLACE PACKAGE BODY logger AS END;"
+    conn = FakeConnection(
+        _schema_provider(package_bodies=["logger"], ddl_by_key={("PACKAGE_BODY", "LOGGER", "HR"): ddl})
+    )
+    output_dir = tmp_path / "export"
+    written = oracle_connector.export_schema(conn, "hr", output_dir)
+
+    assert written[0].read_text(encoding="utf-8") == ddl
+
+
+def test_export_schema_sanitizes_object_names_used_as_filenames(tmp_path):
+    # Oracle quoted identifiers can contain almost anything, including '/'
+    # and '..' — an object name must never be trusted as a filesystem path
+    # component on its own.
+    conn = FakeConnection(
+        _schema_provider(
+            package_bodies=["../../evil"],
+            ddl_by_key={("PACKAGE_BODY", "../../EVIL", "HR"): "CREATE OR REPLACE PACKAGE BODY x AS END;"},
+        )
+    )
+    output_dir = tmp_path / "export"
+    written = oracle_connector.export_schema(conn, "hr", output_dir)
+
+    assert len(written) == 1
+    resolved = written[0].resolve()
+    assert output_dir.resolve() in resolved.parents
+    assert resolved.name != "../../evil"
+
+
+def test_export_schema_disambiguates_filename_collisions(tmp_path):
+    # Two distinct quoted objects that collide once sanitized/lowercased
+    # (e.g. "Logger" vs "LOGGER") must not silently overwrite each other.
+    conn = FakeConnection(
+        _schema_provider(
+            package_bodies=["Logger", "LOGGER"],
+            ddl_by_key={
+                ("PACKAGE_BODY", "LOGGER", "HR"): "-- ambiguous: could be either object",
+            },
+        )
+    )
+    output_dir = tmp_path / "export"
+    written = oracle_connector.export_schema(conn, "hr", output_dir)
+
+    assert len(written) == 2
+    assert len({p.name for p in written}) == 2  # distinct filenames, nothing overwritten
+
+
 def test_connect_raises_a_clear_error_when_oracledb_is_missing(monkeypatch):
     import builtins
 

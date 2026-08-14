@@ -56,9 +56,20 @@ def main(argv: list[str] | None = None) -> int:
     except oracle_connector.OracleDriverMissingError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+    except Exception as exc:
+        # Deliberately broad, unlike the rest of this codebase: this is the
+        # one operation that talks to an external, unreliable, network-
+        # dependent service. An operator on a jump host needs "wrong
+        # password" / "host unreachable", not a Python traceback.
+        print(f"Не удалось подключиться к Oracle: {exc}", file=sys.stderr)
+        return 3
 
-    with conn:
-        written = oracle_connector.export_schema(conn, owner, args.output_dir)
+    try:
+        with conn:
+            written = oracle_connector.export_schema(conn, owner, args.output_dir)
+    except Exception as exc:
+        print(f"Ошибка при выгрузке схемы: {exc}", file=sys.stderr)
+        return 3
 
     print(f"Экспортировано {len(written)} объект(ов) в {args.output_dir}/", file=sys.stderr)
     for path in written:

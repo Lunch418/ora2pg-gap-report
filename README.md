@@ -55,13 +55,28 @@
 pip install ora2pg-gap-report   # (или: pip install . из клона репозитория)
 ```
 
-Детекторы и CLI-анализ — чистый Python без единой внешней зависимости,
-ничего больше ставить не нужно. Сразу после установки доступна команда:
+Сама детекторная библиотека (`detectors/`, `models.py`,
+`report_generator.py`) — чистый Python без единой внешней зависимости, её
+можно импортировать отдельно (например, в своих скриптах) вообще без
+установки чего-либо ещё. У CLI есть одна обязательная зависимость —
+[`rich`](https://github.com/Textualize/rich), только ради приятного
+терминального вывода; ставится сама через `pip install`.
+
+Сразу после установки доступна команда:
 
 ```sh
-ora2pg-gap-report path/to/schema_dump.pkb another_file.sql \
-  --format markdown            # или --format json
-  --output report.md           # необязательно, по умолчанию — stdout
+ora2pg-gap-report path/to/schema_dump.pkb another_file.sql
+```
+
+В интерактивном терминале по умолчанию — цветной отчёт: сводная панель
+(сколько найдено, разбивка по severity, грубая оценка часов), компактная
+таблица находок и пояснения под каждый сработавший детектор. Для
+скриптов/redirect — `--format markdown` или `--format json` (тоже
+работают как формат по умолчанию, если stdout не терминал):
+
+```sh
+ora2pg-gap-report path/to/schema_dump.pkb --format json --output report.json
+ora2pg-gap-report path/to/schema_dump.pkb --format markdown > report.md
 
 # Опционально: линтинг сгенерированного ora2pg кода для CONNECT BY.
 # Требует установленный ora2pg (см. https://github.com/darold/ora2pg) — 
@@ -142,7 +157,9 @@ ora2pg_gap_report/
 ├── ora2pg_wrapper.py           # готово: запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── cli.py                     # готово: консольная команда ora2pg-gap-report
 ├── effort_estimator.py         # готово: грубая эвристика по severity, диапазон часов
-└── report_generator.py         # готово: JSON + Markdown
+├── report_generator.py         # готово: JSON + Markdown (машиночитаемые форматы)
+└── terminal_report.py          # готово: цветной вывод через rich (единственная зависимость
+                                #          библиотеки-детекторов не касается, только CLI)
 tests/
 ├── fixtures/                  # реальные захваченные прогоны ora2pg — тесты парсера не требуют
 │                               # установленного ora2pg, кроме нескольких live-тестов

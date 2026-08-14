@@ -5,10 +5,29 @@ from pathlib import Path
 import pytest
 
 from ora2pg_gap_report import cli
-from ora2pg_gap_report.cli import main, scan_source
+from ora2pg_gap_report.cli import main, resolve_format, scan_source
 
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
+
+def test_resolve_format_explicit_choice_always_wins():
+    assert resolve_format("json", None, True) == "json"
+    assert resolve_format("markdown", None, False) == "markdown"
+
+
+def test_resolve_format_defaults_to_terminal_on_an_interactive_tty():
+    assert resolve_format(None, None, True) == "terminal"
+
+
+def test_resolve_format_defaults_to_markdown_when_not_a_tty():
+    assert resolve_format(None, None, False) == "markdown"
+
+
+def test_resolve_format_defaults_to_markdown_when_writing_to_a_file_even_on_a_tty():
+    # --output implies "for later reading / scripting", not an interactive
+    # terminal session, regardless of what stdout happens to be.
+    assert resolve_format(None, Path("report.md"), True) == "markdown"
 
 
 def test_scan_source_runs_all_three_detectors_on_logger():
@@ -193,3 +212,47 @@ def test_main_merges_and_resorts_findings_across_multiple_files(tmp_path):
     assert data[0]["severity"] == "high"
     assert data[0]["object_name"] == "BBB_PKG.BAR"
     assert data[-1]["severity"] == "medium"
+
+
+def test_main_format_terminal_prints_a_styled_report_to_stdout(monkeypatch, capsys):
+    # Fix a wide, deterministic width: the real detected terminal width
+    # varies by environment, and the table intentionally ellipsis-truncates
+    # long identifiers at narrow widths (see terminal_report.py) — that's
+    # correct behaviour, not something this test should be sensitive to.
+    monkeypatch.setenv("COLUMNS", "200")
+    exit_code = main(
+        [str(SAMPLES / "compound_trigger_apress.sql"), "--format", "terminal"]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "TR_CONSTRUCTORS_CTI" in captured.out
+    assert "Найдено проблемных объектов" in captured.out
+    assert "Пояснения" in captured.out
+
+
+def test_main_format_terminal_can_be_written_to_a_file(monkeypatch, tmp_path):
+    monkeypatch.setenv("COLUMNS", "200")
+    output_path = tmp_path / "report.txt"
+    exit_code = main(
+        [
+            str(SAMPLES / "compound_trigger_apress.sql"),
+            "--format",
+            "terminal",
+            "--output",
+            str(output_path),
+        ]
+    )
+    assert exit_code == 0
+    text = output_path.read_text(encoding="utf-8")
+    assert "TR_CONSTRUCTORS_CTI" in text
+    # written to a real (non-tty) file: no raw ANSI escape codes
+    assert "\x1b[" not in text
+
+
+def test_main_without_explicit_format_uses_markdown_under_pytest_capture(capsys):
+    # capsys replaces sys.stdout with a non-tty stream, so this exercises
+    # the same "not interactive" default path a redirected/piped run would.
+    exit_code = main([str(SAMPLES / "compound_trigger_apress.sql")])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out.startswith("# Отчёт ora2pg-gap-report")

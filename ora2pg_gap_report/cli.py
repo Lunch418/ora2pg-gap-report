@@ -3,6 +3,8 @@ import dataclasses
 import sys
 from pathlib import Path
 
+from rich.console import Console
+
 from .detectors.autonomous_tx import find_autonomous_transactions
 from .detectors.compound_triggers import find_compound_triggers
 from .detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
@@ -11,6 +13,7 @@ from .effort_estimator import estimate_hours, summarize_by_severity
 from .models import Finding
 from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError, run_estimate_cost
 from .report_generator import to_json, to_markdown
+from .terminal_report import render as render_terminal
 
 _DETECTORS = (
     find_autonomous_transactions,
@@ -45,7 +48,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "paths", nargs="+", type=Path, help="Файлы с DDL для анализа (.sql/.pks/.pkb)"
     )
     parser.add_argument(
-        "--format", choices=("markdown", "json"), default="markdown", help="Формат отчёта"
+        "--format",
+        choices=("terminal", "markdown", "json"),
+        default=None,
+        help=(
+            "Формат отчёта. По умолчанию — цветной вывод в терминал, если "
+            "stdout это tty и не указан --output; иначе markdown."
+        ),
     )
     parser.add_argument(
         "--output", type=Path, default=None, help="Куда сохранить отчёт (по умолчанию — stdout)"
@@ -103,20 +112,31 @@ def _render(findings: list[Finding], fmt: str) -> str:
     return header + to_markdown(findings)
 
 
+def resolve_format(explicit_format: str | None, output: Path | None, stdout_is_tty: bool) -> str:
+    """Pure resolution logic, kept separate from main() so the
+    default-format behaviour is testable without a real terminal."""
+    if explicit_format is not None:
+        return explicit_format
+    return "terminal" if (output is None and stdout_is_tty) else "markdown"
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
+    err_console = Console(stderr=True)
+
+    fmt = resolve_format(args.format, args.output, sys.stdout.isatty())
 
     all_findings: list[Finding] = []
     had_error = False
     for path in args.paths:
         if not path.is_file():
-            print(f"Пропущен (не найден): {path}", file=sys.stderr)
+            err_console.print(f"[yellow]Пропущен (не найден):[/yellow] {path}")
             had_error = True
             continue
         try:
             source = path.read_text(errors="replace")
         except OSError as exc:
-            print(f"Пропущен (не читается: {exc}): {path}", file=sys.stderr)
+            err_console.print(f"[yellow]Пропущен (не читается: {exc}):[/yellow] {path}")
             had_error = True
             continue
         all_findings.extend(
@@ -127,19 +147,26 @@ def main(argv: list[str] | None = None) -> int:
             findings, warning = _connect_by_check(path, source, args.ora2pg_bin)
             all_findings.extend(findings)
             if warning:
-                print(warning, file=sys.stderr)
+                err_console.print(f"[yellow]{warning}[/yellow]")
 
     _sort_findings(all_findings)
-    report = _render(all_findings, args.format)
 
-    if args.output:
-        try:
-            args.output.write_text(report)
-        except OSError as exc:
-            print(f"Не удалось записать отчёт в {args.output}: {exc}", file=sys.stderr)
-            return 2
+    if fmt == "terminal":
+        if args.output:
+            with args.output.open("w", encoding="utf-8") as fh:
+                render_terminal(all_findings, console=Console(file=fh))
+        else:
+            render_terminal(all_findings)
     else:
-        print(report)
+        report = _render(all_findings, fmt)
+        if args.output:
+            try:
+                args.output.write_text(report, encoding="utf-8")
+            except OSError as exc:
+                err_console.print(f"[red]Не удалось записать отчёт в {args.output}: {exc}[/red]")
+                return 2
+        else:
+            print(report)
 
     return 2 if had_error else 0
 

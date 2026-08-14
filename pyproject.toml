@@ -19,11 +19,15 @@ classifiers = [
     "Environment :: Console",
 ]
 requires-python = ">=3.10"
-dependencies = []
+# rich — единственная обязательная зависимость, только для терминального
+# вывода CLI (ora2pg_gap_report/terminal_report.py, cli.py). Сама
+# детекторная библиотека (models.py, detectors/, report_generator.py)
+# от неё не зависит и её не импортирует.
+dependencies = ["rich>=13"]
 
 [project.optional-dependencies]
 # Только для oracle_connector.py / oracle_export.py (живая выгрузка DDL из
-# Oracle). Три детектора и сам CLI-анализ в этом не нуждаются вообще.
+# Oracle). Три детектора и сам анализ в этом не нуждаются вообще.
 oracle = ["oracledb>=2.0"]
 dev = ["pytest>=7.0"]
 

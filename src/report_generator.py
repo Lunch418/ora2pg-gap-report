@@ -1,10 +1,11 @@
 import json
+from dataclasses import asdict
 
 from .models import Finding
 
 
 def to_json(findings: list[Finding]) -> str:
-    return json.dumps([f.__dict__ for f in findings], ensure_ascii=False, indent=2)
+    return json.dumps([asdict(f) for f in findings], ensure_ascii=False, indent=2)
 
 
 def to_markdown(findings: list[Finding]) -> str:

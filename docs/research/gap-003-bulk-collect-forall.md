@@ -64,11 +64,12 @@ performance idioms, used in essentially every codebase that does batch
 processing. A completely unconverted local collection `TYPE` declaration
 means the containing routine won't even get past its `DECLARE` section.
 
-This is a strong detector candidate — likely stronger, in terms of
-practical impact, than any of the four already implemented.
+This is likely the strongest detector in the project by practical impact —
+stronger than any of the four that existed before it.
 
-Not yet built: needs the same rigor as the existing four (a source-level
-detector recognizing `TYPE ... IS TABLE OF` / `BULK COLLECT INTO` /
-`FORALL` via `plsql_lex.py`'s masking infrastructure, string/comment-aware,
-tested against real open-source fixtures, not just this synthetic
-example).
+Detector implemented: `ora2pg_gap_report/detectors/bulk_collect.py` — a
+source-level detector recognizing `TYPE ... IS TABLE OF` / `BULK COLLECT
+INTO` / `FORALL` via `plsql_lex.py`'s masking infrastructure,
+string/comment-aware, tested against real open-source fixtures (not just
+this synthetic example — confirmed live on `docs/research/samples/logger.pkb`'s
+own local collection type and on both compound-trigger fixtures).

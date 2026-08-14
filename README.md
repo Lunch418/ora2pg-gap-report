@@ -67,6 +67,11 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 подтвердились `COMPOUND TRIGGER` и баг с `LEVEL` в `CONNECT BY` — оба
 воспроизведены на реальном прогоне `ora2pg`, а не предположены по описанию.
 
+Все подтверждённые находки пронумерованы и собраны в
+[`docs/research/GAP_REGISTRY.md`](docs/research/GAP_REGISTRY.md) — по
+каждой указано, каким детектором она покрыта и на какой версии `ora2pg`
+подтверждена.
+
 ## Установка и использование
 
 ```sh

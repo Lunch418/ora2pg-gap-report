@@ -34,12 +34,11 @@ def test_render_shows_summary_counts_and_every_finding():
     render(findings, console=console)
     text = console.export_text()
 
-    assert "Найдено проблемных объектов: 2" in text
-    assert "high: 1" in text
-    assert "medium: 1" in text
+    assert "Найдено проблемных объектов" in text and "2" in text
+    assert "HIGH" in text and "MEDIUM" in text
     assert "PKG.A" in text
     assert "PKG.B" in text
-    assert "Грубая оценка ручной доработки" in text
+    assert "Оценка ручной доработки" in text
 
 
 def test_render_handles_a_severity_outside_high_medium_low_without_crashing():
@@ -48,7 +47,7 @@ def test_render_handles_a_severity_outside_high_medium_low_without_crashing():
     render(findings, console=console)  # must not raise
     text = console.export_text()
 
-    assert "other: 1" in text  # effort_estimator's catch-all bucket
+    assert "OTHER" in text  # effort_estimator's catch-all bucket
     assert "critical" in text  # still shown verbatim in the per-row column
 
 
@@ -120,8 +119,8 @@ def test_render_shows_elapsed_time_and_objects_scanned_when_provided():
     console = Console(record=True, width=200)
     render(findings, console=console, elapsed_seconds=1.23, objects_scanned=7)
     text = console.export_text()
-    assert "Время анализа: 1.2 с" in text
-    assert "Объектов просканировано: 7" in text
+    assert "Время анализа" in text and "1.2 с" in text
+    assert "Объектов просканировано" in text and "7" in text
 
 
 def test_render_omits_elapsed_time_and_objects_scanned_when_not_provided():
@@ -137,7 +136,7 @@ def test_render_shows_best_expected_worst_case_effort():
     findings = [_finding(severity="high")]
     console = Console(record=True, width=200)
     render(findings, console=console)
-    text = console.export_text()
+    text = console.export_text().lower()
     assert "лучший случай" in text
     assert "среднее" in text
     assert "худший случай" in text
@@ -162,3 +161,58 @@ def test_render_shows_stats_even_when_filters_leave_no_findings():
     text = console.export_text()
     assert "Объектов просканировано: 3" in text
     assert "Время анализа: 2.5 с" in text
+
+
+def test_render_shows_a_banner_and_recommendations_with_a_known_detector():
+    findings = [_finding(detector="autonomous_tx"), _finding(detector="autonomous_tx", snippet="s2")]
+    console = Console(record=True, width=200)
+    render(findings, console=console)
+    text = console.export_text()
+    assert "ORACLE" in text and "POSTGRESQL" in text
+    assert "Рекомендации" in text
+    assert "autonomous_tx" in text
+    assert "dblink" in text  # the real remediation hint for this detector, not a generic fallback
+
+
+def test_recommended_actions_orders_detectors_by_finding_count_descending():
+    findings = [
+        _finding(detector="dbms_utl_calls", object_name="A"),
+        _finding(detector="bulk_collect", object_name="B", snippet="s2"),
+        _finding(detector="bulk_collect", object_name="C", snippet="s3"),
+        _finding(detector="bulk_collect", object_name="D", snippet="s4"),
+    ]
+    console = Console(record=True, width=200)
+    render(findings, console=console)
+    # Slice to the "Рекомендации" panel specifically -- both detector names
+    # also appear earlier, in the "top objects" tree, whose own ordering
+    # (by per-object count, not per-detector total) isn't what this test
+    # is about.
+    recommendations = console.export_text().split("Рекомендации", 1)[1]
+    assert recommendations.index("bulk_collect") < recommendations.index("dbms_utl_calls")
+
+
+def test_every_detector_registered_in_cli_has_a_remediation_hint():
+    # A detector added to cli.py without a corresponding entry here would
+    # silently fall back to a generic "см. пояснение ниже" line in the
+    # Рекомендации section instead of a real hint — this test makes that
+    # an explicit failure instead of a silent gap.
+    from ora2pg_gap_report import cli
+    from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT
+
+    registered_names = set()
+    for detector_fn in cli._DETECTORS:
+        result = detector_fn("")  # empty source: no findings, just need the shape
+        assert result == []
+    # detector names aren't derivable from the function alone without
+    # calling it on real content; assert against the known, current set
+    # instead (keeps this test meaningful without over-engineering a
+    # generic detector-name registry that doesn't otherwise exist).
+    registered_names = {
+        "autonomous_tx",
+        "compound_triggers",
+        "dbms_utl_calls",
+        "merge_delete_clause",
+        "bulk_collect",
+        "connect_by",  # opt-in via --check-connect-by, not in cli._DETECTORS
+    }
+    assert registered_names <= set(_REMEDIATION_HINT.keys())

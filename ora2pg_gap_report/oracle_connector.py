@@ -58,9 +58,14 @@ _LIST_PACKAGE_BODIES_SQL = """
     FROM all_objects
     WHERE object_type = 'PACKAGE BODY'
       AND owner = :owner
-      AND status = 'VALID'
     ORDER BY object_name
 """
+# Deliberately no `status = 'VALID'` filter: INVALID in Oracle's dictionary
+# usually just means "needs recompiling" (a missing grant, a dependency
+# that was touched) — the DDL source is still real code that will need
+# migrating regardless. Silently skipping it would make this migration-
+# planning tool under-report gaps for exactly the kind of not-pristine
+# schema it's built for.
 
 _LIST_TRIGGERS_SQL = """
     SELECT trigger_name

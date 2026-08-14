@@ -54,29 +54,45 @@ SAMPLES = REPO_ROOT / "docs" / "research" / "samples"
 sys.path.insert(0, str(REPO_ROOT))
 from ora2pg_gap_report import oracle_connector  # noqa: E402
 from ora2pg_gap_report.cli import scan_source  # noqa: E402
+from ora2pg_gap_report.plsql_lex import mask_strings_and_comments  # noqa: E402
 
 
 def split_sql_statements(text: str) -> list[str]:
     """SQL*Plus convention: statements separated by a lone '/' on its own
     line (all the CREATE PACKAGE/TRIGGER samples use this). Falls back to
     splitting on ';' for plain DDL scripts that don't (setup_oracle_test_
-    schema.sql)."""
-    lines = text.splitlines()
-    if any(line.strip() == "/" for line in lines):
+    schema.sql).
+
+    Splits are located against a comment/string-masked copy of the text
+    (same helper the detectors use, for the same reason): a lone '/'
+    inside a /* */ comment or a string literal must not be mistaken for a
+    statement terminator. A chunk whose *masked* content is entirely
+    blank is dropped rather than sent to cursor.execute() — a trailing
+    attribution comment block with no code after it is not a statement.
+    """
+    masked_lines = mask_strings_and_comments(text).splitlines()
+    original_lines = text.splitlines()
+
+    if any(line.strip() == "/" for line in masked_lines):
         statements = []
-        current: list[str] = []
-        for line in lines:
-            if line.strip() == "/":
-                stmt = "\n".join(current).strip()
-                if stmt:
-                    statements.append(stmt)
-                current = []
+        current_original: list[str] = []
+        current_masked: list[str] = []
+
+        def _flush():
+            if "".join(current_masked).strip():
+                statements.append("\n".join(current_original).strip())
+
+        for masked_line, original_line in zip(masked_lines, original_lines):
+            if masked_line.strip() == "/":
+                _flush()
+                current_original.clear()
+                current_masked.clear()
             else:
-                current.append(line)
-        tail = "\n".join(current).strip()
-        if tail:
-            statements.append(tail)
+                current_original.append(original_line)
+                current_masked.append(masked_line)
+        _flush()
         return statements
+
     return [s.strip() for s in text.split(";") if s.strip()]
 
 
@@ -175,10 +191,19 @@ def main() -> int:
 
     print("\n=== Итог ===")
     ok = True
+    # Per-occurrence totals (not unique-object-name counts — those are
+    # smaller and are what tests/test_dbms_utl_calls.py asserts, a
+    # different thing). Verified directly against the real fixture files:
+    # logger.pkb: 17, file_util_pkg.pkb: 40, sql_util_pkg.pkb: 11.
+    # compound_triggers: both apress's TR_CONSTRUCTORS_CTI and dlee's
+    # EQUITABLE_SALARY_TRG are real, distinctly-named live objects (dlee's
+    # earlier same-named plain trigger is DROPped before the COMPOUND
+    # TRIGGER version is created) — list_triggers() has no status filter,
+    # so both are expected to be exported and detected.
     expected_totals = {
         "autonomous_tx": 8,
-        "dbms_utl_calls": 17 + 17 + 7,  # logger + file_util_pkg + sql_util_pkg
-        "compound_triggers": 1,  # apress fixture only — dlee's is name-duplicated, see step0 research
+        "dbms_utl_calls": 17 + 40 + 11,
+        "compound_triggers": 2,
     }
     for detector, expected in expected_totals.items():
         got = actual_counts.get(detector, 0)

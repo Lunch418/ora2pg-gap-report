@@ -1,0 +1,186 @@
+-- Detailed cost per function:
+	-- Function logger.append_cgi_env total estimated cost: 3.4
+		-- CONCAT => 4 (cost: 0.1)
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.append_ctx total estimated cost: 4.8
+		-- CONCAT => 8 (cost: 0.1)
+		-- TEST => 2
+		-- SIZE => 1
+		-- Sys_Context => 1
+	-- Function logger.append_param total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.assert total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.convert_level_char_to_num total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.convert_level_num_to_char total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.date_text_format total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.date_text_format_base total estimated cost: 6
+		-- CONCAT => 8 (cost: 0.1)
+		-- MONTHS_BETWEEN => 2 (cost: 1)
+		-- TRUNC => 2 (cost: 0.1)
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.del_pref total estimated cost: 3.2
+		-- CONCAT => 2 (cost: 0.1)
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.display_output total estimated cost: 4.4
+		-- CONCAT => 10 (cost: 0.1)
+		-- HTP => 2 (cost: 0.2)
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.f_get_set_global_context total estimated cost: 6.1
+		-- TEST => 2
+		-- CONCAT => 1 (cost: 0.1)
+		-- CTX_ => 1 (cost: 3)
+		-- SIZE => 1
+	-- Function logger.get_character_codes total estimated cost: 4.8
+		-- CONCAT => 8 (cost: 0.1)
+		-- TEST => 2
+		-- Dump => 1
+		-- SIZE => 1
+	-- Function logger.get_debug_info total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.get_level_number total estimated cost: 3.1
+		-- TEST => 2
+		-- SIZE => 1
+		-- CONCAT => 1 (cost: 0.1)
+	-- Function logger.get_param_clob total estimated cost: 3.4
+		-- CONCAT => 4 (cost: 0.1)
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.get_plugin_rec total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.get_pref total estimated cost: 4.1
+		-- TEST => 2
+		-- SIZE => 1
+		-- Sys_Context => 1
+		-- CONCAT => 1 (cost: 0.1)
+	-- Function logger.include_call_stack total estimated cost: 10
+		-- CTX_ => 2 (cost: 3)
+		-- TEST => 2
+		-- Sys_Context => 1
+		-- SIZE => 1
+	-- Function logger.ins_logger_logs total estimated cost: 4.6
+		-- CONCAT => 5 (cost: 0.1)
+		-- TEST => 2
+		-- Sys_Context => 1
+		-- SIZE => 1
+		-- TO_NUMBER => 1 (cost: 0.1)
+	-- Function logger.is_number total estimated cost: 3.1
+		-- TEST => 2
+		-- TO_NUMBER => 1 (cost: 0.1)
+		-- SIZE => 1
+	-- Function logger.log total estimated cost: 6
+		-- TEST => 2
+		-- DBMS_ => 1 (cost: 3)
+		-- SIZE => 1
+	-- Function logger.log_apex_items total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.log_cgi_env total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.log_character_codes total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.log_error total estimated cost: 15.5
+		-- CONCAT => 5 (cost: 0.1)
+		-- DBMS_ => 4 (cost: 3)
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.log_info total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.log_information total estimated cost: 6
+		-- TEST => 2
+		-- DBMS_ => 1 (cost: 3)
+		-- SIZE => 1
+	-- Function logger.log_internal total estimated cost: 3.1
+		-- TEST => 2
+		-- CONCAT => 1 (cost: 0.1)
+		-- SIZE => 1
+	-- Function logger.log_permanent total estimated cost: 6
+		-- TEST => 2
+		-- SIZE => 1
+		-- DBMS_ => 1 (cost: 3)
+	-- Function logger.log_warn total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.log_warning total estimated cost: 6
+		-- TEST => 2
+		-- SIZE => 1
+		-- DBMS_ => 1 (cost: 3)
+	-- Function logger.ok_to_log total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.purge total estimated cost: 3.1
+		-- TEST => 2
+		-- SIZE => 1
+		-- TO_NUMBER => 1 (cost: 0.1)
+	-- Function logger.purge_all total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.save_global_context total estimated cost: 6
+		-- TEST => 2
+		-- SIZE => 1
+		-- DBMS_ => 1 (cost: 3)
+	-- Function logger.set_extra_with_params total estimated cost: 3.6
+		-- CONCAT => 6 (cost: 0.1)
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.set_pref total estimated cost: 3.2
+		-- TEST => 2
+		-- CONCAT => 2 (cost: 0.1)
+		-- SIZE => 1
+		-- MERGE => 1
+	-- Function logger.snapshot_apex_items total estimated cost: 3.1
+		-- TEST => 2
+		-- SIZE => 1
+		-- TO_NUMBER => 1 (cost: 0.1)
+	-- Function logger.sprintf total estimated cost: 6.2
+		-- CONCAT => 2 (cost: 0.1)
+		-- TEST => 2
+		-- UTL_ => 1 (cost: 3)
+		-- SIZE => 1
+	-- Function logger.sqlplus_format total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.start_stop_plugin total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.time_reset total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.time_start total estimated cost: 3.3
+		-- CONCAT => 3 (cost: 0.1)
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.time_stop total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.time_stop_seconds total estimated cost: 27
+		-- EXTRACT => 8 (cost: 3)
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.tochar total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.unset_client_level total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+	-- Function logger.unset_client_level_all total estimated cost: 3
+		-- TEST => 2
+		-- SIZE => 1
+-- Total estimated cost for package logger: 225.1 units, 3 person-day(s)

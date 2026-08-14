@@ -7,10 +7,11 @@ from ..plsql_lex import (
     find_matching_end,
     mask_strings_and_comments,
     own_declare_text,
+    qualified_name_pattern,
 )
 
 _PACKAGE_BODY_NAME_RE = re.compile(
-    r"PACKAGE\s+BODY\s+(?:\"?\w+\"?\.)?\"?(\w+)\"?",
+    qualified_name_pattern(r"PACKAGE\s+BODY"),
     re.IGNORECASE,
 )
 _PRAGMA_RE = re.compile(r"PRAGMA\s+AUTONOMOUS_TRANSACTION\s*;", re.IGNORECASE)

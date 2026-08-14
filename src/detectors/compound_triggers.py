@@ -1,11 +1,12 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import mask_strings_and_comments
+from ..plsql_lex import mask_strings_and_comments, qualified_name_pattern
 
 _TRIGGER_START_RE = re.compile(
-    r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:EDITIONABLE\s+|NONEDITIONABLE\s+)?"
-    r"TRIGGER\s+(?:\"?\w+\"?\.)?\"?(\w+)\"?",
+    qualified_name_pattern(
+        r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:EDITIONABLE\s+|NONEDITIONABLE\s+)?TRIGGER"
+    ),
     re.IGNORECASE,
 )
 _COMPOUND_RE = re.compile(r"\bCOMPOUND\s+TRIGGER\b", re.IGNORECASE)

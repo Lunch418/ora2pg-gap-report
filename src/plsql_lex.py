@@ -9,10 +9,25 @@ section can be told apart from a nested subprogram's).
 
 import re
 
+# Oracle unquoted identifiers: letter, then letters/digits/_/$/#.
+IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_$#]*"
+
+# Oracle q-quote delimiter pairs (q'[...]', q'{...}', q'(...)' , q'<...>');
+# any other non-alphanumeric char is its own closing delimiter (q'!...!').
+_Q_QUOTE_PAIRS = {"[": "]", "{": "}", "(": ")", "<": ">"}
+
 ROUTINE_START_RE = re.compile(
-    r"^\s*(?:FUNCTION|PROCEDURE)\s+(\w+)",
+    rf"^\s*(?:FUNCTION|PROCEDURE)\s+({IDENTIFIER})",
     re.IGNORECASE | re.MULTILINE,
 )
+
+
+def qualified_name_pattern(keyword_pattern: str) -> str:
+    """Regex source fragment matching `<keyword> [schema.]name`, capturing
+    the (possibly quoted) final name component. Does not verify that a
+    leading quote is matched by a trailing one — good enough for name
+    extraction, not for validating well-formedness."""
+    return rf'{keyword_pattern}\s+(?:"?{IDENTIFIER}"?\.)?"?({IDENTIFIER})"?'
 _IS_AS_RE = re.compile(r"\b(?:IS|AS)\b", re.IGNORECASE)
 _BEGIN_RE = re.compile(r"\bBEGIN\b", re.IGNORECASE)
 _BLOCK_TOKEN_RE = re.compile(
@@ -22,6 +37,21 @@ _BLOCK_TOKEN_RE = re.compile(
 )
 # Tokens that open a block whose matching close is its own qualified END form.
 _QUALIFIED_CLOSERS = {"END LOOP": "LOOP", "END IF": "IF", "END CASE": "CASE"}
+
+
+def _q_quote_open_delim_pos(source: str, i: int) -> int | None:
+    """If source[i:] starts an Oracle q-quote literal (q'...' or nq'...',
+    case-insensitive, not part of a larger identifier), return the index of
+    its opening delimiter character; else None."""
+    n = len(source)
+    if i > 0 and (source[i - 1].isalnum() or source[i - 1] == "_"):
+        return None
+    j = i
+    if j < n and source[j] in "nN":
+        j += 1
+    if j < n and source[j] in "qQ" and source[j + 1 : j + 2] == "'" and j + 2 < n:
+        return j + 2
+    return None
 
 
 def mask_strings_and_comments(source: str) -> str:
@@ -47,6 +77,17 @@ def mask_strings_and_comments(source: str) -> str:
                 out.append("  ")
                 i += 2
             continue
+        if source[i] in "nNqQ":
+            open_pos = _q_quote_open_delim_pos(source, i)
+            if open_pos is not None:
+                open_delim = source[open_pos]
+                close_delim = _Q_QUOTE_PAIRS.get(open_delim, open_delim)
+                end = source.find(close_delim + "'", open_pos + 1)
+                if end != -1:
+                    for k in range(i, end + 2):
+                        out.append("\n" if source[k] == "\n" else " ")
+                    i = end + 2
+                    continue
         if source[i] == "'":
             out.append(" ")
             i += 1

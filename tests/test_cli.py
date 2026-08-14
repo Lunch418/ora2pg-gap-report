@@ -80,6 +80,23 @@ def test_main_reports_missing_file_as_error(capsys):
     assert "does_not_exist.sql" in captured.err
 
 
+def test_main_reports_missing_file_with_brackets_in_path_without_crashing(
+    tmp_path, capsys, monkeypatch
+):
+    # The path is printed through a rich Console; a path containing
+    # brackets used to raise rich.errors.MarkupError instead of the
+    # intended "file not found" message (paths are attacker/user-supplied
+    # command-line input, not our own trusted markup). Wide COLUMNS so the
+    # message isn't line-wrapped mid-path, which would make the substring
+    # check below flaky independent of the bug being tested for.
+    monkeypatch.setenv("COLUMNS", "200")
+    bracket_path = tmp_path / "notes[/archive].sql"
+    exit_code = main([str(bracket_path)])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "notes[/archive].sql" in captured.err
+
+
 def test_main_reports_unreadable_file_as_error_not_traceback(tmp_path, capsys, monkeypatch):
     # Simulate a read failure (e.g. permission denied) via monkeypatch
     # rather than chmod(0o000): chmod is a no-op against a root process
@@ -247,6 +264,24 @@ def test_main_format_terminal_can_be_written_to_a_file(monkeypatch, tmp_path):
     assert "TR_CONSTRUCTORS_CTI" in text
     # written to a real (non-tty) file: no raw ANSI escape codes
     assert "\x1b[" not in text
+
+
+def test_main_format_terminal_reports_write_failure_without_a_traceback(capsys):
+    # Same graceful-failure contract as the markdown/json --output path:
+    # this used to have no try/except at all and crashed with a raw
+    # traceback instead.
+    exit_code = main(
+        [
+            str(SAMPLES / "compound_trigger_apress.sql"),
+            "--format",
+            "terminal",
+            "--output",
+            "/nonexistent-dir-xyz/out.txt",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "Не удалось записать отчёт" in captured.err
 
 
 def test_main_without_explicit_format_uses_markdown_under_pytest_capture(capsys):

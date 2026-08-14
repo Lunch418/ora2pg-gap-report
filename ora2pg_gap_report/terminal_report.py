@@ -19,8 +19,9 @@ wide prose column makes the table unreadable regardless.
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
-from .effort_estimator import estimate_hours, summarize_by_severity
+from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .models import Finding
 
 _SEVERITY_STYLE = {
@@ -28,7 +29,6 @@ _SEVERITY_STYLE = {
     "medium": "bold yellow",
     "low": "bold green",
 }
-_SEVERITY_ORDER = ("high", "medium", "low")
 
 
 def render(findings: list[Finding], console: Console | None = None) -> None:
@@ -47,19 +47,29 @@ def render(findings: list[Finding], console: Console | None = None) -> None:
     counts = summarize_by_severity(findings)
     lo, hi = estimate_hours(findings)
 
-    parts = [
-        f"[{_SEVERITY_STYLE[sev]}]{sev}: {counts[sev]}[/{_SEVERITY_STYLE[sev]}]"
-        for sev in _SEVERITY_ORDER
-        if counts.get(sev)
-    ]
-    # any severity value outside high/medium/low (see effort_estimator.py's
-    # "other" bucket) still has to be visible, just without a colour to map it to
-    parts += [f"{name}: {n}" for name, n in counts.items() if name not in _SEVERITY_ORDER and n]
+    # Finding content (object names, file paths, source snippets) comes
+    # straight from the Oracle files being scanned — arbitrary text that
+    # must never be interpreted as Rich's own markup language (a path like
+    # "notes[/archive].sql" would otherwise raise MarkupError, and content
+    # that happens to look like a style tag, e.g. "arr[i][j]", would be
+    # silently stripped instead of shown verbatim). Only the summary/
+    # severity strings below are our own trusted, hand-built markup.
+    counts_markup = Text()
+    for i, (name, n) in enumerate(ordered_counts(counts)):
+        if i:
+            counts_markup.append(", ")
+        counts_markup.append(f"{name}: {n}", style=_SEVERITY_STYLE.get(name))
 
-    summary = (
-        f"Найдено проблемных объектов: [bold]{len(findings)}[/bold]  ({', '.join(parts)})\n"
-        f"Грубая оценка ручной доработки: [bold]{lo:g}–{hi:g} ч.[/bold] "
-        "[dim]— неоткалиброванная эвристика по severity, не измерение[/dim]"
+    summary = Text()
+    summary.append("Найдено проблемных объектов: ")
+    summary.append(str(len(findings)), style="bold")
+    summary.append("  (")
+    summary.append_text(counts_markup)
+    summary.append(")\n")
+    summary.append("Грубая оценка ручной доработки: ")
+    summary.append(f"{lo:g}–{hi:g} ч.", style="bold")
+    summary.append(
+        " — неоткалиброванная эвристика по severity, не измерение", style="dim"
     )
     console.print(Panel(summary, title="ora2pg-gap-report", border_style="cyan"))
 
@@ -72,24 +82,25 @@ def render(findings: list[Finding], console: Console | None = None) -> None:
     table.add_column("Фрагмент", style="cyan", no_wrap=True, overflow="ellipsis", ratio=2)
 
     for f in findings:
-        severity_style = _SEVERITY_STYLE.get(f.severity, "bold white")
+        severity_style = _SEVERITY_STYLE.get(f.severity)
         table.add_row(
-            f.source_file or "—",
-            f.object_name,
-            str(f.line),
-            f"[{severity_style}]{f.severity}[/{severity_style}]",
-            f.detector,
-            f.snippet,
+            Text(f.source_file or "—"),
+            Text(f.object_name),
+            Text(str(f.line)),
+            Text(f.severity, style=severity_style),
+            Text(f.detector),
+            Text(f.snippet),
         )
 
     console.print(table)
 
-    explanations: dict[tuple[str, str], list[str]] = {}
+    explanation_counts: dict[tuple[str, str], int] = {}
     for f in findings:
-        explanations.setdefault((f.detector, f.message), []).append(f.object_name)
+        key = (f.detector, f.message)
+        explanation_counts[key] = explanation_counts.get(key, 0) + 1
 
     console.print()
     console.print("[bold]Пояснения[/bold]")
-    for (detector, message), objects in explanations.items():
-        title = f"{detector} — {len(objects)} объект(ов)"
-        console.print(Panel(message, title=title, title_align="left", border_style="dim"))
+    for (detector, message), n in explanation_counts.items():
+        title = f"{detector} — {n} объект(ов)"
+        console.print(Panel(Text(message), title=title, title_align="left", border_style="dim"))

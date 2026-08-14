@@ -39,6 +39,10 @@
 | `bulk_collect` | Локальные `TYPE ... IS TABLE OF`, `BULK COLLECT INTO`, `FORALL` — практически не конвертируются ora2pg. Самый частый в реальном коде из всех детекторов проекта |
 | `database_link` | `table@dblink_name` — прямая ссылка на удалённую БД через database link. Копируется как есть, эквивалента нет без ручной настройки postgres_fdw/dblink |
 | `model_clause` | `MODEL PARTITION BY ... DIMENSION BY ... MEASURES ... RULES` — spreadsheet-вычисления в SQL. Не имеет прямого эквивалента в PostgreSQL вообще |
+| `pivot_clause` | `PIVOT`/`UNPIVOT` — поворот строк в столбцы прямо в SQL. Копируется как есть, встроенного эквивалента в PostgreSQL нет |
+| `object_type` | `CREATE TYPE ... AS OBJECT`/`TYPE BODY` — объектные типы Oracle. `--estimate_cost` не имеет для них механизма оценки вообще, не просто занижает |
+| `with_function` | `WITH FUNCTION`/`WITH PROCEDURE` — встроенная функция внутри WITH. Парсер ora2pg разваливает структуру исходника, а не просто не конвертирует |
+| `flashback_query` | `AS OF TIMESTAMP`/`AS OF SCN` — flashback-запрос. Копируется как есть, эквивалента в PostgreSQL нет вообще |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -211,7 +215,11 @@ ora2pg_gap_report/
 │   ├── merge_delete_clause.py   # MERGE ... DELETE WHERE — не имеет аналога в MERGE PostgreSQL
 │   ├── bulk_collect.py          # TYPE ... IS TABLE OF / BULK COLLECT INTO / FORALL
 │   ├── database_link.py         # table@dblink_name — прямая ссылка на удалённую БД
-│   └── model_clause.py          # MODEL PARTITION BY / DIMENSION BY / MEASURES / RULES
+│   ├── model_clause.py          # MODEL PARTITION BY / DIMENSION BY / MEASURES / RULES
+│   ├── pivot_clause.py          # PIVOT / UNPIVOT
+│   ├── object_type.py           # CREATE TYPE ... AS OBJECT / TYPE BODY
+│   ├── with_function.py         # WITH FUNCTION / WITH PROCEDURE
+│   └── flashback_query.py       # AS OF TIMESTAMP / AS OF SCN
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── cli.py                      # консольная команда ora2pg-gap-report
 ├── effort_estimator.py          # грубая эвристика по severity, диапазон часов

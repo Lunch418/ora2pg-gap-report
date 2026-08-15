@@ -52,6 +52,7 @@
 | `external_table` | `CREATE TABLE ... ORGANIZATION EXTERNAL` — секция отбрасывается целиком, таблица становится обычной пустой |
 | `sql_macro` | `SQL_MACRO` — конвертируется в обычную функцию, падает при вызове тем способом, для которого была написана |
 | `invisible_column` | Столбец `INVISIBLE` теряет своё скрытие — тихо появляется в SELECT * после конвертации |
+| `collection_type` | `CREATE TYPE ... TABLE OF`/`VARRAY OF` — коллекционный тип пропадает без следа, зависимые таблицы падают уже при загрузке DDL |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -237,7 +238,8 @@ ora2pg_gap_report/
 │   ├── json_table.py            # JSON_TABLE(...) — нет в PostgreSQL 16 и старше
 │   ├── external_table.py        # CREATE TABLE ... ORGANIZATION EXTERNAL
 │   ├── sql_macro.py             # SQL_MACRO — конвертируется в обычную функцию
-│   └── invisible_column.py      # столбец INVISIBLE теряет своё скрытие
+│   ├── invisible_column.py      # столбец INVISIBLE теряет своё скрытие
+│   └── collection_type.py       # CREATE TYPE ... TABLE OF / VARRAY OF
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── cli.py                      # консольная команда ora2pg-gap-report
 ├── effort_estimator.py          # грубая эвристика по severity, диапазон часов

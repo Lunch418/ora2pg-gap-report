@@ -46,6 +46,24 @@ def test_bulk_collect_and_forall_flagged_in_a_standalone_procedure():
     assert len(findings) == 3
 
 
+def test_local_collection_type_in_a_package_spec_is_attributed_not_unknown():
+    # Found by scanning a large real-world PL/SQL corpus
+    # (alexandria-plsql-utils/ora/amazon_aws_s3_pkg.pks): a package SPEC
+    # (no BODY keyword) can itself declare a local collection TYPE as part
+    # of its public interface -- ora2pg mishandles it the same way as any
+    # other local collection type (GAP-003), but object_name used to
+    # silently fall back to 'UNKNOWN' since only PACKAGE BODY was
+    # recognized as an attribution container.
+    source = """
+    create or replace package amazon_aws_s3_pkg as
+      type t_grantee_list is table of number index by binary_integer;
+    end amazon_aws_s3_pkg;
+    """
+    findings = find_bulk_collect_usage(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "AMAZON_AWS_S3_PKG"
+
+
 def test_schema_level_create_type_is_not_flagged():
     # CREATE [OR REPLACE] TYPE ... IS TABLE OF ... (a column-usable
     # collection object type) is a different Oracle feature, not a local

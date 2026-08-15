@@ -64,6 +64,10 @@ _REMEDIATION_HINT = {
     "object_type": "Переписать на composite type + отдельные функции — у PostgreSQL нет объектных типов с методами",
     "with_function": "Вынести встроенную функцию в обычную функцию/процедуру PostgreSQL вручную — ora2pg ломает структуру запроса",
     "flashback_query": "Спроектировать отдельный механизм истории/аудита — прямого эквивалента AS OF в PostgreSQL нет",
+    "global_temp_table": "Добавить 'ON COMMIT DELETE ROWS' вручную в определение временной таблицы — ora2pg теряет секцию ON COMMIT",
+    "table_partitioning": "Пересоздать партиции вручную (CREATE TABLE ... PARTITION OF ...) — ora2pg отбрасывает секционирование полностью",
+    "connect_by_nocycle": "Полностью переписать вручную на WITH RECURSIVE — конвертация NOCYCLE/ORDER SIBLINGS BY разваливает структуру блока",
+    "context_object": "Переписать на current_setting()/set_config() или Row-Level Security (CREATE POLICY) — прямого аналога CREATE CONTEXT нет",
 }
 
 

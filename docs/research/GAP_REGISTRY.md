@@ -25,6 +25,10 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-009 | `CREATE TYPE ... AS OBJECT` / `TYPE BODY` — вне оценки трудозатрат вообще | `object_type` | confirmed | 25.0 | [gap-009](gap-009-object-type.md) |
 | GAP-010 | `WITH FUNCTION`/`WITH PROCEDURE` — парсер разваливает структуру исходника | `with_function` | confirmed | 25.0 | [gap-010](gap-010-with-function.md) |
 | GAP-011 | `AS OF TIMESTAMP`/`AS OF SCN` — flashback-запрос | `flashback_query` | confirmed | 25.0 | [gap-011](gap-011-flashback-query.md) |
+| GAP-012 | `CREATE GLOBAL TEMPORARY TABLE` — теряется секция `ON COMMIT` | `global_temp_table` | confirmed | 25.0 | [gap-012](gap-012-global-temp-table.md) |
+| GAP-013 | `PARTITION BY RANGE/LIST/HASH` — секционирование таблицы отбрасывается целиком | `table_partitioning` | confirmed | 25.0 | [gap-013](gap-013-table-partitioning.md) |
+| GAP-014 | `CONNECT BY NOCYCLE` / `ORDER SIBLINGS BY` — структурное разрушение блока | `connect_by_nocycle` | confirmed | 25.0 | [gap-014](gap-014-connect-by-nocycle.md) |
+| GAP-015 | `CREATE CONTEXT` — application context не конвертируется вообще | `context_object` | confirmed | 25.0 | [gap-015](gap-015-context.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

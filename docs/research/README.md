@@ -7,7 +7,7 @@ README проекта, раздел «Методология»).
 - `GAP_REGISTRY.md` — реестр всех подтверждённых gap'ов с номерами (GAP-NNN),
   статусом и версией `ora2pg`, на которой каждый подтверждён. Начинать
   отсюда.
-- `gap-001-autonomous-transaction.md` … `gap-015-context.md` —
+- `gap-001-autonomous-transaction.md` … `gap-020-invisible-column.md` —
   подробное исследование по каждому gap'у: минимальный пример, вывод
   ora2pg, наблюдаемая проблема, вердикт.
 - `rejected-hypotheses.md` — гипотезы, проверенные и не подтвердившиеся

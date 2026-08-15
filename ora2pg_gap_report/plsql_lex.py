@@ -425,3 +425,29 @@ def enclosing_object_name(index: list[tuple[int, str, str]], position: int) -> s
         name, needs_prefix = leaf
         return f"{package_name}.{name}" if needs_prefix and package_name else name
     return package_name or "UNKNOWN"
+
+
+def statement_end(text: str, search_from: int, next_match_start: int | None) -> int:
+    """End of a schema-level DDL statement (CREATE TABLE/INDEX/... and
+    similar) starting at or before `search_from`: the next ';', or
+    `next_match_start` (the start position of the next occurrence of the
+    same kind of statement, if the caller is iterating over one regex's
+    matches and knows it) -- whichever comes first -- or the end of
+    `text` if neither is found.
+
+    Exists because DBMS_METADATA.GET_DDL's default output (this project's
+    documented Oracle export mechanism -- see oracle_connector.py) has no
+    trailing ';': SQLTERMINATOR is off unless the caller explicitly turns
+    it on. A detector that scopes "this statement's own text" to just
+    "up to the next ';', or end of file if none" silently swallows every
+    later statement in the file into the first unterminated one once that
+    happens -- confirmed to actually happen with real unterminated
+    DBMS_METADATA-style output, misattributing a later table's own
+    findings to an earlier, unrelated table. Bounding by the next
+    same-kind statement's own start (when the caller has it) closes that
+    hole even with no ';' anywhere: once a second 'CREATE TABLE' (or
+    whatever kind is being scanned) begins, the first one's statement is
+    over regardless of punctuation."""
+    semi = text.find(";", search_from)
+    candidates = [c for c in (semi if semi != -1 else None, next_match_start) if c is not None]
+    return min(candidates) if candidates else len(text)

@@ -48,6 +48,10 @@ GAPS = [
     ("022", "cross_apply", ["test_cross_apply.py"]),
     ("023", "oracle_text", ["test_oracle_text.py"]),
     ("024", "recursive_with", ["test_recursive_with.py"]),
+    ("025", "invisible_index", ["test_invisible_index.py"]),
+    ("026", "read_only_table", ["test_read_only_table.py"]),
+    ("027", "materialized_view_log", ["test_materialized_view_log.py"]),
+    ("028", "identity_column", ["test_identity_column.py"]),
 ]
 
 _TEST_DEF_RE = re.compile(r"^def (test_\w+)", re.MULTILINE)

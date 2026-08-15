@@ -77,6 +77,10 @@ _REMEDIATION_HINT = {
     "cross_apply": "Переписать на JOIN LATERAL (...) ON true / LEFT JOIN LATERAL (...) ON true — синтаксиса APPLY в PostgreSQL нет",
     "oracle_text": "Переписать на tsvector/tsquery + GIN-индекс (to_tsvector/@@) — ora2pg теряет INDEXTYPE и не переносит CONTAINS/CATSEARCH/MATCHES",
     "recursive_with": "Добавить ключевое слово RECURSIVE вручную (и при наличии CYCLE — переставить её после тела CTE и добавить обязательную секцию USING)",
+    "invisible_index": "Проверить, действительно ли индекс должен быть скрыт от оптимизатора — PostgreSQL не имеет аналога INVISIBLE для индексов",
+    "read_only_table": "Настроить REVOKE INSERT/UPDATE/DELETE от всех ролей или BEFORE-триггер, отклоняющий DML — ora2pg теряет секцию READ ONLY",
+    "materialized_view_log": "Спроектировать обновление материализованных представлений через полный REFRESH MATERIALIZED VIEW — у PostgreSQL нет инкрементального FAST REFRESH",
+    "identity_column": "Убрать лишнюю внешнюю пару скобок вокруг опций последовательности вручную — баг подстановки ora2pg, не пропуск конвертации",
 }
 
 

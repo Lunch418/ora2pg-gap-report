@@ -232,6 +232,10 @@ def test_every_detector_registered_in_cli_has_a_remediation_hint():
         "cross_apply",
         "oracle_text",
         "recursive_with",
+        "invisible_index",
+        "read_only_table",
+        "materialized_view_log",
+        "identity_column",
         "connect_by",  # opt-in via --check-connect-by, not in cli._DETECTORS
     }
     assert registered_names <= set(_REMEDIATION_HINT.keys())

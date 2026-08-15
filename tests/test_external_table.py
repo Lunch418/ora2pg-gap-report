@@ -33,3 +33,20 @@ def test_external_table_is_not_misattributed_to_a_later_ordinary_table():
     findings = find_external_tables(source)
     assert len(findings) == 1
     assert findings[0].object_name == "EXT_ORDERS"
+
+
+def test_unterminated_statement_does_not_bleed_into_an_earlier_table():
+    # DBMS_METADATA.GET_DDL's default output (this project's own
+    # documented Oracle export mechanism) has no trailing ';' -- scoping
+    # "this table's own text" to just "next ';' or end of file" used to
+    # let a later table's ORGANIZATION EXTERNAL clause bleed all the way
+    # back to an earlier, unrelated, unterminated table.
+    source = (
+        "create table small_lookup (id number)\n"
+        "create table ext_orders (order_id number)\n"
+        "organization external (type oracle_loader default directory ext_dir "
+        "location ('orders.csv'))\n"
+    )
+    findings = find_external_tables(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "EXT_ORDERS"

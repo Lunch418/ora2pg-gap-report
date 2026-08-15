@@ -38,6 +38,10 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-022 | `CROSS APPLY`/`OUTER APPLY` — синтаксиса APPLY нет в PostgreSQL | `cross_apply` | confirmed | 25.0 | [gap-022](gap-022-cross-apply.md) |
 | GAP-023 | Oracle Text — домен-индекс отбрасывается, `CONTAINS`/`CATSEARCH`/`MATCHES` не переносятся | `oracle_text` | confirmed | 25.0 | [gap-023](gap-023-oracle-text.md) |
 | GAP-024 | Нативная рекурсивная `WITH ... AS (...)` без ключевого слова `RECURSIVE` | `recursive_with` | confirmed | 25.0 | [gap-024](gap-024-recursive-with.md) |
+| GAP-025 | Индекс `INVISIBLE` теряет своё скрытие от оптимизатора | `invisible_index` | confirmed | 25.0 | [gap-025](gap-025-invisible-index.md) |
+| GAP-026 | `CREATE TABLE ... READ ONLY` теряет гарантию неизменяемости | `read_only_table` | confirmed | 25.0 | [gap-026](gap-026-read-only-table.md) |
+| GAP-027 | `CREATE MATERIALIZED VIEW LOG` не конвертируется вообще | `materialized_view_log` | confirmed | 25.0 | [gap-027](gap-027-materialized-view-log.md) |
+| GAP-028 | `GENERATED ... AS IDENTITY (...)` с опциями — баг двойных скобок | `identity_column` | confirmed | 25.0 | [gap-028](gap-028-identity-column.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

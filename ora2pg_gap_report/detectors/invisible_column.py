@@ -1,7 +1,7 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import line_at, mask_strings_and_comments, qualified_name_pattern
+from ..plsql_lex import line_at, mask_strings_and_comments, qualified_name_pattern, statement_end
 
 _TABLE_RE = re.compile(
     qualified_name_pattern(r"CREATE\s+TABLE"),
@@ -57,14 +57,20 @@ def find_invisible_columns(source: str) -> list[Finding]:
     also the last column in the table ('tag invisible)') would be flagged
     -- the closing paren right after it looks identical to the real
     trailing-modifier position. Accepted as out of scope: a type actually
-    named "invisible" is not a realistic naming choice in real schemas."""
+    named "invisible" is not a realistic naming choice in real schemas.
+
+    Statement scoping uses statement_end() -- up to the next ';', or the
+    start of the next CREATE TABLE if there's no ';' (DBMS_METADATA.GET_DDL's
+    default output has none) -- not just "next ';' or end of file", which
+    would otherwise misattribute a later table's own INVISIBLE columns to
+    an earlier, unterminated one."""
     clean = mask_strings_and_comments(source)
     findings: list[Finding] = []
 
-    for m in _TABLE_RE.finditer(clean):
-        stmt_end = clean.find(";", m.end())
-        if stmt_end == -1:
-            stmt_end = len(clean)
+    table_matches = list(_TABLE_RE.finditer(clean))
+    for i, m in enumerate(table_matches):
+        next_start = table_matches[i + 1].start() if i + 1 < len(table_matches) else None
+        stmt_end = statement_end(clean, m.end(), next_start)
         statement = clean[m.end() : stmt_end]
         table_name = m.group(1).upper()
 

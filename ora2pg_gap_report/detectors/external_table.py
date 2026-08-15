@@ -1,7 +1,7 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import line_at, mask_strings_and_comments, qualified_name_pattern
+from ..plsql_lex import line_at, mask_strings_and_comments, qualified_name_pattern, statement_end
 
 _TABLE_RE = re.compile(
     qualified_name_pattern(r"CREATE\s+TABLE"),
@@ -33,16 +33,19 @@ def find_external_tables(source: str) -> list[Finding]:
     --estimate_cost signal -- the table's actual data source (an external
     file) simply disappears. See docs/research/gap-018-external-table.md.
 
-    Search is scoped to each CREATE TABLE statement's own text (up to its
-    terminating ';'), same approach as table_partitioning.py, so this
-    can't be confused with any other DDL that happens to precede it."""
+    Search is scoped to each CREATE TABLE statement's own text -- up to
+    its terminating ';', or the start of the next CREATE TABLE if there's
+    no ';' (DBMS_METADATA.GET_DDL's default output has none -- see
+    statement_end()'s own docstring) -- same approach as
+    table_partitioning.py, so this can't be confused with any other DDL
+    that happens to precede it, terminated or not."""
     clean = mask_strings_and_comments(source)
     findings: list[Finding] = []
 
-    for m in _TABLE_RE.finditer(clean):
-        stmt_end = clean.find(";", m.end())
-        if stmt_end == -1:
-            stmt_end = len(clean)
+    table_matches = list(_TABLE_RE.finditer(clean))
+    for i, m in enumerate(table_matches):
+        next_start = table_matches[i + 1].start() if i + 1 < len(table_matches) else None
+        stmt_end = statement_end(clean, m.end(), next_start)
         statement = clean[m.end() : stmt_end]
 
         if not _ORGANIZATION_EXTERNAL_RE.search(statement):

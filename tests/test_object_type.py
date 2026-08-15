@@ -67,3 +67,69 @@ def test_editionable_modifier_does_not_hide_a_match():
     findings = find_object_types(source)
     assert len(findings) == 1
     assert findings[0].object_name == "POINT_T"
+
+
+def test_real_open_source_object_type_is_flagged():
+    # The exact real-world shape this gap was originally found on --
+    # verbatim (fetched directly from the upstream repo, not paraphrased)
+    # from mortenbra/alexandria-plsql-utils, ora/t_soap_envelope.pks, a
+    # genuine object type from a widely-used open-source PL/SQL library,
+    # not a synthetic construction. Kept as a permanent regression check
+    # tying this detector to that real source, per docs/research/AUDIT.md.
+    source = """
+    create or replace type t_soap_envelope as object (
+
+      /*
+
+      Purpose:    Object type to handle SOAP envelopes for web service calls
+
+      Remarks:
+
+      Who     Date        Description
+      ------  ----------  -------------------------------------
+      MBR     17.02.2009  Created
+      MBR     11.05.2011  Added request start date, support for clob parameters
+
+      */
+
+      -- public properties
+      service_namespace       varchar2(255),
+      service_method          varchar2(4000),
+      service_host            varchar2(4000),
+      service_path            varchar2(4000),
+      service_url             varchar2(4000),
+      soap_action             varchar2(4000),
+      soap_namespace          varchar2(255),
+      request_start_date      date,
+      envelope                clob,
+
+      -- private properties
+      m_parameters            clob,
+
+      constructor function t_soap_envelope (p_service_host in varchar2,
+                                            p_service_path in varchar2,
+                                            p_service_method in varchar2,
+                                            p_service_namespace in varchar2 := null,
+                                            p_soap_namespace in varchar2 := null,
+                                            p_soap_action in varchar2 := null) return self as result,
+
+      member procedure add_param (p_name in varchar2,
+                                  p_value in varchar2,
+                                  p_type in varchar2 := null),
+
+      member procedure add_param_clob (p_name in varchar2,
+                                       p_value in clob,
+                                       p_type in varchar2 := null),
+
+      member procedure add_xml (p_xml in clob),
+
+      member procedure build_env,
+
+      member procedure debug_envelope
+
+      );
+    /
+    """
+    findings = find_object_types(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "T_SOAP_ENVELOPE"

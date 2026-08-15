@@ -47,21 +47,32 @@ def test_bulk_collect_and_forall_flagged_in_a_standalone_procedure():
 
 
 def test_local_collection_type_in_a_package_spec_is_attributed_not_unknown():
-    # Found by scanning a large real-world PL/SQL corpus
-    # (alexandria-plsql-utils/ora/amazon_aws_s3_pkg.pks): a package SPEC
-    # (no BODY keyword) can itself declare a local collection TYPE as part
-    # of its public interface -- ora2pg mishandles it the same way as any
-    # other local collection type (GAP-003), but object_name used to
-    # silently fall back to 'UNKNOWN' since only PACKAGE BODY was
-    # recognized as an attribution container.
+    # Found by scanning a large real-world PL/SQL corpus -- this is the
+    # verbatim type declaration pair from alexandria-plsql-utils/ora/
+    # amazon_aws_s3_pkg.pks (fetched directly from the upstream repo, not
+    # paraphrased). A package SPEC (no BODY keyword) can itself declare a
+    # local collection TYPE as part of its public interface -- ora2pg
+    # mishandles it the same way as any other local collection type
+    # (GAP-003), but object_name used to silently fall back to 'UNKNOWN'
+    # since only PACKAGE BODY was recognized as an attribution container.
     source = """
-    create or replace package amazon_aws_s3_pkg as
-      type t_grantee_list is table of number index by binary_integer;
+    create or replace package amazon_aws_s3_pkg
+    as
+      type t_grantee is record (
+        grantee_type varchar2(20),  -- CanonicalUser or Group
+        user_id varchar2(200),      -- for users
+        user_name varchar2(200),    -- for users
+        group_uri varchar2(200),    -- for groups
+        permission varchar2(20)     -- FULL_CONTROL, WRITE, READ_ACP
+      );
+
+      type t_grantee_list is table of t_grantee index by binary_integer;
+      type t_grantee_tab is table of t_grantee;
     end amazon_aws_s3_pkg;
     """
     findings = find_bulk_collect_usage(source)
-    assert len(findings) == 1
-    assert findings[0].object_name == "AMAZON_AWS_S3_PKG"
+    assert len(findings) == 2
+    assert {f.object_name for f in findings} == {"AMAZON_AWS_S3_PKG"}
 
 
 def test_schema_level_create_type_is_not_flagged():

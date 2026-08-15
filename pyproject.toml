@@ -29,7 +29,7 @@ dependencies = ["rich>=13"]
 # Только для oracle_connector.py / oracle_export.py (живая выгрузка DDL из
 # Oracle). Три детектора и сам анализ в этом не нуждаются вообще.
 oracle = ["oracledb>=2.0"]
-dev = ["pytest>=7.0"]
+dev = ["pytest>=7.0", "ruff>=0.6"]
 
 [project.urls]
 Repository = "https://github.com/Lunch418/ora2pg-gap-report"

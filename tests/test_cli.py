@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from ora2pg_gap_report import cli
-from ora2pg_gap_report.cli import main, resolve_format, scan_source
+from ora2pg_gap_report.cli import _expand_paths, main, resolve_format, scan_source
 
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -375,3 +375,130 @@ def test_count_objects_does_not_collapse_same_named_objects_in_different_schemas
     /
     """
     assert cli.count_objects(source) == 4
+
+
+def test_version_flag_prints_the_installed_version_and_exits_cleanly(capsys):
+    # argparse's action="version" raises SystemExit(0) after printing --
+    # that's the documented, correct behaviour, not a crash.
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--version"])
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert "ora2pg-gap-report" in captured.out
+
+
+def test_expand_paths_recursively_finds_ddl_files_in_a_directory(tmp_path):
+    nested = tmp_path / "schema" / "packages"
+    nested.mkdir(parents=True)
+    (tmp_path / "top.sql").write_text("create table t (id number);\n")
+    (nested / "logger.pkb").write_text("create table t (id number);\n")
+    (nested / "logger.pks").write_text("create table t (id number);\n")
+    (nested / "readme.txt").write_text("not ddl\n")
+
+    found, empty_dirs = _expand_paths([tmp_path])
+
+    assert empty_dirs == []
+    assert sorted(p.name for p in found) == ["logger.pkb", "logger.pks", "top.sql"]
+
+
+def test_expand_paths_leaves_plain_files_and_missing_paths_untouched(tmp_path):
+    real_file = tmp_path / "a.pkb"
+    real_file.write_text("create table t (id number);\n")
+    missing = tmp_path / "does_not_exist.sql"
+
+    found, empty_dirs = _expand_paths([real_file, missing])
+
+    assert found == [real_file, missing]
+    assert empty_dirs == []
+
+
+def test_expand_paths_matches_uppercase_extensions_too():
+    # Exported DDL sometimes carries uppercase extensions (e.g. after
+    # copying from Windows/case-preserving tooling) -- a directory listing
+    # only lowercase-suffix files used to silently skip these.
+    tmp_path_dir = Path(__file__).resolve().parent / "fixtures" / "_uppercase_ext_probe"
+    tmp_path_dir.mkdir(exist_ok=True)
+    try:
+        (tmp_path_dir / "LOGGER.PKB").write_text("create table t (id number);\n")
+        found, empty_dirs = _expand_paths([tmp_path_dir])
+        assert empty_dirs == []
+        assert [p.name for p in found] == ["LOGGER.PKB"]
+    finally:
+        shutil.rmtree(tmp_path_dir)
+
+
+def test_expand_paths_deduplicates_a_file_reachable_both_directly_and_via_a_directory(tmp_path):
+    # 'schema/ schema/logger.pkb' (directory plus an explicit path inside
+    # it) is a natural invocation -- e.g. shell-completed or scripted --
+    # and used to scan/report the same file twice, doubling every count.
+    nested = tmp_path / "schema"
+    nested.mkdir()
+    dup_file = nested / "logger.pkb"
+    dup_file.write_text("create table t (id number);\n")
+
+    found, empty_dirs = _expand_paths([nested, dup_file])
+
+    assert empty_dirs == []
+    assert found == [dup_file]
+
+
+def test_expand_paths_deduplicates_the_same_directory_listed_twice(tmp_path):
+    nested = tmp_path / "schema"
+    nested.mkdir()
+    (nested / "logger.pkb").write_text("create table t (id number);\n")
+
+    found, empty_dirs = _expand_paths([nested, nested])
+
+    assert empty_dirs == []
+    assert len(found) == 1
+
+
+def test_main_does_not_double_count_a_file_reachable_two_ways(tmp_path):
+    schema_dir = tmp_path / "schema"
+    schema_dir.mkdir()
+    dup_path = schema_dir / "a.pkb"
+    dup_path.write_text((SAMPLES / "logger.pkb").read_text(), encoding="utf-8")
+
+    once_path = tmp_path / "once.json"
+    main([str(dup_path), "--format", "json", "--output", str(once_path)])
+    once = json.loads(once_path.read_text())
+
+    twice_path = tmp_path / "twice.json"
+    main([str(schema_dir), str(dup_path), "--format", "json", "--output", str(twice_path)])
+    twice = json.loads(twice_path.read_text())
+
+    assert len(twice) == len(once)
+    assert len(once) > 0
+
+
+def test_expand_paths_reports_a_directory_with_no_matching_files(tmp_path):
+    empty = tmp_path / "no_ddl_here"
+    empty.mkdir()
+    (empty / "readme.txt").write_text("not ddl\n")
+
+    found, empty_dirs = _expand_paths([empty])
+
+    assert found == []
+    assert empty_dirs == [empty]
+
+
+def test_main_scans_a_directory_end_to_end(tmp_path):
+    (tmp_path / "a.pkb").write_text(
+        (SAMPLES / "logger.pkb").read_text(), encoding="utf-8"
+    )
+    output_path = tmp_path / "report.json"
+    exit_code = main([str(tmp_path), "--format", "json", "--output", str(output_path)])
+    assert exit_code == 0
+    findings = json.loads(output_path.read_text())
+    assert len(findings) > 0
+    assert findings[0]["source_file"].endswith("a.pkb")
+
+
+def test_main_warns_on_a_directory_with_no_matching_files(tmp_path, capsys):
+    empty_dir = tmp_path / "no_ddl_here"
+    empty_dir.mkdir()
+    exit_code = main([str(empty_dir), "--format", "json"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "no_ddl_here" in captured.err
+    assert json.loads(captured.out) == []

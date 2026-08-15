@@ -11,13 +11,17 @@ from .detectors.autonomous_tx import find_autonomous_transactions
 from .detectors.bulk_collect import find_bulk_collect_usage
 from .detectors.compound_triggers import find_compound_triggers
 from .detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
+from .detectors.connect_by_nocycle import find_connect_by_nocycle_or_order_siblings
+from .detectors.context_object import find_context_declarations
 from .detectors.database_link import find_database_link_references
 from .detectors.dbms_utl_calls import find_dbms_utl_calls
 from .detectors.flashback_query import find_flashback_queries
+from .detectors.global_temp_table import find_global_temp_tables_without_delete_rows
 from .detectors.merge_delete_clause import find_merge_delete_clauses
 from .detectors.model_clause import find_model_clauses
 from .detectors.object_type import find_object_types
 from .detectors.pivot_clause import find_pivot_clauses
+from .detectors.table_partitioning import find_dropped_table_partitioning
 from .detectors.with_function import find_with_function_clauses
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .models import Finding
@@ -38,6 +42,10 @@ _DETECTORS = (
     find_object_types,
     find_with_function_clauses,
     find_flashback_queries,
+    find_global_temp_tables_without_delete_rows,
+    find_dropped_table_partitioning,
+    find_connect_by_nocycle_or_order_siblings,
+    find_context_declarations,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 

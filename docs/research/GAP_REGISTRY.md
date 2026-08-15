@@ -29,6 +29,11 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-013 | `PARTITION BY RANGE/LIST/HASH` — секционирование таблицы отбрасывается целиком | `table_partitioning` | confirmed | 25.0 | [gap-013](gap-013-table-partitioning.md) |
 | GAP-014 | `CONNECT BY NOCYCLE` / `ORDER SIBLINGS BY` — структурное разрушение блока | `connect_by_nocycle` | confirmed | 25.0 | [gap-014](gap-014-connect-by-nocycle.md) |
 | GAP-015 | `CREATE CONTEXT` — application context не конвертируется вообще | `context_object` | confirmed | 25.0 | [gap-015](gap-015-context.md) |
+| GAP-016 | `INSERT ALL`/`INSERT FIRST` — многотабличная вставка | `insert_all` | confirmed | 25.0 | [gap-016](gap-016-insert-all.md) |
+| GAP-017 | `JSON_TABLE(...)` — не существует в PostgreSQL 16 и старше | `json_table` | confirmed | 25.0 | [gap-017](gap-017-json-table.md) |
+| GAP-018 | `CREATE TABLE ... ORGANIZATION EXTERNAL` — секция отбрасывается целиком | `external_table` | confirmed | 25.0 | [gap-018](gap-018-external-table.md) |
+| GAP-019 | `SQL_MACRO` — конвертируется в обычную функцию | `sql_macro` | confirmed | 25.0 | [gap-019](gap-019-sql-macro.md) |
+| GAP-020 | Столбец `INVISIBLE` теряет своё скрытие | `invisible_column` | confirmed | 25.0 | [gap-020](gap-020-invisible-column.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

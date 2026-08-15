@@ -47,6 +47,11 @@
 | `table_partitioning` | `PARTITION BY RANGE/LIST/HASH` — секционирование таблицы отбрасывается целиком, без единого предупреждения |
 | `connect_by_nocycle` | `CONNECT BY NOCYCLE`/`ORDER SIBLINGS BY` — в отличие от базового `CONNECT BY`, разваливает структуру всего окружающего PL/SQL-блока |
 | `context_object` | `CREATE CONTEXT` — application context (часто основа VPD) не конвертируется вообще, след только в DEBUG-логе |
+| `insert_all` | `INSERT ALL`/`INSERT FIRST` — многотабличная вставка. Копируется как есть, PL/pgSQL падает на этапе компиляции тела |
+| `json_table` | `JSON_TABLE(...)` — не существует в PostgreSQL 16 и старше (в 17 есть, но с другим синтаксисом COLUMNS) |
+| `external_table` | `CREATE TABLE ... ORGANIZATION EXTERNAL` — секция отбрасывается целиком, таблица становится обычной пустой |
+| `sql_macro` | `SQL_MACRO` — конвертируется в обычную функцию, падает при вызове тем способом, для которого была написана |
+| `invisible_column` | Столбец `INVISIBLE` теряет своё скрытие — тихо появляется в SELECT * после конвертации |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -227,7 +232,12 @@ ora2pg_gap_report/
 │   ├── global_temp_table.py     # CREATE GLOBAL TEMPORARY TABLE — теряется ON COMMIT
 │   ├── table_partitioning.py    # PARTITION BY RANGE/LIST/HASH — отбрасывается целиком
 │   ├── connect_by_nocycle.py    # CONNECT BY NOCYCLE / ORDER SIBLINGS BY
-│   └── context_object.py        # CREATE CONTEXT — application context
+│   ├── context_object.py        # CREATE CONTEXT — application context
+│   ├── insert_all.py            # INSERT ALL / INSERT FIRST — многотабличная вставка
+│   ├── json_table.py            # JSON_TABLE(...) — нет в PostgreSQL 16 и старше
+│   ├── external_table.py        # CREATE TABLE ... ORGANIZATION EXTERNAL
+│   ├── sql_macro.py             # SQL_MACRO — конвертируется в обычную функцию
+│   └── invisible_column.py      # столбец INVISIBLE теряет своё скрытие
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── cli.py                      # консольная команда ora2pg-gap-report
 ├── effort_estimator.py          # грубая эвристика по severity, диапазон часов

@@ -9,6 +9,7 @@ from rich.markup import escape
 
 from .detectors.autonomous_tx import find_autonomous_transactions
 from .detectors.bulk_collect import find_bulk_collect_usage
+from .detectors.collection_type import find_collection_types
 from .detectors.compound_triggers import find_compound_triggers
 from .detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
 from .detectors.connect_by_nocycle import find_connect_by_nocycle_or_order_siblings
@@ -56,6 +57,7 @@ _DETECTORS = (
     find_external_tables,
     find_sql_macros,
     find_invisible_columns,
+    find_collection_types,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 

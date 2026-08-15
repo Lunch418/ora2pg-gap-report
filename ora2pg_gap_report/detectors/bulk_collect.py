@@ -58,8 +58,20 @@ def _is_schema_level_create_type(text: str, match_start: int) -> bool:
     Searches the whole prefix, not a fixed-width window before it — a
     masked comment (e.g. 'CREATE OR REPLACE /* ... */ TYPE') can be far
     longer than any fixed window, and a real prefix that long would wrongly
-    be missed."""
-    return bool(re.search(r"CREATE\s+(?:OR\s+REPLACE\s+)?\Z", text[:match_start], re.IGNORECASE))
+    be missed. Also allows an EDITIONABLE/NONEDITIONABLE modifier between
+    'OR REPLACE' and 'TYPE' (Oracle 12c+) — missing it here caused a real
+    schema-level collection type declared with this modifier to be
+    double-reported: once correctly by collection_type.py, and once
+    incorrectly by this detector, which is only meant to catch the local
+    'TYPE t IS TABLE OF ...' form nested inside a routine's DECLARE
+    section."""
+    return bool(
+        re.search(
+            r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:EDITIONABLE\s+|NONEDITIONABLE\s+)?\Z",
+            text[:match_start],
+            re.IGNORECASE,
+        )
+    )
 
 
 def find_bulk_collect_usage(source: str) -> list[Finding]:

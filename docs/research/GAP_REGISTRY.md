@@ -34,6 +34,7 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-018 | `CREATE TABLE ... ORGANIZATION EXTERNAL` — секция отбрасывается целиком | `external_table` | confirmed | 25.0 | [gap-018](gap-018-external-table.md) |
 | GAP-019 | `SQL_MACRO` — конвертируется в обычную функцию | `sql_macro` | confirmed | 25.0 | [gap-019](gap-019-sql-macro.md) |
 | GAP-020 | Столбец `INVISIBLE` теряет своё скрытие | `invisible_column` | confirmed | 25.0 | [gap-020](gap-020-invisible-column.md) |
+| GAP-021 | `CREATE TYPE ... TABLE OF`/`VARRAY OF` — коллекционный тип пропадает без следа | `collection_type` | confirmed | 25.0 | [gap-021](gap-021-collection-type.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

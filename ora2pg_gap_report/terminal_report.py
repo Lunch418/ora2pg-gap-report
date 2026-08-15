@@ -74,6 +74,9 @@ _REMEDIATION_HINT = {
     "sql_macro": "Встроить логику макроса как обычное условие/подзапрос прямо в вызывающий код — SQL_MACRO конвертируется в обычную функцию",
     "invisible_column": "Явно перечислять столбцы в SELECT/INSERT там, где скрытие было важно — PostgreSQL не имеет аналога INVISIBLE",
     "collection_type": "Переписать на встроенный массив (datatype[]) или отдельную связанную таблицу — ora2pg полностью теряет объявление коллекционного типа",
+    "cross_apply": "Переписать на JOIN LATERAL (...) ON true / LEFT JOIN LATERAL (...) ON true — синтаксиса APPLY в PostgreSQL нет",
+    "oracle_text": "Переписать на tsvector/tsquery + GIN-индекс (to_tsvector/@@) — ora2pg теряет INDEXTYPE и не переносит CONTAINS/CATSEARCH/MATCHES",
+    "recursive_with": "Добавить ключевое слово RECURSIVE вручную (и при наличии CYCLE — переставить её после тела CTE и добавить обязательную секцию USING)",
 }
 
 

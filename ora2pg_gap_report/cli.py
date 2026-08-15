@@ -15,12 +15,17 @@ from .detectors.connect_by_nocycle import find_connect_by_nocycle_or_order_sibli
 from .detectors.context_object import find_context_declarations
 from .detectors.database_link import find_database_link_references
 from .detectors.dbms_utl_calls import find_dbms_utl_calls
+from .detectors.external_table import find_external_tables
 from .detectors.flashback_query import find_flashback_queries
 from .detectors.global_temp_table import find_global_temp_tables_without_delete_rows
+from .detectors.insert_all import find_multitable_inserts
+from .detectors.invisible_column import find_invisible_columns
+from .detectors.json_table import find_json_table_calls
 from .detectors.merge_delete_clause import find_merge_delete_clauses
 from .detectors.model_clause import find_model_clauses
 from .detectors.object_type import find_object_types
 from .detectors.pivot_clause import find_pivot_clauses
+from .detectors.sql_macro import find_sql_macros
 from .detectors.table_partitioning import find_dropped_table_partitioning
 from .detectors.with_function import find_with_function_clauses
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
@@ -46,6 +51,11 @@ _DETECTORS = (
     find_dropped_table_partitioning,
     find_connect_by_nocycle_or_order_siblings,
     find_context_declarations,
+    find_multitable_inserts,
+    find_json_table_calls,
+    find_external_tables,
+    find_sql_macros,
+    find_invisible_columns,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 

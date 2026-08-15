@@ -1,0 +1,97 @@
+import re
+
+from ..models import Finding
+from ..plsql_lex import (
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_strings_and_comments,
+    qualified_name_pattern,
+    skip_balanced_parens,
+)
+
+_INDEX_RE = re.compile(
+    qualified_name_pattern(r"CREATE\s+INDEX"),
+    re.IGNORECASE,
+)
+_INDEXTYPE_RE = re.compile(r"\bINDEXTYPE\s+IS\s+CTXSYS\.(CONTEXT|CTXCAT|CTXRULE)\b", re.IGNORECASE)
+# CONTAINS/CATSEARCH/MATCHES are plausible names for an unrelated
+# user-defined function (a collection-membership helper named "contains"
+# is entirely ordinary Oracle code) -- unlike the domain-index check
+# above, which has no realistic collision risk at all. Oracle Text's
+# functions always return a relevance score and are, in every real usage,
+# immediately compared against a numeric threshold or bind variable right
+# after the call ('CONTAINS(text, 'dog') > 0') -- requiring that
+# comparison is what disambiguates a real Oracle Text call from a
+# same-named function returning something else entirely.
+_TEXT_FUNCTION_RE = re.compile(r"\b(CONTAINS|CATSEARCH|MATCHES)\s*\(", re.IGNORECASE)
+_SCORE_COMPARISON_RE = re.compile(r"\s*(?:>=|<=|<>|!=|>|<|=)\s*(?:\d|:)")
+
+_MESSAGE = (
+    "Oracle Text — полнотекстовый поиск через домен-индекс "
+    "(CREATE INDEX ... INDEXTYPE IS CTXSYS.CONTEXT/CTXCAT/CTXRULE) и "
+    "функции CONTAINS()/CATSEARCH()/MATCHES(). ora2pg отбрасывает секцию "
+    "INDEXTYPE целиком — индекс создаётся как обычный B-tree по столбцу, "
+    "без единого предупреждения; вызовы CONTAINS()/CATSEARCH()/MATCHES() "
+    "копируются как есть (подтверждено реальным прогоном ora2pg + "
+    "PostgreSQL 16, docs/research/gap-023-oracle-text.md). Обычный B-tree "
+    "индекс не даёт полнотекстового поиска вообще — не синтаксическая "
+    "ошибка, а тихая потеря всей функциональности; вызовы "
+    "CONTAINS()/CATSEARCH()/MATCHES() падают при первом вызове: "
+    "'function contains(text, unknown) does not exist'. У PostgreSQL есть "
+    "архитектурный эквивалент — полнотекстовый поиск через "
+    "tsvector/tsquery и GIN-индекс (`to_tsvector`/`@@`), но это требует "
+    "ручного переписывания, не механической замены синтаксиса."
+)
+
+
+def find_oracle_text_usage(source: str) -> list[Finding]:
+    """Detect Oracle Text: CREATE INDEX ... INDEXTYPE IS CTXSYS.* domain
+    indexes and CONTAINS()/CATSEARCH()/MATCHES() function calls. ora2pg
+    silently drops the INDEXTYPE clause (index becomes an ordinary
+    B-tree, no full-text search capability at all) and passes the search
+    functions through unchanged, which don't exist in PostgreSQL. See
+    docs/research/gap-023-oracle-text.md.
+
+    The function-call check additionally requires an immediate numeric/
+    bind-variable comparison right after the call ('CONTAINS(...) > 0')
+    -- see _SCORE_COMPARISON_RE's comment for why."""
+    clean = mask_strings_and_comments(source)
+    name_index = enclosing_object_name_index(clean)
+    findings: list[Finding] = []
+
+    for m in _INDEX_RE.finditer(clean):
+        stmt_end = clean.find(";", m.end())
+        if stmt_end == -1:
+            stmt_end = len(clean)
+        statement = clean[m.end() : stmt_end]
+        it_match = _INDEXTYPE_RE.search(statement)
+        if it_match is None:
+            continue
+        findings.append(
+            Finding(
+                detector="oracle_text",
+                severity="high",
+                object_name=m.group(1).upper(),
+                line=line_at(clean, m.start()),
+                snippet=f"INDEXTYPE IS CTXSYS.{it_match.group(1).upper()}",
+                message=_MESSAGE,
+            )
+        )
+
+    for m in _TEXT_FUNCTION_RE.finditer(clean):
+        call_end = skip_balanced_parens(clean, m.end() - 1)
+        if not _SCORE_COMPARISON_RE.match(clean, call_end):
+            continue
+        findings.append(
+            Finding(
+                detector="oracle_text",
+                severity="high",
+                object_name=enclosing_object_name(name_index, m.start()),
+                line=line_at(clean, m.start()),
+                snippet=f"{m.group(1).upper()}(...)",
+                message=_MESSAGE,
+            )
+        )
+
+    return findings

@@ -45,6 +45,9 @@ GAPS = [
     ("019", "sql_macro", ["test_sql_macro.py"]),
     ("020", "invisible_column", ["test_invisible_column.py"]),
     ("021", "collection_type", ["test_collection_type.py"]),
+    ("022", "cross_apply", ["test_cross_apply.py"]),
+    ("023", "oracle_text", ["test_oracle_text.py"]),
+    ("024", "recursive_with", ["test_recursive_with.py"]),
 ]
 
 _TEST_DEF_RE = re.compile(r"^def (test_\w+)", re.MULTILINE)

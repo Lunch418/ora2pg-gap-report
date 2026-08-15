@@ -35,6 +35,9 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-019 | `SQL_MACRO` — конвертируется в обычную функцию | `sql_macro` | confirmed | 25.0 | [gap-019](gap-019-sql-macro.md) |
 | GAP-020 | Столбец `INVISIBLE` теряет своё скрытие | `invisible_column` | confirmed | 25.0 | [gap-020](gap-020-invisible-column.md) |
 | GAP-021 | `CREATE TYPE ... TABLE OF`/`VARRAY OF` — коллекционный тип пропадает без следа | `collection_type` | confirmed | 25.0 | [gap-021](gap-021-collection-type.md) |
+| GAP-022 | `CROSS APPLY`/`OUTER APPLY` — синтаксиса APPLY нет в PostgreSQL | `cross_apply` | confirmed | 25.0 | [gap-022](gap-022-cross-apply.md) |
+| GAP-023 | Oracle Text — домен-индекс отбрасывается, `CONTAINS`/`CATSEARCH`/`MATCHES` не переносятся | `oracle_text` | confirmed | 25.0 | [gap-023](gap-023-oracle-text.md) |
+| GAP-024 | Нативная рекурсивная `WITH ... AS (...)` без ключевого слова `RECURSIVE` | `recursive_with` | confirmed | 25.0 | [gap-024](gap-024-recursive-with.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

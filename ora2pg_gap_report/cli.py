@@ -15,6 +15,7 @@ from .detectors.compound_triggers import find_compound_triggers
 from .detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
 from .detectors.connect_by_nocycle import find_connect_by_nocycle_or_order_siblings
 from .detectors.context_object import find_context_declarations
+from .detectors.cross_apply import find_apply_joins
 from .detectors.database_link import find_database_link_references
 from .detectors.dbms_utl_calls import find_dbms_utl_calls
 from .detectors.external_table import find_external_tables
@@ -26,7 +27,9 @@ from .detectors.json_table import find_json_table_calls
 from .detectors.merge_delete_clause import find_merge_delete_clauses
 from .detectors.model_clause import find_model_clauses
 from .detectors.object_type import find_object_types
+from .detectors.oracle_text import find_oracle_text_usage
 from .detectors.pivot_clause import find_pivot_clauses
+from .detectors.recursive_with import find_recursive_with_missing_keyword
 from .detectors.sql_macro import find_sql_macros
 from .detectors.table_partitioning import find_dropped_table_partitioning
 from .detectors.with_function import find_with_function_clauses
@@ -59,6 +62,9 @@ _DETECTORS = (
     find_sql_macros,
     find_invisible_columns,
     find_collection_types,
+    find_apply_joins,
+    find_oracle_text_usage,
+    find_recursive_with_missing_keyword,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")

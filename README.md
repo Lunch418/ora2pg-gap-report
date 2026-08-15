@@ -53,6 +53,9 @@
 | `sql_macro` | `SQL_MACRO` — конвертируется в обычную функцию, падает при вызове тем способом, для которого была написана |
 | `invisible_column` | Столбец `INVISIBLE` теряет своё скрытие — тихо появляется в SELECT * после конвертации |
 | `collection_type` | `CREATE TYPE ... TABLE OF`/`VARRAY OF` — коллекционный тип пропадает без следа, зависимые таблицы падают уже при загрузке DDL |
+| `cross_apply` | `CROSS APPLY`/`OUTER APPLY` — синтаксиса APPLY нет в PostgreSQL вообще, ближайший эквивалент — JOIN LATERAL |
+| `oracle_text` | Oracle Text — домен-индекс (`INDEXTYPE IS CTXSYS.*`) отбрасывается, `CONTAINS`/`CATSEARCH`/`MATCHES` не переносятся |
+| `recursive_with` | Нативная рекурсивная `WITH ... AS (...)` (не через CONNECT BY) без ключевого слова `RECURSIVE`, которое требует PostgreSQL |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -87,9 +90,9 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 [`docs/research/GAP_REGISTRY.md`](docs/research/GAP_REGISTRY.md) — по
 каждой указано, каким детектором она покрыта и на какой версии `ora2pg`
 подтверждена. [`docs/research/AUDIT.md`](docs/research/AUDIT.md) — сводная
-проверка доказательной базы по каждому из 21 gap'а (research-документ,
-реальный вывод ora2pg, expected/actual, тесты, включая guard-тесты на
-ложные срабатывания).
+проверка доказательной базы по каждому подтверждённому gap'у
+(research-документ, реальный вывод ora2pg, expected/actual, тесты,
+включая guard-тесты на ложные срабатывания).
 
 ## Установка и использование
 
@@ -251,7 +254,10 @@ ora2pg_gap_report/
 │   ├── external_table.py        # CREATE TABLE ... ORGANIZATION EXTERNAL
 │   ├── sql_macro.py             # SQL_MACRO — конвертируется в обычную функцию
 │   ├── invisible_column.py      # столбец INVISIBLE теряет своё скрытие
-│   └── collection_type.py       # CREATE TYPE ... TABLE OF / VARRAY OF
+│   ├── collection_type.py       # CREATE TYPE ... TABLE OF / VARRAY OF
+│   ├── cross_apply.py           # CROSS APPLY / OUTER APPLY
+│   ├── oracle_text.py           # Oracle Text — INDEXTYPE / CONTAINS / CATSEARCH / MATCHES
+│   └── recursive_with.py        # рекурсивная WITH без RECURSIVE
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── cli.py                      # консольная команда ora2pg-gap-report
 ├── effort_estimator.py          # грубая эвристика по severity, диапазон часов

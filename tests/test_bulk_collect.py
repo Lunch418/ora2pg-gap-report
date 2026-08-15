@@ -59,6 +59,16 @@ def test_schema_level_create_type_is_not_flagged():
     assert find_bulk_collect_usage(source) == []
 
 
+def test_schema_level_create_type_with_editionable_is_not_flagged():
+    # EDITIONABLE/NONEDITIONABLE (Oracle 12c+) between 'OR REPLACE' and
+    # 'TYPE' used to defeat the schema-level exclusion check, causing a
+    # real schema-level collection type to be double-reported: correctly
+    # by collection_type.py (GAP-021), and incorrectly by this detector
+    # too, as if it were a local DECLARE-section collection.
+    source = "CREATE OR REPLACE EDITIONABLE TYPE num_tab IS TABLE OF NUMBER;\n/\n"
+    assert find_bulk_collect_usage(source) == []
+
+
 def test_string_and_comment_content_does_not_trigger_false_positives():
     source = """
     create or replace procedure noop as

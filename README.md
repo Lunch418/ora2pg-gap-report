@@ -86,7 +86,10 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 Все подтверждённые находки пронумерованы и собраны в
 [`docs/research/GAP_REGISTRY.md`](docs/research/GAP_REGISTRY.md) — по
 каждой указано, каким детектором она покрыта и на какой версии `ora2pg`
-подтверждена.
+подтверждена. [`docs/research/AUDIT.md`](docs/research/AUDIT.md) — сводная
+проверка доказательной базы по каждому из 21 gap'а (research-документ,
+реальный вывод ora2pg, expected/actual, тесты, включая guard-тесты на
+ложные срабатывания).
 
 ## Установка и использование
 

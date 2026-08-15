@@ -76,3 +76,35 @@ def test_system_partitioning_is_flagged():
     assert len(findings) == 1
     assert findings[0].object_name == "LOGS"
     assert "SYSTEM" in findings[0].snippet
+
+
+def test_real_oracle_sample_schema_sales_table_is_flagged():
+    # The exact real-world shape this gap was originally found on: the
+    # SALES fact table from Oracle's own official sample schemas
+    # (oracle-samples/db-sample-schemas, sales_history/sh_create.sql) --
+    # a genuine, widely-used example of range partitioning by date, not a
+    # synthetic construction. Kept as a permanent regression check tying
+    # this detector to that real source, per docs/research/AUDIT.md.
+    source = """
+    CREATE TABLE sales
+    (
+       prod_id         NUMBER(6)      NOT NULL,
+       cust_id         NUMBER         NOT NULL,
+       time_id         DATE           NOT NULL,
+       channel_id      NUMBER(1)      NOT NULL,
+       promo_id        NUMBER(6)      NOT NULL,
+       quantity_sold   NUMBER(3)      NOT NULL,
+       amount_sold     NUMBER(10,2)   NOT NULL
+    )
+     PARTITION BY RANGE (time_id)
+     (
+        PARTITION SALES_2018 VALUES LESS THAN
+           (TO_DATE('2019-01-01','YYYY-MM-DD','NLS_DATE_LANGUAGE = American')),
+        PARTITION SALES_H1_2019 VALUES LESS THAN
+           (TO_DATE('2019-07-01','YYYY-MM-DD','NLS_DATE_LANGUAGE = American'))
+     );
+    """
+    findings = find_dropped_table_partitioning(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "SALES"
+    assert "RANGE" in findings[0].snippet

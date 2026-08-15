@@ -2,6 +2,7 @@ import argparse
 import dataclasses
 import sys
 import time
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 
 from rich.console import Console
@@ -60,6 +61,34 @@ _DETECTORS = (
     find_collection_types,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+_DDL_SUFFIXES = (".sql", ".pks", ".pkb")
+
+
+def _package_version() -> str:
+    try:
+        return _pkg_version("ora2pg-gap-report")
+    except PackageNotFoundError:
+        # Running from a source checkout that was never `pip install`-ed
+        # (editable or otherwise) — no installed distribution to read a
+        # version from, so there's nothing meaningful to report but also
+        # no reason to crash a --version call over it.
+        return "unknown (not installed)"
+
+
+class _LazyVersionAction(argparse.Action):
+    """Same effect as argparse's built-in action="version", but resolves
+    the version string only when --version is actually passed. The
+    built-in action takes a pre-formatted string, which forces
+    _package_version() (an importlib.metadata distribution lookup) to run
+    unconditionally at parser-construction time -- i.e. on every single
+    CLI invocation, not just the rare one that asks for it."""
+
+    def __init__(self, option_strings, dest=argparse.SUPPRESS, default=argparse.SUPPRESS, help=None):
+        super().__init__(option_strings=option_strings, dest=dest, default=default, nargs=0, help=help)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        parser._print_message(f"{parser.prog} {_package_version()}\n", sys.stdout)
+        parser.exit()
 
 
 def _sort_findings(findings: list[Finding]) -> None:
@@ -105,7 +134,19 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "paths", nargs="+", type=Path, help="Файлы с DDL для анализа (.sql/.pks/.pkb)"
+        "paths",
+        nargs="+",
+        type=Path,
+        help=(
+            "Файлы с DDL для анализа (.sql/.pks/.pkb) и/или директории — "
+            "директория сканируется рекурсивно на файлы с этими "
+            "расширениями"
+        ),
+    )
+    parser.add_argument(
+        "--version",
+        action=_LazyVersionAction,
+        help="Показать установленную версию и выйти",
     )
     parser.add_argument(
         "--format",
@@ -202,6 +243,47 @@ def _render(findings: list[Finding], fmt: str) -> str:
     return header + to_markdown(findings)
 
 
+def _expand_paths(paths: list[Path]) -> tuple[list[Path], list[Path]]:
+    """Expand any directories in `paths` into the .sql/.pks/.pkb files they
+    contain (recursively, sorted for deterministic output, extension match
+    case-insensitive since exported DDL sometimes carries uppercase
+    extensions e.g. from Windows tooling), leaving plain files and
+    nonexistent paths untouched -- a nonexistent path still needs to reach
+    main()'s existing is_file() check so its "not found" warning keeps
+    firing the same way it always has. Returns (files_to_scan,
+    directories_with_no_matching_files) so main() can warn about the
+    latter -- silently scanning zero files from a directory the user
+    pointed at on purpose would be a confusing, warning-free no-op.
+
+    Deduplicates by resolved absolute path, so the same file reached twice
+    (e.g. 'schema/ schema/logger.pkb', or two directory arguments that
+    overlap) is scanned and reported once, not once per way it was named
+    -- otherwise every count (objects_scanned, findings, effort hours)
+    would silently double."""
+    expanded: list[Path] = []
+    empty_dirs: list[Path] = []
+    seen: set[Path] = set()
+
+    def _add(candidate: Path) -> None:
+        resolved = candidate.resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            expanded.append(candidate)
+
+    for path in paths:
+        if path.is_dir():
+            found = sorted(
+                p for p in path.rglob("*") if p.is_file() and p.suffix.lower() in _DDL_SUFFIXES
+            )
+            if not found:
+                empty_dirs.append(path)
+            for p in found:
+                _add(p)
+        else:
+            _add(path)
+    return expanded, empty_dirs
+
+
 def resolve_format(explicit_format: str | None, output: Path | None, stdout_is_tty: bool) -> str:
     """Pure resolution logic, kept separate from main() so the
     default-format behaviour is testable without a real terminal."""
@@ -220,7 +302,15 @@ def main(argv: list[str] | None = None) -> int:
     all_findings: list[Finding] = []
     objects_scanned = 0
     had_error = False
-    for path in args.paths:
+
+    paths_to_scan, empty_dirs = _expand_paths(args.paths)
+    for empty_dir in empty_dirs:
+        err_console.print(
+            f"[yellow]Директория не содержит .sql/.pks/.pkb файлов:[/yellow] {escape(str(empty_dir))}"
+        )
+        had_error = True
+
+    for path in paths_to_scan:
         if not path.is_file():
             err_console.print(f"[yellow]Пропущен (не найден):[/yellow] {escape(str(path))}")
             had_error = True

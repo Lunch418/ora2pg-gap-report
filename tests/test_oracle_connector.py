@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from ora2pg_gap_report import oracle_connector

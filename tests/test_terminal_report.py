@@ -223,6 +223,11 @@ def test_every_detector_registered_in_cli_has_a_remediation_hint():
         "table_partitioning",
         "connect_by_nocycle",
         "context_object",
+        "insert_all",
+        "json_table",
+        "external_table",
+        "sql_macro",
+        "invisible_column",
         "connect_by",  # opt-in via --check-connect-by, not in cli._DETECTORS
     }
     assert registered_names <= set(_REMEDIATION_HINT.keys())

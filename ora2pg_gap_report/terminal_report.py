@@ -68,6 +68,11 @@ _REMEDIATION_HINT = {
     "table_partitioning": "Пересоздать партиции вручную (CREATE TABLE ... PARTITION OF ...) — ora2pg отбрасывает секционирование полностью",
     "connect_by_nocycle": "Полностью переписать вручную на WITH RECURSIVE — конвертация NOCYCLE/ORDER SIBLINGS BY разваливает структуру блока",
     "context_object": "Переписать на current_setting()/set_config() или Row-Level Security (CREATE POLICY) — прямого аналога CREATE CONTEXT нет",
+    "insert_all": "Разбить на набор отдельных INSERT INTO ... SELECT ... — по одному на каждую ветку WHEN/INTO",
+    "json_table": "Переписать на jsonb_to_recordset()/jsonb_array_elements() с явным приведением типов",
+    "external_table": "Настроить foreign table через file_fdw (или fdw под нужный формат) — ora2pg превращает её в обычную таблицу",
+    "sql_macro": "Встроить логику макроса как обычное условие/подзапрос прямо в вызывающий код — SQL_MACRO конвертируется в обычную функцию",
+    "invisible_column": "Явно перечислять столбцы в SELECT/INSERT там, где скрытие было важно — PostgreSQL не имеет аналога INVISIBLE",
 }
 
 

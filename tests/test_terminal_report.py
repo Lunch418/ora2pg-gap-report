@@ -219,6 +219,10 @@ def test_every_detector_registered_in_cli_has_a_remediation_hint():
         "object_type",
         "with_function",
         "flashback_query",
+        "global_temp_table",
+        "table_partitioning",
+        "connect_by_nocycle",
+        "context_object",
         "connect_by",  # opt-in via --check-connect-by, not in cli._DETECTORS
     }
     assert registered_names <= set(_REMEDIATION_HINT.keys())

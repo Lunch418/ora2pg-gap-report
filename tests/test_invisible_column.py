@@ -50,3 +50,18 @@ def test_column_literally_named_invisible_is_not_flagged():
 def test_ordinary_table_is_not_flagged():
     source = "create table orders (order_id number);\n"
     assert find_invisible_columns(source) == []
+
+
+def test_unterminated_statement_does_not_bleed_into_an_earlier_table():
+    # DBMS_METADATA.GET_DDL's default output (this project's own
+    # documented Oracle export mechanism) has no trailing ';' -- scoping
+    # "this table's own text" to just "next ';' or end of file" used to
+    # let a later table's own INVISIBLE column bleed all the way back to
+    # an earlier, unrelated, unterminated table.
+    source = (
+        "create table small_lookup (id number)\n"
+        "create table customers (customer_id number, legacy_code varchar2(10) invisible)\n"
+    )
+    findings = find_invisible_columns(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "CUSTOMERS"

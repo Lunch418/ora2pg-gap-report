@@ -114,3 +114,29 @@ def test_contains_with_bind_variable_comparison_is_flagged():
     source = "select 1 from articles where contains(body, 'x') > :min_score;\n"
     findings = find_oracle_text_usage(source)
     assert len(findings) == 1
+
+
+def test_reported_line_is_the_indextype_token_not_the_create_index_line():
+    source = (
+        "create index articles_body_idx\n"
+        "  on articles(body)\n"
+        "  indextype is ctxsys.context;\n"
+    )
+    findings = find_oracle_text_usage(source)
+    assert len(findings) == 1
+    assert findings[0].line == 3
+
+
+def test_unterminated_statement_does_not_bleed_into_an_earlier_index():
+    # DBMS_METADATA.GET_DDL's default output (this project's own
+    # documented Oracle export mechanism) has no trailing ';' -- scoping
+    # "this index's own text" to just "next ';' or end of file" used to
+    # let a later index's own INDEXTYPE clause bleed all the way back to
+    # an earlier, unrelated, unterminated index.
+    source = (
+        "create index idx_plain on t1(c)\n"
+        "create index articles_body_idx on articles(body) indextype is ctxsys.context\n"
+    )
+    findings = find_oracle_text_usage(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "ARTICLES_BODY_IDX"

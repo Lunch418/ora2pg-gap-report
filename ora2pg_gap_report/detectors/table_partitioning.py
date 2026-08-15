@@ -1,7 +1,7 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import line_at, mask_strings_and_comments, qualified_name_pattern
+from ..plsql_lex import line_at, mask_strings_and_comments, qualified_name_pattern, statement_end
 
 _TABLE_RE = re.compile(
     qualified_name_pattern(r"CREATE\s+TABLE"),
@@ -48,13 +48,15 @@ def find_dropped_table_partitioning(source: str) -> list[Finding]:
     docs/research/gap-013-table-partitioning.md.
 
     The search for PARTITION BY is scoped to each CREATE TABLE statement's
-    own text (up to its terminating ';'), not matched against the nearest
-    preceding CREATE TABLE anywhere in the file -- that looser approach
-    both misattributed unrelated constructs (e.g. a partitioned *index*,
-    'CREATE INDEX ... GLOBAL PARTITION BY RANGE (col) (...)', valid and
-    distinct Oracle syntax) to whatever table happened to appear earlier in
-    the file, and offered no way to tell that such a construct wasn't a
-    table at all.
+    own text -- up to its terminating ';', or the start of the next
+    CREATE TABLE if there is no ';' (DBMS_METADATA.GET_DDL's default
+    output has none -- see statement_end()'s own docstring), whichever
+    comes first. Not matched against the nearest preceding CREATE TABLE
+    anywhere in the file -- that looser approach both misattributed
+    unrelated constructs (e.g. a partitioned *index*, 'CREATE INDEX ...
+    GLOBAL PARTITION BY RANGE (col) (...)', valid and distinct Oracle
+    syntax) to whatever table happened to appear earlier in the file, and
+    offered no way to tell that such a construct wasn't a table at all.
 
     object_name is the table's own name (schema-level DDL, never nested
     inside a routine) -- same reasoning as object_type.py for skipping
@@ -62,10 +64,10 @@ def find_dropped_table_partitioning(source: str) -> list[Finding]:
     clean = mask_strings_and_comments(source)
     findings: list[Finding] = []
 
-    for m in _TABLE_RE.finditer(clean):
-        stmt_end = clean.find(";", m.end())
-        if stmt_end == -1:
-            stmt_end = len(clean)
+    table_matches = list(_TABLE_RE.finditer(clean))
+    for i, m in enumerate(table_matches):
+        next_start = table_matches[i + 1].start() if i + 1 < len(table_matches) else None
+        stmt_end = statement_end(clean, m.end(), next_start)
         statement = clean[m.end() : stmt_end]
         table_name = m.group(1).upper()
 

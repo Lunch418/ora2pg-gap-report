@@ -108,3 +108,19 @@ def test_real_oracle_sample_schema_sales_table_is_flagged():
     assert len(findings) == 1
     assert findings[0].object_name == "SALES"
     assert "RANGE" in findings[0].snippet
+
+
+def test_unterminated_statement_does_not_bleed_into_an_earlier_table():
+    # DBMS_METADATA.GET_DDL's default output (this project's own
+    # documented Oracle export mechanism) has no trailing ';' --
+    # scoping "this table's own text" to just "next ';' or end of file"
+    # used to let a later table's PARTITION BY bleed all the way back to
+    # an earlier, unrelated, unterminated table.
+    source = (
+        "create table small_lookup (id number)\n"
+        "create table sales (id number, dt date)\n"
+        "partition by range (dt) (partition p1 values less than (100))\n"
+    )
+    findings = find_dropped_table_partitioning(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "SALES"

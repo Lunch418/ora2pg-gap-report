@@ -40,21 +40,25 @@
 | 009 | `object_type` | high | ✅ | ✅ (`--estimate_cost` вернул 0 строк) | н/д — пробел в оценке стоимости, не в синтаксисе | 6 / 2 | да — `test_real_open_source_object_type_is_flagged` встраивает реальный `t_soap_envelope` из `alexandria-plsql-utils` |
 | 010 | `with_function` | high | ✅ | ✅ | ✅ `ERROR: syntax error at end of input` (структура блока разрушена) | 3 / 1 | нет |
 | 011 | `flashback_query` | high | ✅ | ✅ (искажённый `statement_timestamp()`) | ✅ `ERROR: syntax error at or near "timestamp"` | 4 / 1 | нет |
-| 012 | `global_temp_table` | high | ✅ | ✅ | ✅ строка пережила `COMMIT` вопреки Oracle-семантике | 4 / 2 | нет |
-| 013 | `table_partitioning` | high | ✅ | ✅ | н/д — секции молча пропадают, не ошибка | 9 / 4 | да — `test_real_oracle_sample_schema_sales_table_is_flagged` встраивает реальную таблицу `SALES` из официальной Oracle SH-схемы (`db-sample-schemas`) |
+| 012 | `global_temp_table` | high | ✅ | ✅ | ✅ строка пережила `COMMIT` вопреки Oracle-семантике | 5 / 2 | нет |
+| 013 | `table_partitioning` | high | ✅ | ✅ | н/д — секции молча пропадают, не ошибка | 10 / 4 | да — `test_real_oracle_sample_schema_sales_table_is_flagged` встраивает реальную таблицу `SALES` из официальной Oracle SH-схемы (`db-sample-schemas`) |
 | 014 | `connect_by_nocycle` | high | ✅ | ✅ (`WITH RECURSIVE` до `DECLARE`) | ✅ `ERROR` на этапе компиляции тела | 4 / 1 | нет |
 | 015 | `context_object` | medium | ✅ | ✅ (только DEBUG-строка в логе) | н/д — конструкция пропадает без следа | 3 / 1 | нет |
 | 016 | `insert_all` | high | ✅ | ✅ | ✅ `ERROR: "big_orders" is not a known variable` | 5 / 2 | нет |
 | 017 | `json_table` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "COLUMNS"` | 5 / 3 | да — `test_json_table_inside_a_view_is_attributed_not_unknown` (в `tests/test_cli.py`) встраивает реальный `product_reviews` view из `db-sample-schemas` |
-| 018 | `external_table` | high | ✅ | ✅ | н/д — секция пропадает, таблица создаётся пустой | 3 / 1 | нет |
+| 018 | `external_table` | high | ✅ | ✅ | н/д — секция пропадает, таблица создаётся пустой | 4 / 1 | нет |
 | 019 | `sql_macro` | high | ✅ | ✅ | ✅ `ERROR: argument of WHERE must be type boolean` | 3 / 1 | нет |
-| 020 | `invisible_column` | high | ✅ | ✅ | ✅ столбец появился в `SELECT *` вопреки Oracle-семантике | 7 / 2 | нет |
+| 020 | `invisible_column` | high | ✅ | ✅ | ✅ столбец появился в `SELECT *` вопреки Oracle-семантике | 8 / 2 | нет |
 | 021 | `collection_type` | high | ✅ | ✅ (`[DEBUG] unhandled line`) | ✅ `ERROR: type "phone_list_t" does not exist` | 7 / 3 | нет |
 | 022 | `cross_apply` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "APPLY"` | 3 / 1 | нет |
-| 023 | `oracle_text` | high | ✅ | ✅ | ✅ `ERROR: function contains(text, unknown) does not exist` | 7 / 2 | да — `test_real_oracle_sample_schema_index_is_flagged` встраивает реальный индекс `sup_text_idx` из официальной Oracle SH-схемы (`db-sample-schemas`) |
-| 024 | `recursive_with` | high | ✅ | ✅ | ✅ `ERROR: relation "tree" does not exist` (нужен `WITH RECURSIVE`) | 5 / 4 | нет |
+| 023 | `oracle_text` | high | ✅ | ✅ | ✅ `ERROR: function contains(text, unknown) does not exist` | 12 / 4 | да — `test_real_oracle_sample_schema_index_is_flagged` встраивает реальный индекс `sup_text_idx` из официальной Oracle SH-схемы (`db-sample-schemas`) |
+| 024 | `recursive_with` | high | ✅ | ✅ | ✅ `ERROR: relation "tree" does not exist` (нужен `WITH RECURSIVE`) | 8 / 5 | нет |
+| 025 | `invisible_index` | medium | ✅ | ✅ | н/д — оптимизатор молча начинает учитывать индекс | 8 / 3 | нет |
+| 026 | `read_only_table` | high | ✅ | ✅ | ✅ INSERT прошёл там, где Oracle гарантированно блокирует его (ORA-12081) | 7 / 3 | нет |
+| 027 | `materialized_view_log` | high | ✅ | ✅ (`[DEBUG] unhandled line`) | н/д — журнал пропадает без следа | 3 / 2 | нет |
+| 028 | `identity_column` | high | ✅ | ✅ (лишняя пара скобок в выводе) | ✅ `ERROR: syntax error at or near "("` | 5 / 2 | нет |
 
-**24/24 по каждому из первых пяти критериев.** Отдельная колонка —
+**28/28 по каждому из первых пяти критериев.** Отдельная колонка —
 проверка на реальном открытом коде: только 5 детекторов
 (`bulk_collect`, `object_type`, `table_partitioning`, `json_table`,
 `oracle_text`) реально сработали при сканировании ~143k строк открытого
@@ -67,14 +71,16 @@
 
 Остальные детекторы не встретили свою целевую конструкцию в этих
 конкретных двух корпусах — ожидаемо: часть этих конструкций
-(`SQL_MACRO`, `CREATE CONTEXT`, `INVISIBLE`-столбцы, `ORGANIZATION
-EXTERNAL`, коллекционные типы верхнего уровня, `CONNECT BY NOCYCLE`,
-`CROSS APPLY`, нативная рекурсивная `WITH` без `RECURSIVE`) — редкие,
-специфичные фичи Oracle, которые статистически маловероятно встретить в
-двух конкретных open-source проектах, даже больших. Для них
-"доказательство отсутствия ложных срабатываний" — это целенаправленные
-unit-тесты на известные коллизионные сценарии (партиционированный outer
-join, оконные функции, GRANT-списки, комментарии/строки, вложенные
+(`SQL_MACRO`, `CREATE CONTEXT`, `INVISIBLE`-столбцы и -индексы,
+`ORGANIZATION EXTERNAL`, коллекционные типы верхнего уровня, `CONNECT
+BY NOCYCLE`, `CROSS APPLY`, нативная рекурсивная `WITH` без
+`RECURSIVE`, `READ ONLY`-таблицы, `MATERIALIZED VIEW LOG`, `IDENTITY`
+с опциями) — редкие, специфичные фичи Oracle, которые статистически
+маловероятно встретить в двух конкретных open-source проектах, даже
+больших. Для них "доказательство отсутствия ложных срабатываний" — это
+целенаправленные unit-тесты на известные коллизионные сценарии
+(партиционированный outer join, оконные функции, GRANT-списки,
+комментарии/строки, вложенные
 локальные объявления и т.д.), а не статистика по большому корпусу.
 
 ## Что именно значит «Doc §§ полны» для GAP-001/004/005
@@ -95,7 +101,7 @@ ruff check ora2pg_gap_report/ tests/          # без замечаний
 python3 scripts/audit_gap_test_counts.py      # пересчитать колонку "Тесты (всего/guard)" таблицы выше
 ```
 
-На момент последнего обновления этого документа: **264 теста** (263
+На момент последнего обновления этого документа: **299 тестов** (298
 проходят, 1 намеренно пропущен — требует установленный `ora2pg`,
 см. `--check-connect-by`). Колонка "Тесты (всего/guard)" в таблице выше —
 не ручной подсчёт, а буквальный вывод `scripts/audit_gap_test_counts.py`

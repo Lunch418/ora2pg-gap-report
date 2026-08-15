@@ -56,6 +56,10 @@
 | `cross_apply` | `CROSS APPLY`/`OUTER APPLY` — синтаксиса APPLY нет в PostgreSQL вообще, ближайший эквивалент — JOIN LATERAL |
 | `oracle_text` | Oracle Text — домен-индекс (`INDEXTYPE IS CTXSYS.*`) отбрасывается, `CONTAINS`/`CATSEARCH`/`MATCHES` не переносятся |
 | `recursive_with` | Нативная рекурсивная `WITH ... AS (...)` (не через CONNECT BY) без ключевого слова `RECURSIVE`, которое требует PostgreSQL |
+| `invisible_index` | Индекс `INVISIBLE` теряет своё скрытие от оптимизатора — PostgreSQL не имеет аналога |
+| `read_only_table` | `CREATE TABLE ... READ ONLY` теряет гарантию неизменяемости — INSERT проходит там, где Oracle гарантированно блокирует его |
+| `materialized_view_log` | `CREATE MATERIALIZED VIEW LOG` не конвертируется вообще, след только в DEBUG-логе |
+| `identity_column` | `GENERATED ... AS IDENTITY (...)` с опциями — баг двойных скобок в самой подстановке ora2pg, не пропуск конвертации |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -257,7 +261,11 @@ ora2pg_gap_report/
 │   ├── collection_type.py       # CREATE TYPE ... TABLE OF / VARRAY OF
 │   ├── cross_apply.py           # CROSS APPLY / OUTER APPLY
 │   ├── oracle_text.py           # Oracle Text — INDEXTYPE / CONTAINS / CATSEARCH / MATCHES
-│   └── recursive_with.py        # рекурсивная WITH без RECURSIVE
+│   ├── recursive_with.py        # рекурсивная WITH без RECURSIVE
+│   ├── invisible_index.py       # INVISIBLE-индекс
+│   ├── read_only_table.py       # CREATE TABLE ... READ ONLY
+│   ├── materialized_view_log.py # CREATE MATERIALIZED VIEW LOG
+│   └── identity_column.py       # GENERATED ... AS IDENTITY (...) — баг двойных скобок
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── cli.py                      # консольная команда ora2pg-gap-report
 ├── effort_estimator.py          # грубая эвристика по severity, диапазон часов

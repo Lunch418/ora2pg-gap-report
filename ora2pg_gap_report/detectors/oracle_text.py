@@ -8,6 +8,7 @@ from ..plsql_lex import (
     mask_strings_and_comments,
     qualified_name_pattern,
     skip_balanced_parens,
+    statement_end,
 )
 
 _INDEX_RE = re.compile(
@@ -55,15 +56,25 @@ def find_oracle_text_usage(source: str) -> list[Finding]:
 
     The function-call check additionally requires an immediate numeric/
     bind-variable comparison right after the call ('CONTAINS(...) > 0')
-    -- see _SCORE_COMPARISON_RE's comment for why."""
+    -- see _SCORE_COMPARISON_RE's comment for why.
+
+    The index check's statement scoping uses statement_end() -- up to the
+    next ';', or the start of the next CREATE INDEX if there's no ';'
+    (DBMS_METADATA.GET_DDL's default output has none) -- not just "next
+    ';' or end of file", which would otherwise misattribute a later
+    index's own INDEXTYPE to an earlier, unterminated one. The reported
+    line is the actual INDEXTYPE token's line, not the statement's
+    opening CREATE INDEX line -- same reasoning as
+    invisible_index.py/read_only_table.py for real indexes being
+    multi-line."""
     clean = mask_strings_and_comments(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
-    for m in _INDEX_RE.finditer(clean):
-        stmt_end = clean.find(";", m.end())
-        if stmt_end == -1:
-            stmt_end = len(clean)
+    index_matches = list(_INDEX_RE.finditer(clean))
+    for i, m in enumerate(index_matches):
+        next_start = index_matches[i + 1].start() if i + 1 < len(index_matches) else None
+        stmt_end = statement_end(clean, m.end(), next_start)
         statement = clean[m.end() : stmt_end]
         it_match = _INDEXTYPE_RE.search(statement)
         if it_match is None:
@@ -73,7 +84,7 @@ def find_oracle_text_usage(source: str) -> list[Finding]:
                 detector="oracle_text",
                 severity="high",
                 object_name=m.group(1).upper(),
-                line=line_at(clean, m.start()),
+                line=line_at(clean, m.end() + it_match.start()),
                 snippet=f"INDEXTYPE IS CTXSYS.{it_match.group(1).upper()}",
                 message=_MESSAGE,
             )

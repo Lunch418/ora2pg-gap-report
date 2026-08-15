@@ -16,6 +16,23 @@ IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_$#]*"
 # any other non-alphanumeric char is its own closing delimiter (q'!...!').
 _Q_QUOTE_PAIRS = {"[": "]", "{": "}", "(": ")", "<": ">"}
 
+# SQL*Plus's REM/REMARK line comment -- distinct from '--' in that it's
+# only a comment when REM/REMARK is the first token on its own line ('x :=
+# rem_var;' keeps REM as an ordinary identifier prefix, not a comment).
+# The lookahead requires REM/REMARK to be followed by whitespace/EOL/EOF,
+# so a real identifier like REMOTE_TABLE never matches.
+_REM_RE = re.compile(r"REM(?:ARK)?(?=[ \t\r\n]|\Z)", re.IGNORECASE)
+
+
+def _at_line_start(source: str, i: int) -> bool:
+    """True if `i` is preceded only by same-line horizontal whitespace
+    back to the start of a line (or of the text) -- i.e. `i` is where the
+    first real token on its line begins."""
+    j = i
+    while j > 0 and source[j - 1] in " \t":
+        j -= 1
+    return j == 0 or source[j - 1] == "\n"
+
 ROUTINE_START_RE = re.compile(
     rf"^\s*(?:FUNCTION|PROCEDURE)\s+({IDENTIFIER})",
     re.IGNORECASE | re.MULTILINE,
@@ -63,6 +80,11 @@ def mask_strings_and_comments(source: str) -> str:
     while i < n:
         two = source[i : i + 2]
         if two == "--":
+            while i < n and source[i] != "\n":
+                out.append(" ")
+                i += 1
+            continue
+        if source[i] in "rR" and _at_line_start(source, i) and _REM_RE.match(source, i):
             while i < n and source[i] != "\n":
                 out.append(" ")
                 i += 1
@@ -236,33 +258,130 @@ def own_declare_text(text: str, declare_start: int, begin_pos: int, nested_spans
     return "".join(chars)
 
 
-_PACKAGE_BODY_NAME_RE = re.compile(qualified_name_pattern(r"PACKAGE\s+BODY"), re.IGNORECASE)
+_CREATE_PREFIX = r"CREATE\s+(?:OR\s+REPLACE\s+)?"
+_EDITIONABLE_PREFIX = r"(?:EDITIONABLE\s+|NONEDITIONABLE\s+)?"
+_PACKAGE_BODY_NAME_RE = re.compile(
+    qualified_name_pattern(_CREATE_PREFIX + _EDITIONABLE_PREFIX + r"PACKAGE\s+BODY"), re.IGNORECASE
+)
+# A package *spec* ('CREATE [OR REPLACE] PACKAGE name IS/AS ...', no BODY
+# keyword) — found missing findings-attribution-wise by scanning a large
+# real-world PL/SQL corpus (alexandria-plsql-utils): a package spec can
+# itself declare a local collection TYPE (bulk_collect.py's target) as
+# part of its public interface, and every such finding was silently
+# falling back to object_name='UNKNOWN' because only PACKAGE BODY was
+# recognized as a 'package' container here. The negative lookahead is
+# what keeps this from double-matching a real 'PACKAGE BODY name'
+# occurrence (already handled by _PACKAGE_BODY_NAME_RE above) as a
+# second, spurious 'package' entry at the same position.
+_PACKAGE_SPEC_NAME_RE = re.compile(
+    qualified_name_pattern(_CREATE_PREFIX + _EDITIONABLE_PREFIX + r"PACKAGE(?!\s+BODY\b)"), re.IGNORECASE
+)
 # A standalone 'CREATE [OR REPLACE] PROCEDURE/FUNCTION name' — distinct from
 # ROUTINE_START_RE, which only matches routines declared *inside* a package
 # body ('PROCEDURE name IS', at the start of a line with no CREATE prefix).
 _STANDALONE_ROUTINE_RE = re.compile(
-    rf"CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+({IDENTIFIER})",
+    _CREATE_PREFIX + rf"(?:FUNCTION|PROCEDURE)\s+({IDENTIFIER})",
     re.IGNORECASE,
 )
 _TRIGGER_NAME_RE = re.compile(
-    qualified_name_pattern(r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:EDITIONABLE\s+|NONEDITIONABLE\s+)?TRIGGER"),
+    qualified_name_pattern(_CREATE_PREFIX + _EDITIONABLE_PREFIX + r"TRIGGER"),
     re.IGNORECASE,
 )
+# A view can itself contain a gap-triggering construct in its own SELECT
+# (e.g. JSON_TABLE, PIVOT, MODEL) — found via a real-world corpus
+# (oracle-samples/db-sample-schemas: customer_orders/co_create.sql, a
+# JSON_TABLE call inside CREATE OR REPLACE VIEW). Without this, any such
+# finding silently fell back to object_name='UNKNOWN' since a view was
+# never a recognized attribution container at all. MATERIALIZED is
+# included too — same reasoning, a materialized view's defining query can
+# contain the same constructs.
+_VIEW_NAME_RE = re.compile(
+    qualified_name_pattern(
+        _CREATE_PREFIX
+        + r"(?:FORCE\s+|NOFORCE\s+)?"
+        + _EDITIONABLE_PREFIX
+        + r"(?:MATERIALIZED\s+)?VIEW"
+    ),
+    re.IGNORECASE,
+)
+
+
+# No \A/^ anchor needed: Pattern.match(text, boundary, create_pos) already
+# only attempts a match starting exactly at `boundary` -- \A would be
+# actively wrong here, since \A always refers to index 0 of the whole
+# string regardless of the pos argument, not to `boundary`.
+_GRANT_OR_REVOKE_RE = re.compile(r"\s*(?:GRANT|REVOKE)\b", re.IGNORECASE)
+
+
+def _is_inside_grant_or_revoke_statement(text: str, create_pos: int) -> bool:
+    """True if the 'CREATE' at create_pos is part of an *enclosing*
+    GRANT/REVOKE statement's privilege list ('GRANT CREATE SESSION,
+    CREATE SYNONYM, CREATE VIEW TO oe;', a real line from
+    oracle-samples/db-sample-schemas) rather than a genuine 'CREATE VIEW
+    name AS ...' declaration. Without this, qualified_name_pattern would
+    happily capture whatever word follows that phantom 'CREATE VIEW'
+    (here, the grantee-introducing keyword 'TO') as if it were a real
+    object name, corrupting attribution for everything between it and the
+    next real declaration.
+
+    Deliberately does NOT require CREATE to be the very first token of
+    its own statement (an earlier version of this check did, and that
+    broke on real input: SQL*Plus client commands -- PROMPT, SET ...,
+    @script, DEFINE, WHENEVER -- routinely precede a real CREATE and are
+    themselves terminated by a bare newline, not ';' or '/', which made
+    that stricter check wrongly reject genuine declarations, verified via
+    oracle-samples/db-sample-schemas/human_resources/hr_code.sql's
+    'SET ECHO OFF' immediately before 'CREATE OR REPLACE PROCEDURE
+    secure_dml'). Instead, this looks at the *enclosing statement* --
+    bounded by the nearest preceding ';'/'/' or start-of-text, which is
+    where a GRANT/REVOKE statement itself reliably starts -- and checks
+    whether that statement's own first word is GRANT or REVOKE."""
+    boundary = max(text.rfind(";", 0, create_pos), text.rfind("/", 0, create_pos)) + 1
+    return bool(_GRANT_OR_REVOKE_RE.match(text, boundary, create_pos))
 
 
 def enclosing_object_name_index(text: str) -> list[tuple[int, str, str]]:
     """Every 'named container' start position in `text` (already masked),
     tagged by kind ('package' / 'nested_routine' / 'standalone_routine' /
-    'trigger'), sorted by position. Build once per source file and pass to
-    enclosing_object_name() for each finding — cheaper than re-scanning the
-    whole file per finding, and keeps the attribution logic in one place
-    instead of duplicated (and liable to silently diverge) across every
-    detector that needs "which object contains this position"."""
+    'trigger' / 'view'), sorted by position. Build once per source file
+    and pass to enclosing_object_name() for each finding — cheaper than
+    re-scanning the whole file per finding, and keeps the attribution
+    logic in one place instead of duplicated (and liable to silently
+    diverge) across every detector that needs "which object contains this
+    position"."""
+    # ROUTINE_START_RE has no CREATE prefix (it matches a nested routine
+    # declared *inside* a package body, e.g. 'PROCEDURE name IS' at the
+    # start of a line), so it isn't subject to the GRANT/REVOKE check
+    # below — only the CREATE-anchored regexes need it, to reject a
+    # GRANT/REVOKE statement's privilege list ('GRANT ..., CREATE VIEW
+    # TO ...') matching as if it were a real declaration.
     tagged = (
-        [(m.start(), "package", m.group(1).upper()) for m in _PACKAGE_BODY_NAME_RE.finditer(text)]
+        [
+            (m.start(), "package", m.group(1).upper())
+            for m in _PACKAGE_BODY_NAME_RE.finditer(text)
+            if not _is_inside_grant_or_revoke_statement(text, m.start())
+        ]
+        + [
+            (m.start(), "package", m.group(1).upper())
+            for m in _PACKAGE_SPEC_NAME_RE.finditer(text)
+            if not _is_inside_grant_or_revoke_statement(text, m.start())
+        ]
         + [(m.start(), "nested_routine", m.group(1).upper()) for m in ROUTINE_START_RE.finditer(text)]
-        + [(m.start(), "standalone_routine", m.group(1).upper()) for m in _STANDALONE_ROUTINE_RE.finditer(text)]
-        + [(m.start(), "trigger", m.group(1).upper()) for m in _TRIGGER_NAME_RE.finditer(text)]
+        + [
+            (m.start(), "standalone_routine", m.group(1).upper())
+            for m in _STANDALONE_ROUTINE_RE.finditer(text)
+            if not _is_inside_grant_or_revoke_statement(text, m.start())
+        ]
+        + [
+            (m.start(), "trigger", m.group(1).upper())
+            for m in _TRIGGER_NAME_RE.finditer(text)
+            if not _is_inside_grant_or_revoke_statement(text, m.start())
+        ]
+        + [
+            (m.start(), "view", m.group(1).upper())
+            for m in _VIEW_NAME_RE.finditer(text)
+            if not _is_inside_grant_or_revoke_statement(text, m.start())
+        ]
     )
     return sorted(tagged, key=lambda t: t[0])
 
@@ -270,23 +389,23 @@ def enclosing_object_name_index(text: str) -> list[tuple[int, str, str]]:
 def enclosing_object_name(index: list[tuple[int, str, str]], position: int) -> str:
     """Best-effort 'what named object contains this position': a
     PACKAGE_BODY.ROUTINE for something nested inside a package, a bare
-    standalone routine/trigger name, or a bare package name if only a
+    standalone routine/trigger/view name, or a bare package name if only a
     package (not yet inside any of its own routines) precedes it. 'UNKNOWN'
     if nothing precedes at all — e.g. a construct in a bare anonymous block
     with no enclosing named object.
 
-    package/standalone_routine/trigger are treated as mutually exclusive
-    top-level containers: whichever one starts most recently is "current",
-    and starting a new one implicitly ends the previous one (mirroring
-    compound_triggers.py's "bounded by the next CREATE TRIGGER" — a
-    standalone routine or trigger can't itself be inside a package body, so
-    its start must mean any earlier package's scope has ended). Without
-    this, a package's name would otherwise leak into a later, unrelated
-    standalone routine or trigger's own nested finds. There is deliberately
-    no explicit "package body's own END" tracking — this module's actual
-    input is DBMS_METADATA.GET_DDL-exported object DDL (PACKAGE BODY /
-    TRIGGER / standalone PROCEDURE/FUNCTION definitions), which never
-    contains free-standing anonymous PL/SQL blocks between them; a
+    package/standalone_routine/trigger/view are treated as mutually
+    exclusive top-level containers: whichever one starts most recently is
+    "current", and starting a new one implicitly ends the previous one
+    (mirroring compound_triggers.py's "bounded by the next CREATE TRIGGER"
+    — none of these can itself be inside a package body, so its start must
+    mean any earlier package's scope has ended). Without this, a package's
+    name would otherwise leak into a later, unrelated standalone routine,
+    trigger, or view's own nested finds. There is deliberately no explicit
+    "package body's own END" tracking — this module's actual input is
+    DBMS_METADATA.GET_DDL-exported object DDL (PACKAGE / PACKAGE BODY /
+    TRIGGER / VIEW / standalone PROCEDURE/FUNCTION definitions), which
+    never contains free-standing anonymous PL/SQL blocks between them; a
     theoretical anonymous block right after a package body and before the
     next named object would still (incorrectly) inherit that package's
     name, but that shape of input is outside this tool's actual scope."""

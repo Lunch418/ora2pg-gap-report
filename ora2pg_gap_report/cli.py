@@ -104,8 +104,8 @@ def scan_source(source: str) -> list[Finding]:
 
 
 def count_objects(source: str) -> int:
-    """How many top-level Oracle objects (PACKAGE BODY, standalone
-    PROCEDURE/FUNCTION, TRIGGER) this source declares — not lines, not
+    """How many top-level Oracle objects (PACKAGE / PACKAGE BODY, standalone
+    PROCEDURE/FUNCTION, TRIGGER, VIEW) this source declares — not lines, not
     findings, just what the file itself declares, via the same masking/
     attribution infrastructure the detectors use. Nested routines inside a
     package aren't counted separately: the package as a whole is the
@@ -118,10 +118,17 @@ def count_objects(source: str) -> int:
     sales.emp_pkg) into one. A file re-declaring the exact same object
     twice (DROP + CREATE under the same name, as in
     docs/research/samples/compound_trigger_dlee.sql) is comparatively rare
-    and only affects this display count, not any detector's findings."""
+    and only affects this display count, not any detector's findings. A
+    package whose spec *and* body are both present in the same file counts
+    as 2 for the same reason -- both are real, separate 'package' entries
+    in enclosing_object_name_index(), and deduplicating them back into one
+    logical package would need name-tracking this function deliberately
+    doesn't do, for the same low-stakes-display-count reasoning."""
     clean = mask_strings_and_comments(source)
     index = enclosing_object_name_index(clean)
-    return sum(1 for _, kind, _ in index if kind in ("package", "standalone_routine", "trigger"))
+    return sum(
+        1 for _, kind, _ in index if kind in ("package", "standalone_routine", "trigger", "view")
+    )
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:

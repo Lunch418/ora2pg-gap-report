@@ -377,6 +377,30 @@ def test_count_objects_does_not_collapse_same_named_objects_in_different_schemas
     assert cli.count_objects(source) == 4
 
 
+def test_count_objects_counts_a_view():
+    source = "CREATE OR REPLACE VIEW active_customers AS SELECT * FROM customers WHERE active = 1;\n"
+    assert cli.count_objects(source) == 1
+
+
+def test_json_table_inside_a_view_is_attributed_not_unknown():
+    # Found by scanning a real-world corpus (oracle-samples/
+    # db-sample-schemas: customer_orders/co_create.sql) -- a JSON_TABLE
+    # call inside a CREATE OR REPLACE VIEW used to attribute to 'UNKNOWN'
+    # since a view was never a recognized attribution container.
+    source = """
+    CREATE OR REPLACE VIEW product_reviews AS
+      SELECT r.rating
+      FROM products p,
+           JSON_TABLE(p.product_details, '$'
+             COLUMNS (rating INTEGER PATH '$.rating')
+           ) r;
+    """
+    findings = scan_source(source)
+    json_table_findings = [f for f in findings if f.detector == "json_table"]
+    assert len(json_table_findings) == 1
+    assert json_table_findings[0].object_name == "PRODUCT_REVIEWS"
+
+
 def test_version_flag_prints_the_installed_version_and_exits_cleanly(capsys):
     # argparse's action="version" raises SystemExit(0) after printing --
     # that's the documented, correct behaviour, not a crash.

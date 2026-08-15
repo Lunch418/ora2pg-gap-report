@@ -126,6 +126,15 @@ ora2pg-gap-report path/to/schema_dump.pkb --check-connect-by
 
 Файлы с DDL можно передавать как есть — один файл может содержать сразу
 несколько пакетов/триггеров, детекторы разбирают границы объектов сами.
+Можно передать и директорию — рекурсивно просканируются все `.sql`/
+`.pks`/`.pkb` внутри (например, вся папка с выгрузкой
+`DBMS_METADATA.GET_DDL`):
+
+```sh
+ora2pg-gap-report path/to/schema_dump_dir/
+```
+
+`ora2pg-gap-report --version` — показать установленную версию.
 
 Пример реального вывода на открытом пакете —
 [`docs/examples/logger-autonomous_tx-report.md`](docs/examples/logger-autonomous_tx-report.md).
@@ -299,6 +308,10 @@ ORACLE_DSN=localhost:1521/FREEPDB1 ORACLE_USER=testuser ORACLE_PASSWORD=testpass
 `gvenzl/oracle-free:23-slim` — контейнерный пакет официального
 бесплатного дистрибутива Oracle (тот же движок), просто с более удобной
 для CI/тестов оберткой, чем прямой образ Oracle Container Registry.
+
+## Changelog
+
+История изменений по версиям — [CHANGELOG.md](CHANGELOG.md).
 
 ## Лицензия
 

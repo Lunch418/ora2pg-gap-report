@@ -105,8 +105,9 @@ PL/SQL — с нестандартными расширениями файлов
 AUTONOMOUS_TRANSACTION` и скрытый `BULK COLLECT INTO`, оба в `utPLSQL`,
 оба верно приписаны реальной процедуре в статическом дереве исходников
 (не вымышленному объекту, существующему только в момент выполнения) —
-см. раздел «Конструкции, спрятанные в динамическом SQL» в README.md для
-дизайна и `tests/test_plsql_lex.py`/`tests/test_autonomous_tx.py`/
+см. раздел «Конструкции, спрятанные в динамическом SQL» в
+`docs/ARCHITECTURE.md` для дизайна и
+`tests/test_plsql_lex.py`/`tests/test_autonomous_tx.py`/
 `tests/test_bulk_collect.py` для регрессионных тестов на настоящих
 фрагментах.
 

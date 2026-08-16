@@ -1,9 +1,9 @@
-"""Tests for scripts/doctor.py's README <-> detectors-on-disk parity
-check -- the specific class of drift this catches (README.md's
-"Архитектура" file tree silently falling behind ora2pg_gap_report/
-detectors/) was found and fixed by hand once already; this makes it a
-rerunnable check instead of something that has to be rediscovered by
-rereading the whole README."""
+"""Tests for scripts/doctor.py's docs/ARCHITECTURE.md <-> detectors-on-disk
+parity check -- the specific class of drift this catches (the file tree's
+detector list silently falling behind ora2pg_gap_report/detectors/,
+originally in README.md before the docs split) was found and fixed by
+hand once already; this makes it a rerunnable check instead of something
+that has to be rediscovered by rereading the whole document."""
 
 import importlib.util
 import sys
@@ -63,27 +63,29 @@ def test_detector_names_on_disk_matches_real_detector_files():
     assert len(on_disk) >= 29
 
 
-def test_readme_parity_is_clean_on_the_real_repository_state():
+def test_architecture_doc_parity_is_clean_on_the_real_repository_state():
     # Integration-style, same spirit as test_gap_registry.py's invariant
-    # tests: this must hold against the actual README.md/detectors/ in
-    # this checkout, not a synthetic fixture -- that's the whole point of
-    # the check.
-    assert doctor.check_readme_parity() == []
+    # tests: this must hold against the actual docs/ARCHITECTURE.md/
+    # detectors/ in this checkout, not a synthetic fixture -- that's the
+    # whole point of the check.
+    assert doctor.check_architecture_doc_parity() == []
 
 
-def test_readme_parity_flags_a_detector_file_missing_from_the_readme(monkeypatch):
+def test_architecture_doc_parity_flags_a_detector_file_missing_from_the_doc(monkeypatch):
     monkeypatch.setattr(doctor, "_detector_names_on_disk", lambda: {"autonomous_tx", "brand_new_detector"})
-    monkeypatch.setattr(doctor, "_detector_names_in_readme", lambda: {"autonomous_tx"})
-    problems = doctor.check_readme_parity()
+    monkeypatch.setattr(doctor, "_detector_names_in_architecture_doc", lambda: {"autonomous_tx"})
+    problems = doctor.check_architecture_doc_parity()
     assert len(problems) == 1
     assert "brand_new_detector.py" in problems[0]
     assert "не упомянут" in problems[0]
 
 
-def test_readme_parity_flags_a_stale_readme_entry_for_a_removed_detector(monkeypatch):
+def test_architecture_doc_parity_flags_a_stale_entry_for_a_removed_detector(monkeypatch):
     monkeypatch.setattr(doctor, "_detector_names_on_disk", lambda: {"autonomous_tx"})
-    monkeypatch.setattr(doctor, "_detector_names_in_readme", lambda: {"autonomous_tx", "long_removed_detector"})
-    problems = doctor.check_readme_parity()
+    monkeypatch.setattr(
+        doctor, "_detector_names_in_architecture_doc", lambda: {"autonomous_tx", "long_removed_detector"}
+    )
+    problems = doctor.check_architecture_doc_parity()
     assert len(problems) == 1
     assert "long_removed_detector.py" in problems[0]
     assert "нет в ora2pg_gap_report/detectors/" in problems[0]

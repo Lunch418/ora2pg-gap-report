@@ -722,6 +722,14 @@ def test_main_explain_prints_the_research_doc_and_exits_cleanly(capsys):
     assert "Oracle Text" in captured.out
 
 
+def test_main_explain_prints_the_confirmed_version_stamp(capsys):
+    exit_code = main(["--explain", "GAP-023"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "ora2pg 25.0" in captured.out
+    assert "PostgreSQL 16" in captured.out
+
+
 def test_main_explain_accepts_a_bare_number(capsys):
     exit_code = main(["--explain", "23"])
     captured = capsys.readouterr()

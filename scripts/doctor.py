@@ -19,7 +19,13 @@ something that has to be rediscovered by rereading everything.
 Also checks that docs/ARCHITECTURE.md's detector file tree hasn't drifted
 from ora2pg_gap_report/detectors/ on disk -- the same class of staleness
 that once left README.md (where this section originally lived) describing
-a four-detector architecture long after the project had 28.
+a four-detector architecture long after the project had 28. And that
+docs/research/GAP_REGISTRY.md's ora2pg/PostgreSQL version columns match
+gap_registry.py's own ora2pg_version/postgresql_version fields -- the
+Python fields are the canonical source (see GapEntry's own docstring),
+the Markdown table is a human-facing restatement of the same facts, and
+restated facts drift from their source exactly the way this whole script
+exists to catch.
 
 Run: python3 scripts/doctor.py
 Exit code: 0 if every gap's artifacts check out, 1 if any is missing.
@@ -42,6 +48,23 @@ from ora2pg_gap_report.gap_registry import GAPS, research_doc_path  # noqa: E402
 # entry ('│   └── identity_column.py ...').
 _TREE_ENTRY_RE = re.compile(r"^│\s+(?:├──|└──)\s+([a-z_]+)\.py")
 _DETECTORS_LINE_RE = re.compile(r"^├── detectors/\s*$")
+
+# Matches a GAP_REGISTRY.md table row's number/ora2pg-version/postgresql-
+# version columns, e.g.
+# '| GAP-001 | ... | `autonomous_tx` | confirmed | 25.0 | 16 | [gap-001](...) |'.
+# Anchored on '| confirmed |' specifically (not just any two version-
+# shaped columns) so a future non-'confirmed' status row (fixed-upstream/
+# wont-fix, both real statuses this table documents) isn't silently
+# skipped nor misparsed. Both version columns accept dotted values
+# ([\d.]+, not \d+) -- PostgreSQL is "16" today (single-number versioning
+# since PG10), but a future gap re-verified against a pre-10 version
+# ("9.6") or a specific point release ("16.4") must still be *parsed*
+# (even if it wouldn't have a str-equal match), or that row would be
+# silently excluded from confirmed_rows entirely and check_gap_registry_
+# md_parity() would skip comparing it instead of flagging real drift --
+# a digits-only pattern here would fail exactly the way this whole check
+# exists to prevent.
+_GAP_REGISTRY_ROW_RE = re.compile(r"^\| GAP-(\d{3}) \|.*\| confirmed \| ([\d.]+) \| ([\d.]+) \|", re.MULTILINE)
 
 
 def _detector_names_on_disk() -> set[str]:
@@ -135,6 +158,42 @@ def check_architecture_doc_parity() -> list[str]:
     return problems
 
 
+def _confirmed_gap_versions_in_text(registry_md_text: str) -> dict[str, tuple[str, str]]:
+    return {
+        number: (ora2pg_version, postgresql_version)
+        for number, ora2pg_version, postgresql_version in _GAP_REGISTRY_ROW_RE.findall(registry_md_text)
+    }
+
+
+def check_gap_registry_md_parity() -> list[str]:
+    """docs/research/GAP_REGISTRY.md's ora2pg/PostgreSQL version columns
+    must match gap_registry.py's own ora2pg_version/postgresql_version
+    fields for every gap the table marks 'confirmed' -- the Python fields
+    are the canonical source (GapEntry's own docstring says so), the
+    table is a human-facing restatement, and this only flags an actual
+    mismatch between the two, not a missing row: a gap the table marks
+    'fixed-upstream'/'wont-fix' instead of 'confirmed' is deliberately
+    not compared here, since neither of those statuses is tracked in
+    gap_registry.py at all -- there's nothing to compare it against, and
+    reporting that as a "drift" would be a false positive on a real,
+    intentional status change."""
+    registry_md = (REPO_ROOT / "docs" / "research" / "GAP_REGISTRY.md").read_text(encoding="utf-8")
+    confirmed_rows = _confirmed_gap_versions_in_text(registry_md)
+
+    problems = []
+    for gap in GAPS:
+        if gap.number not in confirmed_rows:
+            continue
+        row_ora2pg, row_postgresql = confirmed_rows[gap.number]
+        if row_ora2pg != gap.ora2pg_version or row_postgresql != gap.postgresql_version:
+            problems.append(
+                f"GAP-{gap.number}: docs/research/GAP_REGISTRY.md указывает ora2pg "
+                f"{row_ora2pg}/PostgreSQL {row_postgresql}, а gap_registry.py — ora2pg "
+                f"{gap.ora2pg_version}/PostgreSQL {gap.postgresql_version}"
+            )
+    return problems
+
+
 def main() -> int:
     print(f"Проверено {len(GAPS)} gap'ов из реестра (ora2pg_gap_report/gap_registry.py).\n")
 
@@ -142,11 +201,13 @@ def main() -> int:
     for gap in GAPS:
         all_problems.extend(check_gap(gap))
     all_problems.extend(check_architecture_doc_parity())
+    all_problems.extend(check_gap_registry_md_parity())
 
     if not all_problems:
         print(
             "✓ Всё чисто: у каждого gap'а есть research-документ, детектор, позитивный и "
-            "guard-тест, и docs/ARCHITECTURE.md не разошёлся со списком детекторов на диске."
+            "guard-тест, docs/ARCHITECTURE.md не разошёлся со списком детекторов на диске, "
+            "и версии в GAP_REGISTRY.md совпадают с gap_registry.py."
         )
         return 0
 

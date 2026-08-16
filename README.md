@@ -374,9 +374,16 @@ pip install -e ".[dev]"   # editable-режим + pytest
 pytest
 ```
 
-Детекторы и лексер проверены на реальном открытом PL/SQL-коде (Logger,
-alexandria-plsql-utils, составной триггер из Apress), а не только на
-синтетических примерах.
+Детекторы и лексер проверены на реальном открытом PL/SQL-коде — не
+только на синтетических примерах. Помимо точечных фикстур (Logger,
+составной триггер из Apress), детекторы прогонялись целиком на
+~215 тысячах строк из четырёх независимых открытых проектов:
+официальных демо-схем Oracle (`oracle-samples/db-sample-schemas`),
+библиотеки утилит `mortenbra/alexandria-plsql-utils`, фреймворка
+юнит-тестирования `utPLSQL/utPLSQL` и логгера `OraOpenSource/Logger` —
+ноль падений, только одна честно задокументированная граница
+применимости (см. `test_real_open_source_logger_install_script_
+anonymous_block_is_unknown_not_a_crash` в `tests/test_bulk_collect.py`).
 
 ### Проверка на живой Oracle
 

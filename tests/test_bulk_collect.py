@@ -161,3 +161,64 @@ def test_create_type_with_a_long_comment_before_type_is_still_recognized_as_sche
     # that made it miss the CREATE prefix entirely.
     source = "CREATE OR REPLACE /* " + "x" * 100 + " */ TYPE num_tab IS TABLE OF NUMBER;\n/\n"
     assert find_bulk_collect_usage(source) == []
+
+
+def test_real_open_source_utplsql_bulk_collect_into_is_attributed():
+    # Found scanning utPLSQL (github.com/utPLSQL/utPLSQL) — verbatim
+    # excerpt of test/ut3_tester_helper/main_helper.pkb (see the matching
+    # test in test_autonomous_tx.py for the same file's PRAGMA
+    # AUTONOMOUS_TRANSACTION), exercising the BULK COLLECT INTO branch
+    # specifically rather than the local TYPE...IS TABLE OF branch this
+    # file's other real-corpus test (amazon_aws_s3_pkg.pks) already
+    # covers.
+    source = """
+    create or replace package body main_helper is
+
+      function run_test(a_path varchar2) return clob is
+        l_lines    ut3_develop.ut_varchar2_list;
+      begin
+        select * bulk collect into l_lines from table(ut3_develop.ut.run(a_path));
+        return ut3_develop.ut_utils.table_to_clob(l_lines);
+      end;
+
+    end main_helper;
+    /
+    """
+    findings = find_bulk_collect_usage(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "MAIN_HELPER.RUN_TEST"
+    assert findings[0].snippet == "bulk collect into"
+
+
+def test_real_open_source_logger_install_script_anonymous_block_is_unknown_not_a_crash():
+    # Found scanning OraOpenSource/Logger's install scripts (verbatim
+    # excerpt of source/tables/logger_prefs_by_client_id.sql) — a bare
+    # anonymous 'declare ... begin ... end;' block used as a conditional
+    # "create table if not exists" install script, not a named object.
+    # DBMS_METADATA.GET_DDL (this project's documented Oracle export
+    # mechanism) exports named objects, not free-standing anonymous
+    # blocks, so this shape is outside this tool's documented scope — see
+    # enclosing_object_name()'s docstring in plsql_lex.py. Kept as a
+    # permanent regression test not because 'UNKNOWN' should become
+    # something more specific, but to lock in that this shape is handled
+    # honestly (a clearly-labeled "don't know", not a silent wrong guess
+    # or a crash) now that it's confirmed to occur in real, shipped
+    # open-source Oracle code, not just hypothetically.
+    source = """
+    declare
+      l_count pls_integer;
+      l_nullable user_tab_columns.nullable%type;
+
+      type typ_required_columns is table of varchar2(30) index by pls_integer;
+      l_required_columns typ_required_columns;
+
+      l_sql varchar2(2000);
+
+    begin
+      null;
+    end;
+    /
+    """
+    findings = find_bulk_collect_usage(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "UNKNOWN"

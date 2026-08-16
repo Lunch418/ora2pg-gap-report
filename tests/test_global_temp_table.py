@@ -44,3 +44,30 @@ def test_unterminated_statement_does_not_bleed_into_an_earlier_table():
     findings = find_global_temp_tables_without_delete_rows(source)
     assert len(findings) == 1
     assert findings[0].object_name == "STAGING_A"
+
+
+def test_real_open_source_utplsql_global_temp_table_is_flagged():
+    # source/expectations/data_values/ut_compound_data_diff_tmp.sql from
+    # utPLSQL (github.com/utPLSQL/utPLSQL) — a real global temporary
+    # table used internally by the framework to diff compound test
+    # expectations, with an explicit 'on commit delete rows'. Verbatim
+    # except for the Apache License header comment block, stripped here
+    # for brevity (not relevant to what's being tested).
+    source = """
+    create global temporary table ut_compound_data_diff_tmp(
+      diff_id      raw(128),
+      act_data_id  raw(32),
+      exp_data_id  raw(32),
+      act_item_data xmltype,
+      exp_item_data xmltype,
+      item_no      integer,
+      duplicate_no integer,
+      constraint ut_compound_data_diff_tmp_uk1 unique (diff_id,duplicate_no,item_no),
+      constraint ut_compound_data_diff_tmp_chk check(
+       item_no is not null
+       )
+    ) on commit delete rows;
+    """
+    findings = find_global_temp_tables_without_delete_rows(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "UT_COMPOUND_DATA_DIFF_TMP"

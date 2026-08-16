@@ -133,3 +133,24 @@ def test_real_open_source_object_type_is_flagged():
     findings = find_object_types(source)
     assert len(findings) == 1
     assert findings[0].object_name == "T_SOAP_ENVELOPE"
+
+
+def test_real_open_source_utplsql_object_types_are_flagged():
+    # Verbatim (not paraphrased) from utPLSQL (github.com/utPLSQL/utPLSQL),
+    # examples/demo_of_expectations/demo_equal_matcher.sql -- a second,
+    # independent real source confirming this detector, distinct in
+    # character from t_soap_envelope.pks above (a demo/example file from a
+    # real testing framework, not a utility library).
+    source = """
+    create or replace type demo_department as object(
+      dept_name varchar2(30)
+    )
+    /
+
+    create or replace type demo_department_new as object(
+      dept_name varchar2(30)
+    )
+    /
+    """
+    findings = find_object_types(source)
+    assert {f.object_name for f in findings} == {"DEMO_DEPARTMENT", "DEMO_DEPARTMENT_NEW"}

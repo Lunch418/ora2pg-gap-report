@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Lunch418/ora2pg-gap-report/blob/main/schemas/report.schema.json",
   "title": "ora2pg-gap-report JSON report",
-  "description": "The exact shape of `ora2pg-gap-report ... --format json` output: a flat array of findings, one per problematic Oracle construct detected. See ora2pg_gap_report/models.py (Finding) and report_generator.py (to_json) for the source of truth this schema describes.",
+  "description": "The exact shape of `ora2pg-gap-report ... --format json` output: a flat array of findings, one per problematic Oracle construct detected. See ora2pg_gap_report/models.py (Finding) and report_generator.py (to_json) for the source of truth this schema describes. NOTE: $defs/finding's `properties`/`required` are duplicated in baseline.schema.json's $defs/baseline_finding (which adds one field, 'group_key', on top of the same Finding shape) — tests/test_schemas.py's test_report_and_baseline_schemas_share_identical_finding_field_definitions enforces that the two stay identical; update both files together, not just this one.",
   "type": "array",
   "items": { "$ref": "#/$defs/finding" },
   "$defs": {

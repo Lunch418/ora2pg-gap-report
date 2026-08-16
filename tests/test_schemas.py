@@ -82,3 +82,23 @@ def test_report_schema_rejects_an_unknown_severity(report_schema):
 def test_baseline_schema_rejects_a_mismatched_schema_version(baseline_schema):
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate({"schema_version": 2, "findings": []}, baseline_schema)
+
+
+def test_report_and_baseline_schemas_share_identical_finding_field_definitions(
+    report_schema, baseline_schema
+):
+    # baseline.schema.json's $defs/baseline_finding hand-duplicates
+    # report.schema.json's $defs/finding (plus its own extra 'group_key'
+    # field) instead of $ref-ing it across files -- see the "NOTE" in
+    # both files' top-level "description" for why. This is what actually
+    # enforces the two staying in sync instead of just a comment asking
+    # nicely: any future edit to one file's Finding-shaped fields without
+    # the same edit in the other fails this test immediately.
+    report_finding = report_schema["$defs"]["finding"]
+    baseline_finding = baseline_schema["$defs"]["baseline_finding"]
+
+    shared_properties = {k: v for k, v in baseline_finding["properties"].items() if k != "group_key"}
+    assert shared_properties == report_finding["properties"]
+
+    shared_required = sorted(r for r in baseline_finding["required"] if r != "group_key")
+    assert shared_required == sorted(report_finding["required"])

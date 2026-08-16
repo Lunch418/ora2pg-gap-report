@@ -1,9 +1,11 @@
 import csv
 import hashlib
+import html
 import io
 import json
 from dataclasses import asdict, fields
 
+from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_by_detector, research_doc_url
 from .models import Finding
 
@@ -59,6 +61,88 @@ def to_markdown(findings: list[Finding]) -> str:
             f"| `{snippet}` | {message} |"
         )
     return "\n".join(lines) + "\n"
+
+
+_HTML_SEVERITY_CLASS = {"high": "sev-high", "medium": "sev-medium", "low": "sev-low"}
+
+_HTML_STYLE = """
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 2rem;
+         color: #1a1a1a; background: #ffffff; }
+  h1 { font-size: 1.4rem; }
+  .summary { margin: 1rem 0 1.5rem; padding: 1rem 1.25rem; border: 1px solid #d0d0d0;
+             border-radius: 6px; background: #f7f7f7; }
+  .summary p { margin: 0.25rem 0; }
+  .caveat { color: #555; font-size: 0.9rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { border: 1px solid #d8d8d8; padding: 0.5rem 0.6rem; text-align: left;
+           vertical-align: top; }
+  th { background: #eeeeee; position: sticky; top: 0; }
+  td.mono, th.mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 4px;
+           font-weight: 600; font-size: 0.8rem; color: #ffffff; white-space: nowrap; }
+  .sev-high .badge { background: #b3261e; }
+  .sev-medium .badge { background: #9a6700; }
+  .sev-low .badge { background: #1a5fb4; }
+  .empty { padding: 1rem; color: #555; }
+"""
+
+
+def to_html(findings: list[Finding]) -> str:
+    """Self-contained HTML report (inline CSS only, no external resources
+    -- this project's other formats are all designed to work in an
+    air-gapped/closed-network setting, see README's "Установка без
+    интернета" section, and there is no reason for this one format alone
+    to require network access to render correctly). Same counts/effort
+    estimate as the Markdown/terminal header, same "uncalibrated
+    heuristic, not a measurement" caveat -- see effort_estimator.py's
+    docstring for why no other score (a "readiness %", a risk level) is
+    invented here either."""
+    counts = summarize_by_severity(findings)
+    counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
+    lo, hi = estimate_hours(findings)
+
+    rows = []
+    for f in findings:
+        sev_class = _HTML_SEVERITY_CLASS.get(f.severity, "")
+        rows.append(
+            f'<tr class="{sev_class}">'
+            f"<td>{html.escape(f.source_file)}</td>"
+            f'<td class="mono">{html.escape(f.object_name)}</td>'
+            f"<td>{f.line}</td>"
+            f'<td><span class="badge">{html.escape(f.severity)}</span></td>'
+            f'<td class="mono">{html.escape(f.snippet)}</td>'
+            f"<td>{html.escape(f.message)}</td>"
+            "</tr>"
+        )
+
+    if findings:
+        table = (
+            "<table>\n<thead><tr>"
+            "<th>Файл</th><th>Объект</th><th>Строка</th><th>Серьёзность</th>"
+            "<th>Фрагмент</th><th>Комментарий</th>"
+            "</tr></thead>\n<tbody>\n" + "\n".join(rows) + "\n</tbody>\n</table>"
+        )
+    else:
+        table = '<p class="empty">Проблемных конструкций не найдено.</p>'
+
+    return f"""<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Отчёт ora2pg-gap-report</title>
+<style>{_HTML_STYLE}</style>
+</head>
+<body>
+<h1>Отчёт ora2pg-gap-report</h1>
+<div class="summary">
+<p>Найдено проблемных объектов: {len(findings)} ({html.escape(counts_text)})</p>
+<p class="caveat">Грубая оценка ручной доработки: {lo:g}–{hi:g} ч. — неоткалиброванная эвристика
+по severity, не измерение (см. PROJECT_BRIEF.md).</p>
+</div>
+{table}
+</body>
+</html>
+"""
 
 
 def _sarif_rule_id(detector: str, message: str) -> str:

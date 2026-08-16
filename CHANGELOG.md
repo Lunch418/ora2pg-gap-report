@@ -7,6 +7,57 @@ patch — исправления в существующих.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-16
+
+### Added
+- 7 новых детекторов, GAP-022…GAP-028. Реестр — теперь 28 подтверждённых
+  gap'ов, см. `docs/research/GAP_REGISTRY.md`:
+  - `cross_apply` — `CROSS APPLY`/`OUTER APPLY`, синтаксиса `APPLY` нет в
+    PostgreSQL вообще.
+  - `oracle_text` — домен-индекс `INDEXTYPE IS CTXSYS.*` (Oracle Text)
+    отбрасывается целиком; вызовы `CONTAINS`/`CATSEARCH`/`MATCHES` не
+    переносятся.
+  - `recursive_with` — нативная рекурсивная `WITH ... AS (...)` (не через
+    `CONNECT BY`) без обязательного в PostgreSQL ключевого слова
+    `RECURSIVE`.
+  - `invisible_index` — индекс `INVISIBLE` теряет своё скрытие от
+    оптимизатора.
+  - `read_only_table` — `CREATE TABLE ... READ ONLY` теряет гарантию
+    неизменяемости; `INSERT` проходит там, где Oracle гарантированно
+    блокирует его (`ORA-12081`).
+  - `materialized_view_log` — `CREATE MATERIALIZED VIEW LOG` не
+    конвертируется вообще, след только в DEBUG-логе.
+  - `identity_column` — `GENERATED ... AS IDENTITY (...)` с опциями:
+    настоящий баг двойных скобок в самой подстановке ora2pg (не пропуск
+    конвертации, а поломанная конвертация — код падает при загрузке DDL).
+- `docs/research/AUDIT.md` и `scripts/audit_gap_test_counts.py` обновлены
+  под все 28 gap'ов.
+
+### Fixed
+- Системный баг статeмент-скоупинга: `DBMS_METADATA.GET_DDL` (этот же
+  проект использует его для выгрузки DDL из Oracle) по умолчанию не
+  ставит `;` в конце оператора, а часть детекторов ограничивала «свой»
+  оператор как «до следующей `;`, а если её нет — до конца файла», из-за
+  чего конструкция из более поздней таблицы могла ошибочно приписаться
+  более ранней, незавершённой. Затронуло в том числе уже опубликованные
+  `table_partitioning` и `external_table`, не только новые детекторы этого
+  релиза. Добавлен общий хелпер `statement_end()` в `plsql_lex.py`,
+  применён в 8 детекторах: `table_partitioning`, `external_table`,
+  `invisible_column`, `global_temp_table`, `oracle_text`,
+  `invisible_index`, `read_only_table`, `identity_column`.
+- `invisible_index`/`read_only_table`: ложные срабатывания на столбце с
+  тем же именем, что и модификатор (`invisible`/`read_only` как
+  идентификатор столбца, в том числе в двойных кавычках) — теперь
+  исключены.
+- `invisible_index`/`read_only_table`/`oracle_text`: номер строки в
+  находке теперь указывает на сам модификатор/секцию (`INVISIBLE`/`READ
+  ONLY`/`INDEXTYPE IS ...`), а не на строку с открывающим `CREATE
+  TABLE`/`CREATE INDEX` — важно для многострочного DDL.
+- `materialized_view_log`: severity поднята с `medium` на `high` — тот же
+  профиль риска, что у `table_partitioning`/`external_table` (конструкция
+  молча пропадает без ошибки PostgreSQL, но означает реальную
+  архитектурную потерю).
+
 ## [0.3.0] - 2026-08-15
 
 ### Added

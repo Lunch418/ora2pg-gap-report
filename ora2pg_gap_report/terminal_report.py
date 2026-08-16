@@ -34,6 +34,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
+from .baseline import BaselineDiff
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .models import Finding
 
@@ -163,6 +164,43 @@ def render(
 
     _render_effort_panel(console, lo, hi)
     _render_footer_hints(console)
+
+
+def render_baseline_diff(diff: BaselineDiff, console: Console | None = None) -> None:
+    """Prints a NEW/RESOLVED/UNCHANGED summary against a --baseline
+    snapshot — see baseline.py for how findings are matched across scans.
+    Deliberately its own panel, printed in addition to (not instead of)
+    the normal report: --baseline augments a scan, it doesn't replace
+    what the scan itself found."""
+    console = console or Console()
+
+    counts = Table.grid(padding=(0, 2))
+    counts.add_column(style="dim")
+    counts.add_column()
+    counts.add_row("NEW", Text(str(len(diff.new)), style="bold red" if diff.new else "bold"))
+    counts.add_row("RESOLVED", Text(str(len(diff.resolved)), style="bold green"))
+    counts.add_row("UNCHANGED", Text(str(diff.unchanged_count), style="dim"))
+
+    parts: list[Text | Table] = [counts]
+
+    if diff.new:
+        # Text.append() takes its string as literal content, same as every
+        # other place in this module that interpolates finding-derived text
+        # (object_name, detector, snippet) -- it does not parse Rich markup,
+        # unlike a raw f-string handed to console.print() directly. See the
+        # module-level comment above the "Все находки" table for why that
+        # distinction matters here (arbitrary text straight from the Oracle
+        # source being scanned).
+        new_list = Text("\n")
+        new_list.append("Новые находки:\n", style="bold red")
+        for f in diff.new:
+            new_list.append(f"  • {f.object_name}", style="bold")
+            new_list.append(f"  [{f.detector}]  {f.snippet}\n", style="dim")
+        parts.append(new_list)
+
+    console.print(
+        Panel(Group(*parts), title="Сравнение с baseline", title_align="left", border_style="magenta")
+    )
 
 
 def _render_banner(console: Console) -> None:

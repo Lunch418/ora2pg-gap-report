@@ -107,6 +107,16 @@ def test_gap_registry_row_regex_extracts_number_and_versions_from_a_realistic_ro
     assert matches == [("001", "25.0", "16")]
 
 
+def test_gap_registry_row_regex_accepts_dotted_postgresql_versions():
+    # A digits-only PostgreSQL column pattern would silently fail to
+    # match a future dotted version ("16.4", or a pre-PG10 "9.6") --
+    # the row would then be excluded from confirmed_rows entirely and
+    # check_gap_registry_md_parity() would skip comparing it instead of
+    # flagging a real mismatch, defeating the whole point of the check.
+    fragment = "| GAP-001 | x | `autonomous_tx` | confirmed | 25.0 | 16.4 | [x](x.md) |\n"
+    assert doctor._GAP_REGISTRY_ROW_RE.findall(fragment) == [("001", "25.0", "16.4")]
+
+
 def test_gap_registry_md_parity_is_clean_on_the_real_repository_state():
     # Integration-style, same spirit as the ARCHITECTURE.md parity test:
     # must hold against the actual docs/research/GAP_REGISTRY.md/

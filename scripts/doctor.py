@@ -55,8 +55,16 @@ _DETECTORS_LINE_RE = re.compile(r"^├── detectors/\s*$")
 # Anchored on '| confirmed |' specifically (not just any two version-
 # shaped columns) so a future non-'confirmed' status row (fixed-upstream/
 # wont-fix, both real statuses this table documents) isn't silently
-# skipped nor misparsed.
-_GAP_REGISTRY_ROW_RE = re.compile(r"^\| GAP-(\d{3}) \|.*\| confirmed \| ([\d.]+) \| (\d+) \|", re.MULTILINE)
+# skipped nor misparsed. Both version columns accept dotted values
+# ([\d.]+, not \d+) -- PostgreSQL is "16" today (single-number versioning
+# since PG10), but a future gap re-verified against a pre-10 version
+# ("9.6") or a specific point release ("16.4") must still be *parsed*
+# (even if it wouldn't have a str-equal match), or that row would be
+# silently excluded from confirmed_rows entirely and check_gap_registry_
+# md_parity() would skip comparing it instead of flagging real drift --
+# a digits-only pattern here would fail exactly the way this whole check
+# exists to prevent.
+_GAP_REGISTRY_ROW_RE = re.compile(r"^\| GAP-(\d{3}) \|.*\| confirmed \| ([\d.]+) \| ([\d.]+) \|", re.MULTILINE)
 
 
 def _detector_names_on_disk() -> set[str]:

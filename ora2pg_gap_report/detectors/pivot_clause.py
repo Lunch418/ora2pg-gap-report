@@ -1,7 +1,13 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import enclosing_object_name, enclosing_object_name_index, line_at, mask_strings_and_comments
+from ..plsql_lex import (
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_dynamic_sql_visible,
+    mask_strings_and_comments,
+)
 
 # PIVOT/UNPIVOT always take a parenthesized spec ('PIVOT (aggregate FOR
 # column IN (...))'), optionally preceded by their own modifier keywords
@@ -32,10 +38,11 @@ def find_pivot_clauses(source: str) -> list[Finding]:
     equivalent exists — confirmed unconverted by ora2pg and invalid
     PostgreSQL SQL (see docs/research/gap-008-pivot-unpivot.md)."""
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
-    for m in _PIVOT_RE.finditer(clean):
+    for m in _PIVOT_RE.finditer(visible):
         findings.append(
             Finding(
                 detector="pivot_clause",

@@ -1,7 +1,13 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import enclosing_object_name, enclosing_object_name_index, line_at, mask_strings_and_comments
+from ..plsql_lex import (
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_dynamic_sql_visible,
+    mask_strings_and_comments,
+)
 
 _MERGE_RE = re.compile(r"\bMERGE\s+INTO\b", re.IGNORECASE)
 # No identifier between DELETE and WHERE: an ordinary standalone DELETE
@@ -46,14 +52,15 @@ def find_merge_delete_clauses(source: str) -> list[Finding]:
     encloses it at all.
     """
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
-    for merge_match in _MERGE_RE.finditer(clean):
-        stmt_end = clean.find(";", merge_match.end())
+    for merge_match in _MERGE_RE.finditer(visible):
+        stmt_end = visible.find(";", merge_match.end())
         if stmt_end == -1:
-            stmt_end = len(clean)
-        statement = clean[merge_match.start() : stmt_end]
+            stmt_end = len(visible)
+        statement = visible[merge_match.start() : stmt_end]
 
         delete_match = _DELETE_WHERE_RE.search(statement)
         if not delete_match:

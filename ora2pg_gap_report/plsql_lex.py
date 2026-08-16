@@ -130,6 +130,101 @@ def mask_strings_and_comments(source: str) -> str:
     return "".join(out)
 
 
+_EXEC_IMMEDIATE_RE = re.compile(r"\bEXECUTE\s+IMMEDIATE\b", re.IGNORECASE)
+
+
+def mask_dynamic_sql_visible(source: str) -> str:
+    """Like mask_strings_and_comments(), but string-literal content that is
+    (part of) an EXECUTE IMMEDIATE argument -- from right after the keyword
+    to the next bare ';' outside any literal -- is left visible instead of
+    blanked, so a gap-triggering construct built as dynamic SQL/PL-SQL text
+    (a single literal or a '...' || expr || '...' concatenation) is still
+    detectable by keyword search. Comments and non-dynamic-SQL string
+    literals are masked exactly as before.
+
+    This is deliberately a SEPARATE masked view, not a replacement for
+    mask_strings_and_comments(). A detector that needs "what named object
+    contains this position" (enclosing_object_name_index()) must still
+    build that index from the safe, fully-masked view: dynamic SQL that
+    itself creates a package/procedure at runtime (real example: utPLSQL's
+    test suite dynamically creating a package via EXECUTE IMMEDIATE) would
+    otherwise be picked up as if it were a real container declared in the
+    source tree, corrupting attribution for unrelated findings. Only a
+    detector's own keyword-matching regex should run against this visible
+    view; positions found in it remain valid lookups into an index built
+    from the safe view, since masking never changes length or newlines in
+    either view."""
+    out = []
+    i, n = 0, len(source)
+    in_dynamic_sql = False
+    while i < n:
+        if not in_dynamic_sql and source[i].upper() == "E":
+            m = _EXEC_IMMEDIATE_RE.match(source, i)
+            if m:
+                out.append(source[i : m.end()])
+                i = m.end()
+                in_dynamic_sql = True
+                continue
+        two = source[i : i + 2]
+        if two == "--":
+            while i < n and source[i] != "\n":
+                out.append(" ")
+                i += 1
+            continue
+        if source[i] in "rR" and _at_line_start(source, i) and _REM_RE.match(source, i):
+            while i < n and source[i] != "\n":
+                out.append(" ")
+                i += 1
+            continue
+        if two == "/*":
+            out.append("  ")
+            i += 2
+            while i < n and source[i : i + 2] != "*/":
+                out.append("\n" if source[i] == "\n" else " ")
+                i += 1
+            if i < n:
+                out.append("  ")
+                i += 2
+            continue
+        if source[i] in "nNqQ":
+            open_pos = _q_quote_open_delim_pos(source, i)
+            if open_pos is not None:
+                open_delim = source[open_pos]
+                close_delim = _Q_QUOTE_PAIRS.get(open_delim, open_delim)
+                end = source.find(close_delim + "'", open_pos + 1)
+                if end != -1:
+                    if in_dynamic_sql:
+                        out.append(source[i : end + 2])
+                    else:
+                        for k in range(i, end + 2):
+                            out.append("\n" if source[k] == "\n" else " ")
+                    i = end + 2
+                    continue
+        if source[i] == "'":
+            out.append("'" if in_dynamic_sql else " ")
+            i += 1
+            while i < n:
+                if source[i] == "'":
+                    if source[i : i + 2] == "''":
+                        out.append("''" if in_dynamic_sql else "  ")
+                        i += 2
+                        continue
+                    out.append("'" if in_dynamic_sql else " ")
+                    i += 1
+                    break
+                if in_dynamic_sql:
+                    out.append(source[i])
+                else:
+                    out.append("\n" if source[i] == "\n" else " ")
+                i += 1
+            continue
+        if source[i] == ";" and in_dynamic_sql:
+            in_dynamic_sql = False
+        out.append(source[i])
+        i += 1
+    return "".join(out)
+
+
 def line_at(text: str, pos: int) -> int:
     """1-indexed line number of `pos` within `text`."""
     return text.count("\n", 0, pos) + 1

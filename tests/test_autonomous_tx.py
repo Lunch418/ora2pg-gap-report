@@ -132,3 +132,93 @@ def test_real_open_source_utplsql_test_helper_is_attributed():
     findings = find_autonomous_transactions(source)
     assert len(findings) == 1
     assert findings[0].object_name == "MAIN_HELPER.EXECUTE_AUTONOMOUS"
+
+
+def test_real_open_source_utplsql_hidden_pragma_inside_dynamic_sql_is_found():
+    # Found scanning utPLSQL (github.com/utPLSQL/utPLSQL) with the dynamic-
+    # SQL-visibility fix: test/ut3_tester_helper/run_helper.pkb's
+    # create_test_suite procedure has its own real PRAGMA in its declare
+    # section (line 2 below) AND, later in its own executable body, an
+    # EXECUTE IMMEDIATE that dynamically creates a whole second package
+    # (test_stateful) at runtime -- whose body, embedded as a string
+    # literal, itself contains a SECOND 'pragma autonomous_transaction;'
+    # for its own nested procedure rebuild_stateful_package. That second
+    # PRAGMA is invisible to plain source scanning (it's masked as string
+    # content) and, before this fix, silently missed entirely.
+    #
+    # Verbatim excerpt (not paraphrased) of run_helper.pkb's
+    # create_test_suite procedure, wrapped in a minimal package body using
+    # the file's own real package name (run_helper.pkb line 1: 'create or
+    # replace package body run_helper is').
+    source = """
+    create or replace package body run_helper is
+
+    procedure create_test_suite is
+    pragma autonomous_transaction;
+  begin
+    ut3_tester_helper.run_helper.create_db_link;
+    execute immediate q'[
+      create or replace package stateful_package as
+        function get_state return varchar2;
+      end;
+    ]';
+    execute immediate q'[
+      create or replace package body stateful_package as
+        g_state varchar2(1) := 'A';
+        function get_state return varchar2 is begin return g_state; end;
+      end;
+    ]';
+    execute immediate q'[
+      create or replace package test_stateful as
+        --%suite
+        --%suitepath(test_state)
+
+        --%test
+        --%beforetest(acquire_state_via_db_link,rebuild_stateful_package)
+        procedure failing_stateful_test;
+
+        procedure rebuild_stateful_package;
+        procedure acquire_state_via_db_link;
+
+      end;
+    ]';
+    execute immediate q'{
+    create or replace package body test_stateful as
+
+      procedure failing_stateful_test is
+      begin
+        ut3_develop.ut.expect(stateful_package.get_state@db_loopback).to_equal('abc');
+      end;
+
+      procedure rebuild_stateful_package is
+        pragma autonomous_transaction;
+      begin
+        execute immediate q'[
+          create or replace package body stateful_package as
+            g_state varchar2(3) := 'abc';
+            function get_state return varchar2 is begin return g_state; end;
+          end;
+        ]';
+      end;
+
+      procedure acquire_state_via_db_link is
+      begin
+        dbms_output.put_line('stateful_package.get_state@db_loopback='||stateful_package.get_state@db_loopback);
+      end;
+    end;
+    }';
+   execute immediate 'grant execute on test_stateful to public';
+  end;
+
+    end run_helper;
+    /
+    """
+    findings = find_autonomous_transactions(source)
+    assert len(findings) == 2
+    # Both attributed to the real, findable enclosing procedure in the
+    # static source tree -- not to 'test_stateful.rebuild_stateful_package',
+    # which is a name that exists only at runtime, created dynamically by
+    # this very procedure, and would mislead a developer searching for it.
+    assert {f.object_name for f in findings} == {"RUN_HELPER.CREATE_TEST_SUITE"}
+    lines = {f.line for f in findings}
+    assert len(lines) == 2  # the routine's own PRAGMA and the hidden one, not the same line twice

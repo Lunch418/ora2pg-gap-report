@@ -5,6 +5,7 @@ from ..plsql_lex import (
     enclosing_object_name,
     enclosing_object_name_index,
     line_at,
+    mask_dynamic_sql_visible,
     mask_strings_and_comments,
     qualified_name_pattern,
     skip_balanced_parens,
@@ -68,9 +69,15 @@ def find_oracle_text_usage(source: str) -> list[Finding]:
     invisible_index.py/read_only_table.py for real indexes being
     multi-line."""
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
+    # CREATE INDEX ... INDEXTYPE is schema-level DDL, not dynamic-SQL-aware
+    # here -- same scope as the other schema-level detectors (table
+    # partitioning, external tables, etc.), which a dynamic CREATE INDEX
+    # is out of scope for in this pass. Only the CONTAINS/CATSEARCH/MATCHES
+    # function-call check below uses the visible view.
     index_matches = list(_INDEX_RE.finditer(clean))
     for i, m in enumerate(index_matches):
         next_start = index_matches[i + 1].start() if i + 1 < len(index_matches) else None
@@ -90,16 +97,16 @@ def find_oracle_text_usage(source: str) -> list[Finding]:
             )
         )
 
-    for m in _TEXT_FUNCTION_RE.finditer(clean):
-        call_end = skip_balanced_parens(clean, m.end() - 1)
-        if not _SCORE_COMPARISON_RE.match(clean, call_end):
+    for m in _TEXT_FUNCTION_RE.finditer(visible):
+        call_end = skip_balanced_parens(visible, m.end() - 1)
+        if not _SCORE_COMPARISON_RE.match(visible, call_end):
             continue
         findings.append(
             Finding(
                 detector="oracle_text",
                 severity="high",
                 object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
+                line=line_at(visible, m.start()),
                 snippet=f"{m.group(1).upper()}(...)",
                 message=_MESSAGE,
             )

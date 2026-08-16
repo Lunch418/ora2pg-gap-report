@@ -1,7 +1,13 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import enclosing_object_name, enclosing_object_name_index, line_at, mask_strings_and_comments
+from ..plsql_lex import (
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_dynamic_sql_visible,
+    mask_strings_and_comments,
+)
 
 _APPLY_RE = re.compile(r"\b(CROSS|OUTER)\s+APPLY\b", re.IGNORECASE)
 
@@ -24,10 +30,11 @@ def find_apply_joins(source: str) -> list[Finding]:
     equivalent is JOIN LATERAL / LEFT JOIN LATERAL, a manual rewrite.
     See docs/research/gap-022-cross-apply.md."""
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
-    for m in _APPLY_RE.finditer(clean):
+    for m in _APPLY_RE.finditer(visible):
         findings.append(
             Finding(
                 detector="cross_apply",

@@ -29,9 +29,9 @@
 
 | GAP | Детектор | Sev | Doc §§ полны | ora2pg output | PG error/поведение | Тесты (всего/guard) | Проверено на реальном открытом коде |
 |---|---|---|---|---|---|---|---|
-| 001 | `autonomous_tx` | high | ✅ | ✅ (`logger.pkb`, dblink-обёртка) | н/д — это баг оценки стоимости, не синтаксиса | 15 / 3 (`test_autonomous_tx.py` + `test_autonomous_tx_edge_cases.py`) | да — `test_real_open_source_utplsql_test_helper_is_attributed` встраивает реальный фрагмент `main_helper.pkb` из `utPLSQL` |
+| 001 | `autonomous_tx` | high | ✅ | ✅ (`logger.pkb`, dblink-обёртка) | н/д — это баг оценки стоимости, не синтаксиса | 16 / 3 (`test_autonomous_tx.py` + `test_autonomous_tx_edge_cases.py`) | да — `test_real_open_source_utplsql_test_helper_is_attributed` встраивает реальный фрагмент `main_helper.pkb`, `test_real_open_source_utplsql_hidden_pragma_inside_dynamic_sql_is_found` — скрытую в динамическом SQL `PRAGMA` из `run_helper.pkb`, оба из `utPLSQL` |
 | 002 | `merge_delete_clause` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "WHERE"` | 5 / 3 | нет |
-| 003 | `bulk_collect` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "IS"` | 11 / 5 | да — `test_local_collection_type_in_a_package_spec_is_attributed_not_unknown` (`amazon_aws_s3_pkg.pks`, `alexandria-plsql-utils`) и `test_real_open_source_utplsql_bulk_collect_into_is_attributed` (`main_helper.pkb`, `utPLSQL`) |
+| 003 | `bulk_collect` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "IS"` | 12 / 5 | да — `test_local_collection_type_in_a_package_spec_is_attributed_not_unknown` (`amazon_aws_s3_pkg.pks`, `alexandria-plsql-utils`), `test_real_open_source_utplsql_bulk_collect_into_is_attributed` (`main_helper.pkb`, `utPLSQL`) и `test_real_open_source_utplsql_bulk_collect_hidden_inside_dynamic_sql_is_found` — скрытый в динамическом SQL `BULK COLLECT INTO` из `coverage_helper.pkb` (`utPLSQL`) |
 | 004 | `compound_triggers` | high | ✅ | ✅ (`-- Nothing found of type TRIGGER`) | н/д — триггер целиком выпадает из вывода ora2pg | 5 / 3 | нет |
 | 005 | `connect_by` | high | ✅ | ✅ (сгенерированный `WITH RECURSIVE`) | ✅ `c.level` не существует в CTE | 11 / 3 | нет (детектор анализирует вывод ora2pg, не исходный код — не применимо к сканированию исходников напрямую) |
 | 006 | `database_link` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "@"` | 5 / 3 | нет |
@@ -82,6 +82,22 @@ GET_DDL`), закреплено тестом
 `test_real_open_source_logger_install_script_anonymous_block_is_unknown_not_a_crash`
 в `tests/test_bulk_collect.py`.
 
+Отдельно от расширения корпуса: 14 детекторов, использующих общий индекс
+атрибуции (`bulk_collect`, `connect_by_nocycle`, `cross_apply`,
+`database_link`, `flashback_query`, `insert_all`, `json_table`,
+`merge_delete_clause`, `model_clause`, `oracle_text`, `pivot_clause`,
+`recursive_with`, `sql_macro`, `with_function`), и отдельно
+`autonomous_tx` теперь видят целевую конструкцию, даже если она построена
+динамически внутри `EXECUTE IMMEDIATE` — на этом же корпусе нашлись и
+подтвердились ровно два новых реальных случая: скрытая `PRAGMA
+AUTONOMOUS_TRANSACTION` и скрытый `BULK COLLECT INTO`, оба в `utPLSQL`,
+оба верно приписаны реальной процедуре в статическом дереве исходников
+(не вымышленному объекту, существующему только в момент выполнения) —
+см. раздел «Конструкции, спрятанные в динамическом SQL» в README.md для
+дизайна и `tests/test_plsql_lex.py`/`tests/test_autonomous_tx.py`/
+`tests/test_bulk_collect.py` для регрессионных тестов на настоящих
+фрагментах.
+
 Остальные детекторы не встретили свою целевую конструкцию ни в одном из
 этих четырёх корпусов — ожидаемо: часть этих конструкций (`SQL_MACRO`,
 `CREATE CONTEXT`, `INVISIBLE`-столбцы и -индексы, `ORGANIZATION
@@ -113,7 +129,7 @@ ruff check ora2pg_gap_report/ tests/          # без замечаний
 python3 scripts/audit_gap_test_counts.py      # пересчитать колонку "Тесты (всего/guard)" таблицы выше
 ```
 
-На момент последнего обновления этого документа: **370 тестов** (369
+На момент последнего обновления этого документа: **379 тестов** (378
 проходят, 1 намеренно пропущен — требует установленный `ora2pg`,
 см. `--check-connect-by`). Колонка "Тесты (всего/guard)" в таблице выше —
 не ручной подсчёт, а буквальный вывод `scripts/audit_gap_test_counts.py`

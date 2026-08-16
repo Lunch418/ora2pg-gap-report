@@ -1,7 +1,14 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import IDENTIFIER, enclosing_object_name, enclosing_object_name_index, line_at, mask_strings_and_comments
+from ..plsql_lex import (
+    IDENTIFIER,
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_dynamic_sql_visible,
+    mask_strings_and_comments,
+)
 
 # 'table@dblink_name' (or view/synonym/function@dblink_name) — a direct
 # reference to a remote object through a database link inside ordinary SQL.
@@ -57,12 +64,17 @@ def find_database_link_references(source: str) -> list[Finding]:
     alone)."""
     clean = mask_strings_and_comments(source)
     name_index = enclosing_object_name_index(clean)
-    # Only for locating '@' references — mask_strings_and_comments() alone
-    # doesn't blank quoted identifiers, and a literal '@' inside one
-    # ('"foo@bar"') isn't a dblink reference. Same length as `clean`, so
-    # positions found in it are still valid offsets into `clean` for
-    # line_at()/enclosing_object_name() below.
-    masked_for_search = _mask_quoted_identifiers(clean)
+    # Search text is built from the dynamic-SQL-visible view, not `clean` --
+    # a dblink reference can itself be hidden inside an EXECUTE IMMEDIATE
+    # argument. Quoted identifiers still need their own masking on top: a
+    # literal '@' inside one ('"foo@bar"') isn't a dblink reference. Same
+    # length as `clean` either way, so positions found in it are still
+    # valid offsets into `clean` for line_at()/enclosing_object_name()
+    # below -- the container index itself always comes from the safe
+    # `clean` view, never from dynamic SQL content, so it can't pick up a
+    # fake container from something a dynamic CREATE PACKAGE/PROCEDURE
+    # would create at runtime.
+    masked_for_search = _mask_quoted_identifiers(mask_dynamic_sql_visible(source))
     findings: list[Finding] = []
 
     for m in _DBLINK_REF_RE.finditer(masked_for_search):

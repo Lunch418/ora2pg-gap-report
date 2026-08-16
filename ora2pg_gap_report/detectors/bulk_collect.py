@@ -6,6 +6,7 @@ from ..plsql_lex import (
     enclosing_object_name,
     enclosing_object_name_index,
     line_at,
+    mask_dynamic_sql_visible,
     mask_strings_and_comments,
 )
 
@@ -89,6 +90,7 @@ def find_bulk_collect_usage(source: str) -> list[Finding]:
     where the rewrite has to happen.
     """
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
 
     def _object_name_at(position: int) -> str:
@@ -96,39 +98,39 @@ def find_bulk_collect_usage(source: str) -> list[Finding]:
 
     findings: list[Finding] = []
 
-    for m in _LOCAL_COLLECTION_TYPE_RE.finditer(clean):
-        if _is_schema_level_create_type(clean, m.start()):
+    for m in _LOCAL_COLLECTION_TYPE_RE.finditer(visible):
+        if _is_schema_level_create_type(visible, m.start()):
             continue
         findings.append(
             Finding(
                 detector="bulk_collect",
                 severity="high",
                 object_name=_object_name_at(m.start()),
-                line=line_at(clean, m.start()),
+                line=line_at(visible, m.start()),
                 snippet=m.group(0).strip(),
                 message=_TYPE_DECL_MESSAGE,
             )
         )
 
-    for m in _BULK_COLLECT_RE.finditer(clean):
+    for m in _BULK_COLLECT_RE.finditer(visible):
         findings.append(
             Finding(
                 detector="bulk_collect",
                 severity="high",
                 object_name=_object_name_at(m.start()),
-                line=line_at(clean, m.start()),
+                line=line_at(visible, m.start()),
                 snippet=m.group(0).strip(),
                 message=_BULK_COLLECT_MESSAGE,
             )
         )
 
-    for m in _FORALL_RE.finditer(clean):
+    for m in _FORALL_RE.finditer(visible):
         findings.append(
             Finding(
                 detector="bulk_collect",
                 severity="high",
                 object_name=_object_name_at(m.start()),
-                line=line_at(clean, m.start()),
+                line=line_at(visible, m.start()),
                 snippet=m.group(0).strip(),
                 message=_FORALL_MESSAGE,
             )

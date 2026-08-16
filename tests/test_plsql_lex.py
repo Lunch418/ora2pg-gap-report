@@ -5,6 +5,7 @@ from ora2pg_gap_report.detectors.compound_triggers import find_compound_triggers
 from ora2pg_gap_report.plsql_lex import (
     enclosing_object_name,
     enclosing_object_name_index,
+    mask_dynamic_sql_visible,
     mask_strings_and_comments,
 )
 
@@ -212,3 +213,74 @@ def test_view_preceded_only_by_rem_comments_is_correctly_attributed():
     index = enclosing_object_name_index(clean)
     view_pos = clean.index("JSON_TABLE")
     assert enclosing_object_name(index, view_pos) == "PRODUCT_REVIEWS"
+
+
+def test_mask_dynamic_sql_visible_reveals_single_literal_execute_immediate_argument():
+    source = "execute immediate 'select connect by nocycle x from t';"
+    visible = mask_dynamic_sql_visible(source)
+    assert "CONNECT BY NOCYCLE" in visible.upper()
+    assert len(visible) == len(source)
+    assert visible.count("\n") == source.count("\n")
+
+
+def test_mask_dynamic_sql_visible_reveals_concatenated_literal_segments():
+    source = "execute immediate 'select ' || v_col || ' bulk collect into l_x from t';"
+    visible = mask_dynamic_sql_visible(source)
+    assert "BULK COLLECT INTO" in visible.upper()
+
+
+def test_mask_dynamic_sql_visible_reveals_q_quote_argument():
+    source = "execute immediate q'[create table t partition by range (d) (partition p1 values less than (1))]';"
+    visible = mask_dynamic_sql_visible(source)
+    assert "PARTITION BY RANGE" in visible.upper()
+
+
+def test_mask_dynamic_sql_visible_stops_at_the_bare_terminating_semicolon():
+    source = "execute immediate 'select 1 from dual'; v_x := 'pivot for col in (1,2)';"
+    visible = mask_dynamic_sql_visible(source)
+    # The EXECUTE IMMEDIATE argument is revealed, but an ordinary string
+    # assignment afterwards -- not itself dynamic SQL -- is still masked.
+    assert "PIVOT" not in visible.upper()
+
+
+def test_mask_dynamic_sql_visible_leaves_ordinary_strings_and_comments_masked():
+    source = "-- a comment mentioning pivot\nv_x := 'a string mentioning cross apply';"
+    visible = mask_dynamic_sql_visible(source)
+    assert "PIVOT" not in visible.upper()
+    assert "CROSS APPLY" not in visible.upper()
+
+
+def test_mask_dynamic_sql_visible_does_not_crash_on_unterminated_execute_immediate():
+    source = "execute immediate 'select 1 from dual"  # no closing quote, no ';'
+    visible = mask_dynamic_sql_visible(source)
+    assert len(visible) == len(source)
+
+
+def test_dynamic_sql_that_creates_a_package_at_runtime_is_not_picked_up_as_a_real_container():
+    # The container/attribution index (enclosing_object_name_index) must
+    # always be built from the safe, fully-masked view -- never from a view
+    # where dynamic SQL is left visible -- or a package a routine creates
+    # dynamically at runtime (never actually declared in the static source
+    # tree) would be picked up as if it were a real enclosing object,
+    # misattributing unrelated findings to a name a developer could never
+    # find by searching the codebase. See autonomous_tx.py's and each
+    # two-view detector's own module docstring for the full reasoning.
+    source = """
+    create or replace package body outer_pkg is
+      procedure build_it is
+      begin
+        execute immediate 'create or replace package body fake_pkg as
+          procedure inner_proc is
+          begin
+            null;
+          end;
+        end;';
+      end;
+    end outer_pkg;
+    /
+    """
+    safe = mask_strings_and_comments(source)
+    index = enclosing_object_name_index(safe)
+    names = {name for _, _, name in index}
+    assert "FAKE_PKG" not in names
+    assert names == {"OUTER_PKG", "BUILD_IT"}

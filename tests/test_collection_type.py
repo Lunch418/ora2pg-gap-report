@@ -58,3 +58,15 @@ def test_local_nested_table_type_declaration_is_not_a_false_positive():
 def test_ordinary_table_is_not_flagged():
     source = "create table orders (order_id number);\n"
     assert find_collection_types(source) == []
+
+
+def test_real_open_source_utplsql_collection_type_is_flagged():
+    # Found scanning utPLSQL (github.com/utPLSQL/utPLSQL) — verbatim
+    # excerpt of examples/demo_of_expectations/demo_equal_matcher.sql
+    # (the same file as test_object_type.py's matching real-corpus test,
+    # which covers this file's two 'AS OBJECT' types; this is its third
+    # type declaration, the collection built on top of them).
+    source = "create or replace type demo_departments as table of demo_department\n/\n"
+    findings = find_collection_types(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "DEMO_DEPARTMENTS"

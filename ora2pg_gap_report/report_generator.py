@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import io
 import json
 from dataclasses import asdict, fields
@@ -60,6 +61,23 @@ def to_markdown(findings: list[Finding]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _sarif_rule_id(detector: str, message: str) -> str:
+    """A single detector can legitimately have more than one distinct
+    static message -- e.g. bulk_collect.py attaches one of three fixed
+    strings (_TYPE_DECL_MESSAGE / _BULK_COLLECT_MESSAGE / _FORALL_MESSAGE)
+    depending on which sub-pattern matched, all under detector=
+    "bulk_collect". terminal_report.py's own explanation section already
+    accounts for this by grouping on (detector, message), not detector
+    alone (see its explanation_counts dict) -- SARIF rules follow the same
+    grouping here, via a message hash appended to the id, so a rule's
+    fullDescription always accurately describes every result filed under
+    it. Stable across runs (content-derived, not insertion-order-derived),
+    which matters for GitHub code scanning's cross-run issue tracking by
+    ruleId."""
+    digest = hashlib.sha1(message.encode()).hexdigest()[:8]
+    return f"{detector}/{digest}"
+
+
 def _sarif_rule(detector: str, message: str) -> dict:
     gap = gap_by_detector(detector)
     # Deliberately not "first sentence of `message`" for shortDescription:
@@ -67,9 +85,11 @@ def _sarif_rule(detector: str, message: str) -> dict:
     # full of abbreviations and literal '...' (e.g. "TYPE ... IS TABLE OF"),
     # so splitting on '.' truncates mid-thought as often as not. The
     # detector name itself, lightly reformatted, is short but always
-    # correct; fullDescription carries the real explanation.
+    # correct; fullDescription carries the real explanation, which is
+    # exact for this rule since _sarif_rule_id() splits rules per distinct
+    # message rather than per detector.
     rule: dict = {
-        "id": detector,
+        "id": _sarif_rule_id(detector, message),
         "name": detector,
         "shortDescription": {"text": detector.replace("_", " ").capitalize()},
         "fullDescription": {"text": message},
@@ -95,20 +115,19 @@ def _sarif_location(f: Finding) -> dict:
 
 def to_sarif(findings: list[Finding], tool_version: str = "unknown") -> str:
     """SARIF 2.1.0 (https://sarifweb.azurewebsites.net/), for GitHub/GitLab
-    code scanning integrations. One rule per detector actually present
-    among `findings` (not all detectors this project ships) -- SARIF
-    consumers only need rules for results that actually occur, and every
-    finding from one detector shares that detector's static message text
-    (see terminal_report.py's own explanation_counts grouping by
-    (detector, message), which relies on the same fact), so any one
-    finding's message is representative of the whole rule."""
+    code scanning integrations. One rule per distinct (detector, message)
+    pair actually present among `findings` (not all detectors/messages
+    this project ships) -- see _sarif_rule_id()'s docstring for why it's
+    that pair, not detector alone."""
     rules_by_id: dict[str, dict] = {}
     for f in findings:
-        rules_by_id.setdefault(f.detector, _sarif_rule(f.detector, f.message))
+        rule_id = _sarif_rule_id(f.detector, f.message)
+        if rule_id not in rules_by_id:
+            rules_by_id[rule_id] = _sarif_rule(f.detector, f.message)
 
     results = [
         {
-            "ruleId": f.detector,
+            "ruleId": _sarif_rule_id(f.detector, f.message),
             "level": _SARIF_LEVEL.get(f.severity, "warning"),
             "message": {"text": f.message},
             "locations": [_sarif_location(f)],
@@ -126,7 +145,7 @@ def to_sarif(findings: list[Finding], tool_version: str = "unknown") -> str:
                         "name": "ora2pg-gap-report",
                         "informationUri": _TOOL_INFORMATION_URI,
                         "version": tool_version,
-                        "rules": [rules_by_id[detector] for detector in sorted(rules_by_id)],
+                        "rules": [rules_by_id[rule_id] for rule_id in sorted(rules_by_id)],
                     }
                 },
                 "results": results,

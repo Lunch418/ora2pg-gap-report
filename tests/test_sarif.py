@@ -41,8 +41,11 @@ def test_real_scan_produces_valid_sarif(sarif_schema):
     assert driver["name"] == "ora2pg-gap-report"
     assert driver["version"] == "1.2.3"
     assert len(doc["runs"][0]["results"]) == len(findings)
-    # One rule per distinct detector present, not one per finding.
-    assert len(driver["rules"]) == len({f.detector for f in findings})
+    # One rule per distinct (detector, message) pair present, not one per
+    # finding and not one per detector -- a detector can have more than
+    # one static message (see test_multiple_messages_from_one_detector_
+    # gets_separate_rules), so grouping by detector alone would be wrong.
+    assert len(driver["rules"]) == len({(f.detector, f.message) for f in findings})
 
 
 def test_line_zero_sentinel_produces_valid_sarif_without_a_region(sarif_schema):
@@ -72,8 +75,10 @@ def test_severity_maps_to_the_expected_sarif_level():
         Finding(detector="c", severity="low", object_name="X", line=1, snippet="s", message="m"),
     ]
     doc = json.loads(to_sarif(findings))
-    levels = {r["ruleId"]: r["level"] for r in doc["runs"][0]["results"]}
-    assert levels == {"a": "error", "b": "warning", "c": "note"}
+    results_by_detector = {f.detector: r for f, r in zip(findings, doc["runs"][0]["results"])}
+    assert results_by_detector["a"]["level"] == "error"
+    assert results_by_detector["b"]["level"] == "warning"
+    assert results_by_detector["c"]["level"] == "note"
 
 
 def test_rule_help_uri_points_at_the_gap_research_doc_when_one_exists():
@@ -108,6 +113,31 @@ def test_rule_has_no_help_uri_for_a_detector_outside_the_gap_registry():
     doc = json.loads(to_sarif([finding]))
     rule = doc["runs"][0]["tool"]["driver"]["rules"][0]
     assert "helpUri" not in rule
+
+
+def test_multiple_messages_from_one_detector_get_separate_rules(sarif_schema):
+    # bulk_collect.py attaches one of three distinct static messages
+    # (_TYPE_DECL_MESSAGE / _BULK_COLLECT_MESSAGE / _FORALL_MESSAGE)
+    # depending on which sub-pattern matched, all under
+    # detector="bulk_collect" -- see terminal_report.py's own
+    # explanation_counts, which groups by (detector, message) for exactly
+    # this reason. compound_trigger_apress.sql triggers two of them (a
+    # TYPE...IS TABLE OF declaration and a FORALL), a real regression case
+    # for grouping SARIF rules by detector alone: that would attach
+    # whichever message came first to a rule shared by both results,
+    # misdescribing the other one.
+    source = (SAMPLES / "compound_trigger_apress.sql").read_text()
+    findings = [f for f in scan_source(source) if f.detector == "bulk_collect"]
+    assert len({f.message for f in findings}) >= 2, "fixture must still exercise >=2 distinct messages"
+
+    doc = json.loads(to_sarif(findings))
+    jsonschema.validate(doc, sarif_schema)
+
+    rules_by_id = {r["id"]: r for r in doc["runs"][0]["tool"]["driver"]["rules"]}
+    assert len(rules_by_id) == len({f.message for f in findings})
+    for result in doc["runs"][0]["results"]:
+        rule = rules_by_id[result["ruleId"]]
+        assert rule["fullDescription"]["text"] == result["message"]["text"]
 
 
 def test_short_description_does_not_truncate_mid_word_on_a_message_with_ellipsis():

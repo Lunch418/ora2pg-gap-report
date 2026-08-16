@@ -34,11 +34,9 @@ from ora2pg_gap_report.gap_registry import GAPS, research_doc_path  # noqa: E402
 # Matches a detector filename one level under 'detectors/' in the ASCII
 # tree README.md draws in its "Архитектура" section, e.g.
 # '│   ├── autonomous_tx.py        # PRAGMA ...' or the tree's last entry
-# ('│   └── identity_column.py ...'). Deliberately requires the '│   '
-# prefix (one level of indentation under detectors/) so a *sibling* of
-# detectors/ at the same tree depth as detectors/ itself (cli.py,
-# effort_estimator.py, ...) is never mistaken for a detector module.
-_README_DETECTOR_RE = re.compile(r"^│\s+(?:├──|└──)\s+([a-z_]+)\.py", re.MULTILINE)
+# ('│   └── identity_column.py ...').
+_README_TREE_ENTRY_RE = re.compile(r"^│\s+(?:├──|└──)\s+([a-z_]+)\.py")
+_DETECTORS_LINE_RE = re.compile(r"^├── detectors/\s*$")
 
 
 def _detector_names_on_disk() -> set[str]:
@@ -46,9 +44,33 @@ def _detector_names_on_disk() -> set[str]:
     return {p.stem for p in detectors_dir.glob("*.py") if p.stem != "__init__"}
 
 
+def _extract_detector_names_from_tree_text(text: str) -> set[str]:
+    """Names found in an ASCII tree, but only within the 'detectors/'
+    subtree specifically -- not any other '│   ├── x.py'-shaped line
+    anywhere in the text. A shape-only match (matching that indentation
+    pattern regardless of which subtree it's under) would misparse a
+    future, unrelated tree fragment at the same visual depth (e.g. a
+    'tests/fixtures/' listing) as claimed detector names, failing the
+    build for a change that has nothing to do with detectors."""
+    names: set[str] = set()
+    in_detectors_subtree = False
+    for line in text.splitlines():
+        if _DETECTORS_LINE_RE.match(line):
+            in_detectors_subtree = True
+            continue
+        if not in_detectors_subtree:
+            continue
+        if not line.startswith("│   "):
+            break  # first line back out at (or above) detectors/'s own depth
+        m = _README_TREE_ENTRY_RE.match(line)
+        if m:
+            names.add(m.group(1))
+    return names
+
+
 def _detector_names_in_readme() -> set[str]:
     readme_text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    return set(_README_DETECTOR_RE.findall(readme_text))
+    return _extract_detector_names_from_tree_text(readme_text)
 
 
 def check_gap(gap) -> list[str]:

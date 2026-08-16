@@ -23,7 +23,7 @@ def _load_module():
 doctor = _load_module()
 
 
-def test_detector_regex_extracts_names_from_a_realistic_tree_fragment():
+def test_extraction_reads_names_from_a_realistic_tree_fragment():
     fragment = (
         "├── detectors/\n"
         "│   ├── autonomous_tx.py        # PRAGMA AUTONOMOUS_TRANSACTION\n"
@@ -32,10 +32,27 @@ def test_detector_regex_extracts_names_from_a_realistic_tree_fragment():
         "├── ora2pg_wrapper.py            # not a detector -- sibling of detectors/\n"
         "├── cli.py                      # not a detector either\n"
     )
-    names = set(doctor._README_DETECTOR_RE.findall(fragment))
+    names = doctor._extract_detector_names_from_tree_text(fragment)
     assert names == {"autonomous_tx", "with_function", "identity_column"}
     assert "ora2pg_wrapper" not in names
     assert "cli" not in names
+
+
+def test_extraction_ignores_similarly_indented_lines_outside_the_detectors_subtree():
+    # A shape-only match (any '│   ├── x.py'-looking line, regardless of
+    # which subtree it's under) would misparse an unrelated future tree
+    # fragment at the same visual depth as a claimed detector name.
+    fragment = (
+        "├── detectors/\n"
+        "│   ├── autonomous_tx.py        # PRAGMA AUTONOMOUS_TRANSACTION\n"
+        "├── ora2pg_wrapper.py            # breaks out of the detectors/ subtree\n"
+        "tests/\n"
+        "├── fixtures/\n"
+        "│   ├── some_helper.py  # same indentation shape, different subtree entirely\n"
+    )
+    names = doctor._extract_detector_names_from_tree_text(fragment)
+    assert names == {"autonomous_tx"}
+    assert "some_helper" not in names
 
 
 def test_detector_names_on_disk_matches_real_detector_files():
@@ -43,7 +60,7 @@ def test_detector_names_on_disk_matches_real_detector_files():
     assert "__init__" not in on_disk
     assert "autonomous_tx" in on_disk
     assert "dbms_utl_calls" in on_disk  # a real detector with no registered GAP-NNN
-    assert len(on_disk) >= 28
+    assert len(on_disk) >= 29
 
 
 def test_readme_parity_is_clean_on_the_real_repository_state():

@@ -15,50 +15,27 @@ inspection exactly as of the last time this script and docs/research/
 AUDIT.md were updated together.
 
 Run: python3 scripts/audit_gap_test_counts.py
+
+The (GAP number, detector, test files) rows this recomputes against live
+here: ora2pg_gap_report/gap_registry.py -- this script imports GAPS from
+there rather than keeping its own second copy, so there's exactly one
+place that data can drift out of sync with reality, not two.
 """
 
 import re
+import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
 
-# (GAP number, detector module name, its test file(s))
-GAPS = [
-    ("001", "autonomous_tx", ["test_autonomous_tx.py", "test_autonomous_tx_edge_cases.py"]),
-    ("002", "merge_delete_clause", ["test_merge_delete_clause.py"]),
-    ("003", "bulk_collect", ["test_bulk_collect.py"]),
-    ("004", "compound_triggers", ["test_compound_triggers.py"]),
-    ("005", "connect_by", ["test_connect_by.py"]),
-    ("006", "database_link", ["test_database_link.py"]),
-    ("007", "model_clause", ["test_model_clause.py"]),
-    ("008", "pivot_clause", ["test_pivot_clause.py"]),
-    ("009", "object_type", ["test_object_type.py"]),
-    ("010", "with_function", ["test_with_function.py"]),
-    ("011", "flashback_query", ["test_flashback_query.py"]),
-    ("012", "global_temp_table", ["test_global_temp_table.py"]),
-    ("013", "table_partitioning", ["test_table_partitioning.py"]),
-    ("014", "connect_by_nocycle", ["test_connect_by_nocycle.py"]),
-    ("015", "context_object", ["test_context_object.py"]),
-    ("016", "insert_all", ["test_insert_all.py"]),
-    ("017", "json_table", ["test_json_table.py"]),
-    ("018", "external_table", ["test_external_table.py"]),
-    ("019", "sql_macro", ["test_sql_macro.py"]),
-    ("020", "invisible_column", ["test_invisible_column.py"]),
-    ("021", "collection_type", ["test_collection_type.py"]),
-    ("022", "cross_apply", ["test_cross_apply.py"]),
-    ("023", "oracle_text", ["test_oracle_text.py"]),
-    ("024", "recursive_with", ["test_recursive_with.py"]),
-    ("025", "invisible_index", ["test_invisible_index.py"]),
-    ("026", "read_only_table", ["test_read_only_table.py"]),
-    ("027", "materialized_view_log", ["test_materialized_view_log.py"]),
-    ("028", "identity_column", ["test_identity_column.py"]),
-]
+from ora2pg_gap_report.gap_registry import GAPS  # noqa: E402
 
 _TEST_DEF_RE = re.compile(r"^def (test_\w+)", re.MULTILINE)
 _EMPTY_RESULT_RE = re.compile(r"==\s*\[\]|assert\s+len\([^)]*\)\s*==\s*0")
 
 
-def count_tests(test_files: list[str]) -> tuple[int, int]:
+def count_tests(test_files: tuple[str, ...]) -> tuple[int, int]:
     total = 0
     guards = 0
     for fname in test_files:
@@ -73,9 +50,9 @@ def count_tests(test_files: list[str]) -> tuple[int, int]:
 
 def main() -> None:
     print(f"{'GAP':<5} {'detector':<22} {'total':>5} {'guards':>7}")
-    for num, mod, files in GAPS:
-        total, guards = count_tests(files)
-        print(f"{num:<5} {mod:<22} {total:>5} {guards:>7}")
+    for gap in GAPS:
+        total, guards = count_tests(gap.test_files)
+        print(f"{gap.number:<5} {gap.detector:<22} {total:>5} {guards:>7}")
 
 
 if __name__ == "__main__":

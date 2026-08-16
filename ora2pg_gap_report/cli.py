@@ -7,6 +7,8 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.markup import escape
+from rich.panel import Panel
+from rich.text import Text
 
 from .baseline import BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
 from .detectors.autonomous_tx import find_autonomous_transactions
@@ -39,6 +41,7 @@ from .detectors.sql_macro import find_sql_macros
 from .detectors.table_partitioning import find_dropped_table_partitioning
 from .detectors.with_function import find_with_function_clauses
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
+from .gap_registry import gap_by_number, normalize_gap_number, research_doc_path, research_doc_url
 from .models import Finding
 from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError, run_estimate_cost
 from .plsql_lex import enclosing_object_name_index, mask_strings_and_comments
@@ -158,18 +161,27 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "paths",
-        nargs="+",
+        nargs="*",
         type=Path,
         help=(
             "Файлы с DDL для анализа (.sql/.pks/.pkb) и/или директории — "
             "директория сканируется рекурсивно на файлы с этими "
-            "расширениями"
+            "расширениями. Не нужны вместе с --explain."
         ),
     )
     parser.add_argument(
         "--version",
         action=_LazyVersionAction,
         help="Показать установленную версию и выйти",
+    )
+    parser.add_argument(
+        "--explain",
+        default=None,
+        metavar="GAP-NNN",
+        help=(
+            "Показать research-документ конкретного gap'а из реестра (например, GAP-023 или "
+            "просто 023) и выйти — без сканирования файлов."
+        ),
     )
     parser.add_argument(
         "--format",
@@ -347,9 +359,46 @@ def resolve_format(explicit_format: str | None, output: Path | None, stdout_is_t
     return "terminal" if (output is None and stdout_is_tty) else "markdown"
 
 
+def _handle_explain(raw_ref: str, console: Console, err_console: Console) -> int:
+    number = normalize_gap_number(raw_ref)
+    gap = gap_by_number(number) if number is not None else None
+    if gap is None:
+        err_console.print(
+            f"[red]Неизвестный GAP: {escape(raw_ref)}[/red] — ожидается номер из "
+            "docs/research/GAP_REGISTRY.md, например GAP-023 или 023"
+        )
+        return 2
+
+    doc_path = research_doc_path(gap)
+    if doc_path is None:
+        # docs/research/ isn't shipped in the pip-installed package (see
+        # gap_registry.py's module docstring) -- only a source checkout has
+        # it on disk. Falling back to a GitHub link still gets the user to
+        # the same content instead of a bare "not found".
+        console.print(
+            f"[yellow]GAP-{gap.number} ({gap.detector}): research-документ не найден локально[/yellow] "
+            "(research-документы не входят в pip-пакет — это репозиторий, а не установленный CLI)."
+        )
+        console.print(f"Смотреть на GitHub: {research_doc_url(gap)}")
+        return 0
+
+    console.print(Panel(Text(f"GAP-{gap.number} — {gap.detector}"), border_style="cyan"))
+    console.print(doc_path.read_text(encoding="utf-8"))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
     err_console = Console(stderr=True)
+
+    if args.explain is not None:
+        return _handle_explain(args.explain, Console(), err_console)
+
+    if not args.paths:
+        err_console.print(
+            "[red]Нужно указать хотя бы один файл/директорию, либо --explain GAP-NNN[/red]"
+        )
+        return 2
 
     fmt = resolve_format(args.format, args.output, sys.stdout.isatty())
 

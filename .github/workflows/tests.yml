@@ -21,6 +21,9 @@ jobs:
       - name: Run ruff
         run: ruff check ora2pg_gap_report/ tests/
 
+      - name: Registry consistency check (research doc / detector / tests per GAP)
+        run: python3 scripts/doctor.py
+
   pytest:
     runs-on: ubuntu-latest
     strategy:
@@ -62,3 +65,4 @@ jobs:
           /tmp/verify-venv/bin/ora2pg-gap-report --version
           /tmp/verify-venv/bin/ora2pg-gap-report docs/research/samples/logger.pkb --format json | python -c "import json,sys; d=json.load(sys.stdin); assert len(d) > 0, 'expected findings on a known-bad sample'; print(len(d), 'findings — ok')"
           /tmp/verify-venv/bin/ora2pg-gap-report docs/research/samples/ --format json | python -c "import json,sys; d=json.load(sys.stdin); assert len(d) > 0, 'expected findings scanning the samples directory'; print(len(d), 'findings from directory scan — ok')"
+          /tmp/verify-venv/bin/ora2pg-gap-report --explain GAP-023 | grep -q 'github.com.*gap-023-oracle-text.md' && echo '--explain falls back to a GitHub link in the installed wheel — ok'

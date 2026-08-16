@@ -537,7 +537,7 @@ def test_main_save_writes_a_baseline_snapshot(tmp_path):
     saved = json.loads(baseline_path.read_text())
     assert saved["schema_version"] == 1
     assert len(saved["findings"]) > 0
-    assert all("fingerprint" in rec for rec in saved["findings"])
+    assert all("group_key" in rec for rec in saved["findings"])
 
 
 def test_main_save_captures_all_findings_regardless_of_display_filters(tmp_path):

@@ -689,6 +689,32 @@ def test_main_with_no_paths_and_no_explain_is_a_graceful_error(capsys):
     assert "--explain" in captured.err
 
 
+def test_main_explain_combined_with_fail_on_is_rejected_not_silently_ignored(capsys):
+    # --explain must not let a stray flag combination silently bypass a
+    # real gate: a scan that would otherwise fail --fail-on high must not
+    # exit 0 just because --explain was also passed.
+    exit_code = main(
+        [str(SAMPLES / "logger.pkb"), "--fail-on", "high", "--explain", "GAP-023"]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--explain" in captured.err
+
+
+def test_main_explain_combined_with_save_is_rejected_and_writes_nothing(tmp_path):
+    baseline_path = tmp_path / "should_not_exist.json"
+    exit_code = main(["--explain", "GAP-023", "--save", str(baseline_path)])
+    assert exit_code == 2
+    assert not baseline_path.exists()
+
+
+def test_main_explain_combined_with_paths_is_rejected(capsys):
+    exit_code = main([str(SAMPLES / "logger.pkb"), "--explain", "GAP-023"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--explain" in captured.err
+
+
 def test_main_explain_falls_back_to_a_github_link_when_docs_are_not_packaged(monkeypatch, capsys):
     # docs/research/ isn't shipped in the installed wheel (see
     # gap_registry.py's module docstring) -- simulate that by making the

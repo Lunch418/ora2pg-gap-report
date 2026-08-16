@@ -180,7 +180,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         metavar="GAP-NNN",
         help=(
             "Показать research-документ конкретного gap'а из реестра (например, GAP-023 или "
-            "просто 023) и выйти — без сканирования файлов."
+            "просто 023) и выйти — без сканирования файлов. Самостоятельная команда: нельзя "
+            "сочетать с путями к файлам, --fail-on, --save, --baseline или --check-connect-by."
         ),
     )
     parser.add_argument(
@@ -392,6 +393,23 @@ def main(argv: list[str] | None = None) -> int:
     err_console = Console(stderr=True)
 
     if args.explain is not None:
+        # --explain is a standalone lookup, not a scan -- silently ignoring
+        # scan flags combined with it would be actively dangerous for
+        # --fail-on/--save specifically: a stray "--explain GAP-NNN" tacked
+        # onto a real CI invocation would otherwise short-circuit to exit 0
+        # (or skip writing a baseline) without ever looking at the findings
+        # those flags are there to act on, silently masking a real gate
+        # failure instead of erroring on the nonsensical combination.
+        conflicting = args.paths or any(
+            (args.fail_on, args.save, args.baseline, args.check_connect_by)
+        )
+        if conflicting:
+            err_console.print(
+                "[red]--explain — самостоятельный просмотр документации, не сканирование: "
+                "его нельзя сочетать с путями к файлам, --fail-on, --save, --baseline или "
+                "--check-connect-by[/red]"
+            )
+            return 2
         return _handle_explain(args.explain, Console(), err_console)
 
     if not args.paths:

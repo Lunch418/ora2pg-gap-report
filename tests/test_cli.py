@@ -650,3 +650,78 @@ def test_main_fail_on_defers_to_execution_errors(tmp_path):
         [str(tmp_path / "does_not_exist.sql"), "--format", "json", "--fail-on", "high"]
     )
     assert exit_code == 2
+
+
+def test_main_explain_prints_the_research_doc_and_exits_cleanly(capsys):
+    exit_code = main(["--explain", "GAP-023"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "GAP-023" in captured.out
+    assert "oracle_text" in captured.out
+    assert "Oracle Text" in captured.out
+
+
+def test_main_explain_accepts_a_bare_number(capsys):
+    exit_code = main(["--explain", "23"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "GAP-023" in captured.out
+
+
+def test_main_explain_unknown_gap_is_a_graceful_error(capsys):
+    exit_code = main(["--explain", "GAP-999"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "Неизвестный GAP" in captured.err
+
+
+def test_main_explain_does_not_require_any_paths():
+    # --explain is a standalone lookup -- it must work with no positional
+    # paths argument at all, unlike a normal scan.
+    exit_code = main(["--explain", "GAP-001"])
+    assert exit_code == 0
+
+
+def test_main_with_no_paths_and_no_explain_is_a_graceful_error(capsys):
+    exit_code = main([])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--explain" in captured.err
+
+
+def test_main_explain_combined_with_fail_on_is_rejected_not_silently_ignored(capsys):
+    # --explain must not let a stray flag combination silently bypass a
+    # real gate: a scan that would otherwise fail --fail-on high must not
+    # exit 0 just because --explain was also passed.
+    exit_code = main(
+        [str(SAMPLES / "logger.pkb"), "--fail-on", "high", "--explain", "GAP-023"]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--explain" in captured.err
+
+
+def test_main_explain_combined_with_save_is_rejected_and_writes_nothing(tmp_path):
+    baseline_path = tmp_path / "should_not_exist.json"
+    exit_code = main(["--explain", "GAP-023", "--save", str(baseline_path)])
+    assert exit_code == 2
+    assert not baseline_path.exists()
+
+
+def test_main_explain_combined_with_paths_is_rejected(capsys):
+    exit_code = main([str(SAMPLES / "logger.pkb"), "--explain", "GAP-023"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--explain" in captured.err
+
+
+def test_main_explain_falls_back_to_a_github_link_when_docs_are_not_packaged(monkeypatch, capsys):
+    # docs/research/ isn't shipped in the installed wheel (see
+    # gap_registry.py's module docstring) -- simulate that by making the
+    # lookup return None, the same as it would for a real pip install.
+    monkeypatch.setattr(cli, "research_doc_path", lambda gap: None)
+    exit_code = main(["--explain", "GAP-023"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "github.com" in captured.out
+    assert "gap-023-oracle-text.md" in captured.out

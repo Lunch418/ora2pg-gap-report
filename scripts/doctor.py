@@ -16,6 +16,11 @@ project kept finding by hand -- stale test counts, a gap missing a
 negative-case test -- this makes it a rerunnable check instead of
 something that has to be rediscovered by rereading everything.
 
+Also checks that docs/ARCHITECTURE.md's detector file tree hasn't drifted
+from ora2pg_gap_report/detectors/ on disk -- the same class of staleness
+that once left README.md (where this section originally lived) describing
+a four-detector architecture long after the project had 28.
+
 Run: python3 scripts/doctor.py
 Exit code: 0 if every gap's artifacts check out, 1 if any is missing.
 """
@@ -32,10 +37,10 @@ from audit_gap_test_counts import count_tests  # noqa: E402
 from ora2pg_gap_report.gap_registry import GAPS, research_doc_path  # noqa: E402
 
 # Matches a detector filename one level under 'detectors/' in the ASCII
-# tree README.md draws in its "Архитектура" section, e.g.
-# '│   ├── autonomous_tx.py        # PRAGMA ...' or the tree's last entry
-# ('│   └── identity_column.py ...').
-_README_TREE_ENTRY_RE = re.compile(r"^│\s+(?:├──|└──)\s+([a-z_]+)\.py")
+# tree docs/ARCHITECTURE.md draws under its "Файловая структура" section,
+# e.g. '│   ├── autonomous_tx.py        # PRAGMA ...' or the tree's last
+# entry ('│   └── identity_column.py ...').
+_TREE_ENTRY_RE = re.compile(r"^│\s+(?:├──|└──)\s+([a-z_]+)\.py")
 _DETECTORS_LINE_RE = re.compile(r"^├── detectors/\s*$")
 
 
@@ -62,15 +67,15 @@ def _extract_detector_names_from_tree_text(text: str) -> set[str]:
             continue
         if not line.startswith("│   "):
             break  # first line back out at (or above) detectors/'s own depth
-        m = _README_TREE_ENTRY_RE.match(line)
+        m = _TREE_ENTRY_RE.match(line)
         if m:
             names.add(m.group(1))
     return names
 
 
-def _detector_names_in_readme() -> set[str]:
-    readme_text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    return _extract_detector_names_from_tree_text(readme_text)
+def _detector_names_in_architecture_doc() -> set[str]:
+    doc_text = (REPO_ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    return _extract_detector_names_from_tree_text(doc_text)
 
 
 def check_gap(gap) -> list[str]:
@@ -102,29 +107,29 @@ def check_gap(gap) -> list[str]:
     return problems
 
 
-def check_readme_parity() -> list[str]:
-    """The 'Архитектура' section's file tree in README.md must list
-    exactly the detector modules that actually exist on disk -- neither
-    more (a stale entry for a module that was renamed/removed) nor fewer
-    (a new detector added to ora2pg_gap_report/detectors/ but never
-    mentioned in README.md, silently making the README's own detector
-    count/description wrong the moment a reader trusts it). Found and
-    fixed once already, by hand, after the section drifted for several
-    releases -- this makes that specific class of drift a rerunnable
-    check instead of something that has to be rediscovered by rereading
-    the whole README."""
+def check_architecture_doc_parity() -> list[str]:
+    """docs/ARCHITECTURE.md's file tree must list exactly the detector
+    modules that actually exist on disk -- neither more (a stale entry
+    for a module that was renamed/removed) nor fewer (a new detector
+    added to ora2pg_gap_report/detectors/ but never mentioned in the
+    doc, silently making its own detector count/description wrong the
+    moment a reader trusts it). Found and fixed once already, by hand,
+    after this exact section (originally in README.md, later moved here)
+    drifted for several releases -- this makes that specific class of
+    drift a rerunnable check instead of something that has to be
+    rediscovered by rereading the whole document."""
     on_disk = _detector_names_on_disk()
-    in_readme = _detector_names_in_readme()
+    documented = _detector_names_in_architecture_doc()
 
     problems = []
-    for name in sorted(on_disk - in_readme):
+    for name in sorted(on_disk - documented):
         problems.append(
-            f"README.md: детектор '{name}.py' существует, но не упомянут в файловом "
-            "дереве секции «Архитектура»"
+            f"docs/ARCHITECTURE.md: детектор '{name}.py' существует, но не упомянут в "
+            "файловом дереве секции «Файловая структура»"
         )
-    for name in sorted(in_readme - on_disk):
+    for name in sorted(documented - on_disk):
         problems.append(
-            f"README.md: секция «Архитектура» упоминает '{name}.py', "
+            f"docs/ARCHITECTURE.md: секция «Файловая структура» упоминает '{name}.py', "
             "но такого файла нет в ora2pg_gap_report/detectors/"
         )
     return problems
@@ -136,12 +141,12 @@ def main() -> int:
     all_problems: list[str] = []
     for gap in GAPS:
         all_problems.extend(check_gap(gap))
-    all_problems.extend(check_readme_parity())
+    all_problems.extend(check_architecture_doc_parity())
 
     if not all_problems:
         print(
             "✓ Всё чисто: у каждого gap'а есть research-документ, детектор, позитивный и "
-            "guard-тест, и README.md не разошёлся со списком детекторов на диске."
+            "guard-тест, и docs/ARCHITECTURE.md не разошёлся со списком детекторов на диске."
         )
         return 0
 

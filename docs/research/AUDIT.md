@@ -62,8 +62,11 @@
 проверка на реальном открытом коде: 8 детекторов (`autonomous_tx`,
 `bulk_collect`, `object_type`, `global_temp_table`, `table_partitioning`,
 `json_table`, `collection_type`, `oracle_text`) реально сработали при
-сканировании ~215k строк открытого кода из четырёх независимых проектов
-— `mortenbra/alexandria-plsql-utils`, `oracle-samples/db-sample-schemas`,
+сканировании 215 214 строк открытого кода (точный подсчёт по всем
+четырём репозиториям вместе на момент этой проверки, свежий `git clone
+--depth 1` каждого — не сумма отдельных, ранее запомненных чисел по
+каждому репозиторию) из четырёх независимых проектов —
+`mortenbra/alexandria-plsql-utils`, `oracle-samples/db-sample-schemas`,
 `utPLSQL/utPLSQL` (фреймворк юнит-тестирования PL/SQL) и
 `OraOpenSource/Logger` — и для каждого из этих восьми в дереве тестов
 лежит постоянный регрессионный тест, встраивающий реальный фрагмент того

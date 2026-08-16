@@ -191,19 +191,22 @@ def test_real_open_source_utplsql_bulk_collect_into_is_attributed():
 
 
 def test_real_open_source_logger_install_script_anonymous_block_is_unknown_not_a_crash():
-    # Found scanning OraOpenSource/Logger's install scripts (verbatim
-    # excerpt of source/tables/logger_prefs_by_client_id.sql) — a bare
-    # anonymous 'declare ... begin ... end;' block used as a conditional
-    # "create table if not exists" install script, not a named object.
-    # DBMS_METADATA.GET_DDL (this project's documented Oracle export
-    # mechanism) exports named objects, not free-standing anonymous
-    # blocks, so this shape is outside this tool's documented scope — see
-    # enclosing_object_name()'s docstring in plsql_lex.py. Kept as a
-    # permanent regression test not because 'UNKNOWN' should become
-    # something more specific, but to lock in that this shape is handled
-    # honestly (a clearly-labeled "don't know", not a silent wrong guess
-    # or a crash) now that it's confirmed to occur in real, shipped
-    # open-source Oracle code, not just hypothetically.
+    # Found scanning OraOpenSource/Logger's install scripts — the full,
+    # verbatim source/tables/logger_prefs_by_client_id.sql (not
+    # paraphrased or trimmed, including its q'!...!'-quoted EXECUTE
+    # IMMEDIATE strings, which is itself a real stress case for this
+    # project's string-masking). A bare anonymous 'declare ... begin ...
+    # end;' block used as a conditional "create table if not exists"
+    # install script, not a named object. DBMS_METADATA.GET_DDL (this
+    # project's documented Oracle export mechanism) exports named
+    # objects, not free-standing anonymous blocks, so this shape is
+    # outside this tool's documented scope — see enclosing_object_name()'s
+    # docstring in plsql_lex.py. Kept as a permanent regression test not
+    # because 'UNKNOWN' should become something more specific, but to lock
+    # in that this shape is handled honestly (a clearly-labeled "don't
+    # know", not a silent wrong guess or a crash) now that it's confirmed
+    # to occur in real, shipped open-source Oracle code, not just
+    # hypothetically.
     source = """
     declare
       l_count pls_integer;
@@ -215,7 +218,47 @@ def test_real_open_source_logger_install_script_anonymous_block_is_unknown_not_a
       l_sql varchar2(2000);
 
     begin
-      null;
+      -- Create Table
+      select count(1)
+      into l_count
+      from user_tables
+      where table_name = 'LOGGER_PREFS_BY_CLIENT_ID';
+
+      if l_count = 0 then
+        execute immediate q'!
+    create table logger_prefs_by_client_id(
+      client_id varchar2(64) not null,
+      logger_level varchar2(20) not null,
+      include_call_stack varchar2(5) not null,
+      created_date date default sysdate not null,
+      expiry_date date not null,
+      constraint logger_prefs_by_client_id_pk primary key (client_id) enable,
+      constraint logger_prefs_by_client_id_ck1 check (logger_level in ('OFF','PERMANENT','ERROR','WARNING','INFORMATION','DEBUG','TIMING')),
+      constraint logger_prefs_by_client_id_ck2 check (expiry_date >= created_date),
+      constraint logger_prefs_by_client_id_ck3 check (include_call_stack in ('TRUE', 'FALSE'))
+    )
+        !';
+      end if;
+
+      -- COMMENTS
+      execute immediate q'!comment on table logger_prefs_by_client_id is 'Client specific logger levels. Only active client_ids/logger_levels will be maintained in this table'!';
+      execute immediate q'!comment on column logger_prefs_by_client_id.client_id is 'Client identifier'!';
+      execute immediate q'!comment on column logger_prefs_by_client_id.logger_level is 'Logger level. Must be OFF, PERMANENT, ERROR, WARNING, INFORMATION, DEBUG, TIMING'!';
+      execute immediate q'!comment on column logger_prefs_by_client_id.include_call_stack is 'Include call stack in logging'!';
+      execute immediate q'!comment on column logger_prefs_by_client_id.created_date is 'Date that entry was created on'!';
+      execute immediate q'!comment on column logger_prefs_by_client_id.expiry_date is 'After the given expiry date the logger_level will be disabled for the specific client_id. Unless sepcifically removed from this table a job will clean up old entries'!';
+
+
+      -- 92: Missing APEX and SYS_CONTEXT support
+      l_sql := 'alter table logger_prefs_by_client_id drop constraint logger_prefs_by_client_id_ck1';
+      execute immediate l_sql;
+
+      -- Rebuild constraint
+      l_sql := q'!alter table logger_prefs_by_client_id
+        add constraint logger_prefs_by_client_id_ck1
+        check (logger_level in ('OFF','PERMANENT','ERROR','WARNING','INFORMATION','DEBUG','TIMING', 'APEX', 'SYS_CONTEXT'))!';
+      execute immediate l_sql;
+
     end;
     /
     """

@@ -99,6 +99,28 @@ def test_main_end_to_end_csv_to_file(tmp_path):
     assert "LOGGER.PURGE_ALL" in object_names
 
 
+def test_main_end_to_end_sarif_to_file(tmp_path):
+    output_path = tmp_path / "report.sarif"
+    exit_code = main(
+        [
+            str(SAMPLES / "logger.pkb"),
+            str(SAMPLES / "compound_trigger_apress.sql"),
+            "--format",
+            "sarif",
+            "--output",
+            str(output_path),
+        ]
+    )
+    assert exit_code == 0
+    doc = json.loads(output_path.read_text())
+    assert doc["version"] == "2.1.0"
+    object_names = {
+        r["message"]["text"] for r in doc["runs"][0]["results"]
+    }  # sanity: results actually populated
+    assert object_names
+    assert doc["runs"][0]["tool"]["driver"]["rules"]
+
+
 def test_main_reports_missing_file_as_error(capsys):
     exit_code = main([str(SAMPLES / "does_not_exist.sql")])
     captured = capsys.readouterr()

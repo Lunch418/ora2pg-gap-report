@@ -36,6 +36,17 @@ class GapEntry:
     detector: str  # matches Finding.detector and detectors/<name>.py
     slug: str  # matches docs/research/gap-<number>-<slug>.md
     test_files: tuple[str, ...]
+    # Every gap confirmed in this registry so far was reproduced against
+    # exactly these two versions (see docs/research/AUDIT.md's blanket
+    # statement) -- defaults, not hardcoded per-entry, specifically so a
+    # future gap confirmed on a different version doesn't require touching
+    # all 28 existing entries, just overriding these two fields on its own
+    # GapEntry. Not "these versions still work today" (never re-verified),
+    # only "this is what was actually run when the finding was confirmed" --
+    # see docs/research/GAP_REGISTRY.md and each gap's own doc for the
+    # underlying evidence this restates in machine-readable form.
+    ora2pg_version: str = "25.0"
+    postgresql_version: str = "16"
 
 
 GAPS: tuple[GapEntry, ...] = (

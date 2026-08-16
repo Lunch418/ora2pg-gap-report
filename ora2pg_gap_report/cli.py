@@ -379,6 +379,8 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console) -> int
         )
         return 2
 
+    version_line = f"Подтверждено на: ora2pg {gap.ora2pg_version}, PostgreSQL {gap.postgresql_version}"
+
     doc_path = research_doc_path(gap)
     if doc_path is None:
         # docs/research/ isn't shipped in the pip-installed package (see
@@ -389,10 +391,12 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console) -> int
             f"[yellow]GAP-{gap.number} ({gap.detector}): research-документ не найден локально[/yellow] "
             "(research-документы не входят в pip-пакет — это репозиторий, а не установленный CLI)."
         )
+        console.print(version_line)
         console.print(f"Смотреть на GitHub: {research_doc_url(gap)}")
         return 0
 
     console.print(Panel(Text(f"GAP-{gap.number} — {gap.detector}"), border_style="cyan"))
+    console.print(version_line)
     console.print(doc_path.read_text(encoding="utf-8"))
     return 0
 

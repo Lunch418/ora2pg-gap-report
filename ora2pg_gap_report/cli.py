@@ -45,7 +45,7 @@ from .gap_registry import gap_by_number, normalize_gap_number, research_doc_path
 from .models import Finding
 from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError, run_estimate_cost
 from .plsql_lex import enclosing_object_name_index, mask_strings_and_comments
-from .report_generator import to_csv, to_json, to_markdown
+from .report_generator import to_csv, to_json, to_markdown, to_sarif
 from .terminal_report import render as render_terminal
 from .terminal_report import render_baseline_diff
 
@@ -186,11 +186,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--format",
-        choices=("terminal", "markdown", "json", "csv"),
+        choices=("terminal", "markdown", "json", "csv", "sarif"),
         default=None,
         help=(
             "Формат отчёта. По умолчанию — цветной вывод в терминал, если "
-            "stdout это tty и не указан --output; иначе markdown."
+            "stdout это tty и не указан --output; иначе markdown. sarif — "
+            "SARIF 2.1.0, для GitHub/GitLab code scanning."
         ),
     )
     parser.add_argument(
@@ -299,6 +300,8 @@ def _render(findings: list[Finding], fmt: str) -> str:
         return to_json(findings)
     if fmt == "csv":
         return to_csv(findings)
+    if fmt == "sarif":
+        return to_sarif(findings, tool_version=_package_version())
 
     counts = summarize_by_severity(findings)
     counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))

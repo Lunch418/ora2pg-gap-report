@@ -39,6 +39,12 @@ patch — исправления в существующих.
   инструмента (`tests/test_schemas.py`), не просто написаны вручную.
   `jsonschema` — новая dev-зависимость (только для этой проверки в
   тестах, не для самого CLI).
+- `--format sarif` — SARIF 2.1.0 для GitHub code scanning / GitLab SAST.
+  Severity сопоставлена с уровнями SARIF (high → error, medium → warning,
+  low → note), один rule на реально встретившийся детектор с ссылкой на
+  research-документ (`helpUri`), если детектор входит в реестр GAP-NNN.
+  Проверяется в тестах против официальной SARIF 2.1.0 схемы OASIS
+  (`tests/test_sarif.py`, схема заведена в `tests/fixtures/`).
 
 ## [0.4.0] - 2026-08-16
 

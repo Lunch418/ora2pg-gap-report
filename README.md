@@ -133,14 +133,20 @@ ora2pg-gap-report path/to/schema_dump.pkb another_file.sql
 В интерактивном терминале по умолчанию — цветной отчёт: сводная панель
 (сколько найдено, разбивка по severity, грубая оценка часов), компактная
 таблица находок и пояснения под каждым сработавшим детектором. Для
-скриптов/redirect — `--format markdown`, `--format json` или
-`--format csv` (markdown работает и как формат по умолчанию, если stdout
-не терминал):
+скриптов/redirect — `--format markdown`, `--format json`, `--format csv`
+или `--format sarif` (markdown работает и как формат по умолчанию, если
+stdout не терминал):
 
 ```sh
 ora2pg-gap-report path/to/schema_dump.pkb --format json --output report.json
 ora2pg-gap-report path/to/schema_dump.pkb --format markdown > report.md
 ora2pg-gap-report path/to/schema_dump.pkb --format csv --output report.csv
+
+# SARIF 2.1.0 — для GitHub code scanning (Security tab) или GitLab SAST.
+# Severity сопоставлена с уровнями SARIF: high → error, medium → warning,
+# low → note (у SARIF нет отдельного уровня critical, как и у самого
+# инструмента).
+ora2pg-gap-report path/to/schema_dump.pkb --format sarif --output report.sarif
 
 # Опционально: линтинг сгенерированного ora2pg кода для CONNECT BY.
 # Требует установленный ora2pg (см. https://github.com/darold/ora2pg) —
@@ -156,6 +162,9 @@ baseline-снапшота из `--save`/`--baseline` — в
 сторонние инструменты могли надёжно парсить вывод, не угадывая по
 примерам. Обе схемы проверяются в тестах против реального вывода
 (`tests/test_schemas.py`) — не просто написаны и оставлены как есть.
+`--format sarif` тем же способом проверяется в `tests/test_sarif.py`
+против официальной SARIF 2.1.0 схемы OASIS (заведена в
+`tests/fixtures/`, чтобы тесты не зависели от сети).
 
 Файлы с DDL можно передавать как есть — один файл может содержать сразу
 несколько пакетов/триггеров, детекторы разбирают границы объектов сами.

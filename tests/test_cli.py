@@ -121,6 +121,25 @@ def test_main_end_to_end_sarif_to_file(tmp_path):
     assert doc["runs"][0]["tool"]["driver"]["rules"]
 
 
+def test_main_end_to_end_html_to_file(tmp_path):
+    output_path = tmp_path / "report.html"
+    exit_code = main(
+        [
+            str(SAMPLES / "logger.pkb"),
+            str(SAMPLES / "compound_trigger_apress.sql"),
+            "--format",
+            "html",
+            "--output",
+            str(output_path),
+        ]
+    )
+    assert exit_code == 0
+    report = output_path.read_text(encoding="utf-8")
+    assert "<!doctype html>" in report.lower()
+    assert "TR_CONSTRUCTORS_CTI" in report
+    assert "LOGGER.PURGE_ALL" in report
+
+
 def test_main_reports_missing_file_as_error(capsys):
     exit_code = main([str(SAMPLES / "does_not_exist.sql")])
     captured = capsys.readouterr()

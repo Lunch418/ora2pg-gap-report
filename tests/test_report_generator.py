@@ -4,7 +4,7 @@ import json
 import re
 
 from ora2pg_gap_report.models import Finding
-from ora2pg_gap_report.report_generator import to_csv, to_json, to_markdown
+from ora2pg_gap_report.report_generator import to_csv, to_html, to_json, to_markdown
 
 SAMPLE_FINDING = Finding(
     detector="autonomous_tx",
@@ -100,3 +100,78 @@ def test_to_csv_uses_plain_newlines_not_crlf():
     # write on Windows).
     csv_text = to_csv([SAMPLE_FINDING])
     assert "\r" not in csv_text
+
+
+def test_to_html_empty_findings():
+    report = to_html([])
+    assert "не найдено" in report
+    assert "<!doctype html>" in report.lower()
+
+
+def test_to_html_renders_finding_fields():
+    report = to_html([SAMPLE_FINDING])
+    assert "LOGGER.PURGE_ALL" in report
+    assert "2178" in report
+    assert ">high<" in report
+    assert "pragma autonomous_transaction;" in report
+
+
+def test_to_html_shows_the_same_uncalibrated_effort_caveat_as_markdown():
+    # Same discipline as effort_estimator.py/terminal_report.py: a range,
+    # with the "not a measurement" caveat attached, never a bare number.
+    report = to_html([SAMPLE_FINDING])
+    assert "неоткалиброванная эвристика" in report
+
+
+def test_to_html_escapes_finding_content_against_injection():
+    # A scanned file path or an Oracle quoted identifier could contain
+    # nearly any character (see test_to_markdown_escapes_pipe_in_source_
+    # file_and_object_name for the same concern in the Markdown renderer)
+    # -- unescaped, a '<'/'&' here would corrupt the HTML structure or, in
+    # the worst case, be interpreted as a live tag by whatever opens the
+    # report.
+    finding = Finding(
+        detector="autonomous_tx",
+        severity="high",
+        object_name='<script>alert(1)</script>',
+        line=1,
+        snippet="pragma autonomous_transaction;",
+        message="A & B <tag>",
+        source_file="<b>weird</b>.sql",
+    )
+    report = to_html([finding])
+    assert "<script>alert(1)</script>" not in report
+    assert "&lt;script&gt;" in report
+    assert "A &amp; B &lt;tag&gt;" in report
+
+
+def test_to_html_is_self_contained_with_no_external_resources():
+    # This project's other formats are all designed to work in a closed
+    # network (see README's "Установка без интернета" section) -- the
+    # HTML report must not silently require internet access to render
+    # correctly (an external stylesheet/font/script), unlike a typical
+    # web-facing report template.
+    report = to_html([SAMPLE_FINDING])
+    assert "http://" not in report
+    assert "https://" not in report
+    assert "<link" not in report
+    assert "<script" not in report
+
+
+def test_to_html_severity_badge_classes():
+    high = Finding(
+        detector="autonomous_tx", severity="high", object_name="A", line=1,
+        snippet="x", message="m",
+    )
+    medium = Finding(
+        detector="autonomous_tx", severity="medium", object_name="B", line=1,
+        snippet="x", message="m",
+    )
+    low = Finding(
+        detector="autonomous_tx", severity="low", object_name="C", line=1,
+        snippet="x", message="m",
+    )
+    report = to_html([high, medium, low])
+    assert 'class="sev-high"' in report
+    assert 'class="sev-medium"' in report
+    assert 'class="sev-low"' in report

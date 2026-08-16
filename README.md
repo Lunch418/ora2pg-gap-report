@@ -180,9 +180,9 @@ ora2pg-gap-report path/to/schema_dump.pkb another_file.sql
 В интерактивном терминале по умолчанию — цветной отчёт: сводная панель
 (сколько найдено, разбивка по severity, грубая оценка часов), компактная
 таблица находок и пояснения под каждым сработавшим детектором. Для
-скриптов/redirect — `--format markdown`, `--format json`, `--format csv`
-или `--format sarif` (markdown работает и как формат по умолчанию, если
-stdout не терминал):
+скриптов/redirect — `--format markdown`, `--format json`, `--format csv`,
+`--format sarif` или `--format html` (markdown работает и как формат по
+умолчанию, если stdout не терминал):
 
 ```sh
 ora2pg-gap-report path/to/schema_dump.pkb --format json --output report.json
@@ -194,6 +194,10 @@ ora2pg-gap-report path/to/schema_dump.pkb --format csv --output report.csv
 # low → note (у SARIF нет отдельного уровня critical, как и у самого
 # инструмента).
 ora2pg-gap-report path/to/schema_dump.pkb --format sarif --output report.sarif
+
+# Самодостаточная HTML-страница (без внешних CSS/JS/шрифтов — открывается
+# офлайн) — показать заказчику/руководству, без установки чего-либо.
+ora2pg-gap-report path/to/schema_dump.pkb --format html --output report.html
 
 # Опционально: линтинг сгенерированного ora2pg кода для CONNECT BY.
 # Требует установленный ora2pg (см. https://github.com/darold/ora2pg) —

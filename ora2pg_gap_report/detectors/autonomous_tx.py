@@ -6,6 +6,7 @@ from ..plsql_lex import (
     declare_and_begin,
     find_matching_end,
     line_at,
+    mask_dynamic_sql_visible,
     mask_strings_and_comments,
     own_declare_text,
     qualified_name_pattern,
@@ -49,8 +50,36 @@ def find_autonomous_transactions(source: str) -> list[Finding]:
     declare sections from their enclosing routine's — a nested routine's
     PRAGMA is neither dropped nor misattributed to the outer routine, it is
     simply out of scope (detecting *those* is a separate, smaller gap).
+
+    A routine's PRAGMA can itself be hidden inside an EXECUTE IMMEDIATE
+    argument that dynamically creates a package body at runtime (confirmed
+    on real code: utPLSQL's own test suite does exactly this). All
+    structural scanning here -- package/routine boundaries, BEGIN/END
+    matching -- deliberately stays on `clean` (the fully safe-masked view)
+    regardless: running it on a view where dynamic SQL is left visible
+    would let a dynamically-created package/procedure name be picked up as
+    if it were a real container declared in the source tree, misattributing
+    unrelated findings to a name that doesn't exist anywhere in the static
+    source.
+
+    Only the final PRAGMA search uses the dynamic-SQL-visible view -- and
+    over the routine's FULL span (declare section through its own END, not
+    just the declare section a real PRAGMA is restricted to): a hidden
+    PRAGMA lives inside an EXECUTE IMMEDIATE argument, which is itself an
+    executable statement and can therefore only appear in a routine's own
+    executable body (after its BEGIN), never in its declare section. Widening
+    the search that far is still safe for a genuine (non-hidden) PRAGMA --
+    Oracle's own grammar never allows a bare PRAGMA after BEGIN, so nothing
+    real can newly match there -- and own_declare_text()'s nested_spans
+    blanking (reused unchanged, just with the routine's own end_pos as the
+    upper bound instead of begin_pos) still excludes every nested real
+    subprogram's own span, since Oracle only allows nested subprogram
+    declarations before BEGIN, all already captured in nested_spans.
+    Positions are valid across both `clean` and `visible` since masking
+    never changes length or newlines.
     """
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     package_matches = list(_PACKAGE_BODY_NAME_RE.finditer(clean))
 
     findings: list[Finding] = []
@@ -71,24 +100,28 @@ def find_autonomous_transactions(source: str) -> list[Finding]:
             continue
         cursor = end_pos
 
-        declare_text = own_declare_text(clean, declare_start, begin_pos, nested_spans)
-        pragma_match = _PRAGMA_RE.search(declare_text)
-        if not pragma_match:
-            continue
-
-        absolute_pos = declare_start + pragma_match.start()
-        line_no = line_at(clean, absolute_pos)
+        # finditer(), not search(): a real routine has at most one PRAGMA
+        # (Oracle rejects a second declaration in the same declare section),
+        # but the widened visible-view range can legitimately contain a
+        # second, hidden one inside dynamic SQL later in the same routine's
+        # body -- search() would stop at the routine's own real PRAGMA (if
+        # it has one) and never look further.
+        routine_text = own_declare_text(visible, declare_start, end_pos, nested_spans)
         package_name = _package_name_at(package_matches, match.start())
 
-        findings.append(
-            Finding(
-                detector="autonomous_tx",
-                severity="high",
-                object_name=f"{package_name}.{match.group(1).upper()}",
-                line=line_no,
-                snippet=pragma_match.group(0).strip(),
-                message=_MESSAGE,
+        for pragma_match in _PRAGMA_RE.finditer(routine_text):
+            absolute_pos = declare_start + pragma_match.start()
+            line_no = line_at(clean, absolute_pos)
+
+            findings.append(
+                Finding(
+                    detector="autonomous_tx",
+                    severity="high",
+                    object_name=f"{package_name}.{match.group(1).upper()}",
+                    line=line_no,
+                    snippet=pragma_match.group(0).strip(),
+                    message=_MESSAGE,
+                )
             )
-        )
 
     return findings

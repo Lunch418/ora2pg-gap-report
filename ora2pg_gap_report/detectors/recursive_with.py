@@ -6,6 +6,7 @@ from ..plsql_lex import (
     enclosing_object_name,
     enclosing_object_name_index,
     line_at,
+    mask_dynamic_sql_visible,
     mask_strings_and_comments,
     skip_balanced_parens,
 )
@@ -65,14 +66,15 @@ def find_recursive_with_missing_keyword(source: str) -> list[Finding]:
     archive.tree' -- 'tree' there is preceded by 'archive.', not by
     FROM/JOIN/comma directly)."""
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
-    for m in _WITH_CTE_RE.finditer(clean):
+    for m in _WITH_CTE_RE.finditer(visible):
         cte_name = m.group(1)
         body_start = m.end() - 1  # index of the opening '('
-        body_end = skip_balanced_parens(clean, body_start)
-        body = clean[body_start:body_end]
+        body_end = skip_balanced_parens(visible, body_start)
+        body = visible[body_start:body_end]
 
         union_match = _UNION_RE.search(body)
         if union_match is None:

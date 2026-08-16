@@ -1,7 +1,13 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import enclosing_object_name, enclosing_object_name_index, line_at, mask_strings_and_comments
+from ..plsql_lex import (
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_dynamic_sql_visible,
+    mask_strings_and_comments,
+)
 
 # Distinct from connect_by.py: that module lints ora2pg's *generated*
 # output for the LEVEL substitution bug in the plain/basic CONNECT BY
@@ -36,11 +42,12 @@ def find_connect_by_nocycle_or_order_siblings(source: str) -> list[Finding]:
     conversion, not just an imprecise translation -- see
     docs/research/gap-014-connect-by-nocycle.md."""
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
     for pattern, snippet in ((_NOCYCLE_RE, "CONNECT BY NOCYCLE"), (_ORDER_SIBLINGS_RE, "ORDER SIBLINGS BY")):
-        for m in pattern.finditer(clean):
+        for m in pattern.finditer(visible):
             findings.append(
                 Finding(
                     detector="connect_by_nocycle",

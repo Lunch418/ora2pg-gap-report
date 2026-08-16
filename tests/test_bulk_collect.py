@@ -265,3 +265,54 @@ def test_real_open_source_logger_install_script_anonymous_block_is_unknown_not_a
     findings = find_bulk_collect_usage(source)
     assert len(findings) == 1
     assert findings[0].object_name == "UNKNOWN"
+
+
+def test_real_open_source_utplsql_bulk_collect_hidden_inside_dynamic_sql_is_found():
+    # Found scanning utPLSQL (github.com/utPLSQL/utPLSQL) with the dynamic-
+    # SQL-visibility fix: test/ut3_tester_helper/coverage_helper.pkb's
+    # run_code_as_job function builds an entire anonymous PL/SQL block --
+    # including its own 'bulk collect into' -- as an EXECUTE IMMEDIATE
+    # string argument, invisible to plain source scanning (masked as
+    # string content) and, before this fix, silently missed entirely.
+    #
+    # Verbatim excerpt (not paraphrased) of coverage_helper.pkb's
+    # run_code_as_job function, wrapped in a minimal package body using
+    # the file's own real package name (coverage_helper.pkb line 1:
+    # 'create or replace package body coverage_helper is').
+    source = """
+    create or replace package body coverage_helper is
+
+  function run_code_as_job( a_plsql_block varchar2 ) return clob is
+    l_result_clob clob;
+    pragma autonomous_transaction;
+  begin
+    run_job_and_wait_for_finish( a_plsql_block );
+    dbms_lock.sleep(0.1);
+    execute immediate q'[
+      declare
+        l_results ut3_develop.ut_varchar2_list;
+      begin
+        select text
+          bulk collect into l_results
+          from test_results
+         order by id;
+        delete from test_results;
+        commit;
+        :clob_results := ut3_tester_helper.main_helper.table_to_clob(l_results);
+      end;
+      ]'
+    using out l_result_clob;
+
+    return l_result_clob;
+  end;
+
+    end coverage_helper;
+    /
+    """
+    findings = find_bulk_collect_usage(source)
+    assert len(findings) == 1
+    # Attributed to the real, findable enclosing function in the static
+    # source tree -- the dynamically-executed anonymous block itself has
+    # no name of its own to attribute to at all.
+    assert findings[0].object_name == "COVERAGE_HELPER.RUN_CODE_AS_JOB"
+    assert findings[0].snippet == "bulk collect into"

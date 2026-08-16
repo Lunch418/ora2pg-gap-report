@@ -1,7 +1,13 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import enclosing_object_name, enclosing_object_name_index, line_at, mask_strings_and_comments
+from ..plsql_lex import (
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_dynamic_sql_visible,
+    mask_strings_and_comments,
+)
 
 # 'AS OF TIMESTAMP'/'AS OF SCN' -- Oracle flashback query, reading a table
 # as it existed at a past point in time. No other meaning for this exact
@@ -26,10 +32,11 @@ def find_flashback_queries(source: str) -> list[Finding]:
     PostgreSQL equivalent exists at all -- see
     docs/research/gap-011-flashback-query.md."""
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
-    for m in _FLASHBACK_RE.finditer(clean):
+    for m in _FLASHBACK_RE.finditer(visible):
         findings.append(
             Finding(
                 detector="flashback_query",

@@ -1,7 +1,13 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import enclosing_object_name, enclosing_object_name_index, line_at, mask_strings_and_comments
+from ..plsql_lex import (
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_dynamic_sql_visible,
+    mask_strings_and_comments,
+)
 
 # ALL/FIRST are reserved words, so a plain column/table happening to be
 # named 'all' or 'first' can't collide here without breaking Oracle's own
@@ -40,12 +46,13 @@ def find_multitable_inserts(source: str) -> list[Finding]:
     SELECT-INTO-variable form, failing at function-body compile time. See
     docs/research/gap-016-insert-all.md."""
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
-    for m in _INSERT_ALL_RE.finditer(clean):
-        window_end = min(len(clean), m.end() + _LOOKAHEAD_WINDOW)
-        if not _INTO_RE.search(clean, m.end(), window_end):
+    for m in _INSERT_ALL_RE.finditer(visible):
+        window_end = min(len(visible), m.end() + _LOOKAHEAD_WINDOW)
+        if not _INTO_RE.search(visible, m.end(), window_end):
             continue
 
         findings.append(

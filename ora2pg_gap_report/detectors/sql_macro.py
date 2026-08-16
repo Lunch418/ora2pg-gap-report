@@ -1,7 +1,13 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import enclosing_object_name, enclosing_object_name_index, line_at, mask_strings_and_comments
+from ..plsql_lex import (
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_dynamic_sql_visible,
+    mask_strings_and_comments,
+)
 
 _SQL_MACRO_RE = re.compile(r"\bSQL_MACRO\b", re.IGNORECASE)
 
@@ -30,10 +36,11 @@ def find_sql_macros(source: str) -> list[Finding]:
     expression substitution, e.g. as a boolean expression directly in a
     WHERE clause). See docs/research/gap-019-sql-macro.md."""
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
-    for m in _SQL_MACRO_RE.finditer(clean):
+    for m in _SQL_MACRO_RE.finditer(visible):
         findings.append(
             Finding(
                 detector="sql_macro",

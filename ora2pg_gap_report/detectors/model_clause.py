@@ -1,6 +1,12 @@
 import re
 
-from ..plsql_lex import enclosing_object_name, enclosing_object_name_index, line_at, mask_strings_and_comments
+from ..plsql_lex import (
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_dynamic_sql_visible,
+    mask_strings_and_comments,
+)
 from ..models import Finding
 
 # Matching MODEL immediately followed by PARTITION BY/DIMENSION BY/MEASURES
@@ -46,11 +52,12 @@ def find_model_clauses(source: str) -> list[Finding]:
     it requires understanding the business meaning of the RULES to
     redesign the query, not a syntax substitution."""
     clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
-    for m in _MODEL_RE.finditer(clean):
-        window = clean[m.end() : m.end() + _LOOKAHEAD_WINDOW]
+    for m in _MODEL_RE.finditer(visible):
+        window = visible[m.end() : m.end() + _LOOKAHEAD_WINDOW]
         if not (_MEASURES_RE.search(window) and _RULES_RE.search(window)):
             continue
         findings.append(

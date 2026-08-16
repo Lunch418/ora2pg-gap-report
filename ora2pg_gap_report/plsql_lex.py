@@ -71,13 +71,37 @@ def _q_quote_open_delim_pos(source: str, i: int) -> int | None:
     return None
 
 
-def mask_strings_and_comments(source: str) -> str:
-    """Replace comment/string-literal contents with spaces, preserving
-    length and newlines, so absolute offsets and line numbers stay valid
-    and keyword regexes never match inside a literal or a comment."""
+# Requires plain whitespace between the two keywords -- like every other
+# keyword-pair regex in this module (e.g. _BULK_COLLECT_RE's "BULK\s+COLLECT"
+# in bulk_collect.py), a comment wedged between EXECUTE and IMMEDIATE
+# defeats the match and that EXECUTE IMMEDIATE's argument stays masked, same
+# as before this function existed. Not treated as a bug to chase here: it's
+# the same pre-existing, project-wide tradeoff of pattern matching over a
+# real parser, not something unique to dynamic-SQL visibility, and it fails
+# safe (falls back to the old fully-masked behavior, not a false positive).
+_EXEC_IMMEDIATE_RE = re.compile(r"\bEXECUTE\s+IMMEDIATE\b", re.IGNORECASE)
+
+
+def _mask(source: str, reveal_dynamic_sql: bool) -> str:
+    """Shared tokenizer for mask_strings_and_comments() and
+    mask_dynamic_sql_visible() -- both views must agree on exactly where
+    every comment/string/q-quote starts and ends, or their "same length,
+    valid offsets in both" contract (every dynamic-SQL-aware detector
+    relies on it) could silently break if one view's rules drifted from the
+    other's under a future fix. `reveal_dynamic_sql=False` reproduces
+    mask_strings_and_comments() exactly: `in_dynamic_sql` can never become
+    True, so every branch below that checks it takes its "mask" side."""
     out = []
     i, n = 0, len(source)
+    in_dynamic_sql = False
     while i < n:
+        if reveal_dynamic_sql and not in_dynamic_sql and source[i].upper() == "E":
+            m = _EXEC_IMMEDIATE_RE.match(source, i)
+            if m:
+                out.append(source[i : m.end()])
+                i = m.end()
+                in_dynamic_sql = True
+                continue
         two = source[i : i + 2]
         if two == "--":
             while i < n and source[i] != "\n":
@@ -106,28 +130,67 @@ def mask_strings_and_comments(source: str) -> str:
                 close_delim = _Q_QUOTE_PAIRS.get(open_delim, open_delim)
                 end = source.find(close_delim + "'", open_pos + 1)
                 if end != -1:
-                    for k in range(i, end + 2):
-                        out.append("\n" if source[k] == "\n" else " ")
+                    if in_dynamic_sql:
+                        out.append(source[i : end + 2])
+                    else:
+                        for k in range(i, end + 2):
+                            out.append("\n" if source[k] == "\n" else " ")
                     i = end + 2
                     continue
         if source[i] == "'":
-            out.append(" ")
+            out.append("'" if in_dynamic_sql else " ")
             i += 1
             while i < n:
                 if source[i] == "'":
                     if source[i : i + 2] == "''":
-                        out.append("  ")
+                        out.append("''" if in_dynamic_sql else "  ")
                         i += 2
                         continue
-                    out.append(" ")
+                    out.append("'" if in_dynamic_sql else " ")
                     i += 1
                     break
-                out.append("\n" if source[i] == "\n" else " ")
+                if in_dynamic_sql:
+                    out.append(source[i])
+                else:
+                    out.append("\n" if source[i] == "\n" else " ")
                 i += 1
             continue
+        if source[i] == ";" and in_dynamic_sql:
+            in_dynamic_sql = False
         out.append(source[i])
         i += 1
     return "".join(out)
+
+
+def mask_strings_and_comments(source: str) -> str:
+    """Replace comment/string-literal contents with spaces, preserving
+    length and newlines, so absolute offsets and line numbers stay valid
+    and keyword regexes never match inside a literal or a comment."""
+    return _mask(source, reveal_dynamic_sql=False)
+
+
+def mask_dynamic_sql_visible(source: str) -> str:
+    """Like mask_strings_and_comments(), but string-literal content that is
+    (part of) an EXECUTE IMMEDIATE argument -- from right after the keyword
+    to the next bare ';' outside any literal -- is left visible instead of
+    blanked, so a gap-triggering construct built as dynamic SQL/PL-SQL text
+    (a single literal or a '...' || expr || '...' concatenation) is still
+    detectable by keyword search. Comments and non-dynamic-SQL string
+    literals are masked exactly as before.
+
+    This is deliberately a SEPARATE masked view, not a replacement for
+    mask_strings_and_comments(). A detector that needs "what named object
+    contains this position" (enclosing_object_name_index()) must still
+    build that index from the safe, fully-masked view: dynamic SQL that
+    itself creates a package/procedure at runtime (real example: utPLSQL's
+    test suite dynamically creating a package via EXECUTE IMMEDIATE) would
+    otherwise be picked up as if it were a real container declared in the
+    source tree, corrupting attribution for unrelated findings. Only a
+    detector's own keyword-matching regex should run against this visible
+    view; positions found in it remain valid lookups into an index built
+    from the safe view, since masking never changes length or newlines in
+    either view."""
+    return _mask(source, reveal_dynamic_sql=True)
 
 
 def line_at(text: str, pos: int) -> int:

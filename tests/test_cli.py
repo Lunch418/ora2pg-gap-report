@@ -1,3 +1,4 @@
+import csv
 import json
 import shutil
 from pathlib import Path
@@ -75,6 +76,25 @@ def test_main_end_to_end_json_to_file(tmp_path):
     data = json.loads(output_path.read_text())
     assert isinstance(data, list)
     object_names = {item["object_name"] for item in data}
+    assert "TR_CONSTRUCTORS_CTI" in object_names
+    assert "LOGGER.PURGE_ALL" in object_names
+
+
+def test_main_end_to_end_csv_to_file(tmp_path):
+    output_path = tmp_path / "report.csv"
+    exit_code = main(
+        [
+            str(SAMPLES / "logger.pkb"),
+            str(SAMPLES / "compound_trigger_apress.sql"),
+            "--format",
+            "csv",
+            "--output",
+            str(output_path),
+        ]
+    )
+    assert exit_code == 0
+    rows = list(csv.DictReader(output_path.open(newline="", encoding="utf-8")))
+    object_names = {row["object_name"] for row in rows}
     assert "TR_CONSTRUCTORS_CTI" in object_names
     assert "LOGGER.PURGE_ALL" in object_names
 

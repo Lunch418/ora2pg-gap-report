@@ -1,8 +1,10 @@
+import csv
+import io
 import json
 import re
 
 from ora2pg_gap_report.models import Finding
-from ora2pg_gap_report.report_generator import to_json, to_markdown
+from ora2pg_gap_report.report_generator import to_csv, to_json, to_markdown
 
 SAMPLE_FINDING = Finding(
     detector="autonomous_tx",
@@ -56,3 +58,45 @@ def test_to_markdown_escapes_pipe_in_source_file_and_object_name():
     assert unescaped_pipes == header_pipes
     assert "weird\\|file.sql" in markdown
     assert 'WEIRD\\|"OBJ"' in markdown
+
+
+def test_to_csv_empty_findings_is_just_a_header_row():
+    rows = list(csv.reader(io.StringIO(to_csv([]))))
+    assert rows == [["detector", "severity", "object_name", "line", "snippet", "message", "source_file"]]
+
+
+def test_to_csv_round_trips_finding_fields():
+    reader = csv.DictReader(io.StringIO(to_csv([SAMPLE_FINDING])))
+    rows = list(reader)
+    assert len(rows) == 1
+    assert rows[0]["detector"] == "autonomous_tx"
+    assert rows[0]["object_name"] == "LOGGER.PURGE_ALL"
+    assert rows[0]["line"] == "2178"
+    assert rows[0]["message"] == "uses dblink | needs review"
+
+
+def test_to_csv_quotes_fields_containing_commas_and_newlines():
+    finding = Finding(
+        detector="autonomous_tx",
+        severity="high",
+        object_name="OBJ, WITH_COMMA",
+        line=1,
+        snippet="pragma autonomous_transaction;",
+        message="line one\nline two",
+        source_file="a,b.sql",
+    )
+    csv_text = to_csv([finding])
+    reader = csv.DictReader(io.StringIO(csv_text))
+    row = next(reader)
+    assert row["object_name"] == "OBJ, WITH_COMMA"
+    assert row["message"] == "line one\nline two"
+    assert row["source_file"] == "a,b.sql"
+
+
+def test_to_csv_uses_plain_newlines_not_crlf():
+    # csv.writer's RFC-4180 default is '\r\n' -- explicitly overridden to
+    # plain '\n' (see to_csv()'s docstring for why: avoids a '\r\r\n'
+    # corruption when this string later goes through a text-mode file
+    # write on Windows).
+    csv_text = to_csv([SAMPLE_FINDING])
+    assert "\r" not in csv_text

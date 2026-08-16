@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Lunch418/ora2pg-gap-report/blob/main/schemas/baseline.schema.json",
+  "title": "ora2pg-gap-report baseline snapshot",
+  "description": "The shape of a file written by `ora2pg-gap-report ... --save PATH` and read back by `--baseline PATH`. See ora2pg_gap_report/baseline.py for the source of truth this schema describes. NOTE: $defs/baseline_finding's Finding-shaped fields (everything except 'group_key') are duplicated from report.schema.json's $defs/finding rather than $ref'd across files (composing that safely across two additionalProperties:false schemas needs unevaluatedProperties plus a cross-file $ref registry, more moving parts than this gains here) — tests/test_schemas.py's test_report_and_baseline_schemas_share_identical_finding_field_definitions enforces that the two stay identical; update both files together, not just this one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "findings"],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "Must match baseline.SCHEMA_VERSION exactly -- load_baseline() rejects any other value rather than risk silently diffing against a baseline computed by an incompatible grouping formula."
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/baseline_finding" }
+    }
+  },
+  "$defs": {
+    "baseline_finding": {
+      "type": "object",
+      "description": "A Finding (see report.schema.json) plus 'group_key'.",
+      "additionalProperties": false,
+      "required": ["group_key", "detector", "severity", "object_name", "line", "snippet", "message", "source_file"],
+      "properties": {
+        "group_key": {
+          "type": "string",
+          "description": "sha1(detector + source_file + object_name + snippet), truncated to 12 hex chars. Identifies findings as 'the same kind of thing' across scans for --baseline diffing -- NOT unique per finding: multiple genuinely distinct findings (e.g. the same DBMS_LOB call on two different lines of one package) share a group_key on purpose. See baseline.py's module docstring for why diffing is count-based per group rather than trying to match individual records."
+        },
+        "detector": {
+          "type": "string",
+          "description": "Which detector produced this finding, e.g. 'read_only_table'. Matches the Python module name under ora2pg_gap_report/detectors/ and the 'detector' field in ora2pg_gap_report/gap_registry.py's GAPS list."
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "'high' — a hard PostgreSQL error, or a silent architectural/correctness loss. 'medium' — a silent behavior change with bounded, non-correctness impact. This project has no 'critical' tier: 'high' is its top severity."
+        },
+        "object_name": {
+          "type": "string",
+          "description": "The Oracle object this finding is attributed to (e.g. a package.procedure, a table, an index). 'UNKNOWN' when the scanner couldn't attribute the finding to an enclosing object."
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "1-based line number within source_file where the flagged construct appears. 0 means 'not a line in this file' (used by the --check-connect-by integration, whose findings come from ora2pg's own generated output, not the scanned file)."
+        },
+        "snippet": {
+          "type": "string",
+          "description": "The specific fragment that triggered the finding (e.g. 'READ ONLY', 'CROSS APPLY') — not the full statement."
+        },
+        "message": {
+          "type": "string",
+          "description": "Full explanation: what ora2pg does with this construct, why it's a problem, and how to work around it."
+        },
+        "source_file": {
+          "type": "string",
+          "description": "Path to the file that was scanned, as given on the command line (or discovered inside a scanned directory). Empty string if not yet stamped (not expected in CLI output, only when calling detectors directly as a library)."
+        }
+      }
+    }
+  }
+}

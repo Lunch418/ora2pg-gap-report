@@ -20,6 +20,7 @@ Run: python3 scripts/doctor.py
 Exit code: 0 if every gap's artifacts check out, 1 if any is missing.
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -29,6 +30,47 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audit_gap_test_counts import count_tests  # noqa: E402
 from ora2pg_gap_report.gap_registry import GAPS, research_doc_path  # noqa: E402
+
+# Matches a detector filename one level under 'detectors/' in the ASCII
+# tree README.md draws in its "Архитектура" section, e.g.
+# '│   ├── autonomous_tx.py        # PRAGMA ...' or the tree's last entry
+# ('│   └── identity_column.py ...').
+_README_TREE_ENTRY_RE = re.compile(r"^│\s+(?:├──|└──)\s+([a-z_]+)\.py")
+_DETECTORS_LINE_RE = re.compile(r"^├── detectors/\s*$")
+
+
+def _detector_names_on_disk() -> set[str]:
+    detectors_dir = REPO_ROOT / "ora2pg_gap_report" / "detectors"
+    return {p.stem for p in detectors_dir.glob("*.py") if p.stem != "__init__"}
+
+
+def _extract_detector_names_from_tree_text(text: str) -> set[str]:
+    """Names found in an ASCII tree, but only within the 'detectors/'
+    subtree specifically -- not any other '│   ├── x.py'-shaped line
+    anywhere in the text. A shape-only match (matching that indentation
+    pattern regardless of which subtree it's under) would misparse a
+    future, unrelated tree fragment at the same visual depth (e.g. a
+    'tests/fixtures/' listing) as claimed detector names, failing the
+    build for a change that has nothing to do with detectors."""
+    names: set[str] = set()
+    in_detectors_subtree = False
+    for line in text.splitlines():
+        if _DETECTORS_LINE_RE.match(line):
+            in_detectors_subtree = True
+            continue
+        if not in_detectors_subtree:
+            continue
+        if not line.startswith("│   "):
+            break  # first line back out at (or above) detectors/'s own depth
+        m = _README_TREE_ENTRY_RE.match(line)
+        if m:
+            names.add(m.group(1))
+    return names
+
+
+def _detector_names_in_readme() -> set[str]:
+    readme_text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    return _extract_detector_names_from_tree_text(readme_text)
 
 
 def check_gap(gap) -> list[str]:
@@ -60,15 +102,47 @@ def check_gap(gap) -> list[str]:
     return problems
 
 
+def check_readme_parity() -> list[str]:
+    """The 'Архитектура' section's file tree in README.md must list
+    exactly the detector modules that actually exist on disk -- neither
+    more (a stale entry for a module that was renamed/removed) nor fewer
+    (a new detector added to ora2pg_gap_report/detectors/ but never
+    mentioned in README.md, silently making the README's own detector
+    count/description wrong the moment a reader trusts it). Found and
+    fixed once already, by hand, after the section drifted for several
+    releases -- this makes that specific class of drift a rerunnable
+    check instead of something that has to be rediscovered by rereading
+    the whole README."""
+    on_disk = _detector_names_on_disk()
+    in_readme = _detector_names_in_readme()
+
+    problems = []
+    for name in sorted(on_disk - in_readme):
+        problems.append(
+            f"README.md: детектор '{name}.py' существует, но не упомянут в файловом "
+            "дереве секции «Архитектура»"
+        )
+    for name in sorted(in_readme - on_disk):
+        problems.append(
+            f"README.md: секция «Архитектура» упоминает '{name}.py', "
+            "но такого файла нет в ora2pg_gap_report/detectors/"
+        )
+    return problems
+
+
 def main() -> int:
     print(f"Проверено {len(GAPS)} gap'ов из реестра (ora2pg_gap_report/gap_registry.py).\n")
 
     all_problems: list[str] = []
     for gap in GAPS:
         all_problems.extend(check_gap(gap))
+    all_problems.extend(check_readme_parity())
 
     if not all_problems:
-        print("✓ Всё чисто: у каждого gap'а есть research-документ, детектор, позитивный и guard-тест.")
+        print(
+            "✓ Всё чисто: у каждого gap'а есть research-документ, детектор, позитивный и "
+            "guard-тест, и README.md не разошёлся со списком детекторов на диске."
+        )
         return 0
 
     print(f"✗ Найдено {len(all_problems)} проблем:\n")

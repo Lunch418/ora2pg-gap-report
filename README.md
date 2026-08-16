@@ -430,14 +430,18 @@ pytest
 Детекторы и лексер проверены на реальном открытом PL/SQL-коде — не
 только на синтетических примерах. Помимо точечных фикстур (Logger,
 составной триггер из Apress), детекторы прогонялись целиком на
-215 214 строках (точный подсчёт по свежему `git clone --depth 1` каждого
-репозитория) из четырёх независимых открытых проектов: официальных
-демо-схем Oracle (`oracle-samples/db-sample-schemas`),
-библиотеки утилит `mortenbra/alexandria-plsql-utils`, фреймворка
-юнит-тестирования `utPLSQL/utPLSQL` и логгера `OraOpenSource/Logger` —
-ноль падений, только одна честно задокументированная граница
-применимости (см. `test_real_open_source_logger_install_script_
+247 298 строках (точный свежий подсчёт по `git clone --depth 1` каждого
+репозитория) из семи независимых открытых проектов: официальных
+демо-схем Oracle (`oracle-samples/db-sample-schemas`), библиотеки утилит
+`mortenbra/alexandria-plsql-utils`, фреймворка юнит-тестирования
+`utPLSQL/utPLSQL`, логгера `OraOpenSource/Logger`, лексера/токенизатора
+`method5/plsql_lexer`, генератора Excel-файлов `mbleron/ExcelGen` и
+шаблонизатора `osalvador/tePLSQL` — ноль падений, только одна честно
+задокументированная граница применимости (см.
+`test_real_open_source_logger_install_script_
 anonymous_block_is_unknown_not_a_crash` в `tests/test_bulk_collect.py`).
+Подробности и полный список corpus-validated детекторов — в
+`docs/research/AUDIT.md`.
 
 ### Проверка на живой Oracle
 

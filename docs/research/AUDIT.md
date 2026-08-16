@@ -38,7 +38,7 @@
 | 007 | `model_clause` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "PARTITION"` | 5 / 3 | нет |
 | 008 | `pivot_clause` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "("` | 6 / 2 | нет |
 | 009 | `object_type` | high | ✅ | ✅ (`--estimate_cost` вернул 0 строк) | н/д — пробел в оценке стоимости, не в синтаксисе | 7 / 2 | да — `test_real_open_source_object_type_is_flagged` (`t_soap_envelope.pks`, `alexandria-plsql-utils`) и `test_real_open_source_utplsql_object_types_are_flagged` (`demo_equal_matcher.sql`, `utPLSQL`) |
-| 010 | `with_function` | high | ✅ | ✅ | ✅ `ERROR: syntax error at end of input` (структура блока разрушена) | 3 / 1 | нет |
+| 010 | `with_function` | high | ✅ | ✅ | ✅ `ERROR: syntax error at end of input` (структура блока разрушена) | 4 / 1 | да — `test_real_open_source_excelgen_with_function_is_flagged` встраивает реальный `WITH FUNCTION get_xlsx(...)` из тестового набора `mbleron/ExcelGen` |
 | 011 | `flashback_query` | high | ✅ | ✅ (искажённый `statement_timestamp()`) | ✅ `ERROR: syntax error at or near "timestamp"` | 4 / 1 | нет |
 | 012 | `global_temp_table` | high | ✅ | ✅ | ✅ строка пережила `COMMIT` вопреки Oracle-семантике | 6 / 2 | да — `test_real_open_source_utplsql_global_temp_table_is_flagged` встраивает реальную таблицу `ut_compound_data_diff_tmp` из `utPLSQL` |
 | 013 | `table_partitioning` | high | ✅ | ✅ | н/д — секции молча пропадают, не ошибка | 10 / 4 | да — `test_real_oracle_sample_schema_sales_table_is_flagged` встраивает реальную таблицу `SALES` из официальной Oracle SH-схемы (`db-sample-schemas`) |
@@ -59,26 +59,38 @@
 | 028 | `identity_column` | high | ✅ | ✅ (лишняя пара скобок в выводе) | ✅ `ERROR: syntax error at or near "("` | 5 / 2 | нет |
 
 **28/28 по каждому из первых пяти критериев.** Отдельная колонка —
-проверка на реальном открытом коде: 8 детекторов (`autonomous_tx`,
+проверка на реальном открытом коде: 9 детекторов (`autonomous_tx`,
 `bulk_collect`, `object_type`, `global_temp_table`, `table_partitioning`,
-`json_table`, `collection_type`, `oracle_text`) реально сработали при
-сканировании 215 214 строк открытого кода (точный подсчёт по всем
-четырём репозиториям вместе на момент этой проверки, свежий `git clone
---depth 1` каждого — не сумма отдельных, ранее запомненных чисел по
-каждому репозиторию) из четырёх независимых проектов —
+`json_table`, `collection_type`, `oracle_text`, `with_function`) реально
+сработали при сканировании 247 298 строк открытого кода (точный свежий
+подсчёт по всем семи репозиториям вместе на момент этой проверки, каждый
+— свежий `git clone --depth 1`, не сумма отдельных, ранее запомненных
+чисел по каждому репозиторию) из семи независимых проектов —
 `mortenbra/alexandria-plsql-utils`, `oracle-samples/db-sample-schemas`,
-`utPLSQL/utPLSQL` (фреймворк юнит-тестирования PL/SQL) и
-`OraOpenSource/Logger` — и для каждого из этих восьми в дереве тестов
+`utPLSQL/utPLSQL` (фреймворк юнит-тестирования PL/SQL),
+`OraOpenSource/Logger`, `method5/plsql_lexer` (лексер/токенизатор
+PL/SQL — с нестандартными расширениями файлов `.plsql`/`.bdy`/`.spc`,
+переданными явно, не через рекурсивный обход директории по
+расширениям), `mbleron/ExcelGen` (генератор Excel-файлов) и
+`osalvador/tePLSQL` (шаблонизатор с активным использованием
+`EXECUTE IMMEDIATE`) — и для каждого из этих девяти в дереве тестов
 лежит постоянный регрессионный тест, встраивающий реальный фрагмент того
 самого исходника (не гипотетический пример), так что находка остаётся
 проверяемой в любой момент, а не только "было замечено в сессии
-однажды". Расширение корпуса с двух проектов до четырёх (в т.ч. первый
-раз — код тестового фреймворка, а не бизнес-схемы или библиотеки утилит)
-не выявило ни одного некорректного срабатывания и ни одного падения; из
-нового нашлась только одна честно документированная граница
-применимости — `object_name='UNKNOWN'` на анонимном `declare...begin...
-end;`-блоке без имени (install-скрипт, не выгрузка `DBMS_METADATA.
-GET_DDL`), закреплено тестом
+однажды". Расширение корпуса с четырёх проектов до семи не выявило ни
+одного некорректного срабатывания и ни одного падения — включая два
+файла (`ExcelGen.pkb`, `plsql_parser.bdy`), где `EXECUTE IMMEDIATE`
+реально строит код динамически (вплоть до создания временной функции с
+шаблонной подстановкой имени схемы), ни разу не спровоцировав ложную
+атрибуцию: ни один из этих динамически создаваемых объектов не попал в
+индекс контейнеров как настоящий (в этих двух конкретных случаях внутри
+динамического кода не оказалось самой конструкции ни одного детектора —
+подтверждает отсутствие падений/порчи данных, не добавляет новую
+находку). Из более раннего расширения (два проекта → четыре) осталась
+уже задокументированная честная граница применимости —
+`object_name='UNKNOWN'` на анонимном `declare...begin...end;`-блоке без
+имени (install-скрипт, не выгрузка `DBMS_METADATA.GET_DDL`), закреплено
+тестом
 `test_real_open_source_logger_install_script_anonymous_block_is_unknown_not_a_crash`
 в `tests/test_bulk_collect.py`.
 
@@ -129,7 +141,7 @@ ruff check ora2pg_gap_report/ tests/          # без замечаний
 python3 scripts/audit_gap_test_counts.py      # пересчитать колонку "Тесты (всего/guard)" таблицы выше
 ```
 
-На момент последнего обновления этого документа: **379 тестов** (378
+На момент последнего обновления этого документа: **386 тестов** (385
 проходят, 1 намеренно пропущен — требует установленный `ora2pg`,
 см. `--check-connect-by`). Колонка "Тесты (всего/guard)" в таблице выше —
 не ручной подсчёт, а буквальный вывод `scripts/audit_gap_test_counts.py`

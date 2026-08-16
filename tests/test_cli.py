@@ -526,3 +526,127 @@ def test_main_warns_on_a_directory_with_no_matching_files(tmp_path, capsys):
     assert exit_code == 2
     assert "no_ddl_here" in captured.err
     assert json.loads(captured.out) == []
+
+
+def test_main_save_writes_a_baseline_snapshot(tmp_path):
+    baseline_path = tmp_path / "baseline.json"
+    exit_code = main(
+        [str(SAMPLES / "logger.pkb"), "--format", "json", "--save", str(baseline_path)]
+    )
+    assert exit_code == 0
+    saved = json.loads(baseline_path.read_text())
+    assert saved["schema_version"] == 1
+    assert len(saved["findings"]) > 0
+    assert all("fingerprint" in rec for rec in saved["findings"])
+
+
+def test_main_save_captures_all_findings_regardless_of_display_filters(tmp_path):
+    # --save is meant as ground truth for the schema -- an unrelated
+    # --severity filter narrowing what's *displayed* must not also shrink
+    # what gets written to the baseline.
+    baseline_path = tmp_path / "baseline.json"
+    unfiltered_path = tmp_path / "unfiltered.json"
+    main([str(SAMPLES / "logger.pkb"), "--format", "json", "--output", str(unfiltered_path)])
+    exit_code = main(
+        [
+            str(SAMPLES / "logger.pkb"),
+            "--format",
+            "json",
+            "--severity",
+            "low",
+            "--save",
+            str(baseline_path),
+        ]
+    )
+    assert exit_code == 0
+    unfiltered_count = len(json.loads(unfiltered_path.read_text()))
+    saved_count = len(json.loads(baseline_path.read_text())["findings"])
+    assert saved_count == unfiltered_count
+
+
+def test_main_baseline_reports_no_new_or_resolved_against_an_identical_scan(tmp_path, capsys):
+    baseline_path = tmp_path / "baseline.json"
+    main([str(SAMPLES / "logger.pkb"), "--format", "json", "--save", str(baseline_path)])
+
+    exit_code = main(
+        [str(SAMPLES / "logger.pkb"), "--format", "json", "--baseline", str(baseline_path)]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "NEW" in captured.err and "RESOLVED" in captured.err and "UNCHANGED" in captured.err
+    assert "Новые находки" not in captured.err
+
+
+def test_main_baseline_detects_new_and_resolved_findings(tmp_path, capsys):
+    baseline_path = tmp_path / "baseline.json"
+    main([str(SAMPLES / "logger.pkb"), "--format", "json", "--save", str(baseline_path)])
+
+    # A different file's findings won't match logger.pkb's at all: every
+    # baseline finding should show up RESOLVED, every new-scan finding NEW.
+    exit_code = main(
+        [
+            str(SAMPLES / "compound_trigger_apress.sql"),
+            "--format",
+            "json",
+            "--baseline",
+            str(baseline_path),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Новые находки" in captured.err
+
+
+def test_main_baseline_missing_file_is_a_graceful_error(tmp_path, capsys):
+    exit_code = main(
+        [
+            str(SAMPLES / "logger.pkb"),
+            "--format",
+            "json",
+            "--baseline",
+            str(tmp_path / "does_not_exist.json"),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "does_not_exist.json" in captured.err
+
+
+def test_main_fail_on_high_fails_when_a_high_finding_exists(capsys):
+    exit_code = main([str(SAMPLES / "logger.pkb"), "--format", "json", "--fail-on", "high"])
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Migration gate FAILED" in captured.err
+
+
+def test_main_fail_on_ignores_an_unrelated_severity_display_filter():
+    # --severity low narrows the *displayed* report, but --fail-on high
+    # must still see the real high-severity findings underneath it.
+    exit_code = main(
+        [
+            str(SAMPLES / "logger.pkb"),
+            "--format",
+            "json",
+            "--severity",
+            "low",
+            "--fail-on",
+            "high",
+        ]
+    )
+    assert exit_code == 1
+
+
+def test_main_fail_on_passes_when_no_qualifying_findings_exist(tmp_path):
+    empty_source = tmp_path / "empty.sql"
+    empty_source.write_text("create table t (id number);\n")
+    exit_code = main([str(empty_source), "--format", "json", "--fail-on", "high"])
+    assert exit_code == 0
+
+
+def test_main_fail_on_defers_to_execution_errors(tmp_path):
+    # A missing/unreadable file is a more fundamental problem than a gate
+    # failure -- exit code 2 (execution error) must win over 1 (gate).
+    exit_code = main(
+        [str(tmp_path / "does_not_exist.sql"), "--format", "json", "--fail-on", "high"]
+    )
+    assert exit_code == 2

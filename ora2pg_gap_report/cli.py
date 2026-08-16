@@ -8,6 +8,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.markup import escape
 
+from .baseline import BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
 from .detectors.autonomous_tx import find_autonomous_transactions
 from .detectors.bulk_collect import find_bulk_collect_usage
 from .detectors.collection_type import find_collection_types
@@ -43,6 +44,7 @@ from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError, run_estimate_co
 from .plsql_lex import enclosing_object_name_index, mask_strings_and_comments
 from .report_generator import to_json, to_markdown
 from .terminal_report import render as render_terminal
+from .terminal_report import render_baseline_diff
 
 _DETECTORS = (
     find_autonomous_transactions,
@@ -207,6 +209,38 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="Показать только находки для объектов, чьё имя содержит эту подстроку (без учёта регистра)",
     )
+    parser.add_argument(
+        "--save",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Сохранить находки этого прогона как baseline-снапшот в PATH (для последующего "
+            "сравнения через --baseline). Снапшот — все находки, независимо от --severity/--object; "
+            "эти флаги влияют только на то, что выводится в отчёте."
+        ),
+    )
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Сравнить находки этого прогона с ранее сохранённым --save снапшотом: NEW/RESOLVED/"
+            "UNCHANGED. Сравнение тоже считается по всем находкам, независимо от --severity/--object."
+        ),
+    )
+    parser.add_argument(
+        "--fail-on",
+        choices=("high", "medium", "low"),
+        default=None,
+        metavar="SEVERITY",
+        help=(
+            "Завершиться с кодом 1, если среди находок есть хотя бы одна с этим уровнем серьёзности "
+            "или выше (high выше medium выше low) — для CI-гейта. Оценивается по всем находкам, "
+            "независимо от --severity/--object, чтобы фильтр вывода не маскировал провал гейта."
+        ),
+    )
     return parser
 
 
@@ -356,15 +390,40 @@ def main(argv: list[str] | None = None) -> int:
                 err_console.print(f"[yellow]{escape(warning)}[/yellow]")
 
     elapsed_seconds = time.perf_counter() - start_time
-    all_findings = _apply_filters(all_findings, args.severity, args.object)
     _sort_findings(all_findings)
+
+    # --save/--baseline/--fail-on all act on the full, unfiltered scan
+    # result (`all_findings`) rather than what --severity/--object narrow
+    # the *displayed* report down to (`display_findings`, below) -- a
+    # baseline snapshot is meant as ground truth for the schema, and a CI
+    # gate silently muted by an unrelated display filter would be a much
+    # worse surprise than a gate that's a little noisier than expected.
+    if args.save:
+        try:
+            save_baseline(all_findings, args.save)
+        except OSError as exc:
+            err_console.print(
+                f"[red]Не удалось сохранить baseline в {escape(str(args.save))}: {escape(str(exc))}[/red]"
+            )
+            return 2
+
+    baseline_diff = None
+    if args.baseline:
+        try:
+            baseline = load_baseline(args.baseline)
+        except BaselineLoadError as exc:
+            err_console.print(f"[red]{escape(str(exc))}[/red]")
+            return 2
+        baseline_diff = diff_against_baseline(all_findings, baseline)
+
+    display_findings = _apply_filters(all_findings, args.severity, args.object)
 
     if fmt == "terminal":
         if args.output:
             try:
                 with args.output.open("w", encoding="utf-8") as fh:
                     render_terminal(
-                        all_findings,
+                        display_findings,
                         console=Console(file=fh),
                         elapsed_seconds=elapsed_seconds,
                         objects_scanned=objects_scanned,
@@ -376,9 +435,11 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 return 2
         else:
-            render_terminal(all_findings, elapsed_seconds=elapsed_seconds, objects_scanned=objects_scanned)
+            render_terminal(
+                display_findings, elapsed_seconds=elapsed_seconds, objects_scanned=objects_scanned
+            )
     else:
-        report = _render(all_findings, fmt)
+        report = _render(display_findings, fmt)
         if args.output:
             try:
                 args.output.write_text(report, encoding="utf-8")
@@ -391,7 +452,27 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(report)
 
-    return 2 if had_error else 0
+    # Printed to stderr regardless of --format: it's supplementary
+    # human-facing context, not part of whatever structured payload
+    # --format produced on stdout (json/csv/sarif are meant to be piped
+    # or redirected as-is).
+    if baseline_diff is not None:
+        render_baseline_diff(baseline_diff, console=err_console)
+
+    if had_error:
+        return 2
+
+    if args.fail_on is not None:
+        threshold = _SEVERITY_ORDER[args.fail_on]
+        failing = [f for f in all_findings if _SEVERITY_ORDER.get(f.severity, 99) <= threshold]
+        if failing:
+            err_console.print(
+                f"\n[bold red]Migration gate FAILED[/bold red] — {len(failing)} находок с "
+                f"severity {args.fail_on} и выше (порог --fail-on {args.fail_on})"
+            )
+            return 1
+
+    return 0
 
 
 if __name__ == "__main__":

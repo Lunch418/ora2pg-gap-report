@@ -69,3 +69,15 @@ def test_research_doc_url_is_constructible_without_the_file_existing():
         "https://github.com/Lunch418/ora2pg-gap-report/blob/main/"
         "docs/research/gap-023-oracle-text.md"
     )
+
+
+def test_every_gap_has_a_non_empty_version_stamp():
+    # ora2pg_version/postgresql_version default to "25.0"/"16" on GapEntry
+    # (every gap confirmed so far used the same two versions -- see
+    # docs/research/AUDIT.md), but the fields themselves are real strings
+    # any future gap could override, not decorative -- --explain prints
+    # them (cli.py's _handle_explain()) and scripts/doctor.py cross-checks
+    # them against docs/research/GAP_REGISTRY.md's own columns.
+    for gap in GAPS:
+        assert gap.ora2pg_version
+        assert gap.postgresql_version

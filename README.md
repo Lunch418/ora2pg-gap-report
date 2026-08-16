@@ -133,12 +133,14 @@ ora2pg-gap-report path/to/schema_dump.pkb another_file.sql
 В интерактивном терминале по умолчанию — цветной отчёт: сводная панель
 (сколько найдено, разбивка по severity, грубая оценка часов), компактная
 таблица находок и пояснения под каждым сработавшим детектором. Для
-скриптов/redirect — `--format markdown` или `--format json` (тоже
-работают как формат по умолчанию, если stdout не терминал):
+скриптов/redirect — `--format markdown`, `--format json` или
+`--format csv` (markdown работает и как формат по умолчанию, если stdout
+не терминал):
 
 ```sh
 ora2pg-gap-report path/to/schema_dump.pkb --format json --output report.json
 ora2pg-gap-report path/to/schema_dump.pkb --format markdown > report.md
+ora2pg-gap-report path/to/schema_dump.pkb --format csv --output report.csv
 
 # Опционально: линтинг сгенерированного ora2pg кода для CONNECT BY.
 # Требует установленный ora2pg (см. https://github.com/darold/ora2pg) —
@@ -146,6 +148,14 @@ ora2pg-gap-report path/to/schema_dump.pkb --format markdown > report.md
 # для этой конкретной проверки.
 ora2pg-gap-report path/to/schema_dump.pkb --check-connect-by
 ```
+
+Формат `--format json` описан формальной JSON Schema —
+[`schemas/report.schema.json`](schemas/report.schema.json) (а формат
+baseline-снапшота из `--save`/`--baseline` — в
+[`schemas/baseline.schema.json`](schemas/baseline.schema.json)), чтобы
+сторонние инструменты могли надёжно парсить вывод, не угадывая по
+примерам. Обе схемы проверяются в тестах против реального вывода
+(`tests/test_schemas.py`) — не просто написаны и оставлены как есть.
 
 Файлы с DDL можно передавать как есть — один файл может содержать сразу
 несколько пакетов/триггеров, детекторы разбирают границы объектов сами.

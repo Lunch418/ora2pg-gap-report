@@ -45,7 +45,7 @@ from .gap_registry import gap_by_number, normalize_gap_number, research_doc_path
 from .models import Finding
 from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError, run_estimate_cost
 from .plsql_lex import enclosing_object_name_index, mask_strings_and_comments
-from .report_generator import to_json, to_markdown
+from .report_generator import to_csv, to_json, to_markdown
 from .terminal_report import render as render_terminal
 from .terminal_report import render_baseline_diff
 
@@ -186,7 +186,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--format",
-        choices=("terminal", "markdown", "json"),
+        choices=("terminal", "markdown", "json", "csv"),
         default=None,
         help=(
             "Формат отчёта. По умолчанию — цветной вывод в терминал, если "
@@ -297,6 +297,8 @@ def _connect_by_check(path: Path, source: str, ora2pg_bin: str) -> tuple[list[Fi
 def _render(findings: list[Finding], fmt: str) -> str:
     if fmt == "json":
         return to_json(findings)
+    if fmt == "csv":
+        return to_csv(findings)
 
     counts = summarize_by_severity(findings)
     counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))

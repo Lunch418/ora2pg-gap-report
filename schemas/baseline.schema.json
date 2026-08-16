@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Lunch418/ora2pg-gap-report/blob/main/schemas/baseline.schema.json",
+  "title": "ora2pg-gap-report baseline snapshot",
+  "description": "The shape of a file written by `ora2pg-gap-report ... --save PATH` and read back by `--baseline PATH`. See ora2pg_gap_report/baseline.py for the source of truth this schema describes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "findings"],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "Must match baseline.SCHEMA_VERSION exactly -- load_baseline() rejects any other value rather than risk silently diffing against a baseline computed by an incompatible grouping formula."
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/baseline_finding" }
+    }
+  },
+  "$defs": {
+    "baseline_finding": {
+      "type": "object",
+      "description": "A Finding (see report.schema.json) plus 'group_key'.",
+      "additionalProperties": false,
+      "required": ["group_key", "detector", "severity", "object_name", "line", "snippet", "message", "source_file"],
+      "properties": {
+        "group_key": {
+          "type": "string",
+          "description": "sha1(detector + source_file + object_name + snippet), truncated to 12 hex chars. Identifies findings as 'the same kind of thing' across scans for --baseline diffing -- NOT unique per finding: multiple genuinely distinct findings (e.g. the same DBMS_LOB call on two different lines of one package) share a group_key on purpose. See baseline.py's module docstring for why diffing is count-based per group rather than trying to match individual records."
+        },
+        "detector": { "type": "string" },
+        "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+        "object_name": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 },
+        "snippet": { "type": "string" },
+        "message": { "type": "string" },
+        "source_file": { "type": "string" }
+      }
+    }
+  }
+}

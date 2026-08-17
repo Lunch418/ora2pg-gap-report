@@ -57,8 +57,11 @@
 | 026 | `read_only_table` | high | ✅ | ✅ | ✅ INSERT прошёл там, где Oracle гарантированно блокирует его (ORA-12081) | 7 / 3 | нет |
 | 027 | `materialized_view_log` | high | ✅ | ✅ (`[DEBUG] unhandled line`) | н/д — журнал пропадает без следа | 3 / 2 | нет |
 | 028 | `identity_column` | high | ✅ | ✅ (лишняя пара скобок в выводе) | ✅ `ERROR: syntax error at or near "("` | 5 / 2 | нет |
+| 029 | `rowid_type` | high | ✅ | ✅ (`ROWID`/`UROWID` → `oid`) | ✅ `ERROR: invalid input syntax for type oid` при INSERT реального значения | 11 / 4 | нет |
+| 030 | `sequence_cycle` | high | ✅ | ✅ (секция `CYCLE` пропадает) | ✅ `ERROR: nextval: reached maximum value of sequence` после исчерпания диапазона | 6 / 2 | нет |
+| 031 | `default_on_null` | high | ✅ | ✅ (`ON NULL` копируется как есть) | ✅ `ERROR: syntax error at or near "ON"` уже на CREATE TABLE | 7 / 2 | нет |
 
-**28/28 по каждому из первых пяти критериев.** Отдельная колонка —
+**31/31 по каждому из первых пяти критериев.** Отдельная колонка —
 проверка на реальном открытом коде: 9 детекторов (`autonomous_tx`,
 `bulk_collect`, `object_type`, `global_temp_table`, `table_partitioning`,
 `json_table`, `collection_type`, `oracle_text`, `with_function`) реально

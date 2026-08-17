@@ -965,6 +965,60 @@ EXPLANATION_EN: dict[str, str] = {
         "error at end of input'), not just at execution. The only path is to manually move "
         "the logic out into an ordinary PostgreSQL function/procedure."
     ),
+    "ROWID/UROWID как тип столбца — ora2pg конвертирует его в oid (подтверждено реальным "
+    "прогоном ora2pg + PostgreSQL 16, docs/research/gap-029-rowid-urowid.md). oid — это "
+    "4-байтовое целое число для внутренних идентификаторов системных объектов PostgreSQL, не "
+    "имеющее ничего общего с форматом или семантикой Oracle ROWID. CREATE TABLE проходит без "
+    "ошибок, но реальное значение ROWID (например 'AAAWJ0AABAAAKgaAAA') не проходит INSERT в "
+    "такой столбец ('invalid input syntax for type oid') — тип-заменитель несовместим с "
+    "данными, которые должен хранить. Нужно вручную выбрать подходящий тип (обычно text, если "
+    "значение используется только как непрозрачный идентификатор, без арифметики или "
+    "сравнения диапазонов).": (
+        "ROWID/UROWID as a column's data type — ora2pg converts it to oid (confirmed by a "
+        "real ora2pg + PostgreSQL 16 run, docs/research/gap-029-rowid-urowid.md). oid is a "
+        "4-byte integer PostgreSQL uses for its own system objects' internal identifiers, "
+        "with nothing in common with Oracle ROWID's format or semantics. CREATE TABLE runs "
+        "without errors, but a real ROWID value (e.g. 'AAAWJ0AABAAAKgaAAA') fails INSERT into "
+        "such a column ('invalid input syntax for type oid') — the replacement type is "
+        "incompatible with the data it's supposed to hold. A suitable type needs to be chosen "
+        "by hand (usually text, if the value is only ever used as an opaque identifier, with "
+        "no arithmetic or range comparison)."
+    ),
+    "CREATE SEQUENCE ... CYCLE — после исчерпания диапазона (MAXVALUE/MINVALUE) Oracle "
+    "начинает счёт заново, а не завершается ошибкой. ora2pg отбрасывает секцию CYCLE целиком "
+    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
+    "docs/research/gap-030-sequence-cycle.md) — CREATE SEQUENCE проходит без ошибок, и "
+    "последовательность работает идентично оригиналу ровно до момента исчерпания диапазона: "
+    "'ERROR: nextval: reached maximum value of sequence'. Диапазон может исчерпаться месяцы "
+    "спустя после миграции, в проде, а не при тестировании. Нужно добавить CYCLE вручную в "
+    "CREATE SEQUENCE, если циклическое поведение действительно нужно.": (
+        "CREATE SEQUENCE ... CYCLE — once the range is exhausted (MAXVALUE/MINVALUE), Oracle "
+        "wraps around and starts counting again instead of failing. ora2pg drops the CYCLE "
+        "section entirely (confirmed by a real ora2pg + PostgreSQL 16 run, "
+        "docs/research/gap-030-sequence-cycle.md) — CREATE SEQUENCE runs without errors, and "
+        "the sequence behaves identically to the original right up until its range is "
+        "exhausted: 'ERROR: nextval: reached maximum value of sequence'. The range may not "
+        "be exhausted until months after migration, in production, not during testing. CYCLE "
+        "needs to be added back into CREATE SEQUENCE by hand if the wraparound behavior is "
+        "actually needed."
+    ),
+    "DEFAULT ON NULL — в отличие от обычного DEFAULT, подставляется и тогда, когда столбцу "
+    "явно передан NULL, а не только когда столбец пропущен в INSERT. ora2pg копирует секцию "
+    "ON NULL в вывод как есть (подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
+    "docs/research/gap-031-default-on-null.md) — PostgreSQL не поддерживает такой синтаксис у "
+    "DEFAULT вообще. В отличие от большинства других находок здесь — это не тихая потеря "
+    "поведения, а немедленный 'ERROR: syntax error at or near \"ON\"' уже на этапе применения "
+    "самого CREATE TABLE. Нужно вручную переписать на BEFORE-триггер или GENERATED ALWAYS AS "
+    "(COALESCE(...)) STORED.": (
+        "DEFAULT ON NULL — unlike a plain DEFAULT, this is applied even when the column is "
+        "explicitly given NULL, not only when it's omitted from the INSERT. ora2pg copies the "
+        "ON NULL section into the output verbatim (confirmed by a real ora2pg + PostgreSQL 16 "
+        "run, docs/research/gap-031-default-on-null.md) — PostgreSQL doesn't support this "
+        "DEFAULT syntax at all. Unlike most other findings in this registry, this isn't a "
+        "silent loss of behavior — it's an immediate 'ERROR: syntax error at or near \"ON\"' "
+        "at the point CREATE TABLE itself is applied. Needs to be manually rewritten as a "
+        "BEFORE trigger or GENERATED ALWAYS AS (COALESCE(...)) STORED."
+    ),
 }
 
 
@@ -1030,6 +1084,12 @@ REMEDIATION_HINT_EN: dict[str, str] = {
     "MATERIALIZED VIEW — PostgreSQL has no incremental FAST REFRESH",
     "identity_column": "Remove the extra outer pair of parentheses around the sequence "
     "options by hand — an ora2pg substitution bug, not a skipped conversion",
+    "rowid_type": "Manually pick a suitable type (usually text) for any column ora2pg "
+    "converted from ROWID/UROWID to oid",
+    "sequence_cycle": "Add CYCLE back into CREATE SEQUENCE by hand if wraparound behavior is "
+    "actually needed",
+    "default_on_null": "Manually rewrite as a BEFORE trigger or GENERATED ALWAYS AS "
+    "(COALESCE(...)) STORED — PostgreSQL has no DEFAULT ... ON NULL equivalent",
 }
 
 

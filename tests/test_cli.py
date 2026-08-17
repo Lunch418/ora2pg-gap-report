@@ -794,3 +794,66 @@ def test_main_explain_falls_back_to_a_github_link_when_docs_are_not_packaged(mon
     assert exit_code == 0
     assert "github.com" in captured.out
     assert "gap-023-oracle-text.md" in captured.out
+
+
+@pytest.fixture(autouse=True)
+def _isolated_lang_config(tmp_path, monkeypatch):
+    """Every cli.py test gets an empty i18n config directory and no
+    ORA2PG_GAP_REPORT_LANG -- otherwise a --set-lang choice or env var set
+    on the machine running the tests would silently change every other
+    test in this file's default (Russian) output."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.delenv("ORA2PG_GAP_REPORT_LANG", raising=False)
+
+
+def test_main_lang_flag_switches_output_to_english(capsys):
+    exit_code = main(["--lang", "en", str(SAMPLES / "logger.pkb")])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Rough manual-rework estimate" in captured.out
+    assert "Грубая оценка" not in captured.out
+
+
+def test_main_lang_flag_does_not_persist_across_runs(capsys):
+    main(["--lang", "en", str(SAMPLES / "logger.pkb")])
+    capsys.readouterr()
+    exit_code = main([str(SAMPLES / "logger.pkb")])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Грубая оценка" in captured.out
+
+
+def test_main_env_var_switches_output_to_english(monkeypatch, capsys):
+    monkeypatch.setenv("ORA2PG_GAP_REPORT_LANG", "en")
+    exit_code = main([str(SAMPLES / "logger.pkb")])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Rough manual-rework estimate" in captured.out
+
+
+def test_main_explain_respects_lang_flag(capsys):
+    exit_code = main(["--lang", "en", "--explain", "GAP-023"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Confirmed on: ora2pg" in captured.out
+
+
+def test_main_uses_a_previously_saved_lang_choice(capsys):
+    from ora2pg_gap_report import i18n
+
+    i18n.save_language("en")
+    exit_code = main([str(SAMPLES / "logger.pkb")])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Rough manual-rework estimate" in captured.out
+
+
+def test_main_set_lang_saves_the_choice_and_exits(monkeypatch, capsys):
+    from ora2pg_gap_report import i18n
+
+    monkeypatch.setattr(i18n, "prompt_language_interactively", lambda *a, **k: "en")
+    exit_code = main(["--set-lang"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert i18n.get_saved_language() == "en"
+    assert "Saved" in captured.out

@@ -99,6 +99,20 @@ def test_load_baseline_rejects_a_mismatched_schema_version(tmp_path):
         load_baseline(path)
 
 
+def test_load_baseline_error_messages_are_english_when_lang_is_en(tmp_path):
+    path = tmp_path / "wrong.json"
+    path.write_text(json.dumps({"hello": "world"}))
+    with pytest.raises(BaselineLoadError, match="doesn't look like an ora2pg-gap-report baseline"):
+        load_baseline(path, lang="en")
+
+
+def test_load_baseline_schema_mismatch_message_is_english_when_lang_is_en(tmp_path):
+    path = tmp_path / "future.json"
+    path.write_text(json.dumps({"schema_version": 999, "findings": []}))
+    with pytest.raises(BaselineLoadError, match="this version of the tool expects"):
+        load_baseline(path, lang="en")
+
+
 def test_diff_identical_scan_is_all_unchanged(tmp_path):
     findings = [_finding(object_name="AUDIT_LOG"), _finding(object_name="CUSTOMERS", line=7)]
     path = tmp_path / "baseline.json"

@@ -154,3 +154,29 @@ def test_gap_registry_md_parity_skips_a_gap_with_no_matching_confirmed_row(monke
     monkeypatch.setattr(doctor, "GAPS", [gap_by_number("001")])
     monkeypatch.setattr(doctor, "_confirmed_gap_versions_in_text", lambda text: {})
     assert doctor.check_gap_registry_md_parity() == []
+
+
+def test_i18n_translations_parity_is_clean_on_the_real_repository_state():
+    # Integration-style, same spirit as the other parity tests: must hold
+    # against the real detectors/ and i18n.py in this checkout.
+    assert doctor.check_i18n_translations_parity() == []
+
+
+def test_i18n_translations_parity_flags_a_detector_message_with_no_english_translation(monkeypatch):
+    monkeypatch.setattr(
+        doctor,
+        "_detector_message_constants",
+        lambda: [("brand_new_detector", "_MESSAGE", "a message with no translation")],
+    )
+    problems = doctor.check_i18n_translations_parity()
+    assert len(problems) == 1
+    assert "brand_new_detector._MESSAGE" in problems[0]
+    assert "no English translation" in problems[0]
+
+
+def test_i18n_translations_parity_flags_a_missing_remediation_hint(monkeypatch):
+    monkeypatch.setattr(doctor, "_detector_message_constants", lambda: [])
+    monkeypatch.setattr(doctor, "_REMEDIATION_HINT", {"brand_new_detector": "some hint"})
+    problems = doctor.check_i18n_translations_parity()
+    assert len(problems) == 1
+    assert "REMEDIATION_HINT_EN is missing an entry for 'brand_new_detector'" in problems[0]

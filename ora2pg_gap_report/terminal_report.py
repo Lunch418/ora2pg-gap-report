@@ -34,8 +34,10 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
+from . import i18n
 from .baseline import BaselineDiff
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
+from .i18n import REMEDIATION_HINT_EN
 from .models import Finding
 
 _SEVERITY_STYLE = {
@@ -103,26 +105,27 @@ def render(
     console: Console | None = None,
     elapsed_seconds: float | None = None,
     objects_scanned: int | None = None,
+    lang: str = "ru",
 ) -> None:
     console = console or Console()
     _render_banner(console)
 
     if not findings:
-        empty_message = Text("Проблемных конструкций не найдено.")
+        empty_message = Text(i18n.t(lang, "no_findings"))
         if objects_scanned is not None:
-            empty_message.append(f"\nОбъектов просканировано: {objects_scanned}")
+            empty_message.append(i18n.t(lang, "objects_scanned_inline", n=objects_scanned))
         if elapsed_seconds is not None:
-            empty_message.append(f"\nВремя анализа: {elapsed_seconds:.1f} с", style="dim")
+            empty_message.append(i18n.t(lang, "elapsed_inline", s=elapsed_seconds), style="dim")
         console.print(Panel(empty_message, border_style="green"))
         return
 
     counts = summarize_by_severity(findings)
     lo, hi = estimate_hours(findings)
 
-    _render_run_info(console, len(findings), objects_scanned, elapsed_seconds)
-    _render_findings_summary(console, counts)
-    _render_top_objects(findings, console)
-    _render_recommended_actions(findings, console)
+    _render_run_info(console, len(findings), objects_scanned, elapsed_seconds, lang)
+    _render_findings_summary(console, counts, lang)
+    _render_top_objects(findings, console, lang)
+    _render_recommended_actions(findings, console, lang)
 
     # Finding content (object names, file paths, source snippets) comes
     # straight from the Oracle files being scanned — arbitrary text that
@@ -130,13 +133,13 @@ def render(
     # "notes[/archive].sql" would otherwise raise MarkupError, and content
     # that happens to look like a style tag, e.g. "arr[i][j]", would be
     # silently stripped instead of shown verbatim).
-    table = Table(show_lines=True, expand=True, title="Все находки")
-    table.add_column("Файл", style="dim", no_wrap=True, overflow="ellipsis", ratio=2)
-    table.add_column("Объект", style="bold", no_wrap=True, overflow="ellipsis", ratio=2)
-    table.add_column("Строка", justify="right", width=7)
-    table.add_column("Severity", width=9)
-    table.add_column("Детектор", style="magenta", no_wrap=True, overflow="ellipsis", ratio=2)
-    table.add_column("Фрагмент", style="cyan", no_wrap=True, overflow="ellipsis", ratio=2)
+    table = Table(show_lines=True, expand=True, title=i18n.t(lang, "all_findings_title"))
+    table.add_column(i18n.t(lang, "col_file"), style="dim", no_wrap=True, overflow="ellipsis", ratio=2)
+    table.add_column(i18n.t(lang, "col_object"), style="bold", no_wrap=True, overflow="ellipsis", ratio=2)
+    table.add_column(i18n.t(lang, "col_line"), justify="right", width=7)
+    table.add_column(i18n.t(lang, "col_severity"), width=9)
+    table.add_column(i18n.t(lang, "col_detector"), style="magenta", no_wrap=True, overflow="ellipsis", ratio=2)
+    table.add_column(i18n.t(lang, "col_snippet"), style="cyan", no_wrap=True, overflow="ellipsis", ratio=2)
 
     for f in findings:
         severity_style = _SEVERITY_STYLE.get(f.severity)
@@ -157,16 +160,16 @@ def render(
         explanation_counts[key] = explanation_counts.get(key, 0) + 1
 
     console.print()
-    console.print("[bold]Пояснения[/bold]")
+    console.print(f"[bold]{i18n.t(lang, 'explanations_title')}[/bold]")
     for (detector, message), n in explanation_counts.items():
-        title = f"{detector} — {n} объект(ов)"
+        title = i18n.t(lang, "explanation_panel_title", detector=detector, n=n)
         console.print(Panel(Text(message), title=title, title_align="left", border_style="dim"))
 
-    _render_effort_panel(console, lo, hi)
-    _render_footer_hints(console)
+    _render_effort_panel(console, lo, hi, lang)
+    _render_footer_hints(console, lang)
 
 
-def render_baseline_diff(diff: BaselineDiff, console: Console | None = None) -> None:
+def render_baseline_diff(diff: BaselineDiff, console: Console | None = None, lang: str = "ru") -> None:
     """Prints a NEW/RESOLVED/UNCHANGED summary against a --baseline
     snapshot — see baseline.py for how findings are matched across scans.
     Deliberately its own panel, printed in addition to (not instead of)
@@ -192,14 +195,19 @@ def render_baseline_diff(diff: BaselineDiff, console: Console | None = None) -> 
         # distinction matters here (arbitrary text straight from the Oracle
         # source being scanned).
         new_list = Text("\n")
-        new_list.append("Новые находки:\n", style="bold red")
+        new_list.append(i18n.t(lang, "new_findings_label"), style="bold red")
         for f in diff.new:
             new_list.append(f"  • {f.object_name}", style="bold")
             new_list.append(f"  [{f.detector}]  {f.snippet}\n", style="dim")
         parts.append(new_list)
 
     console.print(
-        Panel(Group(*parts), title="Сравнение с baseline", title_align="left", border_style="magenta")
+        Panel(
+            Group(*parts),
+            title=i18n.t(lang, "baseline_panel_title"),
+            title_align="left",
+            border_style="magenta",
+        )
     )
 
 
@@ -211,20 +219,27 @@ def _render_banner(console: Console) -> None:
 
 
 def _render_run_info(
-    console: Console, finding_count: int, objects_scanned: int | None, elapsed_seconds: float | None
+    console: Console,
+    finding_count: int,
+    objects_scanned: int | None,
+    elapsed_seconds: float | None,
+    lang: str = "ru",
 ) -> None:
     info = Table.grid(padding=(0, 2))
     info.add_column(style="dim")
     info.add_column()
     if objects_scanned is not None:
-        info.add_row("Объектов просканировано", Text(str(objects_scanned), style="bold"))
-    info.add_row("Найдено проблемных объектов", Text(str(finding_count), style="bold"))
+        info.add_row(i18n.t(lang, "run_info_objects_scanned"), Text(str(objects_scanned), style="bold"))
+    info.add_row(i18n.t(lang, "run_info_findings_found"), Text(str(finding_count), style="bold"))
     if elapsed_seconds is not None:
-        info.add_row("Время анализа", Text(f"{elapsed_seconds:.1f} с", style="dim"))
+        info.add_row(
+            i18n.t(lang, "run_info_elapsed"),
+            Text(i18n.t(lang, "elapsed_value", s=elapsed_seconds), style="dim"),
+        )
     console.print(Panel(info, border_style="cyan"))
 
 
-def _render_findings_summary(console: Console, counts: dict[str, int]) -> None:
+def _render_findings_summary(console: Console, counts: dict[str, int], lang: str = "ru") -> None:
     body = Text()
     for i, (name, n) in enumerate(ordered_counts(counts)):
         if i:
@@ -233,32 +248,41 @@ def _render_findings_summary(console: Console, counts: dict[str, int]) -> None:
         body.append(f"{_severity_dot(name)} ", style=style)
         body.append(f"{name.upper():<8}", style=style)
         body.append(str(n), style=style)
-    console.print(Panel(body, title="Находки по severity", title_align="left", border_style="cyan"))
+    console.print(
+        Panel(body, title=i18n.t(lang, "severity_panel_title"), title_align="left", border_style="cyan")
+    )
 
 
-def _render_effort_panel(console: Console, lo: float, hi: float) -> None:
+def _render_effort_panel(console: Console, lo: float, hi: float, lang: str = "ru") -> None:
     mid = (lo + hi) / 2
     rows = Table.grid(padding=(0, 2))
     rows.add_column(style="dim")
     rows.add_column()
-    rows.add_row("Лучший случай", Text(f"{lo:g} ч", style="bold"))
-    rows.add_row("Среднее", Text(f"{mid:g} ч", style="bold"))
-    rows.add_row("Худший случай", Text(f"{hi:g} ч", style="bold"))
+    rows.add_row(i18n.t(lang, "effort_best"), Text(i18n.t(lang, "hours_value", v=lo), style="bold"))
+    rows.add_row(i18n.t(lang, "effort_avg"), Text(i18n.t(lang, "hours_value", v=mid), style="bold"))
+    rows.add_row(i18n.t(lang, "effort_worst"), Text(i18n.t(lang, "hours_value", v=hi), style="bold"))
 
     body = Text()
-    body.append("— неоткалиброванная эвристика по severity, не измерение", style="dim")
+    body.append(i18n.t(lang, "effort_disclaimer"), style="dim")
 
     group = Group(rows, Text(), body)
-    console.print(Panel(group, title="Оценка ручной доработки", title_align="left", border_style="blue"))
+    console.print(
+        Panel(group, title=i18n.t(lang, "effort_panel_title"), title_align="left", border_style="blue")
+    )
 
 
-def _render_footer_hints(console: Console) -> None:
+def _render_footer_hints(console: Console, lang: str = "ru") -> None:
     console.print()
-    console.print("[dim]Показать только высокую критичность:[/dim] ora2pg-gap-report ... --severity high")
-    console.print("[dim]Сфокусироваться на одном объекте:[/dim]     ora2pg-gap-report ... --object PKG_NAME")
+    console.print(
+        f"[dim]{i18n.t(lang, 'footer_hint_severity_label')}[/dim] "
+        "ora2pg-gap-report ... --severity high"
+    )
+    console.print(
+        f"[dim]{i18n.t(lang, 'footer_hint_object_label')}[/dim] ora2pg-gap-report ... --object PKG_NAME"
+    )
 
 
-def _render_recommended_actions(findings: list[Finding], console: Console) -> None:
+def _render_recommended_actions(findings: list[Finding], console: Console, lang: str = "ru") -> None:
     """One line per detector actually present, count first — a compact
     index into the "Пояснения" section below, not new analysis. Ordered by
     how many findings each detector produced, worst first."""
@@ -267,6 +291,7 @@ def _render_recommended_actions(findings: list[Finding], console: Console) -> No
         by_detector[f.detector] = by_detector.get(f.detector, 0) + 1
 
     ranked = sorted(by_detector.items(), key=lambda kv: -kv[1])
+    hints = REMEDIATION_HINT_EN if lang == "en" else _REMEDIATION_HINT
 
     body = Text()
     for i, (detector, n) in enumerate(ranked, start=1):
@@ -275,13 +300,15 @@ def _render_recommended_actions(findings: list[Finding], console: Console) -> No
         body.append(f"[{i}] ", style="bold")
         body.append(f"{detector}  ")
         body.append(f"({n})\n", style="dim")
-        hint = _REMEDIATION_HINT.get(detector, "См. пояснение ниже.")
+        hint = hints.get(detector, i18n.t(lang, "see_explanation_below"))
         body.append(f"    → {hint}", style="dim")
 
-    console.print(Panel(body, title="Рекомендации", title_align="left", border_style="magenta"))
+    console.print(
+        Panel(body, title=i18n.t(lang, "recommendations_panel_title"), title_align="left", border_style="magenta")
+    )
 
 
-def _render_top_objects(findings: list[Finding], console: Console) -> None:
+def _render_top_objects(findings: list[Finding], console: Console, lang: str = "ru") -> None:
     """Findings grouped by object, worst-affected first — the same
     findings already in the table below, just re-sliced by "which object
     needs the most attention" instead of one row per finding. Every count
@@ -303,7 +330,7 @@ def _render_top_objects(findings: list[Finding], console: Console) -> None:
         ),
     )
 
-    tree = Tree(Text("Объекты с наибольшим числом находок", style="bold"))
+    tree = Tree(Text(i18n.t(lang, "top_objects_tree_title"), style="bold"))
     for object_name, group in ranked[:_TOP_OBJECTS_LIMIT]:
         by_detector: dict[str, list[Finding]] = {}
         for f in group:
@@ -311,7 +338,7 @@ def _render_top_objects(findings: list[Finding], console: Console) -> None:
 
         branch_label = Text()
         branch_label.append(object_name, style="bold")
-        branch_label.append(f"  {len(group)} находок")
+        branch_label.append(i18n.t(lang, "findings_count_suffix", n=len(group)))
         branch = tree.add(branch_label)
 
         for detector, detector_findings in sorted(
@@ -326,7 +353,7 @@ def _render_top_objects(findings: list[Finding], console: Console) -> None:
 
     remaining = len(ranked) - _TOP_OBJECTS_LIMIT
     if remaining > 0:
-        tree.add(Text(f"… и ещё {remaining} объект(ов)", style="dim"))
+        tree.add(Text(i18n.t(lang, "and_more_objects", n=remaining), style="dim"))
 
     console.print(tree)
     console.print()

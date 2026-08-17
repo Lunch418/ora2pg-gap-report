@@ -46,9 +46,10 @@ from .gap_registry import gap_by_number, normalize_gap_number, research_doc_path
 from .models import Finding
 from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError, run_estimate_cost
 from .plsql_lex import enclosing_object_name_index, mask_strings_and_comments
-from .report_generator import to_csv, to_html, to_json, to_markdown, to_sarif
+from .report_generator import to_csv, to_html, to_json, to_markdown, to_sarif, to_verification_json
 from .terminal_report import render as render_terminal
-from .terminal_report import render_baseline_diff
+from .terminal_report import render_baseline_diff, render_verification
+from .verification import verify_against_baseline
 
 _DETECTORS = (
     find_autonomous_transactions,
@@ -244,7 +245,21 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help=(
             "Сравнить находки этого прогона с ранее сохранённым --save снапшотом: NEW/RESOLVED/"
-            "UNCHANGED. Сравнение тоже считается по всем находкам, независимо от --severity/--object."
+            "UNCHANGED. Сравнение тоже считается по всем находкам, независимо от --severity/--object. "
+            "С флагом --verify означает другое — см. --verify."
+        ),
+    )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help=(
+            "Пост-миграционная статическая проверка: сканирует пути как сгенерированный ora2pg "
+            "PostgreSQL-код (не Oracle-исходник) и сравнивает с --baseline (снапшот, сохранённый "
+            "--save до миграции) на уровне детекторов — STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE. "
+            "Не поведенческая/функциональная проверка — не подключается к БД, ничего не выполняет. "
+            "Требует --baseline. Самостоятельный режим: нельзя сочетать с --explain, --save, "
+            "--fail-on, --check-connect-by, --severity или --object. Поддерживает только "
+            "--format terminal (по умолчанию) и --format json."
         ),
     )
     parser.add_argument(
@@ -416,6 +431,90 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
     return 0
 
 
+def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) -> int:
+    """--verify: scans `args.paths` as ora2pg's *generated* PostgreSQL
+    output (not Oracle source -- scan_source()'s detectors still work on
+    it because the VERBATIM ones look for Oracle-syntax fragments that
+    ora2pg copies unchanged, see verification.py) and compares against
+    `args.baseline` (a --save snapshot from before the migration) at
+    detector granularity. See verification.py's module docstring for why
+    finding-level matching (file/object/snippet) doesn't survive the
+    Oracle-to-PostgreSQL boundary."""
+    conflicting = any(
+        (args.explain, args.save, args.fail_on, args.check_connect_by, args.severity, args.object)
+    )
+    if conflicting:
+        err_console.print(i18n.t(lang, "verify_conflict_error"))
+        return 2
+    if not args.baseline:
+        err_console.print(i18n.t(lang, "verify_requires_baseline"))
+        return 2
+    if not args.paths:
+        err_console.print(i18n.t(lang, "no_paths_error"))
+        return 2
+
+    verify_fmt = args.format if args.format is not None else "terminal"
+    if verify_fmt not in ("terminal", "json"):
+        err_console.print(i18n.t(lang, "verify_unsupported_format"))
+        return 2
+
+    try:
+        baseline = load_baseline(args.baseline, lang=lang)
+    except BaselineLoadError as exc:
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
+        return 2
+
+    paths_to_scan, empty_dirs = _expand_paths(args.paths)
+    had_error = False
+    for empty_dir in empty_dirs:
+        err_console.print(i18n.t(lang, "empty_dir_warning", dir=escape(str(empty_dir))))
+        had_error = True
+
+    post_migration_findings: list[Finding] = []
+    for path in paths_to_scan:
+        if not path.is_file():
+            err_console.print(i18n.t(lang, "skipped_not_found", path=escape(str(path))))
+            had_error = True
+            continue
+        try:
+            source = path.read_text(errors="replace")
+        except OSError as exc:
+            err_console.print(
+                i18n.t(lang, "skipped_unreadable", exc=escape(str(exc)), path=escape(str(path)))
+            )
+            had_error = True
+            continue
+        post_migration_findings.extend(
+            dataclasses.replace(f, source_file=str(path)) for f in scan_source(source)
+        )
+
+    results = verify_against_baseline(baseline, post_migration_findings)
+
+    if verify_fmt == "json":
+        report = to_verification_json(results)
+    else:
+        report = None
+
+    if args.output:
+        try:
+            if report is not None:
+                args.output.write_text(report, encoding="utf-8")
+            else:
+                with args.output.open("w", encoding="utf-8") as fh:
+                    render_verification(results, console=Console(file=fh), lang=lang)
+        except OSError as exc:
+            err_console.print(
+                i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))
+            )
+            return 2
+    elif report is not None:
+        print(report)
+    else:
+        render_verification(results, lang=lang)
+
+    return 2 if had_error else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
     err_console = Console(stderr=True)
@@ -455,6 +554,9 @@ def main(argv: list[str] | None = None) -> int:
             err_console.print(i18n.t(lang, "explain_conflict_error"))
             return 2
         return _handle_explain(args.explain, Console(), err_console, lang)
+
+    if args.verify:
+        return _handle_verify(args, err_console, lang)
 
     if not args.paths:
         err_console.print(i18n.t(lang, "no_paths_error"))

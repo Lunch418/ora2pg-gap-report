@@ -180,3 +180,27 @@ def test_i18n_translations_parity_flags_a_missing_remediation_hint(monkeypatch):
     problems = doctor.check_i18n_translations_parity()
     assert len(problems) == 1
     assert "REMEDIATION_HINT_EN is missing an entry for 'brand_new_detector'" in problems[0]
+
+
+def test_verification_mode_parity_is_clean_on_the_real_repository_state():
+    assert doctor.check_verification_mode_parity() == []
+
+
+def test_verification_mode_parity_flags_a_detector_missing_from_verification_mode(monkeypatch):
+    monkeypatch.setattr(doctor, "_detector_names_on_disk", lambda: {"autonomous_tx", "brand_new_detector"})
+    monkeypatch.setattr(doctor, "VERIFICATION_MODE", {"autonomous_tx": "not_verifiable"})
+    problems = doctor.check_verification_mode_parity()
+    assert len(problems) == 1
+    assert "brand_new_detector" in problems[0]
+    assert "не имеет записи" in problems[0]
+
+
+def test_verification_mode_parity_flags_a_stale_entry_for_a_removed_detector(monkeypatch):
+    monkeypatch.setattr(doctor, "_detector_names_on_disk", lambda: {"autonomous_tx"})
+    monkeypatch.setattr(
+        doctor, "VERIFICATION_MODE", {"autonomous_tx": "not_verifiable", "long_removed": "verbatim"}
+    )
+    problems = doctor.check_verification_mode_parity()
+    assert len(problems) == 1
+    assert "long_removed" in problems[0]
+    assert "нет в ora2pg_gap_report/detectors/" in problems[0]

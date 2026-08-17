@@ -231,6 +231,50 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "Сохранено: {chosen}. Изменить снова: --set-lang.",
         "en": "Saved: {chosen}. Change it again anytime with --set-lang.",
     },
+    # --verify (post-migration static verification)
+    "verify_requires_baseline": {
+        "ru": "[red]--verify требует --baseline PATH — снапшот, сохранённый через --save "
+        "до миграции[/red]",
+        "en": "[red]--verify requires --baseline PATH — a snapshot saved via --save "
+        "before the migration[/red]",
+    },
+    "verify_conflict_error": {
+        "ru": "[red]--verify — отдельный режим сравнения с baseline, его нельзя сочетать "
+        "с --explain, --save, --fail-on, --check-connect-by, --severity или --object[/red]",
+        "en": "[red]--verify is a standalone baseline-comparison mode, it can't be "
+        "combined with --explain, --save, --fail-on, --check-connect-by, --severity, "
+        "or --object[/red]",
+    },
+    "verify_unsupported_format": {
+        "ru": "[red]--verify поддерживает только --format terminal и --format json[/red]",
+        "en": "[red]--verify only supports --format terminal and --format json[/red]",
+    },
+    "verify_panel_title": {
+        "ru": "Проверка после миграции",
+        "en": "Post-migration verification",
+    },
+    "verify_summary_baseline_detectors": {
+        "ru": "Детекторов в baseline",
+        "en": "Baseline detectors",
+    },
+    "verify_summary_still_present": {"ru": "Осталось", "en": "Still present"},
+    "verify_summary_not_detected": {"ru": "Не обнаружено", "en": "Not detected"},
+    "verify_summary_not_verifiable": {"ru": "Нельзя проверить", "en": "Not verifiable"},
+    "verify_col_detector": {"ru": "Детектор", "en": "Detector"},
+    "verify_col_gap": {"ru": "GAP", "en": "GAP"},
+    "verify_col_before": {"ru": "До миграции", "en": "Before"},
+    "verify_col_after": {"ru": "После миграции", "en": "After"},
+    "verify_col_status": {"ru": "Статус", "en": "Status"},
+    "verify_footer_note": {
+        "ru": "NOT_DETECTED означает «в проверенном коде паттерн не нашёлся», а не "
+        "«проблема доказанно исправлена» — см. docs/ARCHITECTURE.md. NOT_VERIFIABLE — "
+        "ora2pg отбрасывает эту конструкцию из вывода на любой миграции, повторный "
+        "прогон детектора здесь ничего не доказывает в принципе.",
+        "en": "NOT_DETECTED means \"the pattern wasn't found in the checked code\", not "
+        "\"the problem is provably fixed\" — see docs/ARCHITECTURE.md. NOT_VERIFIABLE — "
+        "ora2pg drops this construct from its output on every migration, so re-running "
+        "the detector here can't prove anything either way.",
+    },
     "set_lang_not_interactive": {
         "ru": "[red]--set-lang открывает интерактивный выбор языка — нужен настоящий "
         "терминал. Используйте --lang ru|en для одного запуска или "

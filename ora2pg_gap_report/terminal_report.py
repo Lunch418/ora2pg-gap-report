@@ -39,6 +39,7 @@ from .baseline import BaselineDiff
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .i18n import REMEDIATION_HINT_EN
 from .models import Finding
+from .verification import DetectorVerification
 
 _SEVERITY_STYLE = {
     "high": "bold red",
@@ -357,3 +358,74 @@ def _render_top_objects(findings: list[Finding], console: Console, lang: str = "
 
     console.print(tree)
     console.print()
+
+
+_VERIFICATION_STATUS_STYLE = {
+    "still_present": "bold red",
+    "not_detected": "bold green",
+    "not_verifiable": "dim",
+}
+
+
+def render_verification(
+    results: list[DetectorVerification], console: Console | None = None, lang: str = "ru"
+) -> None:
+    """Renders the --verify report: one row per detector present in the
+    pre-migration baseline, comparing it against a scan of ora2pg's
+    generated PostgreSQL output. See verification.py's module docstring
+    for what STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE actually mean --
+    deliberately not PASS/FAIL and deliberately not a percentage, for the
+    same reason effort_estimator.py never produces a single confident
+    number: NOT_DETECTED is "the pattern wasn't found", not "proven
+    fixed", and that distinction matters enough to spell out in the
+    report itself (see the footer note), not just in a docstring."""
+    console = console or Console()
+    _render_banner(console)
+
+    counts = {"still_present": 0, "not_detected": 0, "not_verifiable": 0}
+    for r in results:
+        counts[r.status] = counts.get(r.status, 0) + 1
+
+    summary = Table.grid(padding=(0, 2))
+    summary.add_column(style="dim")
+    summary.add_column()
+    summary.add_row(
+        i18n.t(lang, "verify_summary_baseline_detectors"),
+        Text(str(len(results)), style="bold"),
+    )
+    summary.add_row(
+        i18n.t(lang, "verify_summary_still_present"),
+        Text(str(counts["still_present"]), style=_VERIFICATION_STATUS_STYLE["still_present"]),
+    )
+    summary.add_row(
+        i18n.t(lang, "verify_summary_not_detected"),
+        Text(str(counts["not_detected"]), style=_VERIFICATION_STATUS_STYLE["not_detected"]),
+    )
+    summary.add_row(
+        i18n.t(lang, "verify_summary_not_verifiable"),
+        Text(str(counts["not_verifiable"]), style=_VERIFICATION_STATUS_STYLE["not_verifiable"]),
+    )
+    console.print(Panel(summary, title=i18n.t(lang, "verify_panel_title"), title_align="left", border_style="cyan"))
+
+    if not results:
+        return
+
+    table = Table(show_lines=True, expand=True)
+    table.add_column(i18n.t(lang, "verify_col_detector"), style="magenta", no_wrap=True, overflow="ellipsis")
+    table.add_column(i18n.t(lang, "verify_col_gap"), width=9)
+    table.add_column(i18n.t(lang, "verify_col_before"), justify="right", width=12)
+    table.add_column(i18n.t(lang, "verify_col_after"), justify="right", width=12)
+    table.add_column(i18n.t(lang, "verify_col_status"), width=16)
+
+    for r in results:
+        status_style = _VERIFICATION_STATUS_STYLE.get(r.status)
+        table.add_row(
+            Text(r.detector),
+            Text(f"GAP-{r.gap_number}" if r.gap_number else "—"),
+            Text(str(r.baseline_count)),
+            Text(str(r.post_migration_count) if r.status != "not_verifiable" else "—"),
+            Text(r.status.upper(), style=status_style),
+        )
+    console.print(table)
+    console.print()
+    console.print(f"[dim]{i18n.t(lang, 'verify_footer_note')}[/dim]")

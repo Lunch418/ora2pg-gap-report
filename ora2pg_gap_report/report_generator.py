@@ -9,6 +9,7 @@ from . import i18n
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_by_detector, research_doc_url
 from .models import Finding
+from .verification import DetectorVerification
 
 SARIF_SCHEMA_URI = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
 _TOOL_INFORMATION_URI = "https://github.com/Lunch418/ora2pg-gap-report"
@@ -18,6 +19,22 @@ _SARIF_LEVEL = {"high": "error", "medium": "warning", "low": "note"}
 
 def to_json(findings: list[Finding]) -> str:
     return json.dumps([asdict(f) for f in findings], ensure_ascii=False, indent=2)
+
+
+def to_verification_json(results: list[DetectorVerification]) -> str:
+    """--verify's machine-readable output. gap_number is a plain string
+    or null (JSON has no distinct "GAP-NNN" type) -- callers that need
+    the "GAP-" prefix add it themselves, same as everywhere else in this
+    project's JSON output (e.g. Finding.detector has no GAP- prefix
+    either)."""
+    payload = {
+        "baseline_detectors": len(results),
+        "still_present": sum(1 for r in results if r.status == "still_present"),
+        "not_detected": sum(1 for r in results if r.status == "not_detected"),
+        "not_verifiable": sum(1 for r in results if r.status == "not_verifiable"),
+        "results": [asdict(r) for r in results],
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
 _CSV_FIELDNAMES = [f.name for f in fields(Finding)]

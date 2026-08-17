@@ -1019,6 +1019,54 @@ EXPLANATION_EN: dict[str, str] = {
         "at the point CREATE TABLE itself is applied. Needs to be manually rewritten as a "
         "BEFORE trigger or GENERATED ALWAYS AS (COALESCE(...)) STORED."
     ),
+    "CREATE [PUBLIC] SYNONYM — ora2pg конвертирует его в CREATE OR REPLACE VIEW, но теряет "
+    "схему целевого объекта целиком: 'FOR hr.employees' становится неквалифицированным 'FROM "
+    "employees' (подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
+    "docs/research/gap-032-public-synonym.md). Когда имя синонима совпадает с базовым именем "
+    "цели (самый частый случай в реальности — в этом обычно и есть весь смысл синонима), "
+    "получается самоссылающийся VIEW: 'ERROR: relation ... does not exist' прямо на этапе "
+    "применения DDL. Когда имена различаются, отказа не будет, но то, к какой именно таблице "
+    "привяжется представление, целиком зависит от search_path в момент CREATE VIEW, а не от "
+    "исходной Oracle-схемы — при миграции нескольких схем в одну базу представление может "
+    "молча привязаться не к той одноимённой таблице, без единой ошибки. Нужно вручную "
+    "квалифицировать целевую таблицу схемой в определении VIEW.": (
+        "CREATE [PUBLIC] SYNONYM — ora2pg converts it to CREATE OR REPLACE VIEW, but drops "
+        "the target object's schema entirely: 'FOR hr.employees' becomes an unqualified "
+        "'FROM employees' (confirmed by a real ora2pg + PostgreSQL 16 run, "
+        "docs/research/gap-032-public-synonym.md). When the synonym shares its target's base "
+        "name (the common real-world convention — that's usually the entire point of a "
+        "synonym), the result is a self-referencing view: 'ERROR: relation ... does not "
+        "exist' right at DDL-apply time. When the names differ, there's no failure, but which "
+        "table the view actually binds to depends entirely on the runtime search_path at "
+        "CREATE VIEW time, not the original Oracle schema — migrating several schemas into "
+        "one database can leave the view silently bound to the wrong same-named table, with "
+        "no error at all. The target table needs to be manually schema-qualified in the view "
+        "definition."
+    ),
+    "GENERATED ALWAYS AS (...) VIRTUAL — виртуальный столбец. Помимо вычисления значения, "
+    "Oracle гарантирует на уровне сервера, что в такой столбец нельзя явно ничего записать "
+    "(ORA-54016 при любой попытке в INSERT/UPDATE). ora2pg переносит сам расчёт корректно — "
+    "через BEFORE INSERT OR UPDATE-триггер вместо нативного GENERATED ALWAYS AS (...) STORED "
+    "— но эта защита теряется (подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
+    "docs/research/gap-033-virtual-column.md): явное присваивание значения такому столбцу в "
+    "INSERT/UPDATE молча проходит без единой ошибки, триггер просто подменяет переданное "
+    "значение вычисленным. Итоговое значение в столбце корректно — это не потеря данных, а "
+    "потеря ранней диагностики: код, по ошибке или намеренно присваивающий значение "
+    "вычисляемому столбцу, в Oracle был бы пойман сразу на тестировании, после миграции "
+    "проходит незамеченным.": (
+        "GENERATED ALWAYS AS (...) VIRTUAL — a virtual column. Besides computing its value, "
+        "Oracle guarantees at the server level that nothing can be explicitly written to such "
+        "a column (ORA-54016 on any attempt in INSERT/UPDATE). ora2pg carries the computation "
+        "itself over correctly — via a BEFORE INSERT OR UPDATE trigger instead of "
+        "PostgreSQL's native GENERATED ALWAYS AS (...) STORED — but that protection is lost "
+        "(confirmed by a real ora2pg + PostgreSQL 16 run, "
+        "docs/research/gap-033-virtual-column.md): explicitly assigning a value to such a "
+        "column in INSERT/UPDATE silently succeeds with no error at all, the trigger just "
+        "overwrites the given value with the computed one. The column's final value is "
+        "correct — this isn't data loss, it's a loss of early diagnostics: code that "
+        "mistakenly (or deliberately) assigns a value to a computed column would have been "
+        "caught immediately in Oracle during testing; after migration, it goes unnoticed."
+    ),
 }
 
 
@@ -1090,6 +1138,10 @@ REMEDIATION_HINT_EN: dict[str, str] = {
     "actually needed",
     "default_on_null": "Manually rewrite as a BEFORE trigger or GENERATED ALWAYS AS "
     "(COALESCE(...)) STORED — PostgreSQL has no DEFAULT ... ON NULL equivalent",
+    "public_synonym": "Manually schema-qualify the target table in the generated VIEW's "
+    "definition",
+    "virtual_column": "Be aware the generated trigger silently discards any value explicitly "
+    "assigned to the column — add application-level validation if that protection matters",
 }
 
 

@@ -81,6 +81,8 @@ GAPS: tuple[GapEntry, ...] = (
     GapEntry("029", "rowid_type", "rowid-urowid", ("test_rowid_type.py",)),
     GapEntry("030", "sequence_cycle", "sequence-cycle", ("test_sequence_cycle.py",)),
     GapEntry("031", "default_on_null", "default-on-null", ("test_default_on_null.py",)),
+    GapEntry("032", "public_synonym", "public-synonym", ("test_public_synonym.py",)),
+    GapEntry("033", "virtual_column", "virtual-column", ("test_virtual_column.py",)),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

@@ -37,12 +37,14 @@ from .detectors.model_clause import find_model_clauses
 from .detectors.object_type import find_object_types
 from .detectors.oracle_text import find_oracle_text_usage
 from .detectors.pivot_clause import find_pivot_clauses
+from .detectors.public_synonym import find_public_synonyms
 from .detectors.read_only_table import find_read_only_tables
 from .detectors.recursive_with import find_recursive_with_missing_keyword
 from .detectors.rowid_type import find_rowid_types
 from .detectors.sequence_cycle import find_sequence_cycle_usage
 from .detectors.sql_macro import find_sql_macros
 from .detectors.table_partitioning import find_dropped_table_partitioning
+from .detectors.virtual_column import find_virtual_columns
 from .detectors.with_function import find_with_function_clauses
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_by_number, normalize_gap_number, research_doc_path, research_doc_url
@@ -86,6 +88,8 @@ _DETECTORS = (
     find_default_on_null_usage,
     find_rowid_types,
     find_sequence_cycle_usage,
+    find_public_synonyms,
+    find_virtual_columns,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")

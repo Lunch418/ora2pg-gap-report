@@ -6,7 +6,7 @@ from ..plsql_lex import (
     line_at,
     mask_strings_and_comments,
     qualified_name_pattern,
-    skip_balanced_parens,
+    table_column_definition_list,
 )
 
 _TABLE_RE = re.compile(
@@ -72,13 +72,11 @@ def find_rowid_types(source: str) -> list[Finding]:
     findings: list[Finding] = []
 
     for m in _TABLE_RE.finditer(clean):
-        pos = m.end()
-        while pos < len(clean) and clean[pos] in " \t\r\n":
-            pos += 1
-        if pos >= len(clean) or clean[pos] != "(":
+        span = table_column_definition_list(clean, m.end())
+        if span is None:
             continue  # bare CTAS with no column-definition list at all
-        paren_end = skip_balanced_parens(clean, pos)
-        column_list = clean[pos + 1 : paren_end - 1]
+        open_pos, close_pos = span
+        column_list = clean[open_pos + 1 : close_pos]
 
         for col_match in _ROWID_COLUMN_RE.finditer(column_list):
             findings.append(
@@ -86,7 +84,7 @@ def find_rowid_types(source: str) -> list[Finding]:
                     detector="rowid_type",
                     severity="high",
                     object_name=m.group(1).upper(),
-                    line=line_at(clean, pos + 1 + col_match.start()),
+                    line=line_at(clean, open_pos + 1 + col_match.start()),
                     snippet=re.sub(r"\s+", " ", col_match.group(0).strip()),
                     message=_MESSAGE,
                 )

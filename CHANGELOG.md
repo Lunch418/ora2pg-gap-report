@@ -7,6 +7,15 @@ patch — исправления в существующих.
 
 ## [Unreleased]
 
+### Added
+- `.github/workflows/publish.yml` — публикация на PyPI через
+  [Trusted Publishing](https://docs.pypi.org/trusted-publishers/)
+  (OIDC) при публикации полноценного (не pre-release) GitHub Release:
+  без хранения PyPI-токена в секретах репозитория. Требует
+  одноразовой настройки на стороне PyPI (Your projects →
+  Publishing → Add a new publisher, owner/repo/workflow-file
+  `publish.yml`/environment `pypi`).
+
 ## [0.5.0] - 2026-08-17
 
 ### Changed

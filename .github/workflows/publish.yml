@@ -1,0 +1,45 @@
+name: publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build sdist and wheel
+        run: |
+          pip install build
+          python -m build
+
+      - name: Check distribution metadata
+        run: |
+          pip install twine
+          twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    if: github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # required for PyPI Trusted Publishing (OIDC) — no token stored in this repo
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -35,14 +35,27 @@ def test_scan_source_runs_all_detectors_on_logger():
     source = (SAMPLES / "logger.pkb").read_text()
     findings = scan_source(source)
     detectors_seen = {f.detector for f in findings}
-    assert detectors_seen == {"autonomous_tx", "dbms_utl_calls", "bulk_collect"}
+    assert detectors_seen == {
+        "autonomous_tx",
+        "dbms_utl_calls",
+        "bulk_collect",
+        "conditional_compilation",
+        "nested_subprogram",
+        "package_state",
+    }
     # autonomous_tx + dbms_utl_calls (verified in their own tests) +
     # bulk_collect: logger.pkb genuinely declares a local associative array
     # ('type ts_array is table of timestamp index by varchar2(100);') —
     # confirmed as a real, reproducible ora2pg gap on this exact snippet
     # (see docs/research/gap-003-bulk-collect-forall.md), not a synthetic-
-    # only finding.
-    assert len(findings) == 8 + 17 + 1
+    # only finding. conditional_compilation + nested_subprogram +
+    # package_state: OraOpenSource/Logger makes heavy real-world use of all
+    # three constructs (229 $IF/$ELSIF/$ELSE/$END directives gating version-
+    # dependent code paths, 5 genuinely nested helper procedures/functions,
+    # and 3 package-level session-state variables -- g_log_id, g_in_plugin_
+    # error, g_running_timers) -- see each detector's own
+    # test_real_open_source_logger_*() test for individual excerpts.
+    assert len(findings) == 8 + 17 + 1 + 229 + 5 + 3
 
 
 def test_scan_source_sorts_high_severity_first():

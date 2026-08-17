@@ -28,6 +28,7 @@ from .detectors.external_table import find_external_tables
 from .detectors.flashback_query import find_flashback_queries
 from .detectors.global_temp_table import find_global_temp_tables_without_delete_rows
 from .detectors.identity_column import find_identity_columns_with_options
+from .detectors.index_organized_table import find_index_organized_tables
 from .detectors.insert_all import find_multitable_inserts
 from .detectors.invisible_column import find_invisible_columns
 from .detectors.invisible_index import find_invisible_indexes
@@ -96,6 +97,7 @@ _DETECTORS = (
     find_conditional_compilation,
     find_nested_subprograms,
     find_package_state,
+    find_index_organized_tables,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")

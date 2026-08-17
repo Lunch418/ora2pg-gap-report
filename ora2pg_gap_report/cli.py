@@ -285,7 +285,9 @@ def _apply_filters(findings: list[Finding], severity: str | None, object_substri
     return findings
 
 
-def _connect_by_check(path: Path, source: str, ora2pg_bin: str) -> tuple[list[Finding], str | None]:
+def _connect_by_check(
+    path: Path, source: str, ora2pg_bin: str, lang: str = "ru"
+) -> tuple[list[Finding], str | None]:
     """Returns (findings, warning) — warning is set instead of raising when
     ora2pg isn't available or fails, since this check is opt-in/best-effort
     by design (see docs/research/step0-show-report-baseline.md section 3:
@@ -295,9 +297,9 @@ def _connect_by_check(path: Path, source: str, ora2pg_bin: str) -> tuple[list[Fi
     try:
         output = run_estimate_cost(path, guess_object_type(source), ora2pg_bin=ora2pg_bin)
     except Ora2PgNotFoundError:
-        return [], f"{path}: содержит CONNECT BY, но ora2pg не найден — проверка пропущена"
+        return [], i18n.t(lang, "connect_by_not_found", path=path)
     except Ora2PgRunError as exc:
-        return [], f"{path}: содержит CONNECT BY, но запуск ora2pg завершился ошибкой ({exc})"
+        return [], i18n.t(lang, "connect_by_run_error", path=path, exc=exc)
 
     # `line` in each risk is a position inside ora2pg's *generated*
     # PostgreSQL output (a tempfile.TemporaryDirectory in run_estimate_cost,
@@ -419,6 +421,16 @@ def main(argv: list[str] | None = None) -> int:
     err_console = Console(stderr=True)
 
     if args.set_lang:
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            # The interactive picker reads a line from stdin -- without a
+            # real terminal that's an immediate EOFError (cron/CI/Docker
+            # RUN/`< /dev/null`), which would otherwise surface as a raw
+            # Python traceback instead of this tool's normal clean error +
+            # exit code 2.
+            err_console.print(
+                i18n.t(i18n.resolve_language(args.lang, interactive=False), "set_lang_not_interactive")
+            )
+            return 2
         chosen = i18n.prompt_language_interactively()
         i18n.save_language(chosen)
         Console().print(i18n.t(chosen, "lang_saved", chosen=chosen))
@@ -479,7 +491,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         if args.check_connect_by:
-            findings, warning = _connect_by_check(path, source, args.ora2pg_bin)
+            findings, warning = _connect_by_check(path, source, args.ora2pg_bin, lang)
             all_findings.extend(findings)
             if warning:
                 err_console.print(f"[yellow]{escape(warning)}[/yellow]")

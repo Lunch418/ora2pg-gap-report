@@ -252,6 +252,23 @@ def test_check_connect_by_warns_gracefully_when_ora2pg_not_found(capsys):
     assert "ora2pg не найден" in captured.err
 
 
+def test_check_connect_by_warning_is_english_when_lang_is_en(capsys):
+    exit_code = main(
+        [
+            str(SAMPLES / "connect_by_hierarchy_pkg.sql"),
+            "--check-connect-by",
+            "--ora2pg-bin",
+            "definitely-not-a-real-binary",
+            "--lang",
+            "en",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "ora2pg wasn't found" in captured.err
+    assert "не найден" not in captured.err
+
+
 @pytest.mark.skipif(shutil.which("ora2pg") is None, reason="ora2pg not installed on PATH")
 def test_check_connect_by_live_integration(capsys):
     exit_code = main(
@@ -852,8 +869,24 @@ def test_main_set_lang_saves_the_choice_and_exits(monkeypatch, capsys):
     from ora2pg_gap_report import i18n
 
     monkeypatch.setattr(i18n, "prompt_language_interactively", lambda *a, **k: "en")
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
     exit_code = main(["--set-lang"])
     captured = capsys.readouterr()
     assert exit_code == 0
     assert i18n.get_saved_language() == "en"
     assert "Saved" in captured.out
+
+
+def test_main_set_lang_fails_cleanly_without_a_real_terminal(monkeypatch, capsys):
+    # Regression test: --set-lang used to call the interactive picker
+    # unconditionally, which raised an uncaught EOFError (raw Python
+    # traceback) whenever stdin wasn't a real terminal -- e.g. a cron job,
+    # a CI step, `< /dev/null`. It must fail the same clean way every
+    # other unsupported-usage error in this CLI does: a red message on
+    # stderr and exit code 2, no traceback.
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    exit_code = main(["--set-lang"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "терминал" in captured.err

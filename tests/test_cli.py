@@ -801,6 +801,19 @@ def test_main_explain_combined_with_paths_is_rejected(capsys):
     assert "--explain" in captured.err
 
 
+def test_main_explain_combined_with_verify_is_rejected(capsys):
+    # Regression test: --explain is dispatched before --verify inside
+    # main(), and its own conflict check used to list every other
+    # standalone-incompatible flag except --verify -- so
+    # `--explain GAP-NNN --verify` silently ran --explain and dropped
+    # --verify entirely instead of erroring, contradicting both flags'
+    # own documented "these can't be combined" behavior.
+    exit_code = main(["--explain", "GAP-023", "--verify"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--explain" in captured.err
+
+
 def test_main_explain_falls_back_to_a_github_link_when_docs_are_not_packaged(monkeypatch, capsys):
     # docs/research/ isn't shipped in the installed wheel (see
     # gap_registry.py's module docstring) -- simulate that by making the

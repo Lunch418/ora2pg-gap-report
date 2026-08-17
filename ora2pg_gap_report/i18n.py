@@ -1150,6 +1150,30 @@ EXPLANATION_EN: dict[str, str] = {
         "along with missing_ok => true on current_setting(), or the state needs to be designed "
         "differently (a temp table, an application parameter)."
     ),
+    "CREATE TABLE ... ORGANIZATION INDEX — индекс-организованная таблица (IOT): данные "
+    "физически хранятся в структуре первичного ключа, а не в отдельной куче со ссылками на неё "
+    "из индекса. ora2pg отбрасывает секцию ORGANIZATION INDEX целиком — таблица "
+    "конвертируется как обычная куча с отдельным индексом по первичному ключу (подтверждено "
+    "реальным прогоном ora2pg + PostgreSQL 16, "
+    "docs/research/gap-037-index-organized-table.md). Не синтаксическая ошибка и не потеря "
+    "данных — ограничения целостности сохраняются, таблица работает корректно. Теряется "
+    "архитектурная характеристика хранения: у PostgreSQL нет настоящих индекс-организованных "
+    "таблиц (обычный PRIMARY KEY всегда создаёт отдельный индекс над отдельной кучей) — для "
+    "производительность-чувствительных таблиц-кэшей, изначально спроектированных как IOT "
+    "именно ради этого свойства, стоит перепроверить производительность на реальной нагрузке "
+    "после миграции.": (
+        "CREATE TABLE ... ORGANIZATION INDEX — an index-organized table (IOT): data lives "
+        "physically inside the primary key's own structure, not in a separate heap the index "
+        "points into. ora2pg drops the ORGANIZATION INDEX section entirely — the table "
+        "converts as an ordinary heap table with a separate primary-key index (confirmed by a "
+        "real ora2pg + PostgreSQL 16 run, docs/research/gap-037-index-organized-table.md). Not "
+        "a syntax error and not data loss — integrity constraints are preserved, the table "
+        "works correctly. A storage architecture characteristic is lost: PostgreSQL has no "
+        "true index-organized tables (an ordinary PRIMARY KEY always creates a separate index "
+        "over a separate heap) — for performance-sensitive lookup/cache tables originally "
+        "designed as an IOT for exactly that property, worth re-checking performance under "
+        "real load after migration."
+    ),
 }
 
 
@@ -1233,6 +1257,8 @@ REMEDIATION_HINT_EN: dict[str, str] = {
     "package_state": "Add an explicit ::text cast to set_config() and missing_ok => true to "
     "current_setting(), or design the state differently (a temp table, an application "
     "parameter)",
+    "index_organized_table": "Re-check performance under real load — PostgreSQL has no true "
+    "index-organized tables, the converted table is an ordinary heap with a separate index",
 }
 
 

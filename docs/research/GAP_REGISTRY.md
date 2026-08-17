@@ -50,6 +50,7 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-034 | Локальная вложенная процедура/функция — портится при экспорте | `nested_subprogram` | confirmed | 25.0 | 16 | [gap-034](gap-034-nested-subprogram.md) |
 | GAP-035 | `$IF`/`$ELSIF`/`$ELSE`/`$END` копируются verbatim | `conditional_compilation` | confirmed | 25.0 | 16 | [gap-035](gap-035-conditional-compilation.md) |
 | GAP-036 | Пакетная переменная — сломанная эмуляция через `set_config` | `package_state` | confirmed | 25.0 | 16 | [gap-036](gap-036-package-state.md) |
+| GAP-037 | `ORGANIZATION INDEX` (IOT) отбрасывается | `index_organized_table` | confirmed | 25.0 | 16 | [gap-037](gap-037-index-organized-table.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

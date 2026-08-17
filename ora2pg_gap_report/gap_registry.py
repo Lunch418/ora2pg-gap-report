@@ -78,6 +78,9 @@ GAPS: tuple[GapEntry, ...] = (
     GapEntry("026", "read_only_table", "read-only-table", ("test_read_only_table.py",)),
     GapEntry("027", "materialized_view_log", "materialized-view-log", ("test_materialized_view_log.py",)),
     GapEntry("028", "identity_column", "identity-column", ("test_identity_column.py",)),
+    GapEntry("029", "rowid_type", "rowid-urowid", ("test_rowid_type.py",)),
+    GapEntry("030", "sequence_cycle", "sequence-cycle", ("test_sequence_cycle.py",)),
+    GapEntry("031", "default_on_null", "default-on-null", ("test_default_on_null.py",)),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

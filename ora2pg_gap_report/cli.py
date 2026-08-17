@@ -22,6 +22,7 @@ from .detectors.context_object import find_context_declarations
 from .detectors.cross_apply import find_apply_joins
 from .detectors.database_link import find_database_link_references
 from .detectors.dbms_utl_calls import find_dbms_utl_calls
+from .detectors.default_on_null import find_default_on_null_usage
 from .detectors.external_table import find_external_tables
 from .detectors.flashback_query import find_flashback_queries
 from .detectors.global_temp_table import find_global_temp_tables_without_delete_rows
@@ -38,6 +39,8 @@ from .detectors.oracle_text import find_oracle_text_usage
 from .detectors.pivot_clause import find_pivot_clauses
 from .detectors.read_only_table import find_read_only_tables
 from .detectors.recursive_with import find_recursive_with_missing_keyword
+from .detectors.rowid_type import find_rowid_types
+from .detectors.sequence_cycle import find_sequence_cycle_usage
 from .detectors.sql_macro import find_sql_macros
 from .detectors.table_partitioning import find_dropped_table_partitioning
 from .detectors.with_function import find_with_function_clauses
@@ -80,6 +83,9 @@ _DETECTORS = (
     find_read_only_tables,
     find_materialized_view_logs,
     find_identity_columns_with_options,
+    find_default_on_null_usage,
+    find_rowid_types,
+    find_sequence_cycle_usage,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")

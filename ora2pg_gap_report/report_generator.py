@@ -5,6 +5,7 @@ import io
 import json
 from dataclasses import asdict, fields
 
+from . import i18n
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_by_detector, research_doc_url
 from .models import Finding
@@ -43,12 +44,12 @@ def to_csv(findings: list[Finding]) -> str:
     return buffer.getvalue()
 
 
-def to_markdown(findings: list[Finding]) -> str:
+def to_markdown(findings: list[Finding], lang: str = "ru") -> str:
     if not findings:
-        return "Проблемных конструкций не найдено.\n"
+        return i18n.t(lang, "md_no_findings")
 
     lines = [
-        "| Файл | Объект | Строка | Серьёзность | Фрагмент | Комментарий |",
+        i18n.t(lang, "md_table_header"),
         "|---|---|---|---|---|---|",
     ]
     for f in findings:
@@ -87,7 +88,7 @@ _HTML_STYLE = """
 """
 
 
-def to_html(findings: list[Finding]) -> str:
+def to_html(findings: list[Finding], lang: str = "ru") -> str:
     """Self-contained HTML report (inline CSS only, no external resources
     -- this project's other formats are all designed to work in an
     air-gapped/closed-network setting, see README's "Установка без
@@ -118,26 +119,25 @@ def to_html(findings: list[Finding]) -> str:
     if findings:
         table = (
             "<table>\n<thead><tr>"
-            "<th>Файл</th><th>Объект</th><th>Строка</th><th>Серьёзность</th>"
-            "<th>Фрагмент</th><th>Комментарий</th>"
+            f"{i18n.t(lang, 'html_table_header')}"
             "</tr></thead>\n<tbody>\n" + "\n".join(rows) + "\n</tbody>\n</table>"
         )
     else:
-        table = '<p class="empty">Проблемных конструкций не найдено.</p>'
+        table = f'<p class="empty">{i18n.t(lang, "html_no_findings")}</p>'
 
+    html_lang = "en" if lang == "en" else "ru"
     return f"""<!doctype html>
-<html lang="ru">
+<html lang="{html_lang}">
 <head>
 <meta charset="utf-8">
-<title>Отчёт ora2pg-gap-report</title>
+<title>{i18n.t(lang, "html_title")}</title>
 <style>{_HTML_STYLE}</style>
 </head>
 <body>
-<h1>Отчёт ora2pg-gap-report</h1>
+<h1>{i18n.t(lang, "html_h1")}</h1>
 <div class="summary">
-<p>Найдено проблемных объектов: {len(findings)} ({html.escape(counts_text)})</p>
-<p class="caveat">Грубая оценка ручной доработки: {lo:g}–{hi:g} ч. — неоткалиброванная эвристика
-по severity, не измерение (см. PROJECT_BRIEF.md).</p>
+<p>{i18n.t(lang, "html_findings_found", n=len(findings), counts=html.escape(counts_text))}</p>
+<p class="caveat">{i18n.t(lang, "html_effort_caveat", lo=lo, hi=hi)}</p>
 </div>
 {table}
 </body>

@@ -25,7 +25,10 @@ gap_registry.py's own ora2pg_version/postgresql_version fields -- the
 Python fields are the canonical source (see GapEntry's own docstring),
 the Markdown table is a human-facing restatement of the same facts, and
 restated facts drift from their source exactly the way this whole script
-exists to catch.
+exists to catch. And that every detector's message constant(s) have an
+English translation registered in i18n.py (EXPLANATION_EN/
+REMEDIATION_HINT_EN) -- the class of drift that would otherwise leave
+--lang en silently falling back to Russian for a new or edited detector.
 
 Run: python3 scripts/doctor.py
 Exit code: 0 if every gap's artifacts check out, 1 if any is missing.
@@ -40,7 +43,9 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audit_gap_test_counts import count_tests  # noqa: E402
+from ora2pg_gap_report import i18n  # noqa: E402
 from ora2pg_gap_report.gap_registry import GAPS, research_doc_path  # noqa: E402
+from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT  # noqa: E402
 
 # Matches a detector filename one level under 'detectors/' in the ASCII
 # tree docs/ARCHITECTURE.md draws under its "Файловая структура" section,
@@ -70,6 +75,22 @@ _GAP_REGISTRY_ROW_RE = re.compile(r"^\| GAP-(\d{3}) \|.*\| confirmed \| ([\d.]+)
 def _detector_names_on_disk() -> set[str]:
     detectors_dir = REPO_ROOT / "ora2pg_gap_report" / "detectors"
     return {p.stem for p in detectors_dir.glob("*.py") if p.stem != "__init__"}
+
+
+def _detector_message_constants() -> list[tuple[str, str, str]]:
+    """(module_name, constant_name, value) for every module-level constant
+    in ora2pg_gap_report/detectors/*.py whose name contains 'MESSAGE' --
+    the same extraction i18n.py's EXPLANATION_EN dict was built from by
+    hand. A detector can have more than one (bulk_collect has three)."""
+    import importlib
+
+    items = []
+    for name in sorted(_detector_names_on_disk()):
+        module = importlib.import_module(f"ora2pg_gap_report.detectors.{name}")
+        for attr in vars(module):
+            if attr.isupper() and "MESSAGE" in attr:
+                items.append((name, attr, getattr(module, attr)))
+    return items
 
 
 def _extract_detector_names_from_tree_text(text: str) -> set[str]:
@@ -194,6 +215,28 @@ def check_gap_registry_md_parity() -> list[str]:
     return problems
 
 
+def check_i18n_translations_parity() -> list[str]:
+    """Every detector's message constant(s) must have an English
+    translation in i18n.EXPLANATION_EN, and every detector that
+    terminal_report.py's _REMEDIATION_HINT covers must have a matching
+    entry in i18n.REMEDIATION_HINT_EN -- the same drift the doc/registry
+    parity checks above catch, just for the English output path: a
+    detector added (or a message string edited) without updating i18n.py
+    would otherwise silently fall back to Russian text under --lang en,
+    with nothing flagging the gap."""
+    problems = []
+    for name, attr, message in _detector_message_constants():
+        if message not in i18n.EXPLANATION_EN:
+            problems.append(
+                f"i18n.py: {name}.{attr} has no English translation in EXPLANATION_EN "
+                "(--lang en would silently fall back to Russian for this finding)"
+            )
+    for name in sorted(_REMEDIATION_HINT):
+        if name not in i18n.REMEDIATION_HINT_EN:
+            problems.append(f"i18n.py: REMEDIATION_HINT_EN is missing an entry for '{name}'")
+    return problems
+
+
 def main() -> int:
     print(f"Проверено {len(GAPS)} gap'ов из реестра (ora2pg_gap_report/gap_registry.py).\n")
 
@@ -202,12 +245,14 @@ def main() -> int:
         all_problems.extend(check_gap(gap))
     all_problems.extend(check_architecture_doc_parity())
     all_problems.extend(check_gap_registry_md_parity())
+    all_problems.extend(check_i18n_translations_parity())
 
     if not all_problems:
         print(
             "✓ Всё чисто: у каждого gap'а есть research-документ, детектор, позитивный и "
             "guard-тест, docs/ARCHITECTURE.md не разошёлся со списком детекторов на диске, "
-            "и версии в GAP_REGISTRY.md совпадают с gap_registry.py."
+            "версии в GAP_REGISTRY.md совпадают с gap_registry.py, и у каждого детектора "
+            "есть английский перевод в i18n.py."
         )
         return 0
 

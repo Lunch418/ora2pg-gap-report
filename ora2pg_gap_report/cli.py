@@ -10,6 +10,7 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.text import Text
 
+from . import i18n
 from .baseline import BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
 from .detectors.autonomous_tx import find_autonomous_transactions
 from .detectors.bulk_collect import find_bulk_collect_usage
@@ -257,6 +258,21 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "независимо от --severity/--object, чтобы фильтр вывода не маскировал провал гейта."
         ),
     )
+    parser.add_argument(
+        "--lang",
+        choices=("ru", "en"),
+        default=None,
+        help=(
+            "Язык вывода для этого запуска (не сохраняется). По умолчанию: сохранённый через "
+            "--set-lang выбор, иначе переменная окружения ORA2PG_GAP_REPORT_LANG, иначе "
+            "интерактивный выбор при первом запуске в реальном терминале, иначе русский."
+        ),
+    )
+    parser.add_argument(
+        "--set-lang",
+        action="store_true",
+        help="Открыть выбор языка и сохранить его как язык по умолчанию для будущих запусков, затем выйти.",
+    )
     return parser
 
 
@@ -269,7 +285,9 @@ def _apply_filters(findings: list[Finding], severity: str | None, object_substri
     return findings
 
 
-def _connect_by_check(path: Path, source: str, ora2pg_bin: str) -> tuple[list[Finding], str | None]:
+def _connect_by_check(
+    path: Path, source: str, ora2pg_bin: str, lang: str = "ru"
+) -> tuple[list[Finding], str | None]:
     """Returns (findings, warning) — warning is set instead of raising when
     ora2pg isn't available or fails, since this check is opt-in/best-effort
     by design (see docs/research/step0-show-report-baseline.md section 3:
@@ -279,9 +297,9 @@ def _connect_by_check(path: Path, source: str, ora2pg_bin: str) -> tuple[list[Fi
     try:
         output = run_estimate_cost(path, guess_object_type(source), ora2pg_bin=ora2pg_bin)
     except Ora2PgNotFoundError:
-        return [], f"{path}: содержит CONNECT BY, но ora2pg не найден — проверка пропущена"
+        return [], i18n.t(lang, "connect_by_not_found", path=path)
     except Ora2PgRunError as exc:
-        return [], f"{path}: содержит CONNECT BY, но запуск ora2pg завершился ошибкой ({exc})"
+        return [], i18n.t(lang, "connect_by_run_error", path=path, exc=exc)
 
     # `line` in each risk is a position inside ora2pg's *generated*
     # PostgreSQL output (a tempfile.TemporaryDirectory in run_estimate_cost,
@@ -297,7 +315,7 @@ def _connect_by_check(path: Path, source: str, ora2pg_bin: str) -> tuple[list[Fi
     ], None
 
 
-def _render(findings: list[Finding], fmt: str) -> str:
+def _render(findings: list[Finding], fmt: str, lang: str = "ru") -> str:
     if fmt == "json":
         return to_json(findings)
     if fmt == "csv":
@@ -305,19 +323,17 @@ def _render(findings: list[Finding], fmt: str) -> str:
     if fmt == "sarif":
         return to_sarif(findings, tool_version=_package_version())
     if fmt == "html":
-        return to_html(findings)
+        return to_html(findings, lang=lang)
 
     counts = summarize_by_severity(findings)
     counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
     lo, hi = estimate_hours(findings)
     header = (
-        "# Отчёт ora2pg-gap-report\n\n"
-        f"Найдено проблемных объектов: {len(findings)} ({counts_text})\n\n"
-        f"Грубая оценка ручной доработки: {lo:g}–{hi:g} ч. "
-        "— неоткалиброванная эвристика по severity, не измерение "
-        "(см. PROJECT_BRIEF.md).\n\n"
+        i18n.t(lang, "markdown_report_title")
+        + i18n.t(lang, "markdown_findings_found", n=len(findings), counts=counts_text)
+        + i18n.t(lang, "markdown_effort_estimate", lo=lo, hi=hi)
     )
-    return header + to_markdown(findings)
+    return header + to_markdown(findings, lang=lang)
 
 
 def _expand_paths(paths: list[Path]) -> tuple[list[Path], list[Path]]:
@@ -369,30 +385,29 @@ def resolve_format(explicit_format: str | None, output: Path | None, stdout_is_t
     return "terminal" if (output is None and stdout_is_tty) else "markdown"
 
 
-def _handle_explain(raw_ref: str, console: Console, err_console: Console) -> int:
+def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: str = "ru") -> int:
     number = normalize_gap_number(raw_ref)
     gap = gap_by_number(number) if number is not None else None
     if gap is None:
-        err_console.print(
-            f"[red]Неизвестный GAP: {escape(raw_ref)}[/red] — ожидается номер из "
-            "docs/research/GAP_REGISTRY.md, например GAP-023 или 023"
-        )
+        err_console.print(i18n.t(lang, "explain_unknown_gap", ref=escape(raw_ref)))
         return 2
 
-    version_line = f"Подтверждено на: ora2pg {gap.ora2pg_version}, PostgreSQL {gap.postgresql_version}"
+    version_line = i18n.t(
+        lang, "confirmed_versions", ora2pg_version=gap.ora2pg_version, postgresql_version=gap.postgresql_version
+    )
 
     doc_path = research_doc_path(gap)
     if doc_path is None:
         # docs/research/ isn't shipped in the pip-installed package (see
         # gap_registry.py's module docstring) -- only a source checkout has
         # it on disk. Falling back to a GitHub link still gets the user to
-        # the same content instead of a bare "not found".
-        console.print(
-            f"[yellow]GAP-{gap.number} ({gap.detector}): research-документ не найден локально[/yellow] "
-            "(research-документы не входят в pip-пакет — это репозиторий, а не установленный CLI)."
-        )
+        # the same content instead of a bare "not found". Note: the
+        # research doc itself (when found locally, below) is only ever
+        # shown in Russian -- translating docs/research/ is out of scope
+        # for this module, see its docstring.
+        console.print(i18n.t(lang, "explain_doc_not_local", number=gap.number, detector=gap.detector))
         console.print(version_line)
-        console.print(f"Смотреть на GitHub: {research_doc_url(gap)}")
+        console.print(i18n.t(lang, "explain_see_github", url=research_doc_url(gap)))
         return 0
 
     console.print(Panel(Text(f"GAP-{gap.number} — {gap.detector}"), border_style="cyan"))
@@ -404,6 +419,26 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console) -> int
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
     err_console = Console(stderr=True)
+
+    if args.set_lang:
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            # The interactive picker reads a line from stdin -- without a
+            # real terminal that's an immediate EOFError (cron/CI/Docker
+            # RUN/`< /dev/null`), which would otherwise surface as a raw
+            # Python traceback instead of this tool's normal clean error +
+            # exit code 2.
+            err_console.print(
+                i18n.t(i18n.resolve_language(args.lang, interactive=False), "set_lang_not_interactive")
+            )
+            return 2
+        chosen = i18n.prompt_language_interactively()
+        i18n.save_language(chosen)
+        Console().print(i18n.t(chosen, "lang_saved", chosen=chosen))
+        return 0
+
+    lang = i18n.resolve_language(
+        args.lang, interactive=sys.stdin.isatty() and sys.stdout.isatty()
+    )
 
     if args.explain is not None:
         # --explain is a standalone lookup, not a scan -- silently ignoring
@@ -417,18 +452,12 @@ def main(argv: list[str] | None = None) -> int:
             (args.fail_on, args.save, args.baseline, args.check_connect_by)
         )
         if conflicting:
-            err_console.print(
-                "[red]--explain — самостоятельный просмотр документации, не сканирование: "
-                "его нельзя сочетать с путями к файлам, --fail-on, --save, --baseline или "
-                "--check-connect-by[/red]"
-            )
+            err_console.print(i18n.t(lang, "explain_conflict_error"))
             return 2
-        return _handle_explain(args.explain, Console(), err_console)
+        return _handle_explain(args.explain, Console(), err_console, lang)
 
     if not args.paths:
-        err_console.print(
-            "[red]Нужно указать хотя бы один файл/директорию, либо --explain GAP-NNN[/red]"
-        )
+        err_console.print(i18n.t(lang, "no_paths_error"))
         return 2
 
     fmt = resolve_format(args.format, args.output, sys.stdout.isatty())
@@ -440,21 +469,19 @@ def main(argv: list[str] | None = None) -> int:
 
     paths_to_scan, empty_dirs = _expand_paths(args.paths)
     for empty_dir in empty_dirs:
-        err_console.print(
-            f"[yellow]Директория не содержит .sql/.pks/.pkb файлов:[/yellow] {escape(str(empty_dir))}"
-        )
+        err_console.print(i18n.t(lang, "empty_dir_warning", dir=escape(str(empty_dir))))
         had_error = True
 
     for path in paths_to_scan:
         if not path.is_file():
-            err_console.print(f"[yellow]Пропущен (не найден):[/yellow] {escape(str(path))}")
+            err_console.print(i18n.t(lang, "skipped_not_found", path=escape(str(path))))
             had_error = True
             continue
         try:
             source = path.read_text(errors="replace")
         except OSError as exc:
             err_console.print(
-                f"[yellow]Пропущен (не читается: {escape(str(exc))}):[/yellow] {escape(str(path))}"
+                i18n.t(lang, "skipped_unreadable", exc=escape(str(exc)), path=escape(str(path)))
             )
             had_error = True
             continue
@@ -464,13 +491,27 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         if args.check_connect_by:
-            findings, warning = _connect_by_check(path, source, args.ora2pg_bin)
+            findings, warning = _connect_by_check(path, source, args.ora2pg_bin, lang)
             all_findings.extend(findings)
             if warning:
                 err_console.print(f"[yellow]{escape(warning)}[/yellow]")
 
     elapsed_seconds = time.perf_counter() - start_time
     _sort_findings(all_findings)
+
+    # Single point where a finding's message gets swapped for its English
+    # counterpart (a no-op when lang == "ru") -- every renderer downstream
+    # (terminal/markdown/json/csv/sarif/html) then sees a consistent
+    # language with no per-format translation logic of its own. Done before
+    # --save/--baseline/--fail-on/display filtering, all of which key off
+    # detector/source_file/object_name/snippet/severity, never message --
+    # see baseline.py's group_key() docstring -- so this has no effect on
+    # any of them.
+    if lang == "en":
+        all_findings = [
+            dataclasses.replace(f, message=i18n.translate_message(f.message, lang))
+            for f in all_findings
+        ]
 
     # --save/--baseline/--fail-on all act on the full, unfiltered scan
     # result (`all_findings`) rather than what --severity/--object narrow
@@ -483,14 +524,14 @@ def main(argv: list[str] | None = None) -> int:
             save_baseline(all_findings, args.save)
         except OSError as exc:
             err_console.print(
-                f"[red]Не удалось сохранить baseline в {escape(str(args.save))}: {escape(str(exc))}[/red]"
+                i18n.t(lang, "save_baseline_error", path=escape(str(args.save)), exc=escape(str(exc)))
             )
             return 2
 
     baseline_diff = None
     if args.baseline:
         try:
-            baseline = load_baseline(args.baseline)
+            baseline = load_baseline(args.baseline, lang=lang)
         except BaselineLoadError as exc:
             err_console.print(f"[red]{escape(str(exc))}[/red]")
             return 2
@@ -507,26 +548,28 @@ def main(argv: list[str] | None = None) -> int:
                         console=Console(file=fh),
                         elapsed_seconds=elapsed_seconds,
                         objects_scanned=objects_scanned,
+                        lang=lang,
                     )
             except OSError as exc:
                 err_console.print(
-                    f"[red]Не удалось записать отчёт в {escape(str(args.output))}: "
-                    f"{escape(str(exc))}[/red]"
+                    i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))
                 )
                 return 2
         else:
             render_terminal(
-                display_findings, elapsed_seconds=elapsed_seconds, objects_scanned=objects_scanned
+                display_findings,
+                elapsed_seconds=elapsed_seconds,
+                objects_scanned=objects_scanned,
+                lang=lang,
             )
     else:
-        report = _render(display_findings, fmt)
+        report = _render(display_findings, fmt, lang=lang)
         if args.output:
             try:
                 args.output.write_text(report, encoding="utf-8")
             except OSError as exc:
                 err_console.print(
-                    f"[red]Не удалось записать отчёт в {escape(str(args.output))}: "
-                    f"{escape(str(exc))}[/red]"
+                    i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))
                 )
                 return 2
         else:
@@ -537,7 +580,7 @@ def main(argv: list[str] | None = None) -> int:
     # --format produced on stdout (json/csv/sarif are meant to be piped
     # or redirected as-is).
     if baseline_diff is not None:
-        render_baseline_diff(baseline_diff, console=err_console)
+        render_baseline_diff(baseline_diff, console=err_console, lang=lang)
 
     if had_error:
         return 2
@@ -547,8 +590,7 @@ def main(argv: list[str] | None = None) -> int:
         failing = [f for f in all_findings if _SEVERITY_ORDER.get(f.severity, 99) <= threshold]
         if failing:
             err_console.print(
-                f"\n[bold red]Migration gate FAILED[/bold red] — {len(failing)} находок с "
-                f"severity {args.fail_on} и выше (порог --fail-on {args.fail_on})"
+                i18n.t(lang, "gate_failed", n=len(failing), sev=args.fail_on)
             )
             return 1
 

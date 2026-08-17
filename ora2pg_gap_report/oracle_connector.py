@@ -16,7 +16,7 @@ oracledb installed at all.
 Extracts DDL via DBMS_METADATA.GET_DDL rather than reassembling ALL_SOURCE
 line by line — it's the same approach `expdp` uses under the hood, and it
 produces DDL text you could hand to ora2pg directly, matching the
-DBMS_METADATA-based offline workflow described in PROJECT_BRIEF.md.
+DBMS_METADATA-based offline workflow described in docs/ARCHITECTURE.md.
 
 Required privileges on the target schema: SELECT on ALL_OBJECTS and
 ALL_TRIGGERS (or the USER_ equivalents when connecting as the schema

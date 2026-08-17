@@ -2,9 +2,10 @@ from .models import Finding
 
 # Deliberately a range per severity, not a single number, and deliberately
 # not lines-of-code-weighted: this is an uncalibrated heuristic, not a
-# measurement. See PROJECT_BRIEF.md — presenting a fake-precise number here
-# is a trust risk with exactly the audience this tool is for. Calibrate
-# against real migration outcomes before treating these as commitments.
+# measurement. See README.md, "Почему почти всё high" — presenting a
+# fake-precise number here is a trust risk with exactly the audience this
+# tool is for. Calibrate against real migration outcomes before treating
+# these as commitments.
 _HOURS_BY_SEVERITY: dict[str, tuple[float, float]] = {
     "high": (2.0, 8.0),
     "medium": (1.0, 4.0),

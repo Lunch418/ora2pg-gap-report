@@ -69,6 +69,8 @@ ora2pg_gap_report/
 │   ├── materialized_view_log.py # CREATE MATERIALIZED VIEW LOG
 │   └── identity_column.py       # GENERATED ... AS IDENTITY (...) — баг двойных скобок
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
+├── i18n.py                     # язык вывода (--lang/--set-lang): резолюция, английские
+│                               # строки UI и переводы объяснений детекторов
 ├── cli.py                      # консольная команда ora2pg-gap-report
 ├── effort_estimator.py          # грубая эвристика по severity, диапазон часов
 ├── report_generator.py          # JSON + Markdown (машиночитаемые форматы)

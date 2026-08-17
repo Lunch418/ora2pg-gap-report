@@ -28,6 +28,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from . import i18n
 from .models import Finding
 
 SCHEMA_VERSION = 1
@@ -56,30 +57,33 @@ def save_baseline(findings: list[Finding], path: Path) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def load_baseline(path: Path) -> list[dict]:
+def load_baseline(path: Path, lang: str = "ru") -> list[dict]:
     """Raw finding records from a file written by save_baseline(), each
     carrying its 'group_key'."""
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except OSError as exc:
-        raise BaselineLoadError(f"{path}: не удалось прочитать ({exc})") from exc
+        raise BaselineLoadError(i18n.t(lang, "baseline_unreadable", path=path, exc=exc)) from exc
     except UnicodeDecodeError as exc:
-        raise BaselineLoadError(f"{path}: не в кодировке UTF-8 ({exc})") from exc
+        raise BaselineLoadError(i18n.t(lang, "baseline_not_utf8", path=path, exc=exc)) from exc
     except json.JSONDecodeError as exc:
-        raise BaselineLoadError(f"{path}: не похоже на JSON ({exc})") from exc
+        raise BaselineLoadError(i18n.t(lang, "baseline_not_json", path=path, exc=exc)) from exc
 
     if not isinstance(raw, dict) or not isinstance(raw.get("findings"), list):
-        raise BaselineLoadError(
-            f"{path}: не похоже на baseline-файл ora2pg-gap-report (нет списка 'findings')"
-        )
+        raise BaselineLoadError(i18n.t(lang, "baseline_no_findings_key", path=path))
     if raw.get("schema_version") != SCHEMA_VERSION:
         raise BaselineLoadError(
-            f"{path}: schema_version={raw.get('schema_version')!r}, эта версия инструмента "
-            f"ожидает {SCHEMA_VERSION} — пересохраните baseline через --save текущей версией"
+            i18n.t(
+                lang,
+                "baseline_schema_mismatch",
+                path=path,
+                schema_version=raw.get("schema_version"),
+                expected=SCHEMA_VERSION,
+            )
         )
     for rec in raw["findings"]:
         if not isinstance(rec, dict) or "group_key" not in rec:
-            raise BaselineLoadError(f"{path}: запись находки без 'group_key'")
+            raise BaselineLoadError(i18n.t(lang, "baseline_missing_group_key", path=path))
     return raw["findings"]
 
 

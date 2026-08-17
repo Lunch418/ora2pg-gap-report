@@ -252,6 +252,23 @@ def test_check_connect_by_warns_gracefully_when_ora2pg_not_found(capsys):
     assert "ora2pg не найден" in captured.err
 
 
+def test_check_connect_by_warning_is_english_when_lang_is_en(capsys):
+    exit_code = main(
+        [
+            str(SAMPLES / "connect_by_hierarchy_pkg.sql"),
+            "--check-connect-by",
+            "--ora2pg-bin",
+            "definitely-not-a-real-binary",
+            "--lang",
+            "en",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "ora2pg wasn't found" in captured.err
+    assert "не найден" not in captured.err
+
+
 @pytest.mark.skipif(shutil.which("ora2pg") is None, reason="ora2pg not installed on PATH")
 def test_check_connect_by_live_integration(capsys):
     exit_code = main(
@@ -794,3 +811,82 @@ def test_main_explain_falls_back_to_a_github_link_when_docs_are_not_packaged(mon
     assert exit_code == 0
     assert "github.com" in captured.out
     assert "gap-023-oracle-text.md" in captured.out
+
+
+@pytest.fixture(autouse=True)
+def _isolated_lang_config(tmp_path, monkeypatch):
+    """Every cli.py test gets an empty i18n config directory and no
+    ORA2PG_GAP_REPORT_LANG -- otherwise a --set-lang choice or env var set
+    on the machine running the tests would silently change every other
+    test in this file's default (Russian) output."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.delenv("ORA2PG_GAP_REPORT_LANG", raising=False)
+
+
+def test_main_lang_flag_switches_output_to_english(capsys):
+    exit_code = main(["--lang", "en", str(SAMPLES / "logger.pkb")])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Rough manual-rework estimate" in captured.out
+    assert "Грубая оценка" not in captured.out
+
+
+def test_main_lang_flag_does_not_persist_across_runs(capsys):
+    main(["--lang", "en", str(SAMPLES / "logger.pkb")])
+    capsys.readouterr()
+    exit_code = main([str(SAMPLES / "logger.pkb")])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Грубая оценка" in captured.out
+
+
+def test_main_env_var_switches_output_to_english(monkeypatch, capsys):
+    monkeypatch.setenv("ORA2PG_GAP_REPORT_LANG", "en")
+    exit_code = main([str(SAMPLES / "logger.pkb")])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Rough manual-rework estimate" in captured.out
+
+
+def test_main_explain_respects_lang_flag(capsys):
+    exit_code = main(["--lang", "en", "--explain", "GAP-023"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Confirmed on: ora2pg" in captured.out
+
+
+def test_main_uses_a_previously_saved_lang_choice(capsys):
+    from ora2pg_gap_report import i18n
+
+    i18n.save_language("en")
+    exit_code = main([str(SAMPLES / "logger.pkb")])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Rough manual-rework estimate" in captured.out
+
+
+def test_main_set_lang_saves_the_choice_and_exits(monkeypatch, capsys):
+    from ora2pg_gap_report import i18n
+
+    monkeypatch.setattr(i18n, "prompt_language_interactively", lambda *a, **k: "en")
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+    exit_code = main(["--set-lang"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert i18n.get_saved_language() == "en"
+    assert "Saved" in captured.out
+
+
+def test_main_set_lang_fails_cleanly_without_a_real_terminal(monkeypatch, capsys):
+    # Regression test: --set-lang used to call the interactive picker
+    # unconditionally, which raised an uncaught EOFError (raw Python
+    # traceback) whenever stdin wasn't a real terminal -- e.g. a cron job,
+    # a CI step, `< /dev/null`. It must fail the same clean way every
+    # other unsupported-usage error in this CLI does: a red message on
+    # stderr and exit code 2, no traceback.
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    exit_code = main(["--set-lang"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "терминал" in captured.err

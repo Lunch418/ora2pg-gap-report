@@ -16,6 +16,7 @@ from .detectors.autonomous_tx import find_autonomous_transactions
 from .detectors.bulk_collect import find_bulk_collect_usage
 from .detectors.collection_type import find_collection_types
 from .detectors.compound_triggers import find_compound_triggers
+from .detectors.conditional_compilation import find_conditional_compilation
 from .detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
 from .detectors.connect_by_nocycle import find_connect_by_nocycle_or_order_siblings
 from .detectors.context_object import find_context_declarations
@@ -34,8 +35,10 @@ from .detectors.json_table import find_json_table_calls
 from .detectors.materialized_view_log import find_materialized_view_logs
 from .detectors.merge_delete_clause import find_merge_delete_clauses
 from .detectors.model_clause import find_model_clauses
+from .detectors.nested_subprogram import find_nested_subprograms
 from .detectors.object_type import find_object_types
 from .detectors.oracle_text import find_oracle_text_usage
+from .detectors.package_state import find_package_state
 from .detectors.pivot_clause import find_pivot_clauses
 from .detectors.public_synonym import find_public_synonyms
 from .detectors.read_only_table import find_read_only_tables
@@ -90,6 +93,9 @@ _DETECTORS = (
     find_sequence_cycle_usage,
     find_public_synonyms,
     find_virtual_columns,
+    find_conditional_compilation,
+    find_nested_subprograms,
+    find_package_state,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")

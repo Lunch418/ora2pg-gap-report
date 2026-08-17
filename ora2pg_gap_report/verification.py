@@ -81,6 +81,7 @@ VERIFICATION_MODE: dict[str, str] = {
     "identity_column": VERBATIM,
     "dbms_utl_calls": VERBATIM,
     "default_on_null": VERBATIM,  # the ON NULL clause itself is copied into CREATE TABLE unchanged
+    "conditional_compilation": VERBATIM,  # $IF/$ELSIF/$ELSE/$END are copied into the body unchanged
     # NOT_VERIFIABLE -- ora2pg drops the construct entirely (the
     # Oracle-specific keyword the detector looks for cannot appear in the
     # output, by construction, on any migration) or mangles the
@@ -104,6 +105,8 @@ VERIFICATION_MODE: dict[str, str] = {
     "sequence_cycle": NOT_VERIFIABLE,  # the CYCLE keyword itself is dropped unconditionally
     "public_synonym": NOT_VERIFIABLE,  # rewritten to CREATE VIEW; SYNONYM/FOR never survive
     "virtual_column": NOT_VERIFIABLE,  # rewritten to a plain column + trigger; the clause never survives
+    "nested_subprogram": NOT_VERIFIABLE,  # the nesting itself is flattened away; structure not re-detectable
+    "package_state": NOT_VERIFIABLE,  # rewritten to set_config/current_setting; the declaration never survives
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists
     # for verify to compare against.

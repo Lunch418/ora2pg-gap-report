@@ -83,6 +83,11 @@ GAPS: tuple[GapEntry, ...] = (
     GapEntry("031", "default_on_null", "default-on-null", ("test_default_on_null.py",)),
     GapEntry("032", "public_synonym", "public-synonym", ("test_public_synonym.py",)),
     GapEntry("033", "virtual_column", "virtual-column", ("test_virtual_column.py",)),
+    GapEntry("034", "nested_subprogram", "nested-subprogram", ("test_nested_subprogram.py",)),
+    GapEntry(
+        "035", "conditional_compilation", "conditional-compilation", ("test_conditional_compilation.py",)
+    ),
+    GapEntry("036", "package_state", "package-state", ("test_package_state.py",)),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

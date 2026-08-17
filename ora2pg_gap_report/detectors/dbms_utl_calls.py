@@ -17,6 +17,18 @@ _CALL_RE = re.compile(
 # default is intentional: the research showed the overwhelming majority of
 # DBMS_*/UTL_* usage has no targeted conversion, so "unknown" should read
 # as "needs review", not "probably fine".
+#
+# This list is a snapshot pinned to the ora2pg version this project
+# researches against (see gap_registry.py's ora2pg_version field), not a
+# live check against the installed ora2pg's actual behavior. It only ever
+# grows by someone re-running the same research method (real ora2pg, real
+# PostgreSQL, real generated code) on a new call — nothing here re-verifies
+# it automatically against a newer ora2pg release. The safe-by-construction
+# direction still holds for anything *not* on this list (unknown defaults
+# to flagged, not silently accepted), but a call that's already on this
+# list would go silently unflagged even if a future ora2pg version
+# regressed its conversion for it. Maintaining this list by hand as ora2pg
+# evolves is a real, ongoing cost of this detector, not a one-time one.
 _CONVERTED = {
     "DBMS_OUTPUT.PUT_LINE": "заменяется на вывод через встроенный ora2pg-хелпер (RAISE NOTICE-подобный механизм).",
     "DBMS_OUTPUT.PUT": "заменяется тем же хелпером, что и DBMS_OUTPUT.PUT_LINE.",

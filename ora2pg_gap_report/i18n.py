@@ -144,6 +144,14 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "— неоткалиброванная эвристика по severity, не измерение",
         "en": "— an uncalibrated heuristic based on severity, not a measurement",
     },
+    "effort_patterns_note": {
+        "ru": "{patterns} паттернов из {findings} находок — первое вхождение паттерна "
+        "оценивается по полной стоимости, повторные — дешевле (тот же фикс, "
+        "применённый ещё раз, не новая задача)",
+        "en": "{patterns} patterns behind {findings} findings — a pattern's first "
+        "occurrence is priced in full, repeats are cheaper (the same fix applied "
+        "again, not a new problem)",
+    },
     "effort_panel_title": {"ru": "Оценка ручной доработки", "en": "Manual rework estimate"},
     "footer_hint_severity_label": {
         "ru": "Показать только высокую критичность:",

@@ -142,6 +142,26 @@ def test_render_shows_best_expected_worst_case_effort():
     assert "худший случай" in text
 
 
+def test_effort_panel_shows_patterns_note_when_a_detector_repeats():
+    findings = [_finding(detector="autonomous_tx", object_name=f"PKG.F{i}") for i in range(3)]
+    console = Console(record=True, width=200)
+    render(findings, console=console)
+    text = console.export_text()
+    assert "3 паттернов" not in text  # only 1 distinct detector, not 3
+    assert "1 паттернов из 3 находок" in text
+
+
+def test_effort_panel_omits_patterns_note_when_every_finding_is_a_distinct_detector():
+    findings = [
+        _finding(detector="autonomous_tx", object_name="A"),
+        _finding(detector="bulk_collect", object_name="B", snippet="s2", message="m2"),
+    ]
+    console = Console(record=True, width=200)
+    render(findings, console=console)
+    text = console.export_text()
+    assert "находок —" not in text
+
+
 def test_top_objects_tree_truncates_beyond_the_limit_and_notes_the_remainder():
     findings = [_finding(object_name=f"PKG.OBJ{i}", snippet=f"s{i}") for i in range(15)]
     console = Console(record=True, width=200)

@@ -29,6 +29,10 @@ exists to catch. And that every detector's message constant(s) have an
 English translation registered in i18n.py (EXPLANATION_EN/
 REMEDIATION_HINT_EN) -- the class of drift that would otherwise leave
 --lang en silently falling back to Russian for a new or edited detector.
+And that every detector has a verification.py VERIFICATION_MODE entry --
+without it, a new detector added to `--verify` would silently default to
+NOT_VERIFIABLE (safe, but unnoticed) rather than the classification
+actually being made, checked, and recorded on purpose.
 
 Run: python3 scripts/doctor.py
 Exit code: 0 if every gap's artifacts check out, 1 if any is missing.
@@ -46,6 +50,7 @@ from audit_gap_test_counts import count_tests  # noqa: E402
 from ora2pg_gap_report import i18n  # noqa: E402
 from ora2pg_gap_report.gap_registry import GAPS, research_doc_path  # noqa: E402
 from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT  # noqa: E402
+from ora2pg_gap_report.verification import VERIFICATION_MODE  # noqa: E402
 
 # Matches a detector filename one level under 'detectors/' in the ASCII
 # tree docs/ARCHITECTURE.md draws under its "Файловая структура" section,
@@ -237,6 +242,27 @@ def check_i18n_translations_parity() -> list[str]:
     return problems
 
 
+def check_verification_mode_parity() -> list[str]:
+    """Every real detector on disk must have a verification.py
+    VERIFICATION_MODE entry -- the classification of whether ora2pg
+    copies its flagged construct into the generated PostgreSQL output
+    verbatim (--verify can meaningfully recheck it) or drops/mangles it
+    (--verify can't) is a deliberate, researched decision per detector,
+    not something that should silently default for a new one."""
+    on_disk = _detector_names_on_disk()
+    problems = []
+    for name in sorted(on_disk - set(VERIFICATION_MODE)):
+        problems.append(
+            f"verification.py: детектор '{name}' не имеет записи в VERIFICATION_MODE"
+        )
+    for name in sorted(set(VERIFICATION_MODE) - on_disk):
+        problems.append(
+            f"verification.py: VERIFICATION_MODE упоминает '{name}', "
+            "но такого файла нет в ora2pg_gap_report/detectors/"
+        )
+    return problems
+
+
 def main() -> int:
     print(f"Проверено {len(GAPS)} gap'ов из реестра (ora2pg_gap_report/gap_registry.py).\n")
 
@@ -246,13 +272,15 @@ def main() -> int:
     all_problems.extend(check_architecture_doc_parity())
     all_problems.extend(check_gap_registry_md_parity())
     all_problems.extend(check_i18n_translations_parity())
+    all_problems.extend(check_verification_mode_parity())
 
     if not all_problems:
         print(
             "✓ Всё чисто: у каждого gap'а есть research-документ, детектор, позитивный и "
             "guard-тест, docs/ARCHITECTURE.md не разошёлся со списком детекторов на диске, "
-            "версии в GAP_REGISTRY.md совпадают с gap_registry.py, и у каждого детектора "
-            "есть английский перевод в i18n.py."
+            "версии в GAP_REGISTRY.md совпадают с gap_registry.py, у каждого детектора "
+            "есть английский перевод в i18n.py, и у каждого детектора есть запись в "
+            "verification.py."
         )
         return 0
 

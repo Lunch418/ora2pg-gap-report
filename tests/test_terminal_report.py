@@ -274,3 +274,60 @@ def test_render_baseline_diff_in_english():
     text = console.export_text()
     assert "Baseline comparison" in text
     assert "New findings" in text
+
+
+def test_render_verification_shows_counts_and_status_per_detector():
+    from ora2pg_gap_report.terminal_report import render_verification
+    from ora2pg_gap_report.verification import DetectorVerification
+
+    results = [
+        DetectorVerification("cross_apply", "022", 3, 1, "still_present"),
+        DetectorVerification("json_table", "017", 2, 0, "not_detected"),
+        DetectorVerification("read_only_table", "026", 1, 0, "not_verifiable"),
+    ]
+    console = Console(record=True, width=140)
+    render_verification(results, console=console)
+    text = console.export_text()
+
+    assert "STILL_PRESENT" in text
+    assert "NOT_DETECTED" in text
+    assert "NOT_VERIFIABLE" in text
+    assert "cross_apply" in text
+    assert "GAP-022" in text
+    # not_verifiable's post-migration count is deliberately hidden (—),
+    # not printed as a misleading 0
+    assert "read_only_table" in text
+
+
+def test_render_verification_with_no_registered_gap_shows_a_placeholder():
+    from ora2pg_gap_report.terminal_report import render_verification
+    from ora2pg_gap_report.verification import DetectorVerification
+
+    results = [DetectorVerification("dbms_utl_calls", None, 1, 1, "still_present")]
+    console = Console(record=True, width=140)
+    render_verification(results, console=console)
+    text = console.export_text()
+    assert "dbms_utl_calls" in text
+    assert "GAP-None" not in text
+
+
+def test_render_verification_empty_results():
+    from ora2pg_gap_report.terminal_report import render_verification
+
+    console = Console(record=True, width=140)
+    render_verification([], console=console)
+    text = console.export_text()
+    assert "0" in text
+
+
+def test_render_verification_in_english():
+    from ora2pg_gap_report.terminal_report import render_verification
+    from ora2pg_gap_report.verification import DetectorVerification
+
+    results = [DetectorVerification("cross_apply", "022", 1, 1, "still_present")]
+    console = Console(record=True, width=140)
+    render_verification(results, console=console, lang="en")
+    text = console.export_text()
+    assert "Post-migration verification" in text
+    assert "Still present" in text
+    assert "Проверка после миграции" not in text

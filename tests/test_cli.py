@@ -801,6 +801,19 @@ def test_main_explain_combined_with_paths_is_rejected(capsys):
     assert "--explain" in captured.err
 
 
+def test_main_explain_combined_with_verify_is_rejected(capsys):
+    # Regression test: --explain is dispatched before --verify inside
+    # main(), and its own conflict check used to list every other
+    # standalone-incompatible flag except --verify -- so
+    # `--explain GAP-NNN --verify` silently ran --explain and dropped
+    # --verify entirely instead of erroring, contradicting both flags'
+    # own documented "these can't be combined" behavior.
+    exit_code = main(["--explain", "GAP-023", "--verify"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--explain" in captured.err
+
+
 def test_main_explain_falls_back_to_a_github_link_when_docs_are_not_packaged(monkeypatch, capsys):
     # docs/research/ isn't shipped in the installed wheel (see
     # gap_registry.py's module docstring) -- simulate that by making the
@@ -890,3 +903,193 @@ def test_main_set_lang_fails_cleanly_without_a_real_terminal(monkeypatch, capsys
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "терминал" in captured.err
+
+
+# --verify -----------------------------------------------------------------
+
+_ORACLE_CROSS_APPLY_SOURCE = """
+CREATE OR REPLACE PACKAGE BODY report_pkg IS
+  FUNCTION get_tree(p_id NUMBER) RETURN VARCHAR2 IS
+    v_result VARCHAR2(4000);
+  BEGIN
+    SELECT a.name INTO v_result
+    FROM employees a
+    CROSS APPLY (SELECT name FROM departments d WHERE d.id = a.dept_id) b;
+    RETURN v_result;
+  END;
+END report_pkg;
+/
+"""
+
+_GENERATED_STILL_BROKEN = """
+CREATE OR REPLACE FUNCTION report_pkg.get_tree(p_id numeric) RETURNS varchar AS $$
+BEGIN
+  SELECT a.name INTO v_result
+  FROM employees a
+  CROSS APPLY (SELECT name FROM departments d WHERE d.id = a.dept_id) b;
+END;
+$$ LANGUAGE plpgsql;
+"""
+
+_GENERATED_FIXED = """
+CREATE OR REPLACE FUNCTION report_pkg.get_tree(p_id numeric) RETURNS varchar AS $$
+BEGIN
+  SELECT a.name INTO v_result
+  FROM employees a
+  JOIN LATERAL (SELECT name FROM departments d WHERE d.id = a.dept_id) b ON true;
+END;
+$$ LANGUAGE plpgsql;
+"""
+
+
+def _save_cross_apply_baseline(tmp_path) -> Path:
+    oracle_file = tmp_path / "oracle_schema.sql"
+    oracle_file.write_text(_ORACLE_CROSS_APPLY_SOURCE)
+    baseline_path = tmp_path / "baseline.json"
+    # --output here is just to keep this helper's own report off stdout --
+    # callers frequently assert on captured.out for the *next* main()
+    # call, and this scan's own JSON dump would otherwise leak into it.
+    scan_report_path = tmp_path / "_discard_scan_report.json"
+    exit_code = main(
+        [str(oracle_file), "--save", str(baseline_path), "--format", "json", "--output", str(scan_report_path)]
+    )
+    assert exit_code == 0
+    return baseline_path
+
+
+def test_verify_reports_still_present_when_the_pattern_survives_in_generated_code(tmp_path, capsys):
+    baseline_path = _save_cross_apply_baseline(tmp_path)
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_STILL_BROKEN)
+
+    exit_code = main(["--verify", "--baseline", str(baseline_path), str(generated)])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "STILL_PRESENT" in captured.out
+    assert "cross_apply" in captured.out
+    assert "GAP-022" in captured.out
+
+
+def test_verify_reports_not_detected_when_the_pattern_is_gone_from_generated_code(tmp_path, capsys):
+    baseline_path = _save_cross_apply_baseline(tmp_path)
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_FIXED)
+
+    exit_code = main(["--verify", "--baseline", str(baseline_path), str(generated)])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "NOT_DETECTED" in captured.out
+    assert "STILL_PRESENT" not in captured.out
+
+
+def test_verify_json_output(tmp_path, capsys):
+    baseline_path = _save_cross_apply_baseline(tmp_path)
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_STILL_BROKEN)
+
+    exit_code = main(
+        ["--verify", "--baseline", str(baseline_path), "--format", "json", str(generated)]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    data = json.loads(captured.out)
+    assert data["baseline_detectors"] == 1
+    assert data["still_present"] == 1
+    assert data["results"][0]["detector"] == "cross_apply"
+    assert data["results"][0]["status"] == "still_present"
+
+
+def test_verify_reports_not_verifiable_for_a_dropped_construct_detector(tmp_path, capsys):
+    oracle_file = tmp_path / "oracle_schema.sql"
+    oracle_file.write_text(
+        "CREATE TABLE audit_log (log_id NUMBER, message VARCHAR2(200)) READ ONLY;\n"
+    )
+    baseline_path = tmp_path / "baseline.json"
+    scan_report_path = tmp_path / "_discard_scan_report.json"
+    assert main(
+        [str(oracle_file), "--save", str(baseline_path), "--format", "json", "--output", str(scan_report_path)]
+    ) == 0
+
+    # Whatever the generated table looks like, read_only_table is
+    # NOT_VERIFIABLE by construction: ora2pg drops READ ONLY from every
+    # migration's output, so its presence/absence in the generated file
+    # proves nothing either way.
+    generated = tmp_path / "generated.sql"
+    generated.write_text("CREATE TABLE audit_log (log_id bigint, message varchar(200));\n")
+
+    exit_code = main(["--verify", "--baseline", str(baseline_path), str(generated)])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "NOT_VERIFIABLE" in captured.out
+
+
+def test_verify_requires_baseline(tmp_path, capsys):
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_STILL_BROKEN)
+    exit_code = main(["--verify", str(generated)])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--baseline" in captured.err
+
+
+def test_verify_rejects_conflicting_flags(tmp_path, capsys):
+    baseline_path = _save_cross_apply_baseline(tmp_path)
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_STILL_BROKEN)
+
+    exit_code = main(
+        ["--verify", "--baseline", str(baseline_path), "--fail-on", "high", str(generated)]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--verify" in captured.err
+
+
+def test_verify_rejects_unsupported_format(tmp_path, capsys):
+    baseline_path = _save_cross_apply_baseline(tmp_path)
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_STILL_BROKEN)
+
+    exit_code = main(
+        ["--verify", "--baseline", str(baseline_path), "--format", "html", str(generated)]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--format" in captured.err
+
+
+def test_verify_can_write_to_a_file(tmp_path):
+    baseline_path = _save_cross_apply_baseline(tmp_path)
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_STILL_BROKEN)
+    output_path = tmp_path / "verification.json"
+
+    exit_code = main(
+        [
+            "--verify",
+            "--baseline",
+            str(baseline_path),
+            "--format",
+            "json",
+            "--output",
+            str(output_path),
+            str(generated),
+        ]
+    )
+    assert exit_code == 0
+    data = json.loads(output_path.read_text())
+    assert data["results"][0]["status"] == "still_present"
+
+
+def test_verify_english_output(tmp_path, capsys):
+    baseline_path = _save_cross_apply_baseline(tmp_path)
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_STILL_BROKEN)
+
+    exit_code = main(
+        ["--verify", "--baseline", str(baseline_path), "--lang", "en", str(generated)]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Post-migration verification" in captured.out
+    assert "Проверка после миграции" not in captured.out

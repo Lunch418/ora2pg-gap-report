@@ -372,7 +372,8 @@ pytest
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Как проверять
 изменения, что за корпус реального открытого кода используется для
 проверки детекторов, как подтвердить находку на живой Oracle — в
-[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). Как прислать находку или
+PR — в [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Changelog
 

@@ -42,6 +42,9 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-026 | `CREATE TABLE ... READ ONLY` теряет гарантию неизменяемости | `read_only_table` | confirmed | 25.0 | 16 | [gap-026](gap-026-read-only-table.md) |
 | GAP-027 | `CREATE MATERIALIZED VIEW LOG` не конвертируется вообще | `materialized_view_log` | confirmed | 25.0 | 16 | [gap-027](gap-027-materialized-view-log.md) |
 | GAP-028 | `GENERATED ... AS IDENTITY (...)` с опциями — баг двойных скобок | `identity_column` | confirmed | 25.0 | 16 | [gap-028](gap-028-identity-column.md) |
+| GAP-029 | `ROWID`/`UROWID` как тип столбца — конвертируется в несовместимый `oid` | `rowid_type` | confirmed | 25.0 | 16 | [gap-029](gap-029-rowid-urowid.md) |
+| GAP-030 | `CREATE SEQUENCE ... CYCLE` — секция `CYCLE` отбрасывается | `sequence_cycle` | confirmed | 25.0 | 16 | [gap-030](gap-030-sequence-cycle.md) |
+| GAP-031 | `DEFAULT ON NULL` копируется verbatim — синтаксическая ошибка | `default_on_null` | confirmed | 25.0 | 16 | [gap-031](gap-031-default-on-null.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

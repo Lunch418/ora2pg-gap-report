@@ -90,6 +90,9 @@ _REMEDIATION_HINT = {
     "read_only_table": "Настроить REVOKE INSERT/UPDATE/DELETE от всех ролей или BEFORE-триггер, отклоняющий DML — ora2pg теряет секцию READ ONLY",
     "materialized_view_log": "Спроектировать обновление материализованных представлений через полный REFRESH MATERIALIZED VIEW — у PostgreSQL нет инкрементального FAST REFRESH",
     "identity_column": "Убрать лишнюю внешнюю пару скобок вокруг опций последовательности вручную — баг подстановки ora2pg, не пропуск конвертации",
+    "rowid_type": "Вручную выбрать подходящий тип (обычно text) для столбца, который ora2pg сконвертировал из ROWID/UROWID в oid",
+    "sequence_cycle": "Добавить CYCLE вручную в CREATE SEQUENCE, если циклическое поведение действительно нужно",
+    "default_on_null": "Переписать вручную на BEFORE-триггер или GENERATED ALWAYS AS (COALESCE(...)) STORED — прямого аналога DEFAULT ... ON NULL в PostgreSQL нет",
 }
 
 

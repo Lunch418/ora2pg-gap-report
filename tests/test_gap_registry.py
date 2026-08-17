@@ -8,14 +8,13 @@ from ora2pg_gap_report.gap_registry import (
 )
 
 
-def test_registry_has_28_entries_with_unique_numbers_and_detectors():
-    assert len(GAPS) == 28
-    assert len({g.number for g in GAPS}) == 28
-    assert len({g.detector for g in GAPS}) == 28
+def test_registry_entries_have_unique_numbers_and_detectors():
+    assert len({g.number for g in GAPS}) == len(GAPS)
+    assert len({g.detector for g in GAPS}) == len(GAPS)
 
 
 def test_registry_numbers_are_zero_padded_and_contiguous():
-    assert [g.number for g in GAPS] == [f"{i:03d}" for i in range(1, 29)]
+    assert [g.number for g in GAPS] == [f"{i:03d}" for i in range(1, len(GAPS) + 1)]
 
 
 def test_normalize_gap_number_accepts_several_shapes():

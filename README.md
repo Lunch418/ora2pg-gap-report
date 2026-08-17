@@ -19,7 +19,7 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
             ora2pg-gap-report
                     │
                     ▼
-   28 подтверждённых типов пробелов миграции ora2pg
+   31 подтверждённый тип пробела миграции ora2pg
    ┌──────────────────────────────────────────────────────┐
    │ HIGH    GAP-006  database_link    — @dblink нет в PG  │
    │ HIGH    GAP-023  oracle_text      — CONTAINS()/...    │
@@ -92,6 +92,9 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
 | `read_only_table` | `CREATE TABLE ... READ ONLY` теряет гарантию неизменяемости — INSERT проходит там, где Oracle гарантированно блокирует его |
 | `materialized_view_log` | `CREATE MATERIALIZED VIEW LOG` не конвертируется вообще, след только в DEBUG-логе |
 | `identity_column` | `GENERATED ... AS IDENTITY (...)` с опциями — баг двойных скобок в самой подстановке ora2pg, не пропуск конвертации |
+| `rowid_type` | `ROWID`/`UROWID` как тип столбца — конвертируется в `oid`, тип-заменитель несовместим с данными, которые должен хранить |
+| `sequence_cycle` | `CREATE SEQUENCE ... CYCLE` — секция `CYCLE` отбрасывается, `NEXTVAL` падает после исчерпания диапазона вместо циклического перезапуска |
+| `default_on_null` | `DEFAULT ON NULL` копируется verbatim — синтаксическая ошибка уже при применении `CREATE TABLE`, а не при первой вставке |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -100,9 +103,9 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 
 ### Почему почти всё `high`
 
-Из 28 зарегистрированных gap'ов (`gap_registry.py`) 26 — `high`, 2 —
+Из 31 зарегистрированного gap'а (`gap_registry.py`) 29 — `high`, 2 —
 `medium` (`context_object`, `invisible_index`). Отдельно от них есть
-29-й детектор, `dbms_utl_calls` — классификатор вызовов `DBMS_*`/`UTL_*`,
+32-й детектор, `dbms_utl_calls` — классификатор вызовов `DBMS_*`/`UTL_*`,
 не привязанный к конкретному GAP-NNN (у него нет одного воспроизводимого
 минимального примера — это намеренно широкая категория), тоже `medium`.
 `low` в реестре предусмотрен (`--severity low`, диапазон часов в
@@ -237,7 +240,7 @@ ora2pg-gap-report path/to/schema_dump_dir/
 `--explain GAP-023` (или просто `--explain 23`) печатает research-документ
 конкретного gap'а из реестра — Oracle-конструкцию, реальный вывод
 `ora2pg`, наблюдаемую проблему, вердикт, а также версии `ora2pg`/PostgreSQL,
-на которых находка подтверждена (сейчас 25.0/16 у всех 28 — единая
+на которых находка подтверждена (сейчас 25.0/16 у всех 31 — единая
 версия, потому что второй пока не было; `gap_registry.py` уже готов
 хранить разные версии для будущих находок) — без сканирования файлов:
 

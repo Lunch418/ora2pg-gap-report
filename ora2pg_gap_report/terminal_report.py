@@ -36,7 +36,12 @@ from rich.tree import Tree
 
 from . import i18n
 from .baseline import BaselineDiff
-from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
+from .effort_estimator import (
+    distinct_detector_count,
+    estimate_hours,
+    ordered_counts,
+    summarize_by_severity,
+)
 from .i18n import REMEDIATION_HINT_EN
 from .models import Finding
 from .verification import DetectorVerification
@@ -166,7 +171,7 @@ def render(
         title = i18n.t(lang, "explanation_panel_title", detector=detector, n=n)
         console.print(Panel(Text(message), title=title, title_align="left", border_style="dim"))
 
-    _render_effort_panel(console, lo, hi, lang)
+    _render_effort_panel(console, lo, hi, distinct_detector_count(findings), len(findings), lang)
     _render_footer_hints(console, lang)
 
 
@@ -254,7 +259,14 @@ def _render_findings_summary(console: Console, counts: dict[str, int], lang: str
     )
 
 
-def _render_effort_panel(console: Console, lo: float, hi: float, lang: str = "ru") -> None:
+def _render_effort_panel(
+    console: Console,
+    lo: float,
+    hi: float,
+    distinct_patterns: int,
+    total_findings: int,
+    lang: str = "ru",
+) -> None:
     mid = (lo + hi) / 2
     rows = Table.grid(padding=(0, 2))
     rows.add_column(style="dim")
@@ -265,6 +277,12 @@ def _render_effort_panel(console: Console, lo: float, hi: float, lang: str = "ru
 
     body = Text()
     body.append(i18n.t(lang, "effort_disclaimer"), style="dim")
+    if distinct_patterns < total_findings:
+        body.append("\n")
+        body.append(
+            i18n.t(lang, "effort_patterns_note", patterns=distinct_patterns, findings=total_findings),
+            style="dim",
+        )
 
     group = Group(rows, Text(), body)
     console.print(

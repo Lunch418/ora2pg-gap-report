@@ -11,6 +11,16 @@ mode this wrapper supports.
 Requires a working `ora2pg` install on PATH (or pass ora2pg_bin=). Not
 installable via pip — it's a Perl tool, not a Python package; see README
 for setup.
+
+Parses ora2pg's --estimate_cost output by matching its exact comment-line
+text format ("-- Function X total estimated cost: N", "-- Total estimated
+cost: N units, M person-day(s)", etc. — see the _*_RE patterns below).
+That format is ora2pg's own, not a stable interface this project
+controls or ora2pg documents as one — a future ora2pg release that
+rewords its output would make these regexes silently stop matching
+(count as "nothing found", not raise an error). Confirmed against the
+ora2pg version this project researches against (gap_registry.py's
+ora2pg_version), not re-verified automatically against newer releases.
 """
 
 import re

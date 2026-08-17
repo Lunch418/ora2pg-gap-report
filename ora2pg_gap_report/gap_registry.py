@@ -88,6 +88,9 @@ GAPS: tuple[GapEntry, ...] = (
         "035", "conditional_compilation", "conditional-compilation", ("test_conditional_compilation.py",)
     ),
     GapEntry("036", "package_state", "package-state", ("test_package_state.py",)),
+    GapEntry(
+        "037", "index_organized_table", "index-organized-table", ("test_index_organized_table.py",)
+    ),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

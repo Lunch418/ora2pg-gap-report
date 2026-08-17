@@ -62,8 +62,11 @@
 | 031 | `default_on_null` | high | ✅ | ✅ (`ON NULL` копируется как есть) | ✅ `ERROR: syntax error at or near "ON"` уже на CREATE TABLE | 7 / 2 | нет |
 | 032 | `public_synonym` | high | ✅ | ✅ (переписан в `CREATE VIEW` без схемы) | ✅ `ERROR: relation ... does not exist` при совпадении имён | 8 / 1 | нет |
 | 033 | `virtual_column` | medium | ✅ | ✅ (переписан в столбец + триггер) | н/д — значение корректно, теряется только защита от явного присваивания | 8 / 4 | нет |
+| 034 | `nested_subprogram` | high | ✅ | ✅ (тело искажено, вложенность расплющена) | ✅ `ERROR: syntax error at or near "BEGIN"` на первом вызове | 9 / 3 | да — `test_real_open_source_logger_nested_procedure_inside_conditional_compilation_is_flagged` (`get_cgi_env`/`append_cgi_env`, `Logger`; сканирование полного файла реально находит 5 таких пар) |
+| 035 | `conditional_compilation` | high | ✅ | ✅ (`$IF`/`$THEN`/`$ELSE`/`$END` копируются как есть) | ✅ `ERROR: syntax error at or near "$"` на первом вызове | 6 / 2 | да — `test_real_open_source_logger_assert_procedure_is_flagged` (`assert`, `Logger`; сканирование полного файла реально находит 229 таких директив) |
+| 036 | `package_state` | high | ✅ | ✅ (`set_config`/`current_setting` без приведения типа/`missing_ok`) | ✅ `ERROR: function set_config(unknown, bigint, boolean) does not exist` | 13 / 4 | да — `test_real_open_source_logger_package_variables_are_flagged` (`g_log_id`/`g_running_timers`/`g_in_plugin_error`, `Logger`) |
 
-**33/33 по каждому из первых пяти критериев.** Отдельная колонка —
+**36/36 по каждому из первых пяти критериев.** Отдельная колонка —
 проверка на реальном открытом коде: 9 детекторов (`autonomous_tx`,
 `bulk_collect`, `object_type`, `global_temp_table`, `table_partitioning`,
 `json_table`, `collection_type`, `oracle_text`, `with_function`) реально

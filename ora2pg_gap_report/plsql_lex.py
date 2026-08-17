@@ -323,7 +323,7 @@ def own_declare_text(text: str, declare_start: int, begin_pos: int, nested_spans
 
 _CREATE_PREFIX = r"CREATE\s+(?:OR\s+REPLACE\s+)?"
 _EDITIONABLE_PREFIX = r"(?:EDITIONABLE\s+|NONEDITIONABLE\s+)?"
-_PACKAGE_BODY_NAME_RE = re.compile(
+PACKAGE_BODY_NAME_RE = re.compile(
     qualified_name_pattern(_CREATE_PREFIX + _EDITIONABLE_PREFIX + r"PACKAGE\s+BODY"), re.IGNORECASE
 )
 # A package *spec* ('CREATE [OR REPLACE] PACKAGE name IS/AS ...', no BODY
@@ -334,7 +334,7 @@ _PACKAGE_BODY_NAME_RE = re.compile(
 # falling back to object_name='UNKNOWN' because only PACKAGE BODY was
 # recognized as a 'package' container here. The negative lookahead is
 # what keeps this from double-matching a real 'PACKAGE BODY name'
-# occurrence (already handled by _PACKAGE_BODY_NAME_RE above) as a
+# occurrence (already handled by PACKAGE_BODY_NAME_RE above) as a
 # second, spurious 'package' entry at the same position.
 _PACKAGE_SPEC_NAME_RE = re.compile(
     qualified_name_pattern(_CREATE_PREFIX + _EDITIONABLE_PREFIX + r"PACKAGE(?!\s+BODY\b)"), re.IGNORECASE
@@ -342,7 +342,7 @@ _PACKAGE_SPEC_NAME_RE = re.compile(
 # A standalone 'CREATE [OR REPLACE] PROCEDURE/FUNCTION name' — distinct from
 # ROUTINE_START_RE, which only matches routines declared *inside* a package
 # body ('PROCEDURE name IS', at the start of a line with no CREATE prefix).
-_STANDALONE_ROUTINE_RE = re.compile(
+STANDALONE_ROUTINE_RE = re.compile(
     _CREATE_PREFIX + rf"(?:FUNCTION|PROCEDURE)\s+({IDENTIFIER})",
     re.IGNORECASE,
 )
@@ -376,7 +376,7 @@ _VIEW_NAME_RE = re.compile(
 _GRANT_OR_REVOKE_RE = re.compile(r"\s*(?:GRANT|REVOKE)\b", re.IGNORECASE)
 
 
-def _is_inside_grant_or_revoke_statement(text: str, create_pos: int) -> bool:
+def is_inside_grant_or_revoke_statement(text: str, create_pos: int) -> bool:
     """True if the 'CREATE' at create_pos is part of an *enclosing*
     GRANT/REVOKE statement's privilege list ('GRANT CREATE SESSION,
     CREATE SYNONYM, CREATE VIEW TO oe;', a real line from
@@ -421,29 +421,29 @@ def enclosing_object_name_index(text: str) -> list[tuple[int, str, str]]:
     tagged = (
         [
             (m.start(), "package", m.group(1).upper())
-            for m in _PACKAGE_BODY_NAME_RE.finditer(text)
-            if not _is_inside_grant_or_revoke_statement(text, m.start())
+            for m in PACKAGE_BODY_NAME_RE.finditer(text)
+            if not is_inside_grant_or_revoke_statement(text, m.start())
         ]
         + [
             (m.start(), "package", m.group(1).upper())
             for m in _PACKAGE_SPEC_NAME_RE.finditer(text)
-            if not _is_inside_grant_or_revoke_statement(text, m.start())
+            if not is_inside_grant_or_revoke_statement(text, m.start())
         ]
         + [(m.start(), "nested_routine", m.group(1).upper()) for m in ROUTINE_START_RE.finditer(text)]
         + [
             (m.start(), "standalone_routine", m.group(1).upper())
-            for m in _STANDALONE_ROUTINE_RE.finditer(text)
-            if not _is_inside_grant_or_revoke_statement(text, m.start())
+            for m in STANDALONE_ROUTINE_RE.finditer(text)
+            if not is_inside_grant_or_revoke_statement(text, m.start())
         ]
         + [
             (m.start(), "trigger", m.group(1).upper())
             for m in _TRIGGER_NAME_RE.finditer(text)
-            if not _is_inside_grant_or_revoke_statement(text, m.start())
+            if not is_inside_grant_or_revoke_statement(text, m.start())
         ]
         + [
             (m.start(), "view", m.group(1).upper())
             for m in _VIEW_NAME_RE.finditer(text)
-            if not _is_inside_grant_or_revoke_statement(text, m.start())
+            if not is_inside_grant_or_revoke_statement(text, m.start())
         ]
     )
     return sorted(tagged, key=lambda t: t[0])

@@ -47,6 +47,9 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-031 | `DEFAULT ON NULL` копируется verbatim — синтаксическая ошибка | `default_on_null` | confirmed | 25.0 | 16 | [gap-031](gap-031-default-on-null.md) |
 | GAP-032 | `CREATE [PUBLIC] SYNONYM` — теряет схему целевого объекта | `public_synonym` | confirmed | 25.0 | 16 | [gap-032](gap-032-public-synonym.md) |
 | GAP-033 | `GENERATED ALWAYS AS (...) VIRTUAL` — теряет защиту `ORA-54016` | `virtual_column` | confirmed | 25.0 | 16 | [gap-033](gap-033-virtual-column.md) |
+| GAP-034 | Локальная вложенная процедура/функция — портится при экспорте | `nested_subprogram` | confirmed | 25.0 | 16 | [gap-034](gap-034-nested-subprogram.md) |
+| GAP-035 | `$IF`/`$ELSIF`/`$ELSE`/`$END` копируются verbatim | `conditional_compilation` | confirmed | 25.0 | 16 | [gap-035](gap-035-conditional-compilation.md) |
+| GAP-036 | Пакетная переменная — сломанная эмуляция через `set_config` | `package_state` | confirmed | 25.0 | 16 | [gap-036](gap-036-package-state.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

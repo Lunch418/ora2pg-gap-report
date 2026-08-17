@@ -440,8 +440,12 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
     detector granularity. See verification.py's module docstring for why
     finding-level matching (file/object/snippet) doesn't survive the
     Oracle-to-PostgreSQL boundary."""
+    # args.explain isn't checked here: main() dispatches --explain first
+    # and returns before ever reaching this function, so by the time
+    # we're here args.explain is always None. The --explain branch above
+    # is the one that has to know about --verify (and does).
     conflicting = any(
-        (args.explain, args.save, args.fail_on, args.check_connect_by, args.severity, args.object)
+        (args.save, args.fail_on, args.check_connect_by, args.severity, args.object)
     )
     if conflicting:
         err_console.print(i18n.t(lang, "verify_conflict_error"))
@@ -548,7 +552,7 @@ def main(argv: list[str] | None = None) -> int:
         # those flags are there to act on, silently masking a real gate
         # failure instead of erroring on the nonsensical combination.
         conflicting = args.paths or any(
-            (args.fail_on, args.save, args.baseline, args.check_connect_by)
+            (args.fail_on, args.save, args.baseline, args.check_connect_by, args.verify)
         )
         if conflicting:
             err_console.print(i18n.t(lang, "explain_conflict_error"))

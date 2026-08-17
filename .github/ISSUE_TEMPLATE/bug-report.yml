@@ -1,0 +1,33 @@
+name: Баг в инструменте
+description: Ложное срабатывание, пропущенная находка, падение CLI, некорректный вывод
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Что произошло
+      description: Ожидаемое поведение vs фактическое
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Как воспроизвести
+      description: Команда и, если возможно, минимальный входной файл
+      render: sh
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия ora2pg-gap-report
+      description: "`ora2pg-gap-report --version`"
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Версия Python
+      placeholder: "3.11"
+    validations:
+      required: false

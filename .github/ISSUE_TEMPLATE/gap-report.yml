@@ -1,0 +1,43 @@
+name: Находка (конструкция без детектора)
+description: Oracle-конструкция, которую ora2pg конвертирует с потерей семантики или багом, а в реестре её ещё нет
+labels: ["gap-candidate"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        См. также [issue #2](https://github.com/Lunch418/ora2pg-gap-report/issues/2)
+        и [`CONTRIBUTING.md`](../../CONTRIBUTING.md). Гипотеза становится
+        детектором только после того, как воспроизведена на настоящем
+        `ora2pg` + настоящем PostgreSQL — если у вас нет возможности это
+        проверить, всё равно заводите issue, но пометьте это явно ниже.
+  - type: textarea
+    id: example
+    attributes:
+      label: Минимальный пример Oracle DDL/PL-SQL
+      description: Максимально сокращённый, воспроизводимый пример
+      render: sql
+    validations:
+      required: true
+  - type: textarea
+    id: ora2pg-output
+    attributes:
+      label: Что делает ora2pg
+      description: Реальный вывод конвертации (не по документации). Если не прогоняли — укажите это явно.
+      render: sql
+    validations:
+      required: true
+  - type: textarea
+    id: postgres-result
+    attributes:
+      label: Что происходит при загрузке результата в PostgreSQL
+      description: Ошибка загрузки DDL, ошибка при первом вызове, тихая смена поведения — что именно
+    validations:
+      required: false
+  - type: input
+    id: versions
+    attributes:
+      label: Версии
+      description: ora2pg / PostgreSQL, на которых проверяли (если проверяли)
+      placeholder: "ora2pg 25.0, PostgreSQL 16"
+    validations:
+      required: false

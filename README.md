@@ -49,6 +49,15 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
 эмпирически на открытом PL/SQL-коде (`docs/research/step0-show-report-baseline.md`),
 а не взят на веру.
 
+| | |
+|---|---|
+| 🔍 **Статический анализ** | Ищет паттерны в исходном Oracle-коде, не требует установленного `ora2pg` (кроме `connect_by`, см. ниже) |
+| 🧪 **Воспроизводимо** | Каждая находка подтверждена реальным прогоном `ora2pg` + PostgreSQL, а не по документации |
+| 📊 **6 форматов вывода** | terminal, markdown, json, csv, `sarif`, `html` — один и тот же набор находок |
+| 🤖 **CI-гейт** | `--fail-on` + SARIF для GitHub/GitLab code scanning |
+| 📦 **Работает офлайн** | Автономный бандл для закрытых контуров (`scripts/build_offline_bundle.py`), см. ниже |
+| 🔄 **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED между прогонами |
+
 ## Детекторы
 
 | Детектор | Что ловит |

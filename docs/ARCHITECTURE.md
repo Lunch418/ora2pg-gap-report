@@ -12,7 +12,7 @@
 принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
 госсектор.
 
-Детекторов сейчас 34 (полная таблица — в README.md, «Детекторы»; 33 из
+Детекторов сейчас 37 (полная таблица — в README.md, «Детекторы»; 36 из
 них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
 README.md, «Почему почти всё high»), и почти все они устроены
 одинаково: анализируют Oracle-исходник напрямую и не требуют
@@ -72,7 +72,10 @@ ora2pg_gap_report/
 │   ├── sequence_cycle.py        # CREATE SEQUENCE ... CYCLE — секция отбрасывается
 │   ├── default_on_null.py       # DEFAULT ... ON NULL — копируется verbatim, syntax error
 │   ├── public_synonym.py        # CREATE [PUBLIC] SYNONYM — теряет схему целевого объекта
-│   └── virtual_column.py        # GENERATED ALWAYS AS (...) VIRTUAL — теряет защиту ORA-54016
+│   ├── virtual_column.py        # GENERATED ALWAYS AS (...) VIRTUAL — теряет защиту ORA-54016
+│   ├── nested_subprogram.py     # локальная вложенная процедура/функция — портится при экспорте
+│   ├── conditional_compilation.py # $IF/$ELSIF/$ELSE/$END — копируются verbatim
+│   └── package_state.py         # пакетная переменная — сломанная эмуляция через set_config
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── i18n.py                     # язык вывода (--lang/--set-lang): резолюция, английские
 │                               # строки UI и переводы объяснений детекторов
@@ -172,21 +175,21 @@ dblink-стратегии добавляет суффикс `_atx` — и фай
 Не поведенческая/функциональная проверка: инструмент не подключается ни
 к одной из баз, ничего не выполняет, не сравнивает данные. Он просто
 запускает те же детекторы на сгенерированном файле вместо исходного
-Oracle-файла — и это работает не для всех 34 детекторов одинаково,
+Oracle-файла — и это работает не для всех 37 детекторов одинаково,
 потому что не все конструкции одинаково переживают конвертацию:
 
-- **`VERBATIM`** (14 детекторов) — `ora2pg` копирует помеченную
+- **`VERBATIM`** (15 детекторов) — `ora2pg` копирует помеченную
   Oracle-конструкцию в вывод практически без изменений (подтверждено по
   собственному research-документу каждого детектора, разделу «что
-  делает ora2pg»): `bulk_collect`, `cross_apply`, `database_link`,
-  `dbms_utl_calls`, `default_on_null`, `flashback_query`,
-  `identity_column`, `insert_all`, `json_table`, `merge_delete_clause`,
-  `model_clause`, `object_type`, `pivot_clause`, `recursive_with`. Для
-  них повторный прогон того же детектора по сгенерированному файлу —
-  реальная проверка: `STILL_PRESENT`, если паттерн остался,
-  `NOT_DETECTED`, если пропал.
+  делает ora2pg»): `bulk_collect`, `conditional_compilation`,
+  `cross_apply`, `database_link`, `dbms_utl_calls`, `default_on_null`,
+  `flashback_query`, `identity_column`, `insert_all`, `json_table`,
+  `merge_delete_clause`, `model_clause`, `object_type`, `pivot_clause`,
+  `recursive_with`. Для них повторный прогон того же детектора по
+  сгенерированному файлу — реальная проверка: `STILL_PRESENT`, если
+  паттерн остался, `NOT_DETECTED`, если пропал.
 
-- **`NOT_VERIFIABLE`** (19 детекторов) — `ora2pg` либо целиком
+- **`NOT_VERIFIABLE`** (21 детектор) — `ora2pg` либо целиком
   отбрасывает конструкцию или полностью переписывает её в другую форму
   (`read_only_table`, `table_partitioning`, `invisible_column`,
   `invisible_index`, `external_table`, `collection_type`,
@@ -195,12 +198,16 @@ Oracle-файла — и это работает не для всех 34 дет�
   `CREATE VIEW`, ключевые слова `SYNONYM`/`FOR` не переживают
   конвертацию, `virtual_column` — конструкция переписывается в обычный
   столбец + триггер, `GENERATED ALWAYS AS ... VIRTUAL` не переживает
+  конвертацию, `package_state` — пакетная переменная переписывается в
+  вызовы `set_config`/`current_setting`, само объявление не переживает
   конвертацию — конкретное ключевое слово/тип, которое ищет детектор,
   физически не может оказаться в выводе ни при какой миграции, вне
   зависимости от того, решил ли кто-то проблему вручную другим
   способом), либо настолько разваливает окружающую структуру
-  (`with_function`, `connect_by_nocycle` — см. их собственные research-
-  документы, «разваливает структуру»), что чистое повторное
+  (`with_function`, `connect_by_nocycle`, `nested_subprogram` —
+  вложенность полностью расплющивается при экспорте, повторное
+  обнаружение самой структуры нельзя доверять — см. их собственные
+  research-документы, «разваливает структуру»), что чистое повторное
   обнаружение нельзя доверять. `oracle_text` смешанный (сам
   домен-индекс отбрасывается, вызовы `CONTAINS`/`CATSEARCH`/`MATCHES`
   копируются как есть) и консервативно отнесён целиком к

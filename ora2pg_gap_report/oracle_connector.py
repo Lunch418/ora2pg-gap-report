@@ -143,7 +143,18 @@ def export_schema(conn, owner: str, output_dir: Path) -> list[Path]:
 
     One file per object (not one combined dump) so a partial re-export
     after a schema change only touches the objects that changed, and so a
-    single broken object doesn't block collecting the rest."""
+    single broken object doesn't block collecting the rest.
+
+    Only auto-discovers and exports these two object types — standalone
+    procedures/functions, views, materialized views, and object types are
+    not listed or exported automatically, even though get_ddl() itself
+    (see above) accepts any DBMS_METADATA object type and would happily
+    export them one at a time if a caller asked for them by name. A
+    schema whose logic lives outside PACKAGE BODY/TRIGGER (standalone
+    functions in particular) needs its DDL gathered another way before
+    the detectors can see it — this project's own detectors would still
+    analyze such a file correctly if it were fed in, the gap is purely in
+    what this function discovers on its own."""
     output_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
 

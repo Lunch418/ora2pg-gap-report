@@ -239,3 +239,38 @@ def test_every_detector_registered_in_cli_has_a_remediation_hint():
         "connect_by",  # opt-in via --check-connect-by, not in cli._DETECTORS
     }
     assert registered_names <= set(_REMEDIATION_HINT.keys())
+
+
+def test_render_empty_findings_in_english():
+    console = Console(record=True, width=100)
+    render([], console=console, lang="en")
+    text = console.export_text()
+    assert "No problematic constructs found." in text
+
+
+def test_render_uses_english_ui_strings_and_hint_when_lang_is_en():
+    findings = [_finding(detector="read_only_table")]
+    console = Console(record=True, width=200)
+    render(findings, console=console, lang="en")
+    text = console.export_text()
+
+    assert "Problematic objects found" in text
+    assert "Найдено" not in text
+    assert "All findings" in text
+    assert "Recommendations" in text
+    assert "Explanations" in text
+    assert "Manual rework estimate" in text
+    # the English remediation hint for read_only_table, not the Russian one
+    assert "ora2pg drops the READ ONLY section" in text
+
+
+def test_render_baseline_diff_in_english():
+    from ora2pg_gap_report.baseline import BaselineDiff
+    from ora2pg_gap_report.terminal_report import render_baseline_diff
+
+    diff = BaselineDiff(new=[_finding()], resolved=[], unchanged_count=0)
+    console = Console(record=True, width=200)
+    render_baseline_diff(diff, console=console, lang="en")
+    text = console.export_text()
+    assert "Baseline comparison" in text
+    assert "New findings" in text

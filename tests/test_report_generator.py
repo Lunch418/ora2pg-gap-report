@@ -175,3 +175,27 @@ def test_to_html_severity_badge_classes():
     assert 'class="sev-high"' in report
     assert 'class="sev-medium"' in report
     assert 'class="sev-low"' in report
+
+
+def test_to_markdown_empty_findings_in_english():
+    assert "No problematic constructs found." in to_markdown([], lang="en")
+
+
+def test_to_markdown_uses_english_column_headers():
+    markdown = to_markdown([SAMPLE_FINDING], lang="en")
+    assert "| File | Object | Line | Severity | Snippet | Comment |" in markdown
+    assert "Файл" not in markdown
+
+
+def test_to_html_empty_findings_in_english():
+    report = to_html([], lang="en")
+    assert "No problematic constructs found." in report
+    assert 'lang="en"' in report
+
+
+def test_to_html_uses_english_headers_and_title():
+    report = to_html([SAMPLE_FINDING], lang="en")
+    assert "<th>File</th>" in report
+    assert "ora2pg-gap-report report" in report
+    assert "README.md" in report  # the effort-estimate caveat's citation, not PROJECT_BRIEF.md
+    assert "PROJECT_BRIEF" not in report

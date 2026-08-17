@@ -102,6 +102,8 @@ VERIFICATION_MODE: dict[str, str] = {
     "sql_macro": NOT_VERIFIABLE,  # the SQL_MACRO keyword itself is dropped unconditionally
     "rowid_type": NOT_VERIFIABLE,  # ROWID/UROWID is rewritten to oid, the keyword never survives
     "sequence_cycle": NOT_VERIFIABLE,  # the CYCLE keyword itself is dropped unconditionally
+    "public_synonym": NOT_VERIFIABLE,  # rewritten to CREATE VIEW; SYNONYM/FOR never survive
+    "virtual_column": NOT_VERIFIABLE,  # rewritten to a plain column + trigger; the clause never survives
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists
     # for verify to compare against.

@@ -514,3 +514,33 @@ def statement_end(text: str, search_from: int, next_match_start: int | None) -> 
     semi = text.find(";", search_from)
     candidates = [c for c in (semi if semi != -1 else None, next_match_start) if c is not None]
     return min(candidates) if candidates else len(text)
+
+
+def table_column_definition_list(text: str, table_name_end: int) -> tuple[int, int] | None:
+    """Given the end of 'CREATE TABLE [schema.]name', the (open_paren_pos,
+    close_paren_pos) span of the column-definition list's own '(...)' --
+    open_paren_pos is the index of the '(' itself, close_paren_pos the
+    index of its matching ')' (so the column list's own text is
+    text[open_paren_pos + 1 : close_paren_pos]). None if no '(' follows
+    the table name at all (only whitespace in between) -- a bare 'CREATE
+    TABLE name AS SELECT ...' (a common dedup/diagnostic-table CTAS) has
+    no column-type list for a caller to search at all, as opposed to
+    'CREATE TABLE name (col_list) AS SELECT ...', which does have one
+    (column names only, no types -- those come from the SELECT).
+
+    Exists so a detector matching a column-level clause (a data type
+    like ROWID/UROWID, a GENERATED ALWAYS AS (...) VIRTUAL clause) can
+    search only the column-definition list itself, not a CTAS's trailing
+    AS SELECT clause -- searching past the column list risks misreading
+    an unrelated pseudocolumn/alias in the SELECT as if it were a column
+    declaration (e.g. 'SELECT ROWID rid, ...' is not a ROWID-typed
+    column). Shared rather than reimplemented per detector after the
+    identical scoping logic was found duplicated between rowid_type.py
+    and virtual_column.py during a code review of the latter."""
+    pos = table_name_end
+    while pos < len(text) and text[pos] in " \t\r\n":
+        pos += 1
+    if pos >= len(text) or text[pos] != "(":
+        return None
+    close = skip_balanced_parens(text, pos) - 1
+    return pos, close

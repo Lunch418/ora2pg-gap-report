@@ -31,6 +31,7 @@ jobs:
 
   publish:
     needs: build
+    if: github.event.release.prerelease == false
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

@@ -80,6 +80,7 @@ VERIFICATION_MODE: dict[str, str] = {
     "recursive_with": VERBATIM,
     "identity_column": VERBATIM,
     "dbms_utl_calls": VERBATIM,
+    "default_on_null": VERBATIM,  # the ON NULL clause itself is copied into CREATE TABLE unchanged
     # NOT_VERIFIABLE -- ora2pg drops the construct entirely (the
     # Oracle-specific keyword the detector looks for cannot appear in the
     # output, by construction, on any migration) or mangles the
@@ -99,6 +100,8 @@ VERIFICATION_MODE: dict[str, str] = {
     "read_only_table": NOT_VERIFIABLE,
     "materialized_view_log": NOT_VERIFIABLE,
     "sql_macro": NOT_VERIFIABLE,  # the SQL_MACRO keyword itself is dropped unconditionally
+    "rowid_type": NOT_VERIFIABLE,  # ROWID/UROWID is rewritten to oid, the keyword never survives
+    "sequence_cycle": NOT_VERIFIABLE,  # the CYCLE keyword itself is dropped unconditionally
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists
     # for verify to compare against.

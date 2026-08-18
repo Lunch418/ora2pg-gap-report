@@ -12,7 +12,7 @@ python-oracledb installed (`pip install -e ".[oracle]"` from a checkout).
     docker compose -f scripts/oracle-test-compose.yml logs -f   # wait for "DATABASE IS READY TO USE"
     ORACLE_DSN=localhost:1521/FREEPDB1 ORACLE_USER=testuser ORACLE_PASSWORD=testpass1 \\
       python scripts/verify_against_live_oracle.py
-
+ 
 What this does:
   1. Creates a handful of stub tables the trigger fixtures need to exist
      (scripts/setup_oracle_test_schema.sql — CREATE TRIGGER validates its
@@ -61,7 +61,7 @@ def split_sql_statements(text: str) -> list[str]:
     """SQL*Plus convention: statements separated by a lone '/' on its own
     line (all the CREATE PACKAGE/TRIGGER samples use this). Falls back to
     splitting on ';' for plain DDL scripts that don't (setup_oracle_test_
-    schema.sql).
+    schema.sql). 
 
     Splits are located against a comment/string-masked copy of the text
     (same helper the detectors use, for the same reason): a lone '/'

@@ -1,11 +1,13 @@
 # ora2pg-gap-report
 
+*English | [Русский](README.ru.md)*
+
 [![tests](https://github.com/Lunch418/ora2pg-gap-report/actions/workflows/tests.yml/badge.svg)](https://github.com/Lunch418/ora2pg-gap-report/actions/workflows/tests.yml)
 [![PyPI](https://img.shields.io/pypi/v/ora2pg-gap-report)](https://pypi.org/project/ora2pg-gap-report/)
 [![Python](https://img.shields.io/pypi/pyversions/ora2pg-gap-report)](https://pypi.org/project/ora2pg-gap-report/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Инструмент для оценки миграции Oracle → PostgreSQL Pro (Standard/Certified) **до** её начала.
+A tool for assessing an Oracle → PostgreSQL Pro (Standard/Certified) migration **before** it starts.
 
 ```sh
 pip install ora2pg-gap-report
@@ -19,340 +21,339 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
             ora2pg-gap-report
                     │
                     ▼
-   37 подтверждённых типов пробелов миграции ora2pg
-   ┌──────────────────────────────────────────────────────┐
-   │ HIGH    GAP-006  database_link    — @dblink нет в PG  │
-   │ HIGH    GAP-023  oracle_text      — CONTAINS()/...    │
-   │ MEDIUM  GAP-025  invisible_index  — теряет скрытие    │
-   └──────────────────────────────────────────────────────┘
+   37 confirmed types of ora2pg migration gaps
+   ┌────────────────────────────────────────────────────────┐
+   │ HIGH    GAP-006  database_link    — @dblink not in PG  │
+   │ HIGH    GAP-023  oracle_text      — CONTAINS()/...     │
+   │ MEDIUM  GAP-025  invisible_index  — loses invisibility │
+   └────────────────────────────────────────────────────────┘
 ```
 
-![ora2pg-gap-report — сканирование реального PL/SQL-кода в терминале](docs/demo.gif)
+![ora2pg-gap-report — scanning real PL/SQL code in the terminal](docs/demo.gif)
 
-## Проблема
+## The problem
 
-При миграции с Oracle на Postgres Pro в сегменте Standard/Certified (то есть без
-лицензии на Postgres Pro Enterprise и без проприетарной утилиты `ora2pgpro`)
-единственный доступный автоматический конвертер — открытый
-[`ora2pg`](https://github.com/darold/ora2pg). По независимым оценкам он закрывает
-в среднем ~80% задачи перевода PL/SQL → PL/pgSQL. Оставшиеся ~20% (пакеты,
-автономные транзакции, `CONNECT BY`, вызовы `DBMS_*`/`UTL_*`, составные триггеры)
-сейчас разбираются вручную и, как правило, обнаруживаются постфактум — когда
-что-то уже сломалось в проде.
+Migrating from Oracle to Postgres Pro Standard/Certified (i.e. without a Postgres
+Pro Enterprise license and without the proprietary `ora2pgpro` utility), the only
+available automated converter is the open-source
+[`ora2pg`](https://github.com/darold/ora2pg). By independent estimates it covers
+around ~80% of the PL/SQL → PL/pgSQL conversion job on average. The remaining
+~20% (packages, autonomous transactions, `CONNECT BY`, `DBMS_*`/`UTL_*` calls,
+compound triggers) is currently sorted out by hand, and is typically discovered
+after the fact — once something has already broken in production.
 
-## Что делает этот инструмент
+## What this tool does
 
-Сканирует схему Oracle **до** миграции и говорит: какие конкретно объекты
-`ora2pg` пропустит без предупреждения, недооценит по трудоёмкости или
-сконвертирует потенциально некорректно — и почему. Не замена `ora2pg`, а
-надстройка над ним: список того, что он реально не переносит, проверен
-эмпирически на открытом PL/SQL-коде (`docs/research/step0-show-report-baseline.md`),
-а не взят на веру.
+Scans an Oracle schema **before** migration and reports exactly which objects
+`ora2pg` will skip without warning, underestimate the effort for, or convert
+potentially incorrectly — and why. Not a replacement for `ora2pg`, a layer on
+top of it: the list of what it actually fails to carry over was verified
+empirically against real PL/SQL code
+(`docs/research/step0-show-report-baseline.md`), not taken on faith.
 
 | | |
 |---|---|
-| **Статический анализ** | Ищет паттерны в исходном Oracle-коде, не требует установленного `ora2pg` (кроме `connect_by`, см. ниже) |
-| **Воспроизводимо** | Каждая находка подтверждена реальным прогоном `ora2pg` + PostgreSQL, а не по документации |
-| **6 форматов вывода** | terminal, markdown, json, csv, `sarif`, `html` — один и тот же набор находок |
-| **CI-гейт** | `--fail-on` + SARIF для GitHub/GitLab code scanning |
-| **Работает офлайн** | Автономный бандл для закрытых контуров (`scripts/build_offline_bundle.py`), см. ниже |
-| **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED между прогонами |
-| **Проверка после миграции** | `--verify` — что из pre-migration находок осталось в сгенерированном коде (не функциональная проверка, см. ниже) |
+| **Static analysis** | Looks for patterns in the source Oracle code, no `ora2pg` install required (except `connect_by`, see below) |
+| **Reproducible** | Every finding is confirmed by a real `ora2pg` + PostgreSQL run, not by reading the docs |
+| **6 output formats** | terminal, markdown, json, csv, `sarif`, `html` — the same set of findings every time |
+| **CI gate** | `--fail-on` + SARIF for GitHub/GitLab code scanning |
+| **Works offline** | Self-contained bundle for closed networks (`scripts/build_offline_bundle.py`), see below |
+| **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED between runs |
+| **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code (not a functional check, see below) |
 
-## Детекторы
+## Detectors
 
-| Детектор | Что ловит |
+| Detector | What it catches |
 |---|---|
-| `autonomous_tx` | `PRAGMA AUTONOMOUS_TRANSACTION` внутри `PACKAGE BODY` — ora2pg конвертирует через dblink, но занижает/теряет стоимость в `SHOW_REPORT`/`--estimate_cost` |
-| `compound_triggers` | `COMPOUND TRIGGER` — файловый парсер ora2pg тихо возвращает 0 триггеров, без единой ошибки |
-| `dbms_utl_calls` | Классификатор конкретных вызовов `DBMS_*`/`UTL_*` — что из них ora2pg реально конвертирует, а что остаётся как есть |
-| `connect_by` | Линтинг сгенерированного ora2pg `WITH RECURSIVE` на баг с `LEVEL`. Включается флагом `--check-connect-by` и, в отличие от остальных, требует установленный `ora2pg` |
-| `merge_delete_clause` | `MERGE ... WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ...` — составная Oracle-конструкция без аналога в MERGE PostgreSQL. Обычный MERGE без DELETE WHERE не ловится — не проблема |
-| `bulk_collect` | Локальные `TYPE ... IS TABLE OF`, `BULK COLLECT INTO`, `FORALL` — практически не конвертируются ora2pg. Самый частый в реальном коде из всех детекторов проекта |
-| `database_link` | `table@dblink_name` — прямая ссылка на удалённую БД через database link. Копируется как есть, эквивалента нет без ручной настройки postgres_fdw/dblink |
-| `model_clause` | `MODEL PARTITION BY ... DIMENSION BY ... MEASURES ... RULES` — spreadsheet-вычисления в SQL. Не имеет прямого эквивалента в PostgreSQL вообще |
-| `pivot_clause` | `PIVOT`/`UNPIVOT` — поворот строк в столбцы прямо в SQL. Копируется как есть, встроенного эквивалента в PostgreSQL нет |
-| `object_type` | `CREATE TYPE ... AS OBJECT`/`TYPE BODY` — объектные типы Oracle. `--estimate_cost` не имеет для них механизма оценки вообще, не просто занижает |
-| `with_function` | `WITH FUNCTION`/`WITH PROCEDURE` — встроенная функция внутри WITH. Парсер ora2pg разваливает структуру исходника, а не просто не конвертирует |
-| `flashback_query` | `AS OF TIMESTAMP`/`AS OF SCN` — flashback-запрос. Копируется как есть, эквивалента в PostgreSQL нет вообще |
-| `global_temp_table` | `CREATE GLOBAL TEMPORARY TABLE` — секция `ON COMMIT` теряется целиком, а умолчания Oracle и PostgreSQL противоположны (тихая смена поведения, не ошибка) |
-| `table_partitioning` | `PARTITION BY RANGE/LIST/HASH` — секционирование таблицы отбрасывается целиком, без единого предупреждения |
-| `connect_by_nocycle` | `CONNECT BY NOCYCLE`/`ORDER SIBLINGS BY` — в отличие от базового `CONNECT BY`, разваливает структуру всего окружающего PL/SQL-блока |
-| `context_object` | `CREATE CONTEXT` — application context (часто основа VPD) не конвертируется вообще, след только в DEBUG-логе |
-| `insert_all` | `INSERT ALL`/`INSERT FIRST` — многотабличная вставка. Копируется как есть, PL/pgSQL падает на этапе компиляции тела |
-| `json_table` | `JSON_TABLE(...)` — не существует в PostgreSQL 16 и старше (в 17 есть, но с другим синтаксисом COLUMNS) |
-| `external_table` | `CREATE TABLE ... ORGANIZATION EXTERNAL` — секция отбрасывается целиком, таблица становится обычной пустой |
-| `sql_macro` | `SQL_MACRO` — конвертируется в обычную функцию, падает при вызове тем способом, для которого была написана |
-| `invisible_column` | Столбец `INVISIBLE` теряет своё скрытие — тихо появляется в SELECT * после конвертации |
-| `collection_type` | `CREATE TYPE ... TABLE OF`/`VARRAY OF` — коллекционный тип пропадает без следа, зависимые таблицы падают уже при загрузке DDL |
-| `cross_apply` | `CROSS APPLY`/`OUTER APPLY` — синтаксиса APPLY нет в PostgreSQL вообще, ближайший эквивалент — JOIN LATERAL |
-| `oracle_text` | Oracle Text — домен-индекс (`INDEXTYPE IS CTXSYS.*`) отбрасывается, `CONTAINS`/`CATSEARCH`/`MATCHES` не переносятся |
-| `recursive_with` | Нативная рекурсивная `WITH ... AS (...)` (не через CONNECT BY) без ключевого слова `RECURSIVE`, которое требует PostgreSQL |
-| `invisible_index` | Индекс `INVISIBLE` теряет своё скрытие от оптимизатора — PostgreSQL не имеет аналога |
-| `read_only_table` | `CREATE TABLE ... READ ONLY` теряет гарантию неизменяемости — INSERT проходит там, где Oracle гарантированно блокирует его |
-| `materialized_view_log` | `CREATE MATERIALIZED VIEW LOG` не конвертируется вообще, след только в DEBUG-логе |
-| `identity_column` | `GENERATED ... AS IDENTITY (...)` с опциями — баг двойных скобок в самой подстановке ora2pg, не пропуск конвертации |
-| `rowid_type` | `ROWID`/`UROWID` как тип столбца — конвертируется в `oid`, тип-заменитель несовместим с данными, которые должен хранить |
-| `sequence_cycle` | `CREATE SEQUENCE ... CYCLE` — секция `CYCLE` отбрасывается, `NEXTVAL` падает после исчерпания диапазона вместо циклического перезапуска |
-| `default_on_null` | `DEFAULT ON NULL` копируется verbatim — синтаксическая ошибка уже при применении `CREATE TABLE`, а не при первой вставке |
-| `public_synonym` | `CREATE [PUBLIC] SYNONYM` — теряет схему целевого объекта, при совпадении имён получается самоссылающийся VIEW |
-| `virtual_column` | `GENERATED ALWAYS AS (...) VIRTUAL` — теряет защиту `ORA-54016` от явного присваивания, триггер молча подменяет значение |
-| `nested_subprogram` | Локальная вложенная процедура/функция — "утекает" наружу отдельным объектом, содержащий блок пропадает, тело искажается |
-| `conditional_compilation` | `$IF`/`$ELSIF`/`$ELSE`/`$END` копируются verbatim — падает при первом вызове, не при CREATE |
-| `package_state` | Пакетная переменная — эмуляция через `set_config`/`current_setting` сломана (нет приведения типа, нет `missing_ok`) |
-| `index_organized_table` | `ORGANIZATION INDEX` (IOT) отбрасывается — таблица становится обычной кучей с отдельным индексом, теряется архитектура хранения |
+| `autonomous_tx` | `PRAGMA AUTONOMOUS_TRANSACTION` inside a `PACKAGE BODY` — ora2pg converts it via dblink, but under-costs or drops the cost entirely in `SHOW_REPORT`/`--estimate_cost` |
+| `compound_triggers` | `COMPOUND TRIGGER` — ora2pg's file parser silently returns 0 triggers, with no error at all |
+| `dbms_utl_calls` | Classifier for specific `DBMS_*`/`UTL_*` calls — which ones ora2pg actually converts, and which are left as-is |
+| `connect_by` | Lints ora2pg's own generated `WITH RECURSIVE` for the `LEVEL` bug. Enabled with `--check-connect-by` and, unlike the others, requires `ora2pg` to be installed |
+| `merge_delete_clause` | `MERGE ... WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ...` — a compound Oracle construct with no equivalent in PostgreSQL's MERGE. A plain MERGE without DELETE WHERE isn't flagged — that's fine, it's not a gap |
+| `bulk_collect` | Local `TYPE ... IS TABLE OF`, `BULK COLLECT INTO`, `FORALL` — practically never converted by ora2pg. The most common finding in real-world code of any detector in this project |
+| `database_link` | `table@dblink_name` — a direct reference to a remote DB via database link. Copied as-is, no equivalent without manually setting up postgres_fdw/dblink |
+| `model_clause` | `MODEL PARTITION BY ... DIMENSION BY ... MEASURES ... RULES` — spreadsheet-style computation in SQL. Has no direct equivalent in PostgreSQL at all |
+| `pivot_clause` | `PIVOT`/`UNPIVOT` — rotating rows into columns directly in SQL. Copied as-is, PostgreSQL has no built-in equivalent |
+| `object_type` | `CREATE TYPE ... AS OBJECT`/`TYPE BODY` — Oracle object types. `--estimate_cost` has no costing mechanism for them at all, not just an underestimate |
+| `with_function` | `WITH FUNCTION`/`WITH PROCEDURE` — an inline function inside a query's own WITH clause. ora2pg's parser breaks the source structure, it doesn't just fail to convert it |
+| `flashback_query` | `AS OF TIMESTAMP`/`AS OF SCN` — a flashback query. Copied as-is, no equivalent in PostgreSQL at all |
+| `global_temp_table` | `CREATE GLOBAL TEMPORARY TABLE` — the `ON COMMIT` clause is dropped entirely, and Oracle's and PostgreSQL's defaults are opposite (a silent behavior change, not an error) |
+| `table_partitioning` | `PARTITION BY RANGE/LIST/HASH` — table partitioning is dropped entirely, with no warning at all |
+| `connect_by_nocycle` | `CONNECT BY NOCYCLE`/`ORDER SIBLINGS BY` — unlike plain `CONNECT BY`, breaks the structure of the entire surrounding PL/SQL block |
+| `context_object` | `CREATE CONTEXT` — an application context (often the basis for VPD) isn't converted at all, leaving only a trace in the DEBUG log |
+| `insert_all` | `INSERT ALL`/`INSERT FIRST` — a multi-table insert. Copied as-is, PL/pgSQL fails at body-compilation time |
+| `json_table` | `JSON_TABLE(...)` — doesn't exist in PostgreSQL 16 and earlier (it exists in 17, but with a different COLUMNS syntax) |
+| `external_table` | `CREATE TABLE ... ORGANIZATION EXTERNAL` — the section is dropped entirely, the table becomes an ordinary, empty one |
+| `sql_macro` | `SQL_MACRO` — converted into an ordinary function, fails when called the way it was written to be used |
+| `invisible_column` | An `INVISIBLE` column loses its invisibility — silently shows up in `SELECT *` after conversion |
+| `collection_type` | `CREATE TYPE ... TABLE OF`/`VARRAY OF` — the collection type vanishes without a trace, dependent tables fail as soon as the DDL is loaded |
+| `cross_apply` | `CROSS APPLY`/`OUTER APPLY` — PostgreSQL has no APPLY syntax at all, the closest equivalent is JOIN LATERAL |
+| `oracle_text` | Oracle Text — the domain index (`INDEXTYPE IS CTXSYS.*`) is dropped, `CONTAINS`/`CATSEARCH`/`MATCHES` are not carried over |
+| `recursive_with` | A native recursive `WITH ... AS (...)` (not via CONNECT BY) missing the `RECURSIVE` keyword that PostgreSQL requires |
+| `invisible_index` | An `INVISIBLE` index loses its invisibility to the optimizer — PostgreSQL has no equivalent |
+| `read_only_table` | `CREATE TABLE ... READ ONLY` loses its immutability guarantee — INSERT succeeds where Oracle would have reliably blocked it |
+| `materialized_view_log` | `CREATE MATERIALIZED VIEW LOG` isn't converted at all, leaving only a trace in the DEBUG log |
+| `identity_column` | `GENERATED ... AS IDENTITY (...)` with options — a double-parenthesis substitution bug in ora2pg itself, not a skipped conversion |
+| `rowid_type` | `ROWID`/`UROWID` as a column's data type — converted to `oid`, a replacement type incompatible with the data it's supposed to hold |
+| `sequence_cycle` | `CREATE SEQUENCE ... CYCLE` — the `CYCLE` section is dropped, `NEXTVAL` fails once the range is exhausted instead of wrapping around |
+| `default_on_null` | `DEFAULT ON NULL` is copied verbatim — a syntax error the moment `CREATE TABLE` itself is applied |
+| `public_synonym` | `CREATE [PUBLIC] SYNONYM` — loses the target object's schema; when the names match, the result is a self-referencing VIEW |
+| `virtual_column` | `GENERATED ALWAYS AS (...) VIRTUAL` — loses the `ORA-54016` protection against explicit assignment; the generated trigger silently overwrites the value |
+| `nested_subprogram` | A locally nested procedure/function "leaks" out as a separate object, its containing block disappears, and its body gets corrupted |
+| `conditional_compilation` | `$IF`/`$ELSIF`/`$ELSE`/`$END` are copied verbatim — fails on the first call, not at CREATE time |
+| `package_state` | A package-level variable — the `set_config`/`current_setting` emulation is broken (no type cast, no `missing_ok`) |
+| `index_organized_table` | `ORGANIZATION INDEX` (IOT) is dropped — the table becomes an ordinary heap with a separate index, losing the storage architecture |
 
-Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
-DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
-— живая выгрузка `PACKAGE BODY`/`TRIGGER` прямо из Oracle-схемы через
+Plus `ora2pg_wrapper.py` — runs `ora2pg` per object type against exported DDL
+and parses `--estimate_cost`, and `oracle_connector.py`/`oracle_export.py` —
+a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 `DBMS_METADATA.GET_DDL`.
 
-### Почему почти всё `high`
+### Why almost everything is `high`
 
-Из 37 зарегистрированных gap'ов (`gap_registry.py`) 33 — `high`, 4 —
+Of the 37 registered gaps (`gap_registry.py`), 33 are `high` and 4 are
 `medium` (`context_object`, `invisible_index`, `virtual_column`,
-`index_organized_table`). Отдельно от них есть 38-й детектор,
-`dbms_utl_calls` — классификатор вызовов `DBMS_*`/`UTL_*`,
-не привязанный к конкретному GAP-NNN (у него нет одного воспроизводимого
-минимального примера — это намеренно широкая категория), тоже `medium`.
-`low` в реестре предусмотрен (`--severity low`, диапазон часов в
-`effort_estimator.py`), но пока не присвоен ни одному детектору — это
-честно, не потому что критерий не придуман, а потому что ни один из
-подтверждённых случаев в него не попал. Не распределение ради
-распределения — так сложилось из реальных находок, и вот по какому
-принципу:
+`index_organized_table`). Separately, there's a 38th detector,
+`dbms_utl_calls` — a classifier for `DBMS_*`/`UTL_*` calls, not tied to a
+specific GAP-NNN (it has no single reproducible minimal example — that's a
+deliberately broad category), also `medium`. `low` is a valid value in the
+registry (`--severity low`, with an hour range in `effort_estimator.py`), but
+hasn't been assigned to any detector yet — honestly, not because the
+criterion wasn't thought through, but because none of the confirmed cases
+landed there. Not a distribution chosen for its own sake — it fell out of
+real findings, following this principle:
 
-- **`high`** — либо сгенерированный код реально не компилируется/не
-  выполняется в PostgreSQL (подтверждено прогоном на настоящем
-  PostgreSQL 16 — `ERROR: syntax error...` и подобные, см. таблицу в
-  `docs/research/AUDIT.md`), либо конструкция пропадает молча, но потеря
-  архитектурно значима: секционирование, внешняя таблица, materialized
-  view log, гарантия `READ ONLY`, database link — то, что либо ломает
-  миграцию, либо тихо меняет поведение системы так, что это заметят не
-  сразу, а на проде.
-- **`medium`** — не блокирует миграцию и не теряет данные, но реальное
-  расхождение поведения, которое стоит перепроверить: `invisible_index`
-  (индекс перестаёт быть скрытым от оптимизатора — влияет на план
-  запроса, не на корректность), `context_object` (прикладная фича,
-  часто основа VPD, но сама миграция от её потери не падает),
-  `virtual_column` (итоговое значение в столбце корректно — теряется не
-  данные, а ранняя диагностика ошибочного явного присваивания),
-  `index_organized_table` (ограничения целостности сохраняются —
-  теряется архитектура хранения, а не корректность), и отдельно
-  `dbms_utl_calls` (намеренно широкий классификатор — реальное влияние
-  конкретного вызова слишком разное, чтобы утверждать `high` для всех
-  разом не покривив душой).
+- **`high`** — either the generated code genuinely fails to compile/run in
+  PostgreSQL (confirmed by running it on real PostgreSQL 16 — `ERROR: syntax
+  error...` and similar, see the table in `docs/research/AUDIT.md`), or the
+  construct disappears silently but the loss is architecturally significant:
+  partitioning, an external table, a materialized view log, a `READ ONLY`
+  guarantee, a database link — things that either break the migration
+  outright or silently change system behavior in a way that isn't noticed
+  right away, only in production.
+- **`medium`** — doesn't block the migration and doesn't lose data, but a
+  real behavioral divergence worth double-checking: `invisible_index` (the
+  index stops being hidden from the optimizer — affects the query plan, not
+  correctness), `context_object` (an application feature, often the basis
+  for VPD, but the migration itself doesn't fail from losing it),
+  `virtual_column` (the final value in the column is correct — what's lost
+  isn't data, it's early diagnostics for a mistaken explicit assignment),
+  `index_organized_table` (integrity constraints are preserved — what's lost
+  is storage architecture, not correctness), and separately `dbms_utl_calls`
+  (a deliberately broad classifier — the real impact of a specific call
+  varies too much to honestly call all of them `high`).
 
-## Методология
+## Methodology
 
-Этот проект не пытается найти детектор под каждую специфичную для Oracle
-конструкцию. `ROWNUM`, `DECODE`, `NVL`, `SYSDATE`, `%TYPE`, sequences,
-стандартная семантика исключений — всё это `ora2pg` конвертирует корректно,
-и детекторы под них не нужны, как бы по-ораклиному сложно они ни звучали.
+This project doesn't try to find a detector for every Oracle-specific
+construct that exists. `ROWNUM`, `DECODE`, `NVL`, `SYSDATE`, `%TYPE`,
+sequences, standard exception semantics — `ora2pg` converts all of these
+correctly, and no detector is needed for them, however exotically
+Oracle-flavored they sound.
 
-Новый детектор появляется только после того, как гипотеза проверена на
-практике:
+A new detector only appears once the hypothesis has been checked in practice:
 
-1. Берётся конкретная Oracle-конструкция.
-2. Собирается минимальный воспроизводимый пример.
-3. Пример прогоняется через настоящий `ora2pg`.
-4. Сгенерированный PostgreSQL-код проверяется на корректность.
-5. Если `ora2pg` справился — гипотеза отклоняется, детектора не будет.
-   Если нашёлся реальный, воспроизводимый баг — заводится тест-фикстура и
-   пишется детектор.
+1. Pick a specific Oracle construct.
+2. Build a minimal reproducible example.
+3. Run the example through real `ora2pg`.
+4. Check the generated PostgreSQL code for correctness.
+5. If `ora2pg` handled it — the hypothesis is rejected, no detector gets
+   written. If a real, reproducible bug turns up — a test fixture is added
+   and a detector gets written.
 
-Так, например, отсеялась изначальная гипотеза про `CREATE PACKAGE` — на
-первый взгляд очевидный кандидат, а на практике `ora2pg` переносит его без
-проблем (`docs/research/step0-show-report-baseline.md`). И так же
-подтвердились `COMPOUND TRIGGER` и баг с `LEVEL` в `CONNECT BY` — оба
-воспроизведены на реальном прогоне `ora2pg`, а не предположены по описанию.
+That's how the initial hypothesis about `CREATE PACKAGE` was ruled out, for
+example — an obvious-looking candidate at first glance, but in practice
+`ora2pg` carries it over without issue
+(`docs/research/step0-show-report-baseline.md`). And that's how `COMPOUND
+TRIGGER` and the `LEVEL` bug in `CONNECT BY` were confirmed — both
+reproduced on a real `ora2pg` run, not assumed from a description.
 
-Все подтверждённые находки пронумерованы и собраны в
-[`docs/research/GAP_REGISTRY.md`](docs/research/GAP_REGISTRY.md) — по
-каждой указано, каким детектором она покрыта и на какой версии `ora2pg`
-подтверждена. [`docs/research/AUDIT.md`](docs/research/AUDIT.md) — сводная
-проверка доказательной базы по каждому подтверждённому gap'у
-(research-документ, реальный вывод ora2pg, expected/actual, тесты,
-включая guard-тесты на ложные срабатывания).
+Every confirmed finding is numbered and collected in
+[`docs/research/GAP_REGISTRY.md`](docs/research/GAP_REGISTRY.md) — each
+entry states which detector covers it and against which `ora2pg` version it
+was confirmed. [`docs/research/AUDIT.md`](docs/research/AUDIT.md) is a
+summary check of the evidence behind every confirmed gap (research doc, real
+ora2pg output, expected/actual, tests, including guard tests against false
+positives).
 
-## Установка и использование
+## Installation and usage
 
 ```sh
-pip install ora2pg-gap-report   # (или: pip install . из клона репозитория)
+pip install ora2pg-gap-report   # (or: pip install . from a repo checkout)
 ```
 
-Сама детекторная библиотека (`detectors/`, `models.py`,
-`report_generator.py`) — чистый Python без единой внешней зависимости, её
-можно импортировать отдельно (например, в своих скриптах) вообще без
-установки чего-либо ещё. У CLI есть одна обязательная зависимость —
-[`rich`](https://github.com/Textualize/rich), только ради приятного
-терминального вывода; ставится сама через `pip install`.
+The detector library itself (`detectors/`, `models.py`,
+`report_generator.py`) is pure Python with zero external dependencies — it
+can be imported on its own (e.g. from your own scripts) without installing
+anything else at all. The CLI has exactly one required dependency —
+[`rich`](https://github.com/Textualize/rich), purely for a pleasant terminal
+output; it installs itself via `pip install`.
 
-Сразу после установки доступна команда:
+Right after installation, the command is available:
 
 ```sh
 ora2pg-gap-report path/to/schema_dump.pkb another_file.sql
 ```
 
-В интерактивном терминале по умолчанию — цветной отчёт: сводная панель
-(сколько найдено, разбивка по severity, грубая оценка часов), компактная
-таблица находок и пояснения под каждым сработавшим детектором. Для
-скриптов/redirect — `--format markdown`, `--format json`, `--format csv`,
-`--format sarif` или `--format html` (markdown работает и как формат по
-умолчанию, если stdout не терминал):
+In an interactive terminal, the default is a colored report: a summary panel
+(how many findings, breakdown by severity, a rough hour estimate), a compact
+findings table, and an explanation under every detector that fired. For
+scripts/redirects — `--format markdown`, `--format json`, `--format csv`,
+`--format sarif`, or `--format html` (markdown also serves as the default
+format whenever stdout isn't a terminal):
 
 ```sh
 ora2pg-gap-report path/to/schema_dump.pkb --format json --output report.json
 ora2pg-gap-report path/to/schema_dump.pkb --format markdown > report.md
 ora2pg-gap-report path/to/schema_dump.pkb --format csv --output report.csv
 
-# SARIF 2.1.0 — для GitHub code scanning (Security tab) или GitLab SAST.
-# Severity сопоставлена с уровнями SARIF: high → error, medium → warning,
-# low → note (у SARIF нет отдельного уровня critical, как и у самого
-# инструмента).
+# SARIF 2.1.0 — for GitHub code scanning (Security tab) or GitLab SAST.
+# Severity is mapped to SARIF levels: high → error, medium → warning,
+# low → note (SARIF has no separate critical level, and neither does
+# this tool).
 ora2pg-gap-report path/to/schema_dump.pkb --format sarif --output report.sarif
 
-# Самодостаточная HTML-страница (без внешних CSS/JS/шрифтов — открывается
-# офлайн) — показать заказчику/руководству, без установки чего-либо.
+# A self-contained HTML page (no external CSS/JS/fonts — opens offline)
+# — to show a client/manager, without installing anything.
 ora2pg-gap-report path/to/schema_dump.pkb --format html --output report.html
 
-# Опционально: линтинг сгенерированного ora2pg кода для CONNECT BY.
-# Требует установленный ora2pg (см. https://github.com/darold/ora2pg) —
-# единственная внешняя (не-Python) зависимость во всём проекте, и только
-# для этой конкретной проверки.
+# Optional: lint ora2pg's own generated code for CONNECT BY.
+# Requires ora2pg to be installed (see https://github.com/darold/ora2pg)
+# — the only external (non-Python) dependency anywhere in this project,
+# and only for this one specific check.
 ora2pg-gap-report path/to/schema_dump.pkb --check-connect-by
 ```
 
-Формат `--format json` описан формальной JSON Schema —
-[`schemas/report.schema.json`](schemas/report.schema.json) (а формат
-baseline-снапшота из `--save`/`--baseline` — в
-[`schemas/baseline.schema.json`](schemas/baseline.schema.json)), чтобы
-сторонние инструменты могли надёжно парсить вывод, не угадывая по
-примерам. Обе схемы проверяются в тестах против реального вывода
-(`tests/test_schemas.py`) — не просто написаны и оставлены как есть.
-`--format sarif` тем же способом проверяется в `tests/test_sarif.py`
-против официальной SARIF 2.1.0 схемы OASIS (заведена в
-`tests/fixtures/`, чтобы тесты не зависели от сети).
+The `--format json` format is described by a formal JSON Schema —
+[`schemas/report.schema.json`](schemas/report.schema.json) (and the
+baseline-snapshot format from `--save`/`--baseline` is in
+[`schemas/baseline.schema.json`](schemas/baseline.schema.json)), so
+third-party tools can reliably parse the output instead of guessing from
+examples. Both schemas are checked in the tests against real output
+(`tests/test_schemas.py`) — not just written and left as-is. `--format
+sarif` is checked the same way in `tests/test_sarif.py` against the
+official OASIS SARIF 2.1.0 schema (vendored into `tests/fixtures/`, so the
+tests don't depend on the network).
 
-Файлы с DDL можно передавать как есть — один файл может содержать сразу
-несколько пакетов/триггеров, детекторы разбирают границы объектов сами.
-Можно передать и директорию — рекурсивно просканируются все `.sql`/
-`.pks`/`.pkb` внутри (например, вся папка с выгрузкой
-`DBMS_METADATA.GET_DDL`):
+DDL files can be passed as-is — a single file may contain multiple
+packages/triggers, the detectors figure out object boundaries themselves.
+A directory can be passed too: everything with a `.sql`/`.pks`/`.pkb`
+extension inside gets scanned recursively (e.g. an entire
+`DBMS_METADATA.GET_DDL` export directory):
 
 ```sh
 ora2pg-gap-report path/to/schema_dump_dir/
 ```
 
-`ora2pg-gap-report --version` — показать установленную версию.
+`ora2pg-gap-report --version` — show the installed version.
 
-### Документация прямо из CLI
+### Documentation straight from the CLI
 
-`--explain GAP-023` (или просто `--explain 23`) печатает research-документ
-конкретного gap'а из реестра — Oracle-конструкцию, реальный вывод
-`ora2pg`, наблюдаемую проблему, вердикт, а также версии `ora2pg`/PostgreSQL,
-на которых находка подтверждена (сейчас 25.0/16 у всех 37 — единая
-версия, потому что второй пока не было; `gap_registry.py` уже готов
-хранить разные версии для будущих находок) — без сканирования файлов:
+`--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
+document from the registry — the Oracle construct, real `ora2pg` output, the
+observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
+finding was confirmed against (currently 25.0/16 for all 37 — a single
+version, because there hasn't been a second one yet; `gap_registry.py` is
+already set up to store different versions for future findings) — without
+scanning any files:
 
 ```sh
 ora2pg-gap-report --explain GAP-023
 ```
 
-Research-документы (`docs/research/`) — часть репозитория, но не часть
-pip-пакета (пакет — только сам `ora2pg_gap_report/`). Если запущено из
-установленного через `pip install` пакета, а не из клона репозитория,
-`--explain` вместо текста документа покажет прямую ссылку на него на
-GitHub.
+Research documents (`docs/research/`) are part of the repository but not
+part of the pip package (the package is `ora2pg_gap_report/` only). When run
+from a package installed via `pip install`, rather than from a repo
+checkout, `--explain` shows a direct link to the document on GitHub instead
+of the document's text.
 
-### Язык вывода
+### Output language
 
-По умолчанию вывод на русском — не меняется без явного действия, чтобы
-существующие скрипты и CI, которые парсят текущий вывод, продолжали
-работать без изменений. Английский доступен как опция:
+The default output is in Russian — it doesn't change without an explicit
+action, so existing scripts and CI that parse the current output keep
+working unchanged. English is available as an option:
 
-- `--lang en` — только для этого запуска, ничего не сохраняет;
-- `--set-lang` — открывает выбор языка (`[1] English` / `[2] Русский`) и
-  сохраняет его как язык по умолчанию для всех будущих запусков
-  (`~/.config/ora2pg-gap-report/language`, либо `$XDG_CONFIG_HOME`);
-- `ORA2PG_GAP_REPORT_LANG=en` — для CI, не сохраняется;
-- при первом запуске в интерактивном терминале, если язык нигде не
-  задан, `--set-lang`-выбор показывается один раз сам и сохраняется.
+- `--lang en` — for this run only, saves nothing;
+- `--set-lang` — opens a language picker (`[1] English` / `[2] Русский`) and
+  saves it as the default for all future runs
+  (`~/.config/ora2pg-gap-report/language`, or `$XDG_CONFIG_HOME`);
+- `ORA2PG_GAP_REPORT_LANG=en` — for CI, not saved;
+- on first run in an interactive terminal, if no language is set anywhere,
+  the `--set-lang` picker shows itself once and saves the choice.
 
-Порядок приоритета: `--lang` → переменная окружения → сохранённый выбор
-→ интерактивный выбор (только реальный терминал) → русский по умолчанию.
+Priority order: `--lang` → environment variable → saved choice → interactive
+picker (a real terminal only) → Russian by default.
 
-Переведён весь вывод сканирования: терминальный отчёт, `--format
-markdown/html`, объяснения и рекомендации по каждому детектору,
-сообщения об ошибках. Не переведены: `--help` (нужно знать язык раньше,
-чем argparse разберёт `--lang` из аргументов — отдельная задача, не
-сделана в этом заходе) и сами research-документы `docs/research/`
-(`--explain` при `--lang en` печатает их текст на русском, как и
-раньше, — переведён только заголовок с версиями).
+The entire scan output is translated: the terminal report, `--format
+markdown/html`, per-detector explanations and remediation hints, error
+messages. Not translated: `--help` (would need to know the language before
+argparse has parsed `--lang` out of argv — a separate piece of work, not
+done in this pass) and the research documents themselves in
+`docs/research/` (`--explain` under `--lang en` still prints their text in
+Russian, as before — only the version header is translated).
 
-### Отслеживание прогресса миграции (baseline)
+### Tracking migration progress (baseline)
 
-Схема обычно правится итеративно — снимок «что не так сейчас», потом
-доработка, потом повторный прогон. `--save` сохраняет находки текущего
-прогона как снапшот; `--baseline` сравнивает следующий прогон с ним и
-показывает NEW/RESOLVED/UNCHANGED (в stderr, отдельно от самого отчёта):
+A schema is usually fixed up iteratively — a snapshot of "what's wrong
+right now," then some fixes, then a re-run. `--save` stores the current
+run's findings as a snapshot; `--baseline` compares the next run against it
+and shows NEW/RESOLVED/UNCHANGED (on stderr, separate from the report
+itself):
 
 ```sh
 ora2pg-gap-report path/to/schema_dump/ --save baseline.json
-# ... правите схему, конвертируете часть объектов вручную ...
+# ... fix up the schema, convert some objects by hand ...
 ora2pg-gap-report path/to/schema_dump/ --baseline baseline.json
 ```
 
-Находки сопоставляются между прогонами не по номеру строки (он скачет
-при любой правке файла), а по отпечатку из детектора, файла, объекта и
-найденного фрагмента — так что находка узнаётся как «та же» даже если
-вокруг нее переписали код. `--save`/`--baseline` всегда работают по
-полному набору находок, независимо от `--severity`/`--object` (эти флаги
-влияют только на то, что выводится в отчёте).
+Findings are matched between runs not by line number (which shifts on any
+file edit), but by a fingerprint built from the detector, file, object, and
+matched snippet — so a finding is recognized as "the same one" even if the
+code around it was rewritten. `--save`/`--baseline` always operate on the
+full set of findings, regardless of `--severity`/`--object` (those flags
+only affect what gets displayed in the report).
 
-### CI-гейт
+### CI gate
 
-`--fail-on high` (или `medium`/`low`) — завершиться с кодом `1`, если
-среди находок есть хотя бы одна с этим уровнем серьёзности или выше
-(`high` выше `medium` выше `low`). Так же, как `--save`/`--baseline`,
-оценивается по полному набору находок, а не по тому, что осталось после
-`--severity`/`--object`:
+`--fail-on high` (or `medium`/`low`) — exit with code `1` if there's at
+least one finding at that severity level or higher (`high` above `medium`
+above `low`). Like `--save`/`--baseline`, this is evaluated against the full
+set of findings, not what's left after `--severity`/`--object`:
 
 ```sh
 ora2pg-gap-report path/to/schema_dump/ --fail-on high
-echo $?   # 1, если нашёлся хотя бы один high
+echo $?   # 1 if at least one high finding turned up
 ```
 
-Пример реального вывода на открытом пакете —
+A real-world output example against an open-source package —
 [`docs/examples/logger-autonomous_tx-report.md`](docs/examples/logger-autonomous_tx-report.md).
 
-Оценка трудозатрат в отчёте — грубая эвристика по severity (диапазон
-часов, не точечное число). Это ориентир для планирования, а не
-откалиброванная на реальных миграциях оценка — не стоит выдавать её
-клиенту как обязательство. Диапазон severity оценивает только *первое*
-вхождение каждого детектора — повторные находки того же детектора
-(тот же выученный фикс, применённый ещё раз, не новая задача) считаются
-по отдельному, гораздо меньшему диапазону, а не как независимые
-high/medium-задачи каждая: 8 находок `autonomous_tx` в одном пакете —
-не 8 отдельных проблем.
+The effort estimate in the report is a rough heuristic by severity (an hour
+range, not a single number). It's a planning reference, not an estimate
+calibrated against real migrations — don't hand it to a client as a
+commitment. The severity range only prices the *first* occurrence of each
+detector — repeat findings from the same detector (the same already-learned
+fix applied again, not a new task) are priced with a separate, much smaller
+range instead of being counted as independent high/medium tasks each: 8
+`autonomous_tx` findings in one package isn't 8 separate problems.
 
-### Проверка после миграции (`--verify`)
+### Post-migration check (`--verify`)
 
-`--save`/`--baseline` сравнивают два прогона по Oracle-исходнику во
-времени. `--verify` — другое: сравнивает pre-migration находки с тем,
-что реально осталось в **сгенерированном ora2pg PostgreSQL-коде**:
+`--save`/`--baseline` compare two runs against the Oracle source over time.
+`--verify` is different: it compares pre-migration findings against what
+actually remains in the **generated ora2pg PostgreSQL code**:
 
 ```sh
-ora2pg-gap-report oracle_schema/ --save migration.json   # до миграции
-# ... прогоняете ora2pg, получаете generated_postgresql/ ...
+ora2pg-gap-report oracle_schema/ --save migration.json   # before migration
+# ... run ora2pg, get generated_postgresql/ ...
 ora2pg-gap-report --verify --baseline migration.json generated_postgresql/
 ```
 
 ```text
-Детекторов в baseline  4
-Осталось               2
-Не обнаружено          1
-Нельзя проверить       1
+Baseline detectors  4
+Still present        2
+Not detected          1
+Not verifiable        1
 
 cross_apply       GAP-022   3 → 1   STILL_PRESENT
 json_table        GAP-017   2 → 0   NOT_DETECTED
@@ -360,108 +361,116 @@ identity_column   GAP-028   4 → 4   STILL_PRESENT
 read_only_table   GAP-026   1 → —   NOT_VERIFIABLE
 ```
 
-Это **не** функциональная проверка — инструмент никуда не подключается,
-ничего не выполняет, не сравнивает данные. Он статически ищет тот же
-паттерн уже в сгенерированном коде. И даже так работает не для всех
-детекторов:
+This is **not** a functional check — the tool never connects to a database,
+never executes anything, never compares data. It statically looks for the
+same pattern already in the generated code. And even so, it doesn't work
+the same way for every detector:
 
-- **Часть конструкций `ora2pg` копирует в вывод как есть** (`cross_apply`,
-  `json_table`, `identity_column` и ещё 10 — полный список в
-  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)) — для них повторный
-  прогон детектора по выводу осмыслен: `STILL_PRESENT`, если паттерн
-  остался, `NOT_DETECTED`, если пропал.
-- **Часть `ora2pg` молча выбрасывает** (`read_only_table`,
-  `table_partitioning`, ещё 13) — конструкции в выводе нет *по
-  определению*, независимо от того, починил ли кто-то проблему вручную
-  другим способом. Для них честный статус — `NOT_VERIFIABLE`, а не
-  фиктивный `NOT_DETECTED`: считать отсутствие доказательством
-  исправления было бы ровно той придуманной уверенностью, которой этот
-  проект специально избегает (см. «Почему почти всё `high`» выше).
+- **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
+  `json_table`, `identity_column`, and 10 more — full list in
+  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)) — for these, re-running the
+  detector against the output is meaningful: `STILL_PRESENT` if the pattern
+  remains, `NOT_DETECTED` if it's gone.
+- **Some `ora2pg` drops silently** (`read_only_table`, `table_partitioning`,
+  13 more) — the construct isn't in the output *by definition*, regardless
+  of whether someone fixed the problem by hand some other way. For these,
+  the honest status is `NOT_VERIFIABLE`, not a fabricated `NOT_DETECTED`:
+  treating absence as proof of a fix would be exactly the kind of
+  manufactured confidence this project specifically avoids (see "Why almost
+  everything is `high`" above).
 
-`NOT_DETECTED` тоже не означает «доказанно исправлено» — только «паттерн
-не нашёлся в этом коде». Разница мелкая, но именно она отделяет честную
-проверку от красивой лжи.
+`NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't
+found in this code." A small difference, but it's exactly what separates an
+honest check from a comfortable lie.
 
-`--verify` — самостоятельный режим: требует `--baseline`, несовместим с
+`--verify` is a standalone mode: requires `--baseline`, incompatible with
 `--explain`/`--save`/`--fail-on`/`--check-connect-by`/`--severity`/`--object`,
-поддерживает только `--format terminal` (по умолчанию) и `--format json`.
+supports only `--format terminal` (default) and `--format json`.
 
-## Выгрузка DDL прямо из Oracle (опционально)
+## Exporting DDL directly from Oracle (optional)
 
-Если под рукой живая Oracle-схема, а не уже готовый DDL-дамп:
+If you have a live Oracle schema on hand instead of an already-prepared DDL
+dump:
 
 ```sh
-pip install "ora2pg-gap-report[oracle]"   # добавляет python-oracledb, thin-режим, без Instant Client
+pip install "ora2pg-gap-report[oracle]"   # adds python-oracledb, thin mode, no Instant Client
 
 ora2pg-gap-export --dsn host:1521/ORCLPDB1 --user hr --output-dir dumps/
-# пароль — из переменной окружения ORACLE_PASSWORD, либо будет запрошен интерактивно
+# the password comes from the ORACLE_PASSWORD environment variable, or is prompted for interactively
 
 ora2pg-gap-report dumps/*.sql
 ```
 
-`ora2pg-gap-export` — отдельная команда, не флаг у `ora2pg-gap-report`,
-специально: выгрузка требует сетевого доступа к Oracle, анализ — никогда.
-В закрытом контуре это часто две разные машины (jump host с доступом к БД
-и изолированная рабочая станция для анализа) — единственное, что должно
-пересечь границу между ними, это уже выгруженные `.sql` файлы.
+`ora2pg-gap-export` is a separate command, not a flag on
+`ora2pg-gap-report`, deliberately: exporting requires network access to
+Oracle, analysis never does. In a closed environment this is often two
+different machines (a jump host with DB access, and an isolated workstation
+for analysis) — the only thing that needs to cross that boundary is the
+already-exported `.sql` files.
 
-## Установка без интернета (закрытый контур)
+## Installing without internet access (closed network)
 
-Целевая аудитория этого инструмента — как раз изолированные сети без
-выхода наружу, поэтому `pip install` там обычно не вариант. Решение —
-собрать самодостаточный архив на машине с интернетом, перенести его
-любым доступным способом (`scp`/`sftp`/через jump host/на флешке) и
-поставить на целевой машине уже совсем без сети:
+This tool's target audience is exactly isolated networks with no outside
+access, so `pip install` usually isn't an option there. The solution: build
+a self-contained archive on a machine with internet access, move it over by
+whatever means the environment allows (`scp`/`sftp`/via a jump host/on a USB
+drive), and install it on the target machine with no network at all:
 
 ```sh
-# На машине с интернетом, из клона репозитория:
-python scripts/build_offline_bundle.py --oracle   # --oracle опционально, --dev для pytest
-# → ora2pg-gap-report-offline.tar.gz (пакет + rich + всё транзитивно,
-#   включая oracledb и его зависимости, если указан --oracle)
+# On a machine with internet access, from a repo checkout:
+python scripts/build_offline_bundle.py --oracle   # --oracle is optional, --dev for pytest
+# → ora2pg-gap-report-offline.tar.gz (the package + rich + everything
+#   transitively, including oracledb and its dependencies if --oracle is given)
 
 scp ora2pg-gap-report-offline.tar.gz user@jump-host:/tmp/
-# ...дальше как получится добраться до целевой машины в контуре —
-# sftp, ещё один jump host, физический перенос
+# ...however you can get it the rest of the way to the target machine —
+# sftp, another jump host, a physical transfer
 
-# На целевой машине БЕЗ интернета:
+# On the target machine, WITHOUT internet access:
 tar xzf ora2pg-gap-report-offline.tar.gz
 cd ora2pg-gap-report-offline
-./install.sh oracle        # или: python3 install.py oracle
+./install.sh oracle        # or: python3 install.py oracle
 ```
 
-`install.sh`/`install.py` вызывают `pip install --no-index --find-links=./wheels
-...` — pip ставит целиком из положенных рядом `.whl`-файлов, ни одного
-обращения в сеть.
+`install.sh`/`install.py` call `pip install --no-index
+--find-links=./wheels ...` — pip installs entirely from the `.whl` files
+sitting next to it, not a single network call.
 
-`rich` и его зависимости (`markdown-it-py`, `pygments`, `mdurl`) —
-чистый Python, один набор wheel-файлов работает везде. `oracledb`
-(только при `--oracle`) собирает платформозависимые wheel — если
-машина сборки отличается от целевой по ОС/архитектуре/версии Python,
-передайте `--platform`/`--python-version`/`--abi` в
-`build_offline_bundle.py` (см. `--help`), чтобы скачать wheel именно
-под целевую платформу, а не под ту, где запущен скрипт.
+`rich` and its dependencies (`markdown-it-py`, `pygments`, `mdurl`) are pure
+Python — one set of wheels works everywhere. `oracledb` (only pulled in with
+`--oracle`) ships platform-specific wheels — if the build machine differs
+from the target machine's OS/architecture/Python version, pass
+`--platform`/`--python-version`/`--abi` to `build_offline_bundle.py` (see
+`--help`) to download wheels for the actual target platform, not the one
+the script happens to be running on.
 
-## Разработка и архитектура
+Every GitHub Release also ships a base bundle (no `--oracle`) as a
+downloadable asset — built the same way in CI — for anyone who just wants
+the base install without running the script themselves.
+
+## Development and architecture
 
 ```sh
-pip install -e ".[dev]"   # editable-режим + pytest
+pip install -e ".[dev]"   # editable mode + pytest
 pytest
 ```
 
-Как устроен инструмент внутри (лексер, маскирование, атрибуция находок,
-обработка динамического SQL, файловая структура) — в
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Как проверять
-изменения, что за корпус реального открытого кода используется для
-проверки детекторов, как подтвердить находку на живой Oracle — в
-[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). Как прислать находку или
-PR — в [`CONTRIBUTING.md`](CONTRIBUTING.md), нормы поведения — в
-[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), как сообщить об уязвимости —
-в [`SECURITY.md`](SECURITY.md).
+How the tool is built internally (the lexer, masking, finding attribution,
+dynamic SQL handling, file layout) — in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). How to verify changes, what
+real open-source code corpus is used to check detectors for false
+positives, how to confirm a finding against a live Oracle instance — in
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). How to submit a finding or a
+PR — in [`CONTRIBUTING.md`](CONTRIBUTING.md), code of conduct — in
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), how to report a vulnerability —
+in [`SECURITY.md`](SECURITY.md).
+
+(These deeper docs are currently in Russian only.)
 
 ## Changelog
 
-История изменений по версиям — [CHANGELOG.md](CHANGELOG.md).
+Version history — [CHANGELOG.md](CHANGELOG.md).
 
-## Лицензия
+## License
 
-MIT, см. [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

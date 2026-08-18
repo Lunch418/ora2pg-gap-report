@@ -7,6 +7,20 @@ patch — исправления в существующих.
 
 ## [Unreleased]
 
+### Added
+- `.github/workflows/publish.yml`: новая джоба `offline-bundle` — при
+  публикации релиза автоматически собирает
+  `ora2pg-gap-report-offline.tar.gz` (базовая установка, без `--oracle`
+  — платформозависимые wheel `oracledb` не гарантированно совпадут с
+  целевой машиной) и прикрепляет его как asset к GitHub Release.
+- `README.md` теперь на английском (основной, видимый по умолчанию на
+  GitHub/PyPI), текущий русский переехал в `README.ru.md` — вверху
+  обоих переключатель языка. `description` в `pyproject.toml` тоже
+  переведён — раньше был на русском, пока GitHub-About и PyPI-страница
+  расходились по языку. Более глубокие доки
+  (`ARCHITECTURE.md`/`DEVELOPMENT.md`/`CONTRIBUTING.md`) пока остаются
+  только русскими.
+
 ## [0.6.0] - 2026-08-18
 
 ### Added

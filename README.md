@@ -27,7 +27,7 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
    └──────────────────────────────────────────────────────┘
 ```
 
-![ora2pg-gap-report — пример вывода в терминале](docs/screenshot.svg)
+![ora2pg-gap-report — сканирование реального PL/SQL-кода в терминале](docs/demo.gif)
 
 ## Проблема
 
@@ -454,7 +454,9 @@ pytest
 изменения, что за корпус реального открытого кода используется для
 проверки детекторов, как подтвердить находку на живой Oracle — в
 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). Как прислать находку или
-PR — в [`CONTRIBUTING.md`](CONTRIBUTING.md).
+PR — в [`CONTRIBUTING.md`](CONTRIBUTING.md), нормы поведения — в
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), как сообщить об уязвимости —
+в [`SECURITY.md`](SECURITY.md).
 
 ## Changelog
 

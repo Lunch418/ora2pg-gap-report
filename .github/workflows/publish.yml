@@ -43,3 +43,39 @@ jobs:
           path: dist/
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  offline-bundle:
+    if: github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # required to attach the bundle to the GitHub Release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Base install only (no --oracle): oracledb ships platform-specific
+      # wheels resolved for *this* runner, which won't necessarily match
+      # every target machine's OS/arch/Python version. The base bundle
+      # (rich + its pure-Python dependencies) has no such mismatch risk.
+      # Anyone needing the oracle extra for a specific target platform
+      # builds it themselves via scripts/build_offline_bundle.py --oracle
+      # --platform/--python-version/--abi, per the script's own --help.
+      - name: Build offline install bundle
+        run: python scripts/build_offline_bundle.py
+
+      - name: Attach bundle to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Passed via env, not interpolated directly into the run: script
+          # below — a git tag name can legally contain shell metacharacters
+          # (", $, `, ;, |, &, (, ) — git-check-ref-format only forbids
+          # control chars/space/~^:?*[/backslash/leading-trailing dot/@{),
+          # so substituting ${{ github.event.release.tag_name }} straight
+          # into the command line would let a maliciously crafted tag name
+          # break out of the quotes and run arbitrary shell commands in a
+          # job holding contents: write.
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" ora2pg-gap-report-offline.tar.gz --clobber

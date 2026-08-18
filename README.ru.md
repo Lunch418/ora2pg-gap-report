@@ -29,7 +29,7 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
    └──────────────────────────────────────────────────────┘
 ```
 
-![ora2pg-gap-report — сканирование реального PL/SQL-кода в терминале](docs/demo.gif)
+![ora2pg-gap-report — сканирование реального PL/SQL-кода в терминале](docs/demo.ru.gif)
 
 ## Проблема
 

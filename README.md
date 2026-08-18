@@ -327,6 +327,9 @@ echo $?   # 1 if at least one high finding turned up
 
 A real-world output example against an open-source package —
 [`docs/examples/logger-autonomous_tx-report.md`](docs/examples/logger-autonomous_tx-report.md).
+A full CI recipe — gating a PR, running alongside `ora2pg` itself, and
+getting findings as inline PR annotations via SARIF without a custom bot —
+is in [`docs/ci-integration.md`](docs/ci-integration.md).
 
 The effort estimate in the report is a rough heuristic by severity (an hour
 range, not a single number). It's a planning reference, not an estimate

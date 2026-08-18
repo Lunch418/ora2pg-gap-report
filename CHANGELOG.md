@@ -7,6 +7,8 @@ patch — исправления в существующих.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-18
+
 ### Added
 - `.github/workflows/publish.yml` — публикация на PyPI через
   [Trusted Publishing](https://docs.pypi.org/trusted-publishers/)
@@ -15,6 +17,38 @@ patch — исправления в существующих.
   одноразовой настройки на стороне PyPI (Your projects →
   Publishing → Add a new publisher, owner/repo/workflow-file
   `publish.yml`/environment `pypi`).
+- Девять новых подтверждённых gap'ов (GAP-029..037), реестр вырос с 28
+  до 37 (реальный прогон ora2pg 25.0 + PostgreSQL 16 для каждого):
+  - `rowid_type` (GAP-029) — `ROWID`/`UROWID` как тип столбца
+    конвертируется в несовместимый `oid`.
+  - `sequence_cycle` (GAP-030) — `CREATE SEQUENCE ... CYCLE` теряет
+    секцию `CYCLE`, `NEXTVAL` падает после исчерпания диапазона.
+  - `default_on_null` (GAP-031) — `DEFAULT ON NULL` копируется
+    verbatim, синтаксическая ошибка уже на `CREATE TABLE`.
+  - `public_synonym` (GAP-032) — `CREATE [PUBLIC] SYNONYM` теряет
+    схему целевого объекта, при совпадении имён — самоссылающийся
+    `VIEW`.
+  - `virtual_column` (GAP-033) — `GENERATED ALWAYS AS (...) VIRTUAL`
+    теряет защиту `ORA-54016` от явного присваивания.
+  - `nested_subprogram` (GAP-034) — локальная вложенная процедура/
+    функция "утекает" наружу отдельным объектом, тело искажается.
+  - `conditional_compilation` (GAP-035) — директивы
+    `$IF`/`$ELSIF`/`$ELSE`/`$END` копируются verbatim, у PL/pgSQL нет
+    такого препроцессора.
+  - `package_state` (GAP-036) — пакетная переменная заменяется на
+    `set_config()`/`current_setting()` без приведения типа и без
+    `missing_ok`.
+  - `index_organized_table` (GAP-037) — `ORGANIZATION INDEX` (IOT)
+    отбрасывается, таблица становится обычной кучей с отдельным
+    индексом.
+- `CODE_OF_CONDUCT.md`, `SECURITY.md` — закрывают чек-лист GitHub
+  Community Standards.
+
+### Changed
+- README: статичный `docs/screenshot.svg` заменён на `docs/demo.gif`
+  — анимация реального сканирования, рендер через
+  `terminal_report.render()` на реальных находках. Добавлен
+  `docs/social-preview.png` (1280×640) для карточки репозитория.
 
 ## [0.5.0] - 2026-08-17
 

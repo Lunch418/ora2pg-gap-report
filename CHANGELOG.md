@@ -428,3 +428,4 @@ patch — исправления в существующих.
 - `dbms_utl_calls` — классификатор конкретных вызовов `DBMS_*`/`UTL_*`.
 - CLI: `--format` (terminal/markdown/json), `--output`.
 - Выгрузка DDL напрямую из Oracle: `ora2pg-gap-export`.
+ 

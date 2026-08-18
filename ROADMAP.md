@@ -60,18 +60,16 @@
 - **Оффлайн-установка**: `scripts/build_offline_bundle.py` +
   автоматическая сборка бандла в CI на каждый релиз (для closed-network
   окружений — частый случай для Oracle→PostgreSQL миграций).
+- **CI-рецепт**: [`docs/ci-integration.md`](docs/ci-integration.md) —
+  пайплайн вместе с `ora2pg` (гейт до конвертации, `--check-connect-by`,
+  `--verify` после) и пример GitHub Actions workflow, который через
+  `--format sarif` + `upload-sarif` даёт находки построчно в PR без
+  своего бота или Action.
 
 ## Ближайшее
 
 Небольшие, недорогие шаги, которые докручивают уже существующее:
 
-- Задокументировать пример GitHub Actions workflow: `ora2pg-gap-report
-  --format sarif` → `upload-sarif` → находки в PR. Это даёт большую
-  часть "PR annotations" почти бесплатно, без своего Action или бота.
-- Рецепт совместного использования с `ora2pg` (не интеграция *в*
-  ora2pg — это чужой проект): пример пайплайна `ora2pg -t COPY && \
-  ora2pg-gap-report scan schema/`, включая место `--check-connect-by`
-  и `--verify` в этом пайплайне.
 - Explain/evidence-документы (`docs/research/gap-*.md`) написаны для
   контрибьюторов, не для конечного пользователя — можно проверить,
   насколько они читаемы без контекста кодовой базы.

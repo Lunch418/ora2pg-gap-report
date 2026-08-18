@@ -327,6 +327,9 @@ echo $?   # 1, если нашёлся хотя бы один high
 
 Пример реального вывода на открытом пакете —
 [`docs/examples/logger-autonomous_tx-report.md`](docs/examples/logger-autonomous_tx-report.md).
+Полный рецепт для CI — гейт на PR, совместный пайплайн с самим `ora2pg` и
+находки построчно прямо в PR через SARIF без своего бота — в
+[`docs/ci-integration.md`](docs/ci-integration.md).
 
 Оценка трудозатрат в отчёте — грубая эвристика по severity (диапазон
 часов, не точечное число). Это ориентир для планирования, а не

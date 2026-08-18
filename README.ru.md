@@ -462,7 +462,9 @@ pytest
 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). Как прислать находку или
 PR — в [`CONTRIBUTING.md`](CONTRIBUTING.md), нормы поведения — в
 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), как сообщить об уязвимости —
-в [`SECURITY.md`](SECURITY.md).
+в [`SECURITY.md`](SECURITY.md). Куда движется проект, и что из
+задуманного уже реализовано, а что — пока просто идея в ожидании
+реального повода — в [`ROADMAP.md`](ROADMAP.md).
 
 ## Changelog
 

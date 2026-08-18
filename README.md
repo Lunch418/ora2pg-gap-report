@@ -463,7 +463,9 @@ positives, how to confirm a finding against a live Oracle instance — in
 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). How to submit a finding or a
 PR — in [`CONTRIBUTING.md`](CONTRIBUTING.md), code of conduct — in
 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), how to report a vulnerability —
-in [`SECURITY.md`](SECURITY.md).
+in [`SECURITY.md`](SECURITY.md). Where the project is headed, and what is
+already built versus still just an idea waiting for a real use case — in
+[`ROADMAP.md`](ROADMAP.md).
 
 (These deeper docs are currently in Russian only.)
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ora2pg-gap-report"
 version = "0.6.0"
-description = "Сканер Oracle-схемы, дополняющий ora2pg: находит объекты, которые он не перенесёт или перенесёт некорректно, до начала миграции на Postgres Pro."
+description = "Detectors that find Oracle → PostgreSQL migration gaps ora2pg misses or converts incorrectly, each verified against real ora2pg and PostgreSQL runs."
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Lunch418" }]

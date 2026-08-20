@@ -354,7 +354,7 @@ async def test_save_baseline_button_writes_a_loadable_baseline_file(tmp_path):
         assert out_path.exists()
         baseline = load_baseline(out_path)
         assert len(baseline) == len(results_screen.all_findings)
-        assert "Saved" in results_screen.query_one("#save-status").content
+        assert "Saved" in results_screen.query_one("#summary").content
 
 
 @pytest.mark.asyncio
@@ -370,7 +370,7 @@ async def test_save_baseline_button_without_a_path_shows_an_error():
         results_screen = app.screen
         await pilot.click("#save-baseline-btn")
         await pilot.pause()
-        assert "Enter a path first" in results_screen.query_one("#save-status").content
+        assert "Enter a path first" in results_screen.query_one("#summary").content
 
 
 @pytest.mark.asyncio

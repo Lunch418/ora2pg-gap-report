@@ -98,6 +98,35 @@ def test_rule_help_uri_points_at_the_gap_research_doc_when_one_exists():
     )
 
 
+def test_rule_properties_carry_gap_number_and_failure_stage():
+    finding = Finding(
+        detector="read_only_table",  # GAP-026, failure_stage="semantic"
+        severity="high",
+        object_name="AUDIT_LOG",
+        line=4,
+        snippet="READ ONLY",
+        message="msg",
+    )
+    doc = json.loads(to_sarif([finding]))
+    rule = doc["runs"][0]["tool"]["driver"]["rules"][0]
+    assert rule["properties"] == {"gapNumber": "026", "failureStage": "semantic"}
+
+
+def test_rule_properties_omit_failure_stage_for_an_exempt_gap():
+    finding = Finding(
+        detector="autonomous_tx",  # GAP-001, in FAILURE_STAGE_EXEMPT_DETECTORS
+        severity="high",
+        object_name="LOGGER.PURGE_ALL",
+        line=1,
+        snippet="pragma autonomous_transaction;",
+        message="msg",
+    )
+    doc = json.loads(to_sarif([finding]))
+    rule = doc["runs"][0]["tool"]["driver"]["rules"][0]
+    assert rule["properties"] == {"gapNumber": "001"}
+    assert "failureStage" not in rule["properties"]
+
+
 def test_rule_has_no_help_uri_for_a_detector_outside_the_gap_registry():
     # dbms_utl_calls is a classifier over many DBMS_*/UTL_* calls, not a
     # single numbered gap in gap_registry.py -- it must not get a bogus
@@ -113,6 +142,7 @@ def test_rule_has_no_help_uri_for_a_detector_outside_the_gap_registry():
     doc = json.loads(to_sarif([finding]))
     rule = doc["runs"][0]["tool"]["driver"]["rules"][0]
     assert "helpUri" not in rule
+    assert "properties" not in rule
 
 
 def test_multiple_messages_from_one_detector_get_separate_rules(sarif_schema):

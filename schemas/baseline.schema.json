@@ -21,7 +21,7 @@
       "type": "object",
       "description": "A Finding (see report.schema.json) plus 'group_key'.",
       "additionalProperties": false,
-      "required": ["group_key", "detector", "severity", "object_name", "line", "snippet", "message", "source_file"],
+      "required": ["group_key", "detector", "severity", "object_name", "line", "snippet", "message", "source_file", "gap_number", "failure_stage"],
       "properties": {
         "group_key": {
           "type": "string",
@@ -56,6 +56,16 @@
         "source_file": {
           "type": "string",
           "description": "Path to the file that was scanned, as given on the command line (or discovered inside a scanned directory). Empty string if not yet stamped (not expected in CLI output, only when calling detectors directly as a library)."
+        },
+        "gap_number": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9]{3}$",
+          "description": "The GAP-NNN number this detector is registered as in ora2pg_gap_report/gap_registry.py's GAPS list (without the 'GAP-' prefix, e.g. '023'), or null for a detector with no registered gap of its own (e.g. dbms_utl_calls, a classifier -- see that module's own comment in gap_registry.py)."
+        },
+        "failure_stage": {
+          "type": ["string", "null"],
+          "enum": ["conversion", "deployment", "runtime", "semantic", null],
+          "description": "When someone would actually notice this gap: 'conversion' (only visible in ora2pg's own conversion run/log), 'deployment' (the generated DDL fails to load into PostgreSQL immediately), 'runtime' (the DDL loads cleanly but the flagged code fails the first time it actually runs), 'semantic' (no error is ever raised, at any stage -- behavior is just silently different from Oracle). null when gap_number is null, or for the two gaps in FAILURE_STAGE_EXEMPT_DETECTORS whose finding isn't a code-shape/runtime problem at all (see gap_registry.py)."
         }
       }
     }

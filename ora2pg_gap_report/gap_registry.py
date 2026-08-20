@@ -183,6 +183,21 @@ def gap_by_detector(detector: str) -> GapEntry | None:
     return _BY_DETECTOR.get(detector)
 
 
+def gap_metadata(detector: str) -> tuple[str | None, str | None]:
+    """(gap_number, failure_stage) for a detector -- both None if it
+    isn't a registered gap at all (e.g. dbms_utl_calls, a classifier with
+    no GAP-NNN of its own; see its own comment in GAPS), and
+    (gap_number, None) for the two gaps in FAILURE_STAGE_EXEMPT_DETECTORS.
+    Shared by report_generator.py's --format json/csv/sarif/markdown/html
+    and baseline.py's --save, so a finding's gap/stage metadata is
+    computed the same way everywhere it's shown, not reimplemented per
+    format."""
+    gap = gap_by_detector(detector)
+    if gap is None:
+        return None, None
+    return gap.number, gap.failure_stage
+
+
 def research_doc_path(gap: GapEntry) -> Path | None:
     """Path to this gap's docs/research/gap-NNN-<slug>.md in a *source
     checkout* of the repository -- None if docs/ isn't there at all (a

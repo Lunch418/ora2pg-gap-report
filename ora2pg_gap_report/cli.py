@@ -306,6 +306,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Открыть выбор языка и сохранить его как язык по умолчанию для будущих запусков, затем выйти.",
     )
+    parser.add_argument(
+        "--tui",
+        action="store_true",
+        help=(
+            "Интерактивный режим: выбор файла/директории и запуск сканирования мышью или "
+            "клавиатурой вместо флагов. Требует textual (pip install \"ora2pg-gap-report[tui]\"), "
+            "не ставится вместе с базовым пакетом. Если указан один путь-директория — она "
+            "открывается как стартовая точка в дереве; самостоятельный режим, как --explain/"
+            "--verify — не сочетается с --fail-on/--save/--baseline/--check-connect-by/--explain/"
+            "--verify/--severity/--object/--format/--output."
+        ),
+    )
     return parser
 
 
@@ -572,6 +584,44 @@ def main(argv: list[str] | None = None) -> int:
     lang = i18n.resolve_language(
         args.lang, interactive=sys.stdin.isatty() and sys.stdout.isatty()
     )
+
+    if args.tui:
+        # Standalone mode, same pattern as --explain/--verify below: takes
+        # at most one path (a starting point for the directory tree, not a
+        # list to scan directly -- picking what to scan interactively is
+        # the whole point), and none of the scan-shaping flags, which
+        # would otherwise silently do nothing once inside the TUI.
+        conflicting = (args.paths and len(args.paths) > 1) or any(
+            (
+                args.explain,
+                args.fail_on,
+                args.save,
+                args.baseline,
+                args.check_connect_by,
+                args.verify,
+                args.severity,
+                args.object,
+                args.format,
+                args.output,
+            )
+        )
+        if conflicting:
+            err_console.print(i18n.t(lang, "tui_conflict_error"))
+            return 2
+        start_path = None
+        if args.paths:
+            candidate = args.paths[0]
+            if not candidate.exists():
+                err_console.print(i18n.t(lang, "skipped_not_found", path=escape(str(candidate))))
+                return 2
+            start_path = candidate if candidate.is_dir() else candidate.parent
+        try:
+            from .tui_app import run_tui
+        except ImportError:
+            err_console.print(i18n.t(lang, "tui_not_installed"))
+            return 2
+        run_tui(start_path)
+        return 0
 
     if args.explain is not None:
         # --explain is a standalone lookup, not a scan -- silently ignoring

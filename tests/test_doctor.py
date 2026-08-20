@@ -9,7 +9,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
-from ora2pg_gap_report.gap_registry import gap_by_number
+from ora2pg_gap_report.gap_registry import GapEntry, gap_by_number
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "doctor.py"
 
@@ -204,3 +204,25 @@ def test_verification_mode_parity_flags_a_stale_entry_for_a_removed_detector(mon
     assert len(problems) == 1
     assert "long_removed" in problems[0]
     assert "нет в ora2pg_gap_report/detectors/" in problems[0]
+
+
+def test_failure_stage_values_is_clean_on_the_real_repository_state():
+    # Coverage isn't enforced -- most gaps have no failure_stage yet, a
+    # deliberate partial rollout (see gap_registry.py). Only that a value,
+    # once set, is a real one.
+    assert doctor.check_failure_stage_values() == []
+
+
+def test_failure_stage_values_flags_an_unknown_stage(monkeypatch):
+    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), failure_stage="mid_flight")
+    monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
+    problems = doctor.check_failure_stage_values()
+    assert len(problems) == 1
+    assert "GAP-999" in problems[0]
+    assert "mid_flight" in problems[0]
+
+
+def test_failure_stage_values_allows_unset(monkeypatch):
+    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", ())  # failure_stage defaults to None
+    monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
+    assert doctor.check_failure_stage_values() == []

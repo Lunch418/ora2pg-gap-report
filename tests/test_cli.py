@@ -1133,3 +1133,70 @@ def test_verify_english_output(tmp_path, capsys):
     assert exit_code == 0
     assert "Post-migration verification" in captured.out
     assert "Проверка после миграции" not in captured.out
+
+
+def test_tui_rejects_being_combined_with_fail_on(capsys):
+    exit_code = main(["--tui", "--fail-on", "high", str(SAMPLES)])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--tui" in captured.err
+
+
+def test_tui_rejects_more_than_one_path(capsys):
+    exit_code = main(["--tui", str(SAMPLES / "compound_trigger_apress.sql"), str(SAMPLES / "file_util_pkg.pkb")])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--tui" in captured.err
+
+
+def test_tui_rejects_a_nonexistent_path(tmp_path, capsys):
+    missing = tmp_path / "does_not_exist"
+    exit_code = main(["--tui", str(missing)])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert str(missing) in captured.err
+
+
+def test_tui_reports_a_clean_error_when_textual_is_not_installed(monkeypatch, capsys):
+    # Simulates an install without the [tui] extra: setting a module to
+    # None in sys.modules makes `import` raise ImportError for it, without
+    # needing textual to be genuinely absent from this test environment.
+    import sys
+
+    monkeypatch.setitem(sys.modules, "ora2pg_gap_report.tui_app", None)
+    exit_code = main(["--tui", str(SAMPLES)])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "textual" in captured.err
+    assert "pip install" in captured.err
+
+
+def test_tui_launches_with_the_given_directory_as_the_start_path(monkeypatch):
+    calls = []
+    import ora2pg_gap_report.tui_app as tui_app
+
+    monkeypatch.setattr(tui_app, "run_tui", lambda start_path=None: calls.append(start_path))
+    exit_code = main(["--tui", str(SAMPLES)])
+    assert exit_code == 0
+    assert calls == [SAMPLES]
+
+
+def test_tui_with_no_path_uses_cwd(monkeypatch):
+    calls = []
+    import ora2pg_gap_report.tui_app as tui_app
+
+    monkeypatch.setattr(tui_app, "run_tui", lambda start_path=None: calls.append(start_path))
+    exit_code = main(["--tui"])
+    assert exit_code == 0
+    assert calls == [None]
+
+
+def test_tui_with_a_file_path_starts_the_tree_at_its_parent_directory(monkeypatch):
+    calls = []
+    import ora2pg_gap_report.tui_app as tui_app
+
+    monkeypatch.setattr(tui_app, "run_tui", lambda start_path=None: calls.append(start_path))
+    target = SAMPLES / "compound_trigger_apress.sql"
+    exit_code = main(["--tui", str(target)])
+    assert exit_code == 0
+    assert calls == [target.parent]

@@ -370,17 +370,19 @@ same pattern already in the generated code. And even so, it doesn't work
 the same way for every detector:
 
 - **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
-  `json_table`, `identity_column`, and 10 more — full list in
-  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)) — for these, re-running the
+  `json_table`, `identity_column`, and 11 more) — for these, re-running the
   detector against the output is meaningful: `STILL_PRESENT` if the pattern
   remains, `NOT_DETECTED` if it's gone.
-- **Some `ora2pg` drops silently** (`read_only_table`, `table_partitioning`,
-  13 more) — the construct isn't in the output *by definition*, regardless
-  of whether someone fixed the problem by hand some other way. For these,
-  the honest status is `NOT_VERIFIABLE`, not a fabricated `NOT_DETECTED`:
-  treating absence as proof of a fix would be exactly the kind of
-  manufactured confidence this project specifically avoids (see "Why almost
-  everything is `high`" above).
+- **Some `ora2pg` drops or rewrites away entirely** (`read_only_table`,
+  `table_partitioning`, 20 more) — the construct isn't in the output *by
+  definition*, regardless of whether someone fixed the problem by hand some
+  other way. For these, the honest status is `NOT_VERIFIABLE`, not a
+  fabricated `NOT_DETECTED`: treating absence as proof of a fix would be
+  exactly the kind of manufactured confidence this project specifically
+  avoids (see "Why almost everything is `high`" above).
+
+Which mode applies to which detector, and why, for all 37 —
+[`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't
 found in this code." A small difference, but it's exactly what separates an

@@ -264,14 +264,19 @@ ora2pg-gap-report --tui                # opens in the current directory
 ora2pg-gap-report --tui path/to/schema_dump/   # opens there instead
 ```
 
-Standalone mode, like `--explain`/`--verify`: takes at most one path (a
-starting point for the tree, not a list to scan directly — picking what to
-scan interactively is the point) and none of the scan-shaping flags
-(`--severity`, `--format`, `--fail-on`, `--save`, and so on all no-op once
-you're inside the TUI, so combining them is rejected outright rather than
-silently ignored). Not yet available from the TUI: `--save`/`--baseline`/
-`--verify`, `--check-connect-by`, scanning more than one path at a time —
-all of those stay a normal CLI invocation for now. Running `--tui` without
+Standalone mode, like `--explain`/`--verify`: the CLI takes at most one
+path (a starting point for the tree, not a list to scan directly — picking
+what to scan is the point of being inside the tree) and none of the
+scan-shaping flags (`--severity`, `--format`, `--fail-on`, `--save`, and so
+on all no-op once you're inside the TUI, so combining them is rejected
+outright rather than silently ignored). Once inside, the screen itself
+covers the same ground the flag-based workflow does: queue more than one
+file/directory with "Add to selection" before scanning, tick "Check
+CONNECT BY" for the same opt-in ora2pg-backed check `--check-connect-by`
+runs, and point the baseline field at a `--save` snapshot to see
+NEW/RESOLVED/UNCHANGED counts on the results screen (with its own "Save
+baseline" button to write one), or tick "Verify mode" to run the same
+post-migration `--verify` comparison against it. Running `--tui` without
 the `[tui]` extra installed prints a plain install hint, not a traceback.
 
 ### Documentation straight from the CLI

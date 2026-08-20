@@ -227,3 +227,6 @@ Oracle-файла — и это работает не для всех 38 дет�
 `scripts/doctor.py` сверяет, что у каждого реального детектора на диске
 есть запись в `VERIFICATION_MODE` — тот же класс проверки, что и для
 `EXPLANATION_EN`/`REMEDIATION_HINT_EN`.
+
+Таблица режима по каждому конкретному gap'у (не только по категориям, как
+здесь) — [`docs/verification-capability-matrix.md`](verification-capability-matrix.md).

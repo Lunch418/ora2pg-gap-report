@@ -32,6 +32,10 @@ patch — исправления в существующих.
   Actions workflow: `--format sarif` + `upload-sarif` дают находки
   построчно прямо в PR через нативный GitHub code scanning, без своего
   Action или бота.
+- `docs/verification-capability-matrix.md` — по каждому из 37 gap'ов
+  явно, какой режим у `--verify` (`verbatim`/`not_verifiable`/
+  `generated_only`) и почему; сверено построчно с `VERIFICATION_MODE`
+  и реестром gap'ов скриптом, а не переписано на глаз.
 
 ## [0.6.0] - 2026-08-18
 

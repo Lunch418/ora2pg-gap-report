@@ -59,6 +59,46 @@ def test_save_baseline_is_valid_json_with_schema_version(tmp_path):
     assert raw["findings"][0]["object_name"] == "AUDIT_LOG"
 
 
+def test_save_baseline_includes_gap_number_and_failure_stage(tmp_path):
+    path = tmp_path / "baseline.json"
+    save_baseline([_finding()], path)  # read_only_table -- GAP-026, failure_stage="semantic"
+    raw = json.loads(path.read_text())
+    assert raw["findings"][0]["gap_number"] == "026"
+    assert raw["findings"][0]["failure_stage"] == "semantic"
+
+
+def test_load_baseline_tolerates_a_snapshot_saved_before_gap_metadata_existed(tmp_path):
+    # A --save file written by an older version of this tool has no
+    # gap_number/failure_stage keys at all -- load_baseline() only ever
+    # required group_key + schema_version (see its own body), so an old
+    # snapshot must keep loading rather than suddenly erroring after an
+    # upgrade.
+    path = tmp_path / "old_baseline.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "findings": [
+                    {
+                        "group_key": "abc123",
+                        "detector": "read_only_table",
+                        "severity": "high",
+                        "object_name": "AUDIT_LOG",
+                        "line": 4,
+                        "snippet": "READ ONLY",
+                        "message": "msg",
+                        "source_file": "schema/audit.sql",
+                    }
+                ],
+            }
+        )
+    )
+    records = load_baseline(path)
+    assert len(records) == 1
+    assert records[0]["object_name"] == "AUDIT_LOG"
+    assert "gap_number" not in records[0]
+
+
 def test_load_baseline_missing_file_raises_baseline_load_error(tmp_path):
     with pytest.raises(BaselineLoadError):
         load_baseline(tmp_path / "does_not_exist.json")

@@ -7,7 +7,7 @@ from dataclasses import asdict, fields
 
 from . import i18n
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
-from .gap_registry import gap_by_detector, research_doc_url
+from .gap_registry import gap_by_detector, gap_metadata, research_doc_url
 from .models import Finding
 from .verification import DetectorVerification
 
@@ -17,8 +17,20 @@ _TOOL_INFORMATION_URI = "https://github.com/Lunch418/ora2pg-gap-report"
 _SARIF_LEVEL = {"high": "error", "medium": "warning", "low": "note"}
 
 
+def _enrich(f: Finding) -> dict:
+    """A finding's own dict shape plus gap_number/failure_stage, looked
+    up from the registry rather than stored on Finding itself -- Finding
+    represents what a detector found, not what the registry separately
+    knows about it (same reasoning as verification.py's
+    DetectorVerification, built the same way from gap_by_detector()).
+    Shared by to_json()/to_csv() and baseline.py's save_baseline(), so
+    every JSON-shaped output computes these two fields identically."""
+    gap_number, failure_stage = gap_metadata(f.detector)
+    return {**asdict(f), "gap_number": gap_number, "failure_stage": failure_stage}
+
+
 def to_json(findings: list[Finding]) -> str:
-    return json.dumps([asdict(f) for f in findings], ensure_ascii=False, indent=2)
+    return json.dumps([_enrich(f) for f in findings], ensure_ascii=False, indent=2)
 
 
 def to_verification_json(results: list[DetectorVerification]) -> str:
@@ -37,7 +49,7 @@ def to_verification_json(results: list[DetectorVerification]) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-_CSV_FIELDNAMES = [f.name for f in fields(Finding)]
+_CSV_FIELDNAMES = [*(f.name for f in fields(Finding)), "gap_number", "failure_stage"]
 
 
 def to_csv(findings: list[Finding]) -> str:
@@ -57,7 +69,7 @@ def to_csv(findings: list[Finding]) -> str:
     writer = csv.DictWriter(buffer, fieldnames=_CSV_FIELDNAMES, lineterminator="\n")
     writer.writeheader()
     for f in findings:
-        writer.writerow(asdict(f))
+        writer.writerow(_enrich(f))
     return buffer.getvalue()
 
 
@@ -67,16 +79,19 @@ def to_markdown(findings: list[Finding], lang: str = "ru") -> str:
 
     lines = [
         i18n.t(lang, "md_table_header"),
-        "|---|---|---|---|---|---|",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for f in findings:
         source_file = f.source_file.replace("|", "\\|")
         object_name = f.object_name.replace("|", "\\|")
         snippet = f.snippet.replace("|", "\\|")
         message = f.message.replace("|", "\\|").replace("\n", " ")
+        gap_number, failure_stage = gap_metadata(f.detector)
+        gap_cell = f"GAP-{gap_number}" if gap_number else "—"
+        stage_cell = i18n.t(lang, f"failure_stage_short_{failure_stage}") if failure_stage else "—"
         lines.append(
             f"| {source_file} | `{object_name}` | {f.line} | {f.severity} "
-            f"| `{snippet}` | {message} |"
+            f"| `{snippet}` | {message} | {gap_cell} | {stage_cell} |"
         )
     return "\n".join(lines) + "\n"
 
@@ -122,6 +137,9 @@ def to_html(findings: list[Finding], lang: str = "ru") -> str:
     rows = []
     for f in findings:
         sev_class = _HTML_SEVERITY_CLASS.get(f.severity, "")
+        gap_number, failure_stage = gap_metadata(f.detector)
+        gap_cell = f"GAP-{gap_number}" if gap_number else "—"
+        stage_cell = html.escape(i18n.t(lang, f"failure_stage_short_{failure_stage}")) if failure_stage else "—"
         rows.append(
             f'<tr class="{sev_class}">'
             f"<td>{html.escape(f.source_file)}</td>"
@@ -130,6 +148,8 @@ def to_html(findings: list[Finding], lang: str = "ru") -> str:
             f'<td><span class="badge">{html.escape(f.severity)}</span></td>'
             f'<td class="mono">{html.escape(f.snippet)}</td>'
             f"<td>{html.escape(f.message)}</td>"
+            f'<td class="mono">{gap_cell}</td>'
+            f"<td>{stage_cell}</td>"
             "</tr>"
         )
 
@@ -197,6 +217,15 @@ def _sarif_rule(detector: str, message: str) -> dict:
     }
     if gap is not None:
         rule["helpUri"] = research_doc_url(gap)
+        # SARIF's free-form properties bag -- not a spec-defined field,
+        # but the closest fit for "when does this actually break" without
+        # overloading `level` (already carries severity) or fabricating a
+        # second helpUri. failure_stage is omitted (not just null) for
+        # the two gaps in FAILURE_STAGE_EXEMPT_DETECTORS, same reasoning
+        # as leaving it out of a rule with no gap at all.
+        rule["properties"] = {"gapNumber": gap.number}
+        if gap.failure_stage is not None:
+            rule["properties"]["failureStage"] = gap.failure_stage
     return rule
 
 

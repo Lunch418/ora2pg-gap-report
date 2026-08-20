@@ -25,6 +25,32 @@ def test_render_empty_findings_shows_a_positive_panel():
     assert "не найдено" in text
 
 
+def test_render_explanation_panel_shows_gap_and_failure_stage():
+    finding = _finding(detector="sequence_cycle", snippet="CYCLE")  # GAP-030, failure_stage="runtime"
+    console = Console(record=True, width=100)
+    render([finding], console=console)
+    text = console.export_text()
+    assert "GAP-030" in text
+    assert "выполнение" in text
+
+
+def test_render_explanation_panel_shows_gap_without_stage_for_an_exempt_gap():
+    finding = _finding(detector="autonomous_tx")  # GAP-001, in FAILURE_STAGE_EXEMPT_DETECTORS
+    console = Console(record=True, width=100)
+    render([finding], console=console)
+    text = console.export_text()
+    assert "GAP-001" in text
+    assert "Когда ломается" not in text
+
+
+def test_render_explanation_panel_omits_gap_line_for_an_unregistered_detector():
+    finding = _finding(detector="x")  # not a real detector/gap at all
+    console = Console(record=True, width=100)
+    render([finding], console=console)
+    text = console.export_text()
+    assert "GAP-" not in text
+
+
 def test_render_shows_summary_counts_and_every_finding():
     findings = [
         _finding(severity="high", object_name="PKG.A"),

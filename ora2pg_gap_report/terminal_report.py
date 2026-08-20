@@ -42,6 +42,7 @@ from .effort_estimator import (
     ordered_counts,
     summarize_by_severity,
 )
+from .gap_registry import gap_metadata
 from .i18n import REMEDIATION_HINT_EN
 from .models import Finding
 from .verification import DetectorVerification
@@ -178,7 +179,24 @@ def render(
     console.print(f"[bold]{i18n.t(lang, 'explanations_title')}[/bold]")
     for (detector, message), n in explanation_counts.items():
         title = i18n.t(lang, "explanation_panel_title", detector=detector, n=n)
-        console.print(Panel(Text(message), title=title, title_align="left", border_style="dim"))
+        body: list[Text] = [Text(message)]
+        gap_number, failure_stage = gap_metadata(detector)
+        # None for a detector with no registered gap at all (e.g.
+        # dbms_utl_calls, a classifier -- see gap_registry.py) -- omit the
+        # line entirely rather than show a bare "—" that explains nothing.
+        if gap_number is not None:
+            gap_ref = f"GAP-{gap_number}"
+            if failure_stage is not None:
+                stage_label = i18n.t(lang, f"failure_stage_short_{failure_stage}")
+                line = i18n.t(lang, "explanation_gap_stage_line", gap=gap_ref, stage=stage_label)
+            else:
+                # The two gaps in FAILURE_STAGE_EXEMPT_DETECTORS -- still
+                # worth showing the GAP reference (it links to real
+                # evidence via --explain), just without a stage claim
+                # that doesn't apply to a cost-estimation finding.
+                line = gap_ref
+            body.append(Text(f"\n{line}", style="dim"))
+        console.print(Panel(Group(*body), title=title, title_align="left", border_style="dim"))
 
     _render_effort_panel(console, lo, hi, distinct_detector_count(findings), len(findings), lang)
     _render_footer_hints(console, lang)

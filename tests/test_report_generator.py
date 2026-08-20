@@ -18,7 +18,38 @@ SAMPLE_FINDING = Finding(
 
 def test_to_json_round_trips_finding_fields():
     parsed = json.loads(to_json([SAMPLE_FINDING]))
-    assert parsed == [SAMPLE_FINDING.__dict__]
+    # autonomous_tx is GAP-001, one of the two gaps in
+    # FAILURE_STAGE_EXEMPT_DETECTORS (see gap_registry.py) -- gap_number
+    # is still populated, failure_stage stays null.
+    assert parsed == [{**SAMPLE_FINDING.__dict__, "gap_number": "001", "failure_stage": None}]
+
+
+def test_to_json_includes_failure_stage_for_a_classified_gap():
+    finding = Finding(
+        detector="sequence_cycle",  # GAP-030, failure_stage="runtime"
+        severity="high",
+        object_name="SEQ",
+        line=1,
+        snippet="CYCLE",
+        message="m",
+    )
+    parsed = json.loads(to_json([finding]))
+    assert parsed[0]["gap_number"] == "030"
+    assert parsed[0]["failure_stage"] == "runtime"
+
+
+def test_to_json_gap_number_and_failure_stage_are_null_for_an_unregistered_detector():
+    finding = Finding(
+        detector="dbms_utl_calls",  # a classifier, not a registered gap
+        severity="low",
+        object_name="X",
+        line=1,
+        snippet="x",
+        message="m",
+    )
+    parsed = json.loads(to_json([finding]))
+    assert parsed[0]["gap_number"] is None
+    assert parsed[0]["failure_stage"] is None
 
 
 def test_to_markdown_empty_findings():
@@ -31,6 +62,29 @@ def test_to_markdown_renders_table_and_escapes_pipes():
     assert "2178" in markdown
     assert "high" in markdown
     assert "uses dblink \\| needs review" in markdown
+
+
+def test_to_markdown_shows_gap_and_failure_stage():
+    finding = Finding(
+        detector="sequence_cycle",  # GAP-030, failure_stage="runtime"
+        severity="high",
+        object_name="SEQ",
+        line=1,
+        snippet="CYCLE",
+        message="m",
+    )
+    markdown = to_markdown([finding])
+    assert "GAP-030" in markdown
+    assert "выполнение" in markdown
+
+
+def test_to_markdown_shows_em_dash_for_an_unregistered_detector():
+    finding = Finding(
+        detector="dbms_utl_calls", severity="low", object_name="X", line=1, snippet="x", message="m"
+    )
+    markdown = to_markdown([finding])
+    data_row = [line for line in markdown.splitlines() if line.startswith("|")][2]
+    assert data_row.strip().endswith("| — | — |")
 
 
 def test_to_markdown_escapes_pipe_in_source_file_and_object_name():
@@ -62,7 +116,19 @@ def test_to_markdown_escapes_pipe_in_source_file_and_object_name():
 
 def test_to_csv_empty_findings_is_just_a_header_row():
     rows = list(csv.reader(io.StringIO(to_csv([]))))
-    assert rows == [["detector", "severity", "object_name", "line", "snippet", "message", "source_file"]]
+    assert rows == [
+        [
+            "detector",
+            "severity",
+            "object_name",
+            "line",
+            "snippet",
+            "message",
+            "source_file",
+            "gap_number",
+            "failure_stage",
+        ]
+    ]
 
 
 def test_to_csv_round_trips_finding_fields():
@@ -73,6 +139,8 @@ def test_to_csv_round_trips_finding_fields():
     assert rows[0]["object_name"] == "LOGGER.PURGE_ALL"
     assert rows[0]["line"] == "2178"
     assert rows[0]["message"] == "uses dblink | needs review"
+    assert rows[0]["gap_number"] == "001"
+    assert rows[0]["failure_stage"] == ""
 
 
 def test_to_csv_quotes_fields_containing_commas_and_newlines():
@@ -114,6 +182,23 @@ def test_to_html_renders_finding_fields():
     assert "2178" in report
     assert ">high<" in report
     assert "pragma autonomous_transaction;" in report
+
+
+def test_to_html_shows_gap_and_failure_stage():
+    finding = Finding(
+        detector="sequence_cycle", severity="high", object_name="SEQ", line=1, snippet="CYCLE", message="m"
+    )
+    report = to_html([finding])
+    assert "GAP-030" in report
+    assert "выполнение" in report
+
+
+def test_to_html_shows_em_dash_for_an_unregistered_detector():
+    finding = Finding(
+        detector="dbms_utl_calls", severity="low", object_name="X", line=1, snippet="x", message="m"
+    )
+    report = to_html([finding])
+    assert '<td class="mono">—</td><td>—</td></tr>' in report
 
 
 def test_to_html_shows_the_same_uncalibrated_effort_caveat_as_markdown():
@@ -183,7 +268,7 @@ def test_to_markdown_empty_findings_in_english():
 
 def test_to_markdown_uses_english_column_headers():
     markdown = to_markdown([SAMPLE_FINDING], lang="en")
-    assert "| File | Object | Line | Severity | Snippet | Comment |" in markdown
+    assert "| File | Object | Line | Severity | Snippet | Comment | GAP | Fails at |" in markdown
     assert "Файл" not in markdown
 
 

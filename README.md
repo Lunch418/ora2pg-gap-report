@@ -264,6 +264,8 @@ ora2pg-gap-report --tui                # opens in the current directory
 ora2pg-gap-report --tui path/to/schema_dump/   # opens there instead
 ```
 
+![ora2pg-gap-report --tui — scanning, a baseline diff, and a finding's full explanation](docs/tui_demo.gif)
+
 Standalone mode, like `--explain`/`--verify`: the CLI takes at most one
 path (a starting point for the tree, not a list to scan directly — picking
 what to scan is the point of being inside the tree) and none of the

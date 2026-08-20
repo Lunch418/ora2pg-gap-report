@@ -41,7 +41,14 @@ from .effort_estimator import estimate_hours, ordered_counts, summarize_by_sever
 from .gap_registry import gap_metadata
 from .models import Finding
 
-_SEVERITY_STYLE = {"high": "bold red", "medium": "bold yellow", "low": "bold green"}
+# Nord's own aurora accent colors (nordtheme.com/docs/colors-and-palettes)
+# for error/warning/success -- not the plain named "red"/"yellow"/"green"
+# Rich would otherwise pick, which look harsh and don't match the app's
+# Nord theme (see GapReportApp.theme below) at all. Nord ships as one of
+# Textual's own built-in themes, already tuned for contrast on a dark
+# background -- picking a maintained, tested palette here beats hand-
+# rolling colors and hoping they read well.
+_SEVERITY_STYLE = {"high": "bold #BF616A", "medium": "bold #EBCB8B", "low": "bold #A3BE8C"}
 
 _SEVERITY_OPTIONS = [("All severities", "all"), ("High only", "high"), ("Medium only", "medium"), ("Low only", "low")]
 _LANG_OPTIONS = [("Russian output", "ru"), ("English output", "en")]
@@ -86,11 +93,12 @@ class ScanScreen(Screen):
     press Scan (or Enter on the button)."""
 
     CSS = """
-    #tree-label { padding: 1 1 0 1; }
-    DirectoryTree { height: 1fr; margin: 0 1; }
-    #controls { height: auto; padding: 1; }
-    #controls Select { width: 24; margin-right: 2; }
-    #status { padding: 0 1 1 1; color: $text-muted; }
+    #tree-label { padding: 1 2 0 2; color: $text-muted; text-style: italic; }
+    DirectoryTree { height: 1fr; margin: 1 2; border: round $panel-lighten-1; padding: 1; }
+    #controls { height: auto; padding: 1 2; }
+    #controls Select { width: 26; margin-right: 2; }
+    #controls Button { margin-top: 0; }
+    #status { height: auto; padding: 0 3 1 3; color: $text-muted; }
     """
 
     def __init__(self, start_path: Path) -> None:
@@ -121,7 +129,7 @@ class ScanScreen(Screen):
         if event.button.id != "scan-btn":
             return
         if self.selected_path is None:
-            self.query_one("#status", Static).update("[bold red]Pick a file or directory first.[/bold red]")
+            self.query_one("#status", Static).update("[bold #BF616A]Pick a file or directory first.[/bold #BF616A]")
             return
         severity = self.query_one("#severity-select", Select).value
         lang = self.query_one("#lang-select", Select).value
@@ -151,10 +159,22 @@ class ResultsScreen(Screen):
     BINDINGS = [("escape", "app.pop_screen", "Back")]
 
     CSS = """
-    #summary { height: auto; padding: 1; border: solid $primary; margin: 1; }
-    #findings-table { height: 1fr; margin: 0 1; }
-    #detail { height: 12; border: solid $secondary; margin: 1; padding: 1; overflow-y: auto; }
-    #back-btn { margin: 1; }
+    #summary { height: auto; padding: 1 2; border: round $primary; margin: 1 2; background: $panel; }
+    /* 2fr/1fr, not a fixed height for #detail: a fixed height (tried
+       first at 14) doesn't scale down on a small terminal -- at the
+       80x24 Textual itself defaults to for headless/test runs, the rest
+       of this screen's fixed-height chrome (header, summary, back
+       button, footer) plus a 14-row detail box genuinely doesn't fit,
+       pushing #back-btn below the visible viewport entirely. Sharing
+       the remaining space proportionally guarantees both boxes fit
+       whatever the real terminal size is, just with different
+       proportions. */
+    #findings-table { height: 2fr; margin: 0 2; border: round $panel-lighten-1; }
+    #detail {
+        height: 1fr; border: round $accent; margin: 1 2; padding: 1 2;
+        overflow-y: auto; background: $panel;
+    }
+    #back-btn { margin: 0 2 1 2; }
     """
 
     def __init__(
@@ -189,7 +209,7 @@ class ResultsScreen(Screen):
                 f"(uncalibrated heuristic, not a measurement)"
             )
         if self.warnings:
-            base += "\n[yellow]" + " / ".join(self.warnings) + "[/yellow]"
+            base += "\n[#EBCB8B]" + " / ".join(self.warnings) + "[/#EBCB8B]"
         return base
 
     def on_mount(self) -> None:
@@ -250,11 +270,20 @@ class GapReportApp(App):
     level up, in cli.py, before this module is even imported)."""
 
     TITLE = "ora2pg-gap-report"
+    SUB_TITLE = "Oracle -> PostgreSQL migration gap report"
     BINDINGS = [("q", "quit", "Quit")]
 
     def __init__(self, start_path: Path | None = None) -> None:
         super().__init__()
         self._start_path = start_path or Path.cwd()
+        # Nord (nordtheme.com) -- one of Textual's own built-in themes, not
+        # the library's generic default: cool, muted, high-contrast on a
+        # dark background, the kind of palette this project's audience
+        # (terminal-first DBAs/devs) already tends to reach for. Severity
+        # colors above (_SEVERITY_STYLE) are pulled straight from Nord's
+        # own published aurora accents, not picked independently, so they
+        # read as part of the same palette rather than clashing with it.
+        self.theme = "nord"
 
     def on_mount(self) -> None:
         self.push_screen(ScanScreen(self._start_path))

@@ -205,6 +205,17 @@ _UI: dict[str, dict[str, str]] = {
         "en": "silent behavior loss — no error is ever raised, at any stage; behavior is just "
         "silently different from Oracle, unless someone specifically checks for it",
     },
+    # Compact one/two-word versions of the four failure_stage_* strings
+    # above, for places that show a gap's stage next to many findings at
+    # once (the main report's per-detector explanation panel, and the
+    # markdown/html/csv table columns) where the full explanatory sentence
+    # would be too wide to repeat -- the long form stays reserved for
+    # --explain, where there's room and it's the only thing on the line.
+    "failure_stage_short_conversion": {"ru": "конвертация", "en": "conversion"},
+    "failure_stage_short_deployment": {"ru": "развёртывание", "en": "deployment"},
+    "failure_stage_short_runtime": {"ru": "выполнение", "en": "runtime"},
+    "failure_stage_short_semantic": {"ru": "тихая потеря поведения", "en": "silent behavior loss"},
+    "explanation_gap_stage_line": {"ru": "{gap} · Когда ломается: {stage}", "en": "{gap} · Fails at: {stage}"},
     "explain_doc_not_local": {
         "ru": "[yellow]GAP-{number} ({detector}): research-документ не найден локально[/yellow] "
         "(research-документы не входят в pip-пакет — это репозиторий, а не установленный CLI).",
@@ -341,14 +352,14 @@ _UI: dict[str, dict[str, str]] = {
     # report_generator.py (to_markdown / to_html)
     "md_no_findings": {"ru": "Проблемных конструкций не найдено.\n", "en": "No problematic constructs found.\n"},
     "md_table_header": {
-        "ru": "| Файл | Объект | Строка | Серьёзность | Фрагмент | Комментарий |",
-        "en": "| File | Object | Line | Severity | Snippet | Comment |",
+        "ru": "| Файл | Объект | Строка | Серьёзность | Фрагмент | Комментарий | GAP | Когда ломается |",
+        "en": "| File | Object | Line | Severity | Snippet | Comment | GAP | Fails at |",
     },
     "html_table_header": {
         "ru": "<th>Файл</th><th>Объект</th><th>Строка</th><th>Серьёзность</th>"
-        "<th>Фрагмент</th><th>Комментарий</th>",
+        "<th>Фрагмент</th><th>Комментарий</th><th>GAP</th><th>Когда ломается</th>",
         "en": "<th>File</th><th>Object</th><th>Line</th><th>Severity</th>"
-        "<th>Snippet</th><th>Comment</th>",
+        "<th>Snippet</th><th>Comment</th><th>GAP</th><th>Fails at</th>",
     },
     "html_no_findings": {
         "ru": '<p class="empty">Проблемных конструкций не найдено.</p>',

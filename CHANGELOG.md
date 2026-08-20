@@ -8,6 +8,19 @@ patch — исправления в существующих.
 ## [Unreleased]
 
 ### Added
+- `gap_number`/`failure_stage` now show up everywhere a finding does, not
+  just `--explain`: two new columns in `--format markdown`/`html`, two
+  new keys in `--format json`/`csv`, and a `properties` bag
+  (`gapNumber`/`failureStage`) on each SARIF rule. The terminal report's
+  "Пояснения" panel gets a dim `GAP-NNN · <stage>` line per detector
+  group. `--save` snapshots carry both fields too now (old snapshots
+  without them still load fine — nothing reads them for `--baseline`/
+  `--verify` matching). Both `schemas/report.schema.json` and
+  `schemas/baseline.schema.json` updated and kept identical for shared
+  fields, per `tests/test_schemas.py`'s own enforcement. `gap_number` is
+  `null` for a detector with no registered gap (e.g. `dbms_utl_calls`);
+  `failure_stage` is additionally `null` for the two gaps in
+  `FAILURE_STAGE_EXEMPT_DETECTORS`.
 - `.github/workflows/publish.yml`: новая джоба `offline-bundle` — при
   публикации релиза автоматически собирает
   `ora2pg-gap-report-offline.tar.gz` (базовая установка, без `--oracle`

@@ -73,6 +73,8 @@ def test_report_schema_rejects_an_unknown_severity(report_schema):
                     "snippet": "x",
                     "message": "x",
                     "source_file": "x.sql",
+                    "gap_number": None,
+                    "failure_stage": None,
                 }
             ],
             report_schema,

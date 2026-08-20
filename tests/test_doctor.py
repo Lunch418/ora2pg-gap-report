@@ -207,9 +207,8 @@ def test_verification_mode_parity_flags_a_stale_entry_for_a_removed_detector(mon
 
 
 def test_failure_stage_values_is_clean_on_the_real_repository_state():
-    # Coverage isn't enforced -- most gaps have no failure_stage yet, a
-    # deliberate partial rollout (see gap_registry.py). Only that a value,
-    # once set, is a real one.
+    # Full coverage is required now (rollout is complete), except for the
+    # two gaps in FAILURE_STAGE_EXEMPT_DETECTORS.
     assert doctor.check_failure_stage_values() == []
 
 
@@ -222,7 +221,19 @@ def test_failure_stage_values_flags_an_unknown_stage(monkeypatch):
     assert "mid_flight" in problems[0]
 
 
-def test_failure_stage_values_allows_unset(monkeypatch):
+def test_failure_stage_values_flags_a_new_gap_left_unset(monkeypatch):
+    # A gap not in FAILURE_STAGE_EXEMPT_DETECTORS must have a
+    # failure_stage -- unset is only allowed for the two documented
+    # exceptions, not a silent default for every new gap going forward.
     fake_gap = GapEntry("999", "brand_new_detector", "brand-new", ())  # failure_stage defaults to None
+    monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
+    problems = doctor.check_failure_stage_values()
+    assert len(problems) == 1
+    assert "GAP-999" in problems[0]
+    assert "не задан" in problems[0]
+
+
+def test_failure_stage_values_allows_unset_for_exempt_detectors(monkeypatch):
+    fake_gap = GapEntry("001", "autonomous_tx", "autonomous-transaction", ())
     monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
     assert doctor.check_failure_stage_values() == []

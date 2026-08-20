@@ -777,10 +777,11 @@ def test_main_explain_prints_failure_stage_in_english(capsys):
 
 
 def test_main_explain_omits_failure_stage_line_when_unset(capsys):
-    # GAP-023 (oracle_text) has no failure_stage yet -- most gaps don't,
-    # this is a deliberate partial rollout (see gap_registry.py). No line
-    # at all, not an empty/placeholder one.
-    exit_code = main(["--explain", "GAP-023"])
+    # GAP-009 (object_type) has no failure_stage on purpose -- its finding
+    # is a missing --estimate_cost number, not a code-shape/runtime issue,
+    # same class of exception as autonomous_tx (see gap_registry.py). No
+    # line at all, not an empty/placeholder one.
+    exit_code = main(["--explain", "GAP-009"])
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "Когда ломается" not in captured.out

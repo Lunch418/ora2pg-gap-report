@@ -344,9 +344,8 @@ class ResultsScreen(Screen):
         height: 1fr; border: round $accent; margin: 1 2; padding: 1 2;
         overflow-y: auto; background: $panel;
     }
-    #baseline-save-controls { height: auto; padding: 0 2; }
+    #baseline-save-controls { height: auto; padding: 0 2 1 2; }
     #baseline-save-controls Input { width: 1fr; margin-right: 2; }
-    #save-status { height: auto; padding: 0 3; color: $text-muted; }
     #back-btn { margin: 0 2 1 2; }
     """
 
@@ -372,6 +371,11 @@ class ResultsScreen(Screen):
         self.lang = lang
         self.scanned_path = scanned_path
         self.baseline_diff = baseline_diff
+        # Set by the "Save baseline" button, folded into #summary instead of
+        # its own row -- a screen already tight enough at 80x24 to have
+        # pushed #back-btn out of the visible viewport once (see the CSS
+        # comment on #detail below) doesn't have a spare row for it.
+        self._save_status: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -382,7 +386,6 @@ class ResultsScreen(Screen):
         with Horizontal(id="baseline-save-controls"):
             yield Input(placeholder="Save these findings as a baseline to...", id="save-baseline-input")
             yield Button("Save baseline", id="save-baseline-btn")
-        yield Static("", id="save-status")
         yield Button("Back to scan", id="back-btn")
         yield Footer()
 
@@ -406,6 +409,8 @@ class ResultsScreen(Screen):
             )
         if self.warnings:
             base += "\n[#F1FA8C]" + " / ".join(self.warnings) + "[/#F1FA8C]"
+        if self._save_status is not None:
+            base += f"\n{self._save_status}"
         return base
 
     def on_mount(self) -> None:
@@ -462,20 +467,15 @@ class ResultsScreen(Screen):
         if event.button.id == "save-baseline-btn":
             value = self.query_one("#save-baseline-input", Input).value.strip()
             if not value:
-                self.query_one("#save-status", Static).update(
-                    "[bold #FF5555]Enter a path first.[/bold #FF5555]"
-                )
-                return
-            try:
-                save_baseline(self.all_findings, Path(value))
-            except OSError as exc:
-                self.query_one("#save-status", Static).update(
-                    f"[bold #FF5555]Couldn't save: {exc}[/bold #FF5555]"
-                )
-                return
-            self.query_one("#save-status", Static).update(
-                f"[#50FA7B]Saved {len(self.all_findings)} findings to {value}[/#50FA7B]"
-            )
+                self._save_status = "[bold #FF5555]Enter a path first.[/bold #FF5555]"
+            else:
+                try:
+                    save_baseline(self.all_findings, Path(value))
+                except OSError as exc:
+                    self._save_status = f"[bold #FF5555]Couldn't save: {exc}[/bold #FF5555]"
+                else:
+                    self._save_status = f"[#50FA7B]Saved {len(self.all_findings)} findings to {value}[/#50FA7B]"
+            self.query_one("#summary", Static).update(self._summary_text())
 
 
 class VerifyResultsScreen(Screen):

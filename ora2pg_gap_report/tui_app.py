@@ -194,12 +194,18 @@ class ResultsScreen(Screen):
 
     def on_mount(self) -> None:
         table = self.query_one("#findings-table", DataTable)
+        # Just the basename, not the full path handed to --tui (usually a
+        # long absolute path from the DirectoryTree, repeated on nearly
+        # every row of a single-file scan) -- the full path is already in
+        # the summary bar above. Without this, File alone can push
+        # Detector/GAP off the right edge of the table entirely, hiding
+        # the one thing this table exists to surface.
         table.add_columns("Severity", "File", "Object", "Line", "Detector", "GAP")
         for i, f in enumerate(self.findings):
             gap_number, _ = gap_metadata(f.detector)
             table.add_row(
                 f"[{_SEVERITY_STYLE.get(f.severity, '')}]{f.severity}[/]",
-                f.source_file,
+                Path(f.source_file).name if f.source_file else "—",
                 f.object_name,
                 str(f.line),
                 f.detector,
@@ -211,18 +217,26 @@ class ResultsScreen(Screen):
         index = int(event.row_key.value)
         f = self.findings[index]
         gap_number, failure_stage = gap_metadata(f.detector)
-        lines = [f"[bold]{f.detector}[/bold] ({f.object_name}:{f.line})", "", f.message]
+        # GAP-NNN/stage comes right after the header, before the message
+        # body -- not after it. f.message can run to several wrapped
+        # lines (see e.g. bulk_collect's), and #detail has a fixed height
+        # with overflow-y: auto -- put the GAP reference last and a long
+        # enough message pushes the one thing this panel exists to show
+        # (when does this actually break) below the visible area with no
+        # obvious indication there's more to scroll to.
+        lines = [f"[bold]{f.detector}[/bold] ({f.object_name}:{f.line})"]
         if gap_number is not None:
             ref = f"GAP-{gap_number}"
-            lines.append("")
             if failure_stage is not None:
-                # Same short label the terminal report's own explanation
-                # panel uses (terminal_report.py) -- respects the language
-                # picked for this scan, same as f.message already does.
+                # Same short label terminal_report.py's own explanation
+                # panel uses -- respects the language picked for this
+                # scan, same as f.message already does.
                 stage_label = i18n.t(self.lang, f"failure_stage_short_{failure_stage}")
                 lines.append(f"[dim]{ref} · {stage_label}[/dim]")
             else:
                 lines.append(f"[dim]{ref}[/dim]")
+        lines.append("")
+        lines.append(f.message)
         self.query_one("#detail", Static).update("\n".join(lines))
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

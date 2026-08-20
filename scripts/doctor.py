@@ -34,6 +34,12 @@ without it, a new detector added to `--verify` would silently default to
 NOT_VERIFIABLE (safe, but unnoticed) rather than the classification
 actually being made, checked, and recorded on purpose.
 
+And that every gap's `failure_stage`, where set, is one of the defined
+FAILURE_STAGES -- a typo'd stage string would otherwise silently fail to
+render in --explain rather than error. Coverage is NOT enforced (most
+gaps don't have one yet -- see gap_registry.py's own field docstring and
+docs/failure-stage-notes.md): only that a value, once given, is real.
+
 Run: python3 scripts/doctor.py
 Exit code: 0 if every gap's artifacts check out, 1 if any is missing.
 """
@@ -48,7 +54,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audit_gap_test_counts import count_tests  # noqa: E402
 from ora2pg_gap_report import i18n  # noqa: E402
-from ora2pg_gap_report.gap_registry import GAPS, research_doc_path  # noqa: E402
+from ora2pg_gap_report.gap_registry import FAILURE_STAGES, GAPS, research_doc_path  # noqa: E402
 from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT  # noqa: E402
 from ora2pg_gap_report.verification import VERIFICATION_MODE  # noqa: E402
 
@@ -263,6 +269,21 @@ def check_verification_mode_parity() -> list[str]:
     return problems
 
 
+def check_failure_stage_values() -> list[str]:
+    """Coverage isn't enforced (this is a deliberate partial rollout --
+    see gap_registry.py's own field docstring), but a *set* value must be
+    a real one -- catches a typo silently producing an unrendered/missing
+    --explain line instead of an error."""
+    problems = []
+    for gap in GAPS:
+        if gap.failure_stage is not None and gap.failure_stage not in FAILURE_STAGES:
+            problems.append(
+                f"GAP-{gap.number} ({gap.detector}): failure_stage='{gap.failure_stage}' "
+                f"не из FAILURE_STAGES ({', '.join(FAILURE_STAGES)})"
+            )
+    return problems
+
+
 def main() -> int:
     print(f"Проверено {len(GAPS)} gap'ов из реестра (ora2pg_gap_report/gap_registry.py).\n")
 
@@ -273,14 +294,15 @@ def main() -> int:
     all_problems.extend(check_gap_registry_md_parity())
     all_problems.extend(check_i18n_translations_parity())
     all_problems.extend(check_verification_mode_parity())
+    all_problems.extend(check_failure_stage_values())
 
     if not all_problems:
         print(
             "✓ Всё чисто: у каждого gap'а есть research-документ, детектор, позитивный и "
             "guard-тест, docs/ARCHITECTURE.md не разошёлся со списком детекторов на диске, "
             "версии в GAP_REGISTRY.md совпадают с gap_registry.py, у каждого детектора "
-            "есть английский перевод в i18n.py, и у каждого детектора есть запись в "
-            "verification.py."
+            "есть английский перевод в i18n.py, у каждого детектора есть запись в "
+            "verification.py, и заданные failure_stage — все из FAILURE_STAGES."
         )
         return 0
 

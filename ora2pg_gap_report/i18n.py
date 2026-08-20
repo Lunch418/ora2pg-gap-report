@@ -182,6 +182,29 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "Подтверждено на: ora2pg {ora2pg_version}, PostgreSQL {postgresql_version}",
         "en": "Confirmed on: ora2pg {ora2pg_version}, PostgreSQL {postgresql_version}",
     },
+    "explain_failure_stage_line": {"ru": "Когда ломается: {stage}", "en": "Fails at: {stage}"},
+    "failure_stage_conversion": {
+        "ru": "конвертация — видно только в собственном логе прогона ora2pg "
+        "(DEBUG-строка или пропущенный/недосчитанный объект), ещё до PostgreSQL",
+        "en": "conversion — only visible in ora2pg's own conversion run/log "
+        "(a debug line, or an omitted/undercounted object), before PostgreSQL is involved at all",
+    },
+    "failure_stage_deployment": {
+        "ru": "развёртывание — сгенерированный DDL сразу падает при загрузке в PostgreSQL",
+        "en": "deployment — the generated DDL fails to load into PostgreSQL, immediately",
+    },
+    "failure_stage_runtime": {
+        "ru": "выполнение — DDL загружается без ошибок (в дампе ora2pg заранее стоит "
+        "check_function_bodies = false), но помеченный код падает при первом реальном вызове",
+        "en": "runtime — the DDL loads cleanly (ora2pg's own dump sets "
+        "check_function_bodies = false), but the flagged code fails the first time it actually runs",
+    },
+    "failure_stage_semantic": {
+        "ru": "тихая потеря поведения — ошибки не будет никогда, ни на одном этапе; "
+        "поведение просто тихо отличается от Oracle, пока кто-то специально не проверит",
+        "en": "silent behavior loss — no error is ever raised, at any stage; behavior is just "
+        "silently different from Oracle, unless someone specifically checks for it",
+    },
     "explain_doc_not_local": {
         "ru": "[yellow]GAP-{number} ({detector}): research-документ не найден локально[/yellow] "
         "(research-документы не входят в pip-пакет — это репозиторий, а не установленный CLI).",

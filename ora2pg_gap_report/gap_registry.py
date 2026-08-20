@@ -47,13 +47,47 @@ class GapEntry:
     # underlying evidence this restates in machine-readable form.
     ora2pg_version: str = "25.0"
     postgresql_version: str = "16"
+    # When, concretely, would someone actually notice this gap -- one of
+    # FAILURE_STAGES below, or None. Deliberately partial: populated so
+    # far only for a trial batch of gaps whose research doc's own
+    # "Наблюдаемая проблема" section states the failure point explicitly
+    # (not guessed), to validate the taxonomy itself before rolling it out
+    # to all 37 -- see docs/failure-stage-notes.md. None means "not yet
+    # classified", not "no failure exists"; scripts/doctor.py only checks
+    # that a *set* value is one of FAILURE_STAGES, not that every gap has
+    # one.
+    failure_stage: str | None = None
+
+
+# "conversion": only visible in ora2pg's own conversion run/log (a debug
+#   line, or an omitted/undercounted object) -- no gap in the trial batch
+#   actually landed here (see docs/failure-stage-notes.md), kept defined
+#   for gaps not yet classified.
+# "deployment": the generated DDL itself fails to load into PostgreSQL,
+#   immediately -- CREATE TABLE/TYPE/SEQUENCE and similar, outside any
+#   function/procedure body.
+# "runtime": the DDL loads cleanly -- ora2pg's own generated dump sets
+#   `check_function_bodies = false`, so a syntax error inside a function/
+#   procedure/trigger body is deferred -- but the flagged code fails the
+#   first time it actually runs.
+# "semantic": nothing ever raises an error, at any stage. Behavior is
+#   just silently different from Oracle, forever, unless someone
+#   specifically goes looking for it.
+FAILURE_STAGES = ("conversion", "deployment", "runtime", "semantic")
 
 
 GAPS: tuple[GapEntry, ...] = (
+    # autonomous_tx: failure_stage left unset deliberately, not an
+    # oversight -- its finding is about SHOW_REPORT/--estimate_cost
+    # underestimating migration *cost*, not about broken generated code,
+    # same reason it's a verification.py special case (see that module's
+    # own comment on this detector).
     GapEntry("001", "autonomous_tx", "autonomous-transaction", ("test_autonomous_tx.py", "test_autonomous_tx_edge_cases.py")),
     GapEntry("002", "merge_delete_clause", "merge-delete-clause", ("test_merge_delete_clause.py",)),
     GapEntry("003", "bulk_collect", "bulk-collect-forall", ("test_bulk_collect.py",)),
-    GapEntry("004", "compound_triggers", "compound-trigger", ("test_compound_triggers.py",)),
+    GapEntry(
+        "004", "compound_triggers", "compound-trigger", ("test_compound_triggers.py",), failure_stage="semantic"
+    ),
     GapEntry("005", "connect_by", "connect-by-level", ("test_connect_by.py",)),
     GapEntry("006", "database_link", "database-link", ("test_database_link.py",)),
     GapEntry("007", "model_clause", "model-clause", ("test_model_clause.py",)),
@@ -64,32 +98,46 @@ GAPS: tuple[GapEntry, ...] = (
     GapEntry("012", "global_temp_table", "global-temp-table", ("test_global_temp_table.py",)),
     GapEntry("013", "table_partitioning", "table-partitioning", ("test_table_partitioning.py",)),
     GapEntry("014", "connect_by_nocycle", "connect-by-nocycle", ("test_connect_by_nocycle.py",)),
-    GapEntry("015", "context_object", "context", ("test_context_object.py",)),
+    GapEntry("015", "context_object", "context", ("test_context_object.py",), failure_stage="semantic"),
     GapEntry("016", "insert_all", "insert-all", ("test_insert_all.py",)),
     GapEntry("017", "json_table", "json-table", ("test_json_table.py",)),
     GapEntry("018", "external_table", "external-table", ("test_external_table.py",)),
     GapEntry("019", "sql_macro", "sql-macro", ("test_sql_macro.py",)),
     GapEntry("020", "invisible_column", "invisible-column", ("test_invisible_column.py",)),
-    GapEntry("021", "collection_type", "collection-type", ("test_collection_type.py",)),
-    GapEntry("022", "cross_apply", "cross-apply", ("test_cross_apply.py",)),
+    GapEntry(
+        "021", "collection_type", "collection-type", ("test_collection_type.py",), failure_stage="deployment"
+    ),
+    GapEntry("022", "cross_apply", "cross-apply", ("test_cross_apply.py",), failure_stage="runtime"),
     GapEntry("023", "oracle_text", "oracle-text", ("test_oracle_text.py",)),
     GapEntry("024", "recursive_with", "recursive-with", ("test_recursive_with.py",)),
     GapEntry("025", "invisible_index", "invisible-index", ("test_invisible_index.py",)),
-    GapEntry("026", "read_only_table", "read-only-table", ("test_read_only_table.py",)),
+    GapEntry(
+        "026", "read_only_table", "read-only-table", ("test_read_only_table.py",), failure_stage="semantic"
+    ),
     GapEntry("027", "materialized_view_log", "materialized-view-log", ("test_materialized_view_log.py",)),
-    GapEntry("028", "identity_column", "identity-column", ("test_identity_column.py",)),
+    GapEntry(
+        "028", "identity_column", "identity-column", ("test_identity_column.py",), failure_stage="deployment"
+    ),
     GapEntry("029", "rowid_type", "rowid-urowid", ("test_rowid_type.py",)),
-    GapEntry("030", "sequence_cycle", "sequence-cycle", ("test_sequence_cycle.py",)),
-    GapEntry("031", "default_on_null", "default-on-null", ("test_default_on_null.py",)),
+    GapEntry("030", "sequence_cycle", "sequence-cycle", ("test_sequence_cycle.py",), failure_stage="runtime"),
+    GapEntry(
+        "031", "default_on_null", "default-on-null", ("test_default_on_null.py",), failure_stage="deployment"
+    ),
     GapEntry("032", "public_synonym", "public-synonym", ("test_public_synonym.py",)),
-    GapEntry("033", "virtual_column", "virtual-column", ("test_virtual_column.py",)),
+    GapEntry(
+        "033", "virtual_column", "virtual-column", ("test_virtual_column.py",), failure_stage="semantic"
+    ),
     GapEntry("034", "nested_subprogram", "nested-subprogram", ("test_nested_subprogram.py",)),
     GapEntry(
         "035", "conditional_compilation", "conditional-compilation", ("test_conditional_compilation.py",)
     ),
     GapEntry("036", "package_state", "package-state", ("test_package_state.py",)),
     GapEntry(
-        "037", "index_organized_table", "index-organized-table", ("test_index_organized_table.py",)
+        "037",
+        "index_organized_table",
+        "index-organized-table",
+        ("test_index_organized_table.py",),
+        failure_stage="semantic",
     ),
 )
 

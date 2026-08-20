@@ -760,6 +760,32 @@ def test_main_explain_prints_the_confirmed_version_stamp(capsys):
     assert "PostgreSQL 16" in captured.out
 
 
+def test_main_explain_prints_failure_stage_when_set(capsys):
+    # GAP-031 is one of the trial batch with failure_stage populated (see
+    # gap_registry.py) -- deployment.
+    exit_code = main(["--explain", "GAP-031"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Когда ломается: развёртывание" in captured.out
+
+
+def test_main_explain_prints_failure_stage_in_english(capsys):
+    exit_code = main(["--explain", "GAP-031", "--lang", "en"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Fails at: deployment" in captured.out
+
+
+def test_main_explain_omits_failure_stage_line_when_unset(capsys):
+    # GAP-023 (oracle_text) has no failure_stage yet -- most gaps don't,
+    # this is a deliberate partial rollout (see gap_registry.py). No line
+    # at all, not an empty/placeholder one.
+    exit_code = main(["--explain", "GAP-023"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Когда ломается" not in captured.out
+
+
 def test_main_explain_accepts_a_bare_number(capsys):
     exit_code = main(["--explain", "23"])
     captured = capsys.readouterr()

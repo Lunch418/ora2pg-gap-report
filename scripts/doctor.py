@@ -34,11 +34,12 @@ without it, a new detector added to `--verify` would silently default to
 NOT_VERIFIABLE (safe, but unnoticed) rather than the classification
 actually being made, checked, and recorded on purpose.
 
-And that every gap's `failure_stage`, where set, is one of the defined
-FAILURE_STAGES -- a typo'd stage string would otherwise silently fail to
-render in --explain rather than error. Coverage is NOT enforced (most
-gaps don't have one yet -- see gap_registry.py's own field docstring and
-docs/failure-stage-notes.md): only that a value, once given, is real.
+And that every gap's `failure_stage` is one of the defined FAILURE_STAGES
+-- a typo'd stage string would otherwise silently fail to render in
+--explain rather than error -- and that every gap *has* one, except the
+two in FAILURE_STAGE_EXEMPT_DETECTORS (see gap_registry.py's own
+docstring and docs/failure-stage-notes.md for why those two are
+different in kind, not just unclassified yet).
 
 Run: python3 scripts/doctor.py
 Exit code: 0 if every gap's artifacts check out, 1 if any is missing.
@@ -54,7 +55,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audit_gap_test_counts import count_tests  # noqa: E402
 from ora2pg_gap_report import i18n  # noqa: E402
-from ora2pg_gap_report.gap_registry import FAILURE_STAGES, GAPS, research_doc_path  # noqa: E402
+from ora2pg_gap_report.gap_registry import (  # noqa: E402
+    FAILURE_STAGE_EXEMPT_DETECTORS,
+    FAILURE_STAGES,
+    GAPS,
+    research_doc_path,
+)
 from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT  # noqa: E402
 from ora2pg_gap_report.verification import VERIFICATION_MODE  # noqa: E402
 
@@ -270,13 +276,22 @@ def check_verification_mode_parity() -> list[str]:
 
 
 def check_failure_stage_values() -> list[str]:
-    """Coverage isn't enforced (this is a deliberate partial rollout --
-    see gap_registry.py's own field docstring), but a *set* value must be
-    a real one -- catches a typo silently producing an unrendered/missing
-    --explain line instead of an error."""
+    """A *set* value must be a real one -- catches a typo silently
+    producing an unrendered/missing --explain line instead of an error.
+    Full coverage is required too, except for the two detectors in
+    FAILURE_STAGE_EXEMPT_DETECTORS (autonomous_tx, object_type -- their
+    finding isn't a code-shape/runtime problem at all, see that set's own
+    docstring): a new gap added later without deciding on a failure_stage
+    should fail this check, not silently stay None forever."""
     problems = []
     for gap in GAPS:
-        if gap.failure_stage is not None and gap.failure_stage not in FAILURE_STAGES:
+        if gap.failure_stage is None:
+            if gap.detector not in FAILURE_STAGE_EXEMPT_DETECTORS:
+                problems.append(
+                    f"GAP-{gap.number} ({gap.detector}): failure_stage не задан и детектор "
+                    "не в FAILURE_STAGE_EXEMPT_DETECTORS"
+                )
+        elif gap.failure_stage not in FAILURE_STAGES:
             problems.append(
                 f"GAP-{gap.number} ({gap.detector}): failure_stage='{gap.failure_stage}' "
                 f"не из FAILURE_STAGES ({', '.join(FAILURE_STAGES)})"
@@ -302,7 +317,8 @@ def main() -> int:
             "guard-тест, docs/ARCHITECTURE.md не разошёлся со списком детекторов на диске, "
             "версии в GAP_REGISTRY.md совпадают с gap_registry.py, у каждого детектора "
             "есть английский перевод в i18n.py, у каждого детектора есть запись в "
-            "verification.py, и заданные failure_stage — все из FAILURE_STAGES."
+            "verification.py, и у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
+            "задан валидный failure_stage."
         )
         return 0
 

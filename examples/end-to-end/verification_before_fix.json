@@ -1,0 +1,15 @@
+{
+  "baseline_detectors": 1,
+  "still_present": 1,
+  "not_detected": 0,
+  "not_verifiable": 0,
+  "results": [
+    {
+      "detector": "bulk_collect",
+      "gap_number": "003",
+      "baseline_count": 3,
+      "post_migration_count": 3,
+      "status": "still_present"
+    }
+  ]
+}

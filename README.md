@@ -426,6 +426,11 @@ honest check from a comfortable lie.
 `--explain`/`--save`/`--fail-on`/`--check-connect-by`/`--severity`/`--object`,
 supports only `--format terminal` (default) and `--format json`.
 
+A runnable, real (not simulated) walk through the whole SCAN → migrate →
+VERIFY lifecycle — real `ora2pg 25.0` output, both the broken and a
+manually fixed version confirmed against a real PostgreSQL 16 server —
+[`examples/end-to-end/`](examples/end-to-end/).
+
 ## Exporting DDL directly from Oracle (optional)
 
 If you have a live Oracle schema on hand instead of an already-prepared DDL

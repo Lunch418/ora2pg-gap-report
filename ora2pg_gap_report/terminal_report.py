@@ -246,7 +246,7 @@ def render_baseline_diff(diff: BaselineDiff, console: Console | None = None, lan
 
 def _render_banner(console: Console) -> None:
     banner = Text(justify="center")
-    banner.append("ORACLE → POSTGRESQL MIGRATION GAP REPORT\n", style="bold")
+    banner.append("ORACLE -> POSTGRESQL MIGRATION GAP REPORT\n", style="bold")
     banner.append("ora2pg-gap-report", style="dim")
     console.print(Panel(banner, border_style="blue"))
 
@@ -347,7 +347,7 @@ def _render_recommended_actions(findings: list[Finding], console: Console, lang:
         body.append(f"{detector}  ")
         body.append(f"({n})\n", style="dim")
         hint = hints.get(detector, i18n.t(lang, "see_explanation_below"))
-        body.append(f"    → {hint}", style="dim")
+        body.append(f"    -> {hint}", style="dim")
 
     console.print(
         Panel(body, title=i18n.t(lang, "recommendations_panel_title"), title_align="left", border_style="magenta")

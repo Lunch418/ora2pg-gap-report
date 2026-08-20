@@ -231,6 +231,22 @@ _UI: dict[str, dict[str, str]] = {
         "en": "[red]--explain is a standalone documentation lookup, not a scan: it can't be "
         "combined with file paths, --fail-on, --save, --baseline, or --check-connect-by[/red]",
     },
+    "tui_conflict_error": {
+        "ru": "[red]--tui — самостоятельный интерактивный режим: принимает не больше одного "
+        "пути (стартовая точка в дереве) и не сочетается с --explain, --verify, --fail-on, "
+        "--save, --baseline, --check-connect-by, --severity, --object, --format или "
+        "--output[/red]",
+        "en": "[red]--tui is a standalone interactive mode: it takes at most one path (a "
+        "starting point for the tree) and can't be combined with --explain, --verify, "
+        "--fail-on, --save, --baseline, --check-connect-by, --severity, --object, --format, "
+        "or --output[/red]",
+    },
+    "tui_not_installed": {
+        "ru": "[red]--tui требует пакет textual, который не установлен.[/red] "
+        "Поставьте его: pip install \"ora2pg-gap-report[tui]\"",
+        "en": "[red]--tui requires the textual package, which isn't installed.[/red] "
+        "Install it: pip install \"ora2pg-gap-report[tui]\"",
+    },
     "no_paths_error": {
         "ru": "[red]Нужно указать хотя бы один файл/директорию, либо --explain GAP-NNN[/red]",
         "en": "[red]Specify at least one file/directory, or --explain GAP-NNN[/red]",

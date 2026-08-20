@@ -391,8 +391,8 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "Грубая оценка ручной доработки: {lo:g}–{hi:g} ч. — неоткалиброванная эвристика "
         "по severity, не измерение (см. README.md, «Почему почти всё high»).",
         "en": "Rough manual-rework estimate: {lo:g}–{hi:g}h. — an uncalibrated heuristic based "
-        "on severity, not a measurement (see README.md — it's Russian-only for now, look "
-        "for the section titled «Почему почти всё high»).",
+        "on severity, not a measurement (see README.md, \"Why almost everything is "
+        "`high`\").",
     },
     "markdown_report_title": {"ru": "# Отчёт ora2pg-gap-report\n\n", "en": "# ora2pg-gap-report report\n\n"},
     "markdown_findings_found": {
@@ -405,8 +405,7 @@ _UI: dict[str, dict[str, str]] = {
         "(см. README.md, «Почему почти всё high»).\n\n",
         "en": "Rough manual-rework estimate: {lo:g}–{hi:g}h. "
         "— an uncalibrated heuristic based on severity, not a measurement "
-        "(see README.md — it's Russian-only for now, look for the section titled "
-        "«Почему почти всё high»).\n\n",
+        "(see README.md, \"Why almost everything is `high`\").\n\n",
     },
 }
 

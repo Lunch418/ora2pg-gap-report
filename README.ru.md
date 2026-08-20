@@ -429,6 +429,11 @@ read_only_table   GAP-026   1 → —   NOT_VERIFIABLE
 `--explain`/`--save`/`--fail-on`/`--check-connect-by`/`--severity`/`--object`,
 поддерживает только `--format terminal` (по умолчанию) и `--format json`.
 
+Рабочий, не имитированный прогон всего цикла SCAN → миграция → VERIFY —
+реальный вывод `ora2pg 25.0`, и сломанная, и вручную исправленная версия
+подтверждены на реальном сервере PostgreSQL 16 —
+[`examples/end-to-end/`](examples/end-to-end/).
+
 ## Выгрузка DDL прямо из Oracle (опционально)
 
 Если под рукой живая Oracle-схема, а не уже готовый DDL-дамп:

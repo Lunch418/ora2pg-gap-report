@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "findings": [
+    {
+      "group_key": "1e9bb10a8896",
+      "detector": "bulk_collect",
+      "severity": "high",
+      "object_name": "BULK_TEST_PKG.ARCHIVE_OLD_ORDERS",
+      "line": 3,
+      "snippet": "TYPE t_id_tab IS TABLE OF",
+      "message": "TYPE ... IS TABLE OF ... — a local declaration of a nested collection/associative array. ora2pg essentially leaves this construct untouched — the syntax is copied verbatim, and no such type declaration exists in PL/pgSQL (confirmed by a real ora2pg + PostgreSQL 16 run, docs/research/gap-003-bulk-collect-forall.md). CREATE PROCEDURE/FUNCTION succeeds without a single error (ora2pg disables check_function_bodies in its output), and it fails right on this declaration at the very first real call — before the procedure body even starts executing. Needs to be manually rewritten as a PostgreSQL array (type[]) or a temporary table.",
+      "source_file": "oracle/bulk_test_pkg.sql",
+      "gap_number": "003",
+      "failure_stage": "runtime"
+    },
+    {
+      "group_key": "13287e95fc4a",
+      "detector": "bulk_collect",
+      "severity": "high",
+      "object_name": "BULK_TEST_PKG.ARCHIVE_OLD_ORDERS",
+      "line": 7,
+      "snippet": "BULK COLLECT INTO",
+      "message": "BULK COLLECT INTO — a bulk fetch into a collection. ora2pg only adds the STRICT keyword (which applies to a plain SELECT INTO in PL/pgSQL, not to BULK COLLECT) and doesn't rewrite the construct itself — the result isn't valid PL/pgSQL (confirmed by a real run, docs/research/gap-003-bulk-collect-forall.md). Usually rewritten as 'SELECT array_agg(...) INTO ...' or a manual loop that accumulates into an array.",
+      "source_file": "oracle/bulk_test_pkg.sql",
+      "gap_number": "003",
+      "failure_stage": "runtime"
+    },
+    {
+      "group_key": "0add43842999",
+      "detector": "bulk_collect",
+      "severity": "high",
+      "object_name": "BULK_TEST_PKG.ARCHIVE_OLD_ORDERS",
+      "line": 11,
+      "snippet": "FORALL",
+      "message": "FORALL — bulk DML execution over a collection. PL/pgSQL has no such construct; ora2pg copies it verbatim (confirmed by a real run, docs/research/gap-003-bulk-collect-forall.md). Usually rewritten as a plain FOR ... LOOP or as DML driven by UNNEST() over an array — performance is a separate question; PostgreSQL can do this fast too, just with different syntax.",
+      "source_file": "oracle/bulk_test_pkg.sql",
+      "gap_number": "003",
+      "failure_stage": "runtime"
+    }
+  ]
+}

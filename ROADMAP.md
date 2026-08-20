@@ -65,6 +65,11 @@
   `--verify` после) и пример GitHub Actions workflow, который через
   `--format sarif` + `upload-sarif` даёт находки построчно в PR без
   своего бота или Action.
+- **Verification capability matrix**:
+  [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md)
+  — по каждому из 37 gap'ов явно, какой режим верификации у него
+  (`verbatim`/`not_verifiable`/`generated_only`) и почему, сверено с
+  `VERIFICATION_MODE` в коде построчно (не написано на глаз).
 
 ## Ближайшее
 
@@ -88,10 +93,6 @@
   ora2pg не падает и не выдаёт ошибку, а просто теряет поведение
   Oracle (пример класса — уже отчасти покрыт детекторами вроде
   `sequence_cycle`/`default_on_null`, но без отдельной таксономии).
-- Verification capability matrix: явная таблица "какие детекторы в
-  принципе можно верифицировать статически, а какие нет и почему" —
-  расширение того, что `--verify` уже делает по факту, но не объясняет
-  вслух.
 
 ### Workflow миграции
 - `waiver`/suppression с явным сроком действия — принятый и

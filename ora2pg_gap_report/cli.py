@@ -428,6 +428,14 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
     version_line = i18n.t(
         lang, "confirmed_versions", ora2pg_version=gap.ora2pg_version, postgresql_version=gap.postgresql_version
     )
+    # None for most gaps so far -- a deliberate partial rollout, see
+    # gap_registry.py's own failure_stage field docstring. No line at all
+    # when unset, rather than an empty/placeholder one.
+    stage_line = (
+        i18n.t(lang, "explain_failure_stage_line", stage=i18n.t(lang, f"failure_stage_{gap.failure_stage}"))
+        if gap.failure_stage is not None
+        else None
+    )
 
     doc_path = research_doc_path(gap)
     if doc_path is None:
@@ -440,11 +448,15 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
         # for this module, see its docstring.
         console.print(i18n.t(lang, "explain_doc_not_local", number=gap.number, detector=gap.detector))
         console.print(version_line)
+        if stage_line is not None:
+            console.print(stage_line)
         console.print(i18n.t(lang, "explain_see_github", url=research_doc_url(gap)))
         return 0
 
     console.print(Panel(Text(f"GAP-{gap.number} — {gap.detector}"), border_style="cyan"))
     console.print(version_line)
+    if stage_line is not None:
+        console.print(stage_line)
     console.print(doc_path.read_text(encoding="utf-8"))
     return 0
 

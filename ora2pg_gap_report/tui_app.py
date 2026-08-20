@@ -329,7 +329,21 @@ class ResultsScreen(Screen):
     BINDINGS = [("escape", "app.pop_screen", "Back")]
 
     CSS = """
-    #summary { height: auto; padding: 1 2; border: round $primary; margin: 1 2; background: $panel; }
+    /* max-height + overflow-y, not just height: auto: "Scanned <path>"
+       wraps to a different number of lines depending on how long the
+       scanned path's absolute string is -- which depends on where the
+       repo is checked out, not just on what's actually being scanned.
+       Confirmed the hard way: this screen's layout passed locally (a
+       short /workspace/... checkout path) and then failed in CI on every
+       Python version (a longer runner checkout path wrapped the summary
+       one line taller, pushing #back-btn's region below the 80x24 test
+       viewport that had fit it fine locally). Capping the height here
+       makes the rest of the layout's position independent of checkout
+       path length instead of "hope it never wraps more than expected". */
+    #summary {
+        height: auto; max-height: 25%; overflow-y: auto; padding: 1 2;
+        border: round $primary; margin: 1 2; background: $panel;
+    }
     /* 2fr/1fr, not a fixed height for #detail: a fixed height (tried
        first at 14) doesn't scale down on a small terminal -- at the
        80x24 Textual itself defaults to for headless/test runs, the rest

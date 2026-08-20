@@ -41,14 +41,14 @@ from .effort_estimator import estimate_hours, ordered_counts, summarize_by_sever
 from .gap_registry import gap_metadata
 from .models import Finding
 
-# Nord's own aurora accent colors (nordtheme.com/docs/colors-and-palettes)
+# Dracula's own published accent colors (draculatheme.com/contribute)
 # for error/warning/success -- not the plain named "red"/"yellow"/"green"
 # Rich would otherwise pick, which look harsh and don't match the app's
-# Nord theme (see GapReportApp.theme below) at all. Nord ships as one of
-# Textual's own built-in themes, already tuned for contrast on a dark
-# background -- picking a maintained, tested palette here beats hand-
-# rolling colors and hoping they read well.
-_SEVERITY_STYLE = {"high": "bold #BF616A", "medium": "bold #EBCB8B", "low": "bold #A3BE8C"}
+# Dracula theme (see GapReportApp.theme below) at all. Dracula ships as
+# one of Textual's own built-in themes, already tuned for contrast on a
+# dark background -- picking a maintained, tested palette here beats
+# hand-rolling colors and hoping they read well.
+_SEVERITY_STYLE = {"high": "bold #FF5555", "medium": "bold #F1FA8C", "low": "bold #50FA7B"}
 
 _SEVERITY_OPTIONS = [("All severities", "all"), ("High only", "high"), ("Medium only", "medium"), ("Low only", "low")]
 _LANG_OPTIONS = [("Russian output", "ru"), ("English output", "en")]
@@ -129,7 +129,7 @@ class ScanScreen(Screen):
         if event.button.id != "scan-btn":
             return
         if self.selected_path is None:
-            self.query_one("#status", Static).update("[bold #BF616A]Pick a file or directory first.[/bold #BF616A]")
+            self.query_one("#status", Static).update("[bold #FF5555]Pick a file or directory first.[/bold #FF5555]")
             return
         severity = self.query_one("#severity-select", Select).value
         lang = self.query_one("#lang-select", Select).value
@@ -209,7 +209,7 @@ class ResultsScreen(Screen):
                 f"(uncalibrated heuristic, not a measurement)"
             )
         if self.warnings:
-            base += "\n[#EBCB8B]" + " / ".join(self.warnings) + "[/#EBCB8B]"
+            base += "\n[#F1FA8C]" + " / ".join(self.warnings) + "[/#F1FA8C]"
         return base
 
     def on_mount(self) -> None:
@@ -276,14 +276,14 @@ class GapReportApp(App):
     def __init__(self, start_path: Path | None = None) -> None:
         super().__init__()
         self._start_path = start_path or Path.cwd()
-        # Nord (nordtheme.com) -- one of Textual's own built-in themes, not
-        # the library's generic default: cool, muted, high-contrast on a
-        # dark background, the kind of palette this project's audience
-        # (terminal-first DBAs/devs) already tends to reach for. Severity
-        # colors above (_SEVERITY_STYLE) are pulled straight from Nord's
-        # own published aurora accents, not picked independently, so they
-        # read as part of the same palette rather than clashing with it.
-        self.theme = "nord"
+        # Dracula (draculatheme.com) -- one of Textual's own built-in
+        # themes, not the library's generic default: high-contrast purple
+        # on near-black, the option the project's own maintainer picked
+        # after comparing it side by side with five other built-in themes.
+        # Severity colors above (_SEVERITY_STYLE) are pulled straight from
+        # Dracula's own published accents, not picked independently, so
+        # they read as part of the same palette rather than clashing with it.
+        self.theme = "dracula"
 
     def on_mount(self) -> None:
         self.push_screen(ScanScreen(self._start_path))

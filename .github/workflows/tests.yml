@@ -66,3 +66,22 @@ jobs:
           /tmp/verify-venv/bin/ora2pg-gap-report docs/research/samples/logger.pkb --format json | python -c "import json,sys; d=json.load(sys.stdin); assert len(d) > 0, 'expected findings on a known-bad sample'; print(len(d), 'findings — ok')"
           /tmp/verify-venv/bin/ora2pg-gap-report docs/research/samples/ --format json | python -c "import json,sys; d=json.load(sys.stdin); assert len(d) > 0, 'expected findings scanning the samples directory'; print(len(d), 'findings from directory scan — ok')"
           COLUMNS=200 /tmp/verify-venv/bin/ora2pg-gap-report --explain GAP-023 | grep -q 'github.com.*gap-023-oracle-text.md' && echo '--explain falls back to a GitHub link in the installed wheel — ok'
+          # textual isn't installed in this bare wheel (only via the [tui] extra) --
+          # --tui must fail with a clean install hint, not a raw ImportError traceback.
+          # --tui's own expected exit code (2) would otherwise get tangled up with
+          # pipefail's exit-status resolution if piped straight into grep, so capture
+          # it to a file with `set +e` around the one command that's allowed to fail.
+          set +e
+          /tmp/verify-venv/bin/ora2pg-gap-report --tui > /tmp/tui-error.txt 2>&1
+          tui_exit=$?
+          set -e
+          if grep -q Traceback /tmp/tui-error.txt; then
+            echo "::error::--tui crashed with a traceback instead of a clean error"
+            cat /tmp/tui-error.txt
+            exit 1
+          fi
+          if [ "$tui_exit" -ne 2 ]; then
+            echo "::error::--tui without textual installed should exit 2, got $tui_exit"
+            exit 1
+          fi
+          grep -q 'pip install' /tmp/tui-error.txt && echo '--tui gives a clean install hint without textual — ok'

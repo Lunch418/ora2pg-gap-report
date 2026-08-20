@@ -60,6 +60,7 @@ empirically against real PL/SQL code
 | **Works offline** | Self-contained bundle for closed networks (`scripts/build_offline_bundle.py`), see below |
 | **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED between runs |
 | **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code (not a functional check, see below) |
+| **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags |
 
 ## Detectors
 
@@ -246,6 +247,32 @@ ora2pg-gap-report path/to/schema_dump_dir/
 ```
 
 `ora2pg-gap-report --version` — show the installed version.
+
+### Interactive mode (`--tui`)
+
+Everything above is flag-driven, on purpose — that's what makes it
+scriptable and CI-friendly. For browsing interactively instead of
+remembering flags, `--tui` opens a mouse/keyboard-driven screen: pick a
+file or directory in a tree, choose severity/language, scan, then click a
+row in the results table to see its full explanation (message, `GAP-NNN`,
+and when it actually breaks — same information `--explain` and the
+terminal report already show, just click-driven):
+
+```sh
+pip install "ora2pg-gap-report[tui]"   # adds textual — not part of the base install
+ora2pg-gap-report --tui                # opens in the current directory
+ora2pg-gap-report --tui path/to/schema_dump/   # opens there instead
+```
+
+Standalone mode, like `--explain`/`--verify`: takes at most one path (a
+starting point for the tree, not a list to scan directly — picking what to
+scan interactively is the point) and none of the scan-shaping flags
+(`--severity`, `--format`, `--fail-on`, `--save`, and so on all no-op once
+you're inside the TUI, so combining them is rejected outright rather than
+silently ignored). Not yet available from the TUI: `--save`/`--baseline`/
+`--verify`, `--check-connect-by`, scanning more than one path at a time —
+all of those stay a normal CLI invocation for now. Running `--tui` without
+the `[tui]` extra installed prints a plain install hint, not a traceback.
 
 ### Documentation straight from the CLI
 

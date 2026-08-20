@@ -29,6 +29,7 @@ import json
 from pathlib import Path
 
 from . import i18n
+from .gap_registry import gap_metadata
 from .models import Finding
 
 SCHEMA_VERSION = 1
@@ -48,12 +49,18 @@ def group_key(f: Finding) -> str:
 
 
 def save_baseline(findings: list[Finding], path: Path) -> None:
-    payload = {
-        "schema_version": SCHEMA_VERSION,
-        "findings": [
-            {"group_key": group_key(f), **dataclasses.asdict(f)} for f in findings
-        ],
-    }
+    findings_payload = []
+    for f in findings:
+        gap_number, failure_stage = gap_metadata(f.detector)
+        findings_payload.append(
+            {
+                "group_key": group_key(f),
+                **dataclasses.asdict(f),
+                "gap_number": gap_number,
+                "failure_stage": failure_stage,
+            }
+        )
+    payload = {"schema_version": SCHEMA_VERSION, "findings": findings_payload}
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 

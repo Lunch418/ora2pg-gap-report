@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ora2pg_gap_report import cli
+from ora2pg_gap_report import cli, core
 from ora2pg_gap_report.cli import _expand_paths, main, resolve_format, scan_source
 
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
@@ -254,14 +254,14 @@ def test_check_connect_by_is_off_by_default_even_when_source_has_connect_by(monk
     def _should_not_be_called(*args, **kwargs):
         raise AssertionError("run_estimate_cost should not be called without --check-connect-by")
 
-    monkeypatch.setattr(cli, "run_estimate_cost", _should_not_be_called)
+    monkeypatch.setattr(core, "run_estimate_cost", _should_not_be_called)
     exit_code = main([str(SAMPLES / "connect_by_hierarchy_pkg.sql")])
     assert exit_code == 0
 
 
 def test_check_connect_by_reports_the_level_bug_via_mocked_ora2pg(monkeypatch, capsys):
     fixture_output = (FIXTURES / "ora2pg_generated_connect_by_hierarchy.sql").read_text()
-    monkeypatch.setattr(cli, "run_estimate_cost", lambda *a, **k: fixture_output)
+    monkeypatch.setattr(core, "run_estimate_cost", lambda *a, **k: fixture_output)
 
     exit_code = main(
         [str(SAMPLES / "connect_by_hierarchy_pkg.sql"), "--check-connect-by", "--format", "json"]

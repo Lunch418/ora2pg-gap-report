@@ -238,24 +238,24 @@ def test_recommended_actions_orders_detectors_by_finding_count_descending():
 
 
 def test_every_detector_registered_in_cli_has_a_remediation_hint():
-    # A detector added to cli.py without a corresponding entry here would
-    # silently fall back to a generic "см. пояснение ниже" line in the
-    # Рекомендации section instead of a real hint — this test makes that
-    # an explicit failure instead of a silent gap.
-    from ora2pg_gap_report import cli
+    # A detector added to core.py's scan loop without a corresponding
+    # entry here would silently fall back to a generic "см. пояснение
+    # ниже" line in the Рекомендации section instead of a real hint --
+    # this test makes that an explicit failure instead of a silent gap.
+    from ora2pg_gap_report import core
     from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT
 
-    for detector_fn in cli._DETECTORS:
+    for detector_fn in core._DETECTORS:
         result = detector_fn("")  # empty source: no findings, just need the shape
         assert result == []
-    # cli.detector_names() derives each name from its function's own
+    # core.detector_names() derives each name from its function's own
     # __module__ -- the actual, current contents of _DETECTORS, not a
     # second hand-typed set that can silently drift from it (a real
     # regression this test previously had: its old hardcoded set was 9
-    # detectors behind cli._DETECTORS by the time this was caught).
-    registered_names = set(cli.detector_names()) | {
+    # detectors behind core._DETECTORS by the time this was caught).
+    registered_names = set(core.detector_names()) | {
         "connect_by"
-    }  # opt-in via --check-connect-by, not in cli._DETECTORS
+    }  # opt-in via --check-connect-by, not in core._DETECTORS
     assert registered_names <= set(_REMEDIATION_HINT.keys())
 
 

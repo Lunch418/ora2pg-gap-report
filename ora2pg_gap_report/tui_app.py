@@ -47,8 +47,8 @@ from textual.widgets import (
 
 from . import i18n
 from .baseline import BaselineDiff, BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
-from .cli import _connect_by_check, _expand_paths, count_objects, scan_source
-from .cli import _sort_findings as sort_findings
+from .core import _connect_by_check, _expand_paths, count_objects, scan_source
+from .core import _sort_findings as sort_findings
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_metadata
 from .models import Finding

@@ -82,6 +82,8 @@ ora2pg_gap_report/
 │                               # строки UI и переводы объяснений детекторов
 ├── verification.py             # --verify: детекторный (не построчный) статус
 │                               # STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE
+├── core.py                      # scan_source/count_objects/expand_paths/connect_by_check —
+│                               #  общая логика между cli.py и tui_app.py
 ├── cli.py                      # консольная команда ora2pg-gap-report
 ├── effort_estimator.py          # грубая эвристика по severity, диапазон часов
 ├── report_generator.py          # JSON + Markdown (машиночитаемые форматы)

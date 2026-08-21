@@ -104,6 +104,22 @@ _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")
 
 
+def detector_names() -> tuple[str, ...]:
+    """The Finding.detector string each function in _DETECTORS actually
+    emits -- derived from each function's own module (every detector
+    lives in ora2pg_gap_report/detectors/<name>.py and is named after
+    it), not a second, separately-typed-out list. A detector added to
+    _DETECTORS without updating some other hand-maintained "list of
+    detector names" is exactly the class of drift this project's own
+    registries (gap_registry.py, verification.py's VERIFICATION_MODE)
+    already go out of their way to avoid -- this is that same
+    single-source-of-truth reasoning applied to the scan loop itself, for
+    callers (scripts/doctor.py, tests) that need to know what actually
+    runs without calling every detector against fabricated content just
+    to read a name back off its own Finding output."""
+    return tuple(detector.__module__.rsplit(".", 1)[-1] for detector in _DETECTORS)
+
+
 def _package_version() -> str:
     try:
         return _pkg_version("ora2pg-gap-report")

@@ -67,8 +67,24 @@ _VERIFY_STATUS_STYLE = {
     "not_verifiable": "dim",
 }
 
-_SEVERITY_OPTIONS = [("All severities", "all"), ("High only", "high"), ("Medium only", "medium"), ("Low only", "low")]
-_LANG_OPTIONS = [("Russian output", "ru"), ("English output", "en")]
+# Each language's own name, not translated cross-wise (same convention as
+# i18n.py's own prompt_language_interactively -- a language picker is more
+# discoverable shown in each language's own script than in whichever
+# language happens to be selected already).
+_LANG_OPTIONS = [("English", "en"), ("Русский", "ru")]
+
+
+def _severity_options(lang: str) -> list[tuple[str, str]]:
+    # "high"/"medium"/"low" are deliberately not translated -- fixed
+    # technical vocabulary everywhere else in this project (--severity's
+    # own CLI choices, col_severity's "Severity" header even in Russian,
+    # NEW/RESOLVED/UNCHANGED), not prose.
+    return [
+        (i18n.t(lang, "tui_severity_all"), "all"),
+        (i18n.t(lang, "tui_severity_only", level="high"), "high"),
+        (i18n.t(lang, "tui_severity_only", level="medium"), "medium"),
+        (i18n.t(lang, "tui_severity_only", level="low"), "low"),
+    ]
 
 
 def scan_paths(
@@ -89,7 +105,7 @@ def scan_paths(
 
     expanded, empty_dirs = _expand_paths(paths)
     for empty_dir in empty_dirs:
-        warnings.append(f"No .sql/.pks/.pkb files found under {empty_dir}")
+        warnings.append(i18n.t(lang, "tui_warning_no_files_under", dir=empty_dir))
 
     seen: set[Path] = set()
     for file_path in expanded:
@@ -100,12 +116,12 @@ def scan_paths(
             continue
         seen.add(file_path)
         if not file_path.is_file():
-            warnings.append(f"Not found: {file_path}")
+            warnings.append(i18n.t(lang, "tui_warning_not_found", path=file_path))
             continue
         try:
             source = file_path.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:
-            warnings.append(f"Could not read {file_path}: {exc}")
+            warnings.append(i18n.t(lang, "tui_warning_could_not_read", path=file_path, exc=exc))
             continue
         objects_scanned += count_objects(source)
         findings.extend(
@@ -121,12 +137,12 @@ def scan_paths(
     return findings, objects_scanned, warnings
 
 
-def scan_path(path: Path) -> tuple[list[Finding], int, list[str]]:
+def scan_path(path: Path, lang: str = "ru") -> tuple[list[Finding], int, list[str]]:
     """One file or one directory in, findings out -- a thin single-path
     convenience wrapper around scan_paths(), kept as its own name because
     most callers (including the majority of this module's own tests) only
     ever have one path in hand."""
-    return scan_paths([path])
+    return scan_paths([path], lang=lang)
 
 
 class ScanScreen(Screen):
@@ -149,28 +165,29 @@ class ScanScreen(Screen):
     #status { height: auto; padding: 0 3 1 3; color: $text-muted; }
     """
 
-    def __init__(self, start_path: Path) -> None:
+    def __init__(self, start_path: Path, lang: str = "ru") -> None:
         super().__init__()
         self._start_path = start_path
+        self.lang = lang
         self.selected_path: Path | None = None
         self.selected_paths: list[Path] = []
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Label("Pick a .sql/.pks/.pkb file, or a directory to scan recursively:", id="tree-label")
+        yield Label(i18n.t(self.lang, "tui_tree_label"), id="tree-label")
         yield DirectoryTree(str(self._start_path), id="tree")
         with Horizontal(id="controls"):
-            yield Select(_SEVERITY_OPTIONS, value="all", id="severity-select", allow_blank=False)
-            yield Select(_LANG_OPTIONS, value="ru", id="lang-select", allow_blank=False)
-            yield Button("Scan", id="scan-btn", variant="primary")
+            yield Select(_severity_options(self.lang), value="all", id="severity-select", allow_blank=False)
+            yield Select(_LANG_OPTIONS, value=self.lang, id="lang-select", allow_blank=False)
+            yield Button(i18n.t(self.lang, "tui_scan_btn"), id="scan-btn", variant="primary")
         with Horizontal(id="multi-select-controls"):
-            yield Button("Add to selection", id="add-path-btn")
-            yield Button("Clear selection", id="clear-paths-btn")
-            yield Checkbox("Check CONNECT BY (requires ora2pg)", id="connect-by-checkbox")
+            yield Button(i18n.t(self.lang, "tui_add_to_selection_btn"), id="add-path-btn")
+            yield Button(i18n.t(self.lang, "tui_clear_selection_btn"), id="clear-paths-btn")
+            yield Checkbox(i18n.t(self.lang, "tui_connect_by_checkbox"), id="connect-by-checkbox")
         with Horizontal(id="baseline-controls"):
-            yield Input(placeholder="Baseline file (optional -- compare or verify against it)", id="baseline-input")
-            yield Checkbox("Verify mode (scan as post-migration output)", id="verify-checkbox")
-        yield Static("Nothing selected yet.", id="status")
+            yield Input(placeholder=i18n.t(self.lang, "tui_baseline_input_placeholder"), id="baseline-input")
+            yield Checkbox(i18n.t(self.lang, "tui_verify_checkbox"), id="verify-checkbox")
+        yield Static(i18n.t(self.lang, "tui_status_nothing_selected"), id="status")
         yield Footer()
 
     def _update_status(self) -> None:
@@ -183,12 +200,14 @@ class ScanScreen(Screen):
         # table cells.
         lines = []
         if self.selected_path is not None:
-            lines.append(f"Highlighted: {self.selected_path}")
+            lines.append(i18n.t(self.lang, "tui_status_highlighted", path=self.selected_path))
         if self.selected_paths:
             listing = "\n".join(f"  - {p}" for p in self.selected_paths)
-            lines.append(f"{len(self.selected_paths)} path(s) queued for scan:\n{listing}")
+            lines.append(
+                i18n.t(self.lang, "tui_status_queued", n=len(self.selected_paths), listing=listing)
+            )
         if not lines:
-            lines.append("Nothing selected yet.")
+            lines.append(i18n.t(self.lang, "tui_status_nothing_selected"))
         self.query_one("#status", Static).update(Text("\n".join(lines)))
 
     def _show_status_error(self, message: str) -> None:
@@ -211,7 +230,7 @@ class ScanScreen(Screen):
 
         if button_id == "add-path-btn":
             if self.selected_path is None:
-                self._show_status_error("Pick a file or directory in the tree first.")
+                self._show_status_error(i18n.t(self.lang, "tui_error_pick_in_tree_first"))
                 return
             if self.selected_path not in self.selected_paths:
                 self.selected_paths.append(self.selected_path)
@@ -230,7 +249,7 @@ class ScanScreen(Screen):
             [self.selected_path] if self.selected_path is not None else []
         )
         if not paths:
-            self._show_status_error("Pick a file or directory first.")
+            self._show_status_error(i18n.t(self.lang, "tui_error_pick_first"))
             return
 
         severity = self.query_one("#severity-select", Select).value
@@ -241,21 +260,21 @@ class ScanScreen(Screen):
         baseline_path = baseline_value or None
 
         if verify_mode and baseline_path is None:
-            self._show_status_error("Verify mode requires a baseline file.")
+            self._show_status_error(i18n.t(lang, "tui_error_verify_needs_baseline"))
             return
         if verify_mode and check_connect_by:
             # Same conflict cli.py's own --verify rejects (see
             # verify_conflict_error): --verify scans generated PostgreSQL
             # output, where a CONNECT BY check against Oracle source
             # doesn't make sense.
-            self._show_status_error("Verify mode can't be combined with the CONNECT BY check.")
+            self._show_status_error(i18n.t(lang, "tui_error_verify_conflicts_connect_by"))
             return
 
         if verify_mode:
-            self.query_one("#status", Static).update("Verifying...")
+            self.query_one("#status", Static).update(i18n.t(lang, "tui_status_verifying"))
             self._run_verify(paths, Path(baseline_path), lang)
         else:
-            self.query_one("#status", Static).update("Scanning...")
+            self.query_one("#status", Static).update(i18n.t(lang, "tui_status_scanning"))
             self._run_scan(paths, severity, lang, check_connect_by, baseline_path)
 
     @work(thread=True)
@@ -280,7 +299,10 @@ class ScanScreen(Screen):
             try:
                 baseline = load_baseline(Path(baseline_path), lang=lang)
             except BaselineLoadError as exc:
-                self.app.call_from_thread(self._show_status_error, f"Couldn't load baseline: {exc}")
+                self.app.call_from_thread(
+                    self._show_status_error,
+                    i18n.t(lang, "tui_error_couldnt_load_baseline", exc=exc),
+                )
                 return
             baseline_diff = diff_against_baseline(all_findings, baseline)
 
@@ -299,7 +321,9 @@ class ScanScreen(Screen):
         try:
             baseline = load_baseline(baseline_path, lang=lang)
         except BaselineLoadError as exc:
-            self.app.call_from_thread(self._show_status_error, f"Couldn't load baseline: {exc}")
+            self.app.call_from_thread(
+                self._show_status_error, i18n.t(lang, "tui_error_couldnt_load_baseline", exc=exc)
+            )
             return
 
         # Same loop cli.py's own _handle_verify() runs, deliberately not
@@ -307,16 +331,16 @@ class ScanScreen(Screen):
         # *generated* PostgreSQL output, not Oracle source, so none of
         # scan_paths()'s Oracle-specific extras (--check-connect-by) apply.
         expanded, empty_dirs = _expand_paths(paths)
-        warnings = [f"No .sql/.pks/.pkb files found under {d}" for d in empty_dirs]
+        warnings = [i18n.t(lang, "tui_warning_no_files_under", dir=d) for d in empty_dirs]
         post_migration_findings: list[Finding] = []
         for file_path in expanded:
             if not file_path.is_file():
-                warnings.append(f"Not found: {file_path}")
+                warnings.append(i18n.t(lang, "tui_warning_not_found", path=file_path))
                 continue
             try:
                 source = file_path.read_text(encoding="utf-8", errors="replace")
             except OSError as exc:
-                warnings.append(f"Could not read {file_path}: {exc}")
+                warnings.append(i18n.t(lang, "tui_warning_could_not_read", path=file_path, exc=exc))
                 continue
             post_migration_findings.extend(
                 dataclasses.replace(f, source_file=str(file_path)) for f in scan_source(source)
@@ -325,7 +349,7 @@ class ScanScreen(Screen):
         results = verify_against_baseline(baseline, post_migration_findings)
         scanned_label = ", ".join(str(p) for p in paths)
         self.app.call_from_thread(
-            self.app.push_screen, VerifyResultsScreen(results, warnings, scanned_label)
+            self.app.push_screen, VerifyResultsScreen(results, warnings, scanned_label, lang)
         )
 
 
@@ -410,11 +434,14 @@ class ResultsScreen(Screen):
         yield Static(self._summary_text(), id="summary")
         table: DataTable = DataTable(id="findings-table", cursor_type="row")
         yield table
-        yield Static("Select a row to see the full explanation.", id="detail")
+        yield Static(i18n.t(self.lang, "tui_results_select_row_hint"), id="detail")
         with Horizontal(id="baseline-save-controls"):
-            yield Input(placeholder="Save these findings as a baseline to...", id="save-baseline-input")
-            yield Button("Save baseline", id="save-baseline-btn")
-        yield Button("Back to scan", id="back-btn")
+            yield Input(
+                placeholder=i18n.t(self.lang, "tui_save_baseline_input_placeholder"),
+                id="save-baseline-input",
+            )
+            yield Button(i18n.t(self.lang, "tui_save_baseline_btn"), id="save-baseline-btn")
+        yield Button(i18n.t(self.lang, "tui_back_to_scan_btn"), id="back-btn")
         yield Footer()
 
     def _summary_text(self) -> Text:
@@ -426,17 +453,28 @@ class ResultsScreen(Screen):
         # Only the style spans below (Text(..., style=...)) are markup;
         # everything else is plain appended text, never parsed.
         if not self.findings:
-            text = Text(f"Scanned {self.scanned_path} — no problematic constructs found.")
+            text = Text(i18n.t(self.lang, "tui_scanned_no_findings", path=self.scanned_path))
         else:
             counts = summarize_by_severity(self.findings)
             counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
             lo, hi = estimate_hours(self.findings)
             text = Text(
-                f"Scanned {self.scanned_path} — objects: {self.objects_scanned}, "
-                f"findings: {len(self.findings)} ({counts_text}) — rough estimate {lo:.2f}-{hi:.2f}h "
-                f"(uncalibrated heuristic, not a measurement)"
+                i18n.t(
+                    self.lang,
+                    "tui_scanned_summary",
+                    path=self.scanned_path,
+                    objects=self.objects_scanned,
+                    count=len(self.findings),
+                    counts_text=counts_text,
+                    lo=lo,
+                    hi=hi,
+                )
             )
         if self.baseline_diff is not None:
+            # NEW/RESOLVED/UNCHANGED stay untranslated words here, same as
+            # terminal_report.py's own render_baseline_diff() -- fixed
+            # status vocabulary, not prose (see _severity_options()'s own
+            # reasoning for the same choice with high/medium/low).
             d = self.baseline_diff
             text.append("\n")
             text.append("Baseline: ", style="bold")
@@ -460,7 +498,19 @@ class ResultsScreen(Screen):
         # the summary bar above. Without this, File alone can push
         # Detector/GAP off the right edge of the table entirely, hiding
         # the one thing this table exists to surface.
-        table.add_columns("Severity", "File", "Object", "Line", "Detector", "GAP")
+        #
+        # Reuses col_severity/col_file/col_object/col_line/col_detector --
+        # the same terminal_report.py findings-table headers, not a
+        # tui_-prefixed duplicate. "GAP" stays a literal, untranslated
+        # column name here too, matching md_table_header/html_table_header.
+        table.add_columns(
+            i18n.t(self.lang, "col_severity"),
+            i18n.t(self.lang, "col_file"),
+            i18n.t(self.lang, "col_object"),
+            i18n.t(self.lang, "col_line"),
+            i18n.t(self.lang, "col_detector"),
+            "GAP",
+        )
         for i, f in enumerate(self.findings):
             gap_number, _ = gap_metadata(f.detector)
             # Text(...) per cell, not markup strings: object_name/file name
@@ -526,15 +576,20 @@ class ResultsScreen(Screen):
             # markup.
             value = self.query_one("#save-baseline-input", Input).value.strip()
             if not value:
-                self._save_status = Text("Enter a path first.", style="bold #FF5555")
+                self._save_status = Text(
+                    i18n.t(self.lang, "tui_error_enter_path_first"), style="bold #FF5555"
+                )
             else:
                 try:
                     save_baseline(self.all_findings, Path(value))
                 except OSError as exc:
-                    self._save_status = Text(f"Couldn't save: {exc}", style="bold #FF5555")
+                    self._save_status = Text(
+                        i18n.t(self.lang, "tui_error_couldnt_save", exc=exc), style="bold #FF5555"
+                    )
                 else:
                     self._save_status = Text(
-                        f"Saved {len(self.all_findings)} findings to {value}", style="#50FA7B"
+                        i18n.t(self.lang, "tui_saved_findings", n=len(self.all_findings), path=value),
+                        style="#50FA7B",
                     )
             self.query_one("#summary", Static).update(self._summary_text())
 
@@ -556,23 +611,24 @@ class VerifyResultsScreen(Screen):
     #verify-footer-note { height: auto; padding: 0 3 1 3; color: $text-muted; }
     """
 
-    def __init__(self, results: list[DetectorVerification], warnings: list[str], scanned_path: str) -> None:
+    def __init__(
+        self, results: list[DetectorVerification], warnings: list[str], scanned_path: str, lang: str = "ru"
+    ) -> None:
         super().__init__()
         self.results = results
         self.warnings = warnings
         self.scanned_path = scanned_path
+        self.lang = lang
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Static(self._summary_text(), id="verify-summary")
         yield DataTable(id="verify-table", cursor_type="row")
-        yield Static(
-            "NOT_DETECTED means the pattern wasn't found in the checked code, not that the "
-            "problem is provably fixed. NOT_VERIFIABLE detectors are dropped from ora2pg's own "
-            "output on every migration, so re-checking here can't prove anything either way.",
-            id="verify-footer-note",
-        )
-        yield Button("Back to scan", id="verify-back-btn")
+        # Same footer disclaimer text as terminal_report.py's own
+        # render_verification() -- reuses its i18n key rather than a
+        # tui_-prefixed duplicate.
+        yield Static(i18n.t(self.lang, "verify_footer_note"), id="verify-footer-note")
+        yield Button(i18n.t(self.lang, "tui_back_to_scan_btn"), id="verify-back-btn")
         yield Footer()
 
     def _summary_text(self) -> Text:
@@ -583,9 +639,15 @@ class VerifyResultsScreen(Screen):
         for r in self.results:
             counts[r.status] = counts.get(r.status, 0) + 1
         text = Text(
-            f"Verified {self.scanned_path} against baseline — {len(self.results)} baseline "
-            f"detectors: {counts['still_present']} still present, {counts['not_detected']} not "
-            f"detected, {counts['not_verifiable']} not verifiable"
+            i18n.t(
+                self.lang,
+                "tui_verify_summary",
+                path=self.scanned_path,
+                n=len(self.results),
+                still_present=counts["still_present"],
+                not_detected=counts["not_detected"],
+                not_verifiable=counts["not_verifiable"],
+            )
         )
         if self.warnings:
             text.append("\n")
@@ -594,7 +656,15 @@ class VerifyResultsScreen(Screen):
 
     def on_mount(self) -> None:
         table = self.query_one("#verify-table", DataTable)
-        table.add_columns("Detector", "GAP", "Before", "After", "Status")
+        # Reuses terminal_report.py's own verify_col_* headers, same
+        # reasoning as ResultsScreen.on_mount()'s col_* reuse above.
+        table.add_columns(
+            i18n.t(self.lang, "verify_col_detector"),
+            i18n.t(self.lang, "verify_col_gap"),
+            i18n.t(self.lang, "verify_col_before"),
+            i18n.t(self.lang, "verify_col_after"),
+            i18n.t(self.lang, "verify_col_status"),
+        )
         for r in self.results:
             table.add_row(
                 Text(r.detector),
@@ -614,13 +684,19 @@ class GapReportApp(App):
     the actual launch (handles the "textual isn't installed" case one
     level up, in cli.py, before this module is even imported)."""
 
+    # TITLE stays the tool's own name, not translated -- same as every
+    # other proper noun in this project's output (e.g. i18n.py's own
+    # picker never translates "English"/"Русский" either). SUB_TITLE is
+    # set per-instance in __init__ instead (below), since it needs `lang`,
+    # not known yet at class-definition time.
     TITLE = "ora2pg-gap-report"
-    SUB_TITLE = "Oracle -> PostgreSQL migration gap report"
     BINDINGS = [("q", "quit", "Quit")]
 
-    def __init__(self, start_path: Path | None = None) -> None:
+    def __init__(self, start_path: Path | None = None, lang: str = "ru") -> None:
         super().__init__()
         self._start_path = start_path or Path.cwd()
+        self.lang = lang
+        self.sub_title = i18n.t(lang, "tui_app_subtitle")
         # Dracula (draculatheme.com) -- one of Textual's own built-in
         # themes, not the library's generic default: high-contrast purple
         # on near-black, the option the project's own maintainer picked
@@ -631,8 +707,8 @@ class GapReportApp(App):
         self.theme = "dracula"
 
     def on_mount(self) -> None:
-        self.push_screen(ScanScreen(self._start_path))
+        self.push_screen(ScanScreen(self._start_path, self.lang))
 
 
-def run_tui(start_path: Path | None = None) -> None:
-    GapReportApp(start_path=start_path).run()
+def run_tui(start_path: Path | None = None, lang: str = "ru") -> None:
+    GapReportApp(start_path=start_path, lang=lang).run()

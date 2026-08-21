@@ -1,5 +1,7 @@
 """Regression tests for bugs found in code review of the shared lexer."""
 
+import pytest
+
 from ora2pg_gap_report.detectors.autonomous_tx import find_autonomous_transactions
 from ora2pg_gap_report.detectors.compound_triggers import find_compound_triggers
 from ora2pg_gap_report.plsql_lex import (
@@ -126,13 +128,13 @@ def test_grant_statement_privilege_list_is_not_treated_as_a_view_declaration():
     # if 'TO' (the next word) were a real view name.
     source = "GRANT CREATE SESSION, CREATE SYNONYM, CREATE VIEW TO oe;\n"
     clean = mask_strings_and_comments(source)
-    assert enclosing_object_name_index(clean) == []
+    assert enclosing_object_name_index(clean) == ()
 
 
 def test_revoke_statement_privilege_list_is_not_treated_as_a_declaration():
     source = "REVOKE CREATE VIEW FROM oe;\n"
     clean = mask_strings_and_comments(source)
-    assert enclosing_object_name_index(clean) == []
+    assert enclosing_object_name_index(clean) == ()
 
 
 def test_create_statement_preceded_by_an_unterminated_sqlplus_command_is_still_recognized():
@@ -284,3 +286,31 @@ def test_dynamic_sql_that_creates_a_package_at_runtime_is_not_picked_up_as_a_rea
     names = {name for _, _, name in index}
     assert "FAKE_PKG" not in names
     assert names == {"OUTER_PKG", "BUILD_IT"}
+
+
+def test_masking_and_index_functions_are_cached_across_equal_calls():
+    # ~37 detectors each call mask_strings_and_comments() with the exact
+    # same `source` for a given scanned file (a third of them also call
+    # mask_dynamic_sql_visible()/enclosing_object_name_index()) -- scanning
+    # one file used to redo all of this same O(n) work ~2-3 dozen times
+    # over. Caching collapses that to one real computation per distinct
+    # input; `is` (not just `==`) proves the *same* cached object comes
+    # back on a second call with an equal string, not just an equal one.
+    source = "create or replace package body pkg as\n  procedure noop is\n  begin null; end;\nend pkg;\n"
+    assert mask_strings_and_comments(source) is mask_strings_and_comments(source)
+    assert mask_dynamic_sql_visible(source) is mask_dynamic_sql_visible(source)
+
+    clean = mask_strings_and_comments(source)
+    assert enclosing_object_name_index(clean) is enclosing_object_name_index(clean)
+
+
+def test_enclosing_object_name_index_returns_an_immutable_tuple():
+    # Its result is shared (the same cached object) across every caller
+    # that scans the same masked text -- a list would let one caller's
+    # accidental in-place mutation (.append()/.sort()/...) silently
+    # corrupt what every other caller sees. A tuple makes that a type
+    # error instead of a shared-mutable-state bug.
+    index = enclosing_object_name_index("create or replace package body pkg as\nend pkg;\n")
+    assert isinstance(index, tuple)
+    with pytest.raises(AttributeError):
+        index.append((0, "package", "X"))  # type: ignore[attr-defined]

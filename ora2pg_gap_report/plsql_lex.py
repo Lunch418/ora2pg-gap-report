@@ -8,6 +8,7 @@ section can be told apart from a nested subprogram's).
 """
 
 import re
+from functools import lru_cache
 
 # Oracle unquoted identifiers: letter, then letters/digits/_/$/#.
 IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_$#]*"
@@ -162,13 +163,27 @@ def _mask(source: str, reveal_dynamic_sql: bool) -> str:
     return "".join(out)
 
 
+@lru_cache(maxsize=8)
 def mask_strings_and_comments(source: str) -> str:
     """Replace comment/string-literal contents with spaces, preserving
     length and newlines, so absolute offsets and line numbers stay valid
-    and keyword regexes never match inside a literal or a comment."""
+    and keyword regexes never match inside a literal or a comment.
+
+    Cached: every one of this project's ~37 detectors calls this with the
+    exact same `source` for a given scanned file (confirmed: none mutate
+    their `clean`/`visible` string result, which is impossible anyway --
+    Python strings are immutable), so scanning one file used to redo this
+    same O(n) masking pass ~37 times over. maxsize=8 is deliberately
+    small -- within one scan_source() call there's only ever one distinct
+    `source` in flight, so a cache of 1 would already collapse the
+    redundancy; 8 just adds headroom (e.g. a long-running --tui session
+    re-scanning a small, recently-touched set of files) without letting a
+    long session's cache grow unbounded and hold arbitrarily many past
+    files' full text in memory forever."""
     return _mask(source, reveal_dynamic_sql=False)
 
 
+@lru_cache(maxsize=8)
 def mask_dynamic_sql_visible(source: str) -> str:
     """Like mask_strings_and_comments(), but string-literal content that is
     (part of) an EXECUTE IMMEDIATE argument -- from right after the keyword
@@ -189,7 +204,9 @@ def mask_dynamic_sql_visible(source: str) -> str:
     detector's own keyword-matching regex should run against this visible
     view; positions found in it remain valid lookups into an index built
     from the safe view, since masking never changes length or newlines in
-    either view."""
+    either view.
+
+    Cached -- see mask_strings_and_comments()'s own docstring for why."""
     return _mask(source, reveal_dynamic_sql=True)
 
 
@@ -407,7 +424,8 @@ def is_inside_grant_or_revoke_statement(text: str, create_pos: int) -> bool:
     return bool(_GRANT_OR_REVOKE_RE.match(text, boundary, create_pos))
 
 
-def enclosing_object_name_index(text: str) -> list[tuple[int, str, str]]:
+@lru_cache(maxsize=8)
+def enclosing_object_name_index(text: str) -> tuple[tuple[int, str, str], ...]:
     """Every 'named container' start position in `text` (already masked),
     tagged by kind ('package' / 'nested_routine' / 'standalone_routine' /
     'trigger' / 'view'), sorted by position. Build once per source file
@@ -415,7 +433,17 @@ def enclosing_object_name_index(text: str) -> list[tuple[int, str, str]]:
     re-scanning the whole file per finding, and keeps the attribution
     logic in one place instead of duplicated (and liable to silently
     diverge) across every detector that needs "which object contains this
-    position"."""
+    position".
+
+    Cached (see mask_strings_and_comments()'s own docstring) -- roughly a
+    third of this project's detectors call this with the same masked
+    `text` for a given scanned file. A tuple, not a list: every caller
+    only ever reads it (confirmed -- no .append()/.sort()/similar
+    anywhere in this codebase), and returning an immutable value from a
+    cache makes that a property the type system enforces, not just one
+    true today -- a future caller that tried to mutate a cached list
+    in place would otherwise silently corrupt every other caller sharing
+    that same cache entry."""
     # ROUTINE_START_RE has no CREATE prefix (it matches a nested routine
     # declared *inside* a package body, e.g. 'PROCEDURE name IS' at the
     # start of a line), so it isn't subject to the GRANT/REVOKE check
@@ -450,10 +478,10 @@ def enclosing_object_name_index(text: str) -> list[tuple[int, str, str]]:
             if not is_inside_grant_or_revoke_statement(text, m.start())
         ]
     )
-    return sorted(tagged, key=lambda t: t[0])
+    return tuple(sorted(tagged, key=lambda t: t[0]))
 
 
-def enclosing_object_name(index: list[tuple[int, str, str]], position: int) -> str:
+def enclosing_object_name(index: tuple[tuple[int, str, str], ...], position: int) -> str:
     """Best-effort 'what named object contains this position': a
     PACKAGE_BODY.ROUTINE for something nested inside a package, a bare
     standalone routine/trigger/view name, or a bare package name if only a

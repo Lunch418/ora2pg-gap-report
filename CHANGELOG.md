@@ -7,6 +7,21 @@ patch — исправления в существующих.
 
 ## [Unreleased]
 
+### Performance
+- `mask_strings_and_comments()`/`mask_dynamic_sql_visible()`/
+  `enclosing_object_name_index()` (`plsql_lex.py`) теперь кэшируются
+  (`functools.lru_cache`) — ~37 детекторов каждый вызывали
+  `mask_strings_and_comments()` с одним и тем же `source` при
+  сканировании одного файла (треть из них — ещё и
+  `mask_dynamic_sql_visible()`/`enclosing_object_name_index()`), заново
+  пересчитывая один и тот же O(n) проход по файлу по 20-70 раз. На
+  `docs/research/samples/logger.pkb` (80 КБ) — `scan_source()` с
+  ~0.94с до ~0.09с на холодном кэше (~10x), локальный прогон всего
+  тестового набора — с ~60с до ~22с. `enclosing_object_name_index()`
+  заодно возвращает `tuple`, а не `list` — при разделяемом кэшированном
+  значении случайная мутация на месте в одном вызывающем коде больше не
+  может незаметно испортить то, что видят остальные.
+
 ### Added
 - `mypy` в CI (job `lint`, конфиг в `pyproject.toml`) с
   `disallow_untyped_defs` — не только не падает на уже аннотированном

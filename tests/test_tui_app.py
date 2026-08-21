@@ -578,3 +578,22 @@ async def test_results_screen_table_headers_are_translated_to_russian():
         table = results_screen.query_one("#findings-table", DataTable)
         headers = [str(col.label) for col in table.columns.values()]
         assert headers == ["Severity", "Файл", "Объект", "Строка", "Детектор", "GAP"]
+
+
+def test_tui_app_does_not_import_from_cli():
+    # scan_source()/count_objects()/_expand_paths()/_connect_by_check()/
+    # _sort_findings() used to live in cli.py itself, and this module
+    # imported them straight from there -- coupling the interactive mode
+    # to the flag-based CLI's own module instead of to core.py, the
+    # neutral shared layer both are peers of (cli.py's --tui handling
+    # imports *this* module, the dependency should never run the other
+    # way). A source-text check, not an import-graph one: catches a
+    # future "from .cli import X" the same way, without needing to
+    # actually trace every transitive import.
+    import inspect
+
+    import ora2pg_gap_report.tui_app as tui_app_module
+
+    source = inspect.getsource(tui_app_module)
+    assert "from .cli import" not in source
+    assert "from ora2pg_gap_report.cli import" not in source

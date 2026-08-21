@@ -7,6 +7,16 @@ patch — исправления в существующих.
 
 ## [Unreleased]
 
+### Changed
+- Новый `core.py`: `scan_source()`/`count_objects()`/`_expand_paths()`/
+  `_connect_by_check()`/`_sort_findings()` (плюс `_DETECTORS`/
+  `detector_names()`) переехали туда из `cli.py`. `tui_app.py` раньше
+  импортировал все пять прямо из `cli.py` — интерактивный режим был
+  привязан к внутренностям обычного CLI вместо общего нейтрального слоя,
+  ровесника обоих. `cli.py` реэкспортирует те же имена, так что
+  `main()` и внешний импорт (`from ora2pg_gap_report.cli import
+  scan_source` и т. п.) не меняются.
+
 ### Fixed
 - `cli.py` gains `detector_names()` — each detector's `Finding.detector`
   string derived from its function's own `__module__`, not a second,

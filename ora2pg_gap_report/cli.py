@@ -2,6 +2,7 @@ import argparse
 import dataclasses
 import sys
 import time
+from collections.abc import Sequence
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 
@@ -122,10 +123,22 @@ class _LazyVersionAction(argparse.Action):
     unconditionally at parser-construction time -- i.e. on every single
     CLI invocation, not just the rare one that asks for it."""
 
-    def __init__(self, option_strings, dest=argparse.SUPPRESS, default=argparse.SUPPRESS, help=None):
+    def __init__(
+        self,
+        option_strings: Sequence[str],
+        dest: str = argparse.SUPPRESS,
+        default: str = argparse.SUPPRESS,
+        help: str | None = None,
+    ) -> None:
         super().__init__(option_strings=option_strings, dest=dest, default=default, nargs=0, help=help)
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[object] | None,
+        option_string: str | None = None,
+    ) -> None:
         parser._print_message(f"{parser.prog} {_package_version()}\n", sys.stdout)
         parser.exit()
 

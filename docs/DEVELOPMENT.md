@@ -59,9 +59,19 @@ README какое-то время содержало устаревшее опи
 ## Тестирование
 
 ```sh
-pip install -e ".[dev]"   # editable-режим + pytest
+pip install -e ".[dev]"   # editable-режим + pytest/ruff/mypy
 pytest
+ruff check ora2pg_gap_report/ tests/
+mypy                       # ora2pg_gap_report/ + scripts/, конфиг в pyproject.toml
 ```
+
+`mypy` настроен с `disallow_untyped_defs` — не просто "не падает на
+аннотированном коде", а реально требует аннотаций у каждой функции.
+`oracledb` (опциональная зависимость extra `oracle`) размечен как
+`ignore_missing_imports` — типы из него используются только под `if
+TYPE_CHECKING:` (`oracle_connector.py`), поэтому пакет остаётся
+импортируемым без него, и `mypy` не падает в CI, где `oracledb` не
+установлен.
 
 Детекторы и лексер проверены на реальном открытом PL/SQL-коде — не
 только на синтетических примерах. Помимо точечных фикстур (Logger,

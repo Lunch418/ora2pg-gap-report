@@ -158,7 +158,7 @@ def render(
     table.add_column(i18n.t(lang, "col_snippet"), style="cyan", no_wrap=True, overflow="ellipsis", ratio=2)
 
     for f in findings:
-        severity_style = _SEVERITY_STYLE.get(f.severity)
+        severity_style = _SEVERITY_STYLE.get(f.severity, "")
         table.add_row(
             Text(f.source_file or "—"),
             Text(f.object_name),
@@ -371,7 +371,7 @@ def _render_top_objects(findings: list[Finding], console: Console, lang: str = "
         by_object.items(),
         key=lambda item: (
             -len(item[1]),
-            {"high": 0, "medium": 1, "low": 2}.get(_worst_severity({g.severity for g in item[1]}), 3),
+            {"high": 0, "medium": 1, "low": 2}.get(_worst_severity({g.severity for g in item[1]}) or "", 3),
             item[0],
         ),
     )
@@ -392,7 +392,7 @@ def _render_top_objects(findings: list[Finding], console: Console, lang: str = "
         ):
             worst = _worst_severity({g.severity for g in detector_findings})
             leaf = Text()
-            leaf.append(f"{_severity_dot(worst)} ", style=_SEVERITY_STYLE.get(worst))
+            leaf.append(f"{_severity_dot(worst)} ", style=_SEVERITY_STYLE.get(worst or "", ""))
             leaf.append(detector)
             leaf.append(f"  ({len(detector_findings)})", style="dim")
             branch.add(leaf)
@@ -463,7 +463,7 @@ def render_verification(
     table.add_column(i18n.t(lang, "verify_col_status"), width=16)
 
     for r in results:
-        status_style = _VERIFICATION_STATUS_STYLE.get(r.status)
+        status_style = _VERIFICATION_STATUS_STYLE.get(r.status, "")
         table.add_row(
             Text(r.detector),
             Text(f"GAP-{r.gap_number}" if r.gap_number else "—"),

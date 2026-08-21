@@ -239,7 +239,7 @@ def find_matching_end(text: str, begin_pos: int, hard_boundary: int) -> int | No
     return None
 
 
-def _own_is_as(text: str, name_end: int, hard_boundary: int):
+def _own_is_as(text: str, name_end: int, hard_boundary: int) -> re.Match[str] | None:
     """The IS/AS match belonging to the routine whose name ends at
     `name_end`, or None if this is a forward declaration ('PROCEDURE
     helper;', used to allow mutual recursion between subprograms) rather
@@ -261,7 +261,9 @@ def _own_is_as(text: str, name_end: int, hard_boundary: int):
     return is_as
 
 
-def _find_own_begin(text: str, is_as_end: int, hard_boundary: int, nested_spans: list):
+def _find_own_begin(
+    text: str, is_as_end: int, hard_boundary: int, nested_spans: list[tuple[int, int]]
+) -> int | None:
     """Return the index of the BEGIN starting THIS routine's own body,
     recursively skipping any nested subprogram declarations found first
     (recording their [start, end) spans in `nested_spans`)."""
@@ -292,7 +294,9 @@ def _find_own_begin(text: str, is_as_end: int, hard_boundary: int, nested_spans:
         cursor = nested_end
 
 
-def declare_and_begin(text: str, routine_name_end: int, hard_boundary: int):
+def declare_and_begin(
+    text: str, routine_name_end: int, hard_boundary: int
+) -> tuple[int, int, list[tuple[int, int]]] | None:
     """Given the end of 'FUNCTION|PROCEDURE name', resolve THIS routine's
     own declare section — the span between its IS/AS and its own BEGIN —
     with any nested subprogram spans it contains called out separately so
@@ -301,14 +305,14 @@ def declare_and_begin(text: str, routine_name_end: int, hard_boundary: int):
     is_as = _own_is_as(text, routine_name_end, hard_boundary)
     if is_as is None:
         return None
-    nested_spans: list = []
+    nested_spans: list[tuple[int, int]] = []
     begin_pos = _find_own_begin(text, is_as.end(), hard_boundary, nested_spans)
     if begin_pos is None:
         return None
     return is_as.end(), begin_pos, nested_spans
 
 
-def own_declare_text(text: str, declare_start: int, begin_pos: int, nested_spans: list) -> str:
+def own_declare_text(text: str, declare_start: int, begin_pos: int, nested_spans: list[tuple[int, int]]) -> str:
     """The routine's own declare-section text, with any nested subprogram
     spans blanked out (so a nested routine's own PRAGMA/content is not
     mistaken for this routine's)."""

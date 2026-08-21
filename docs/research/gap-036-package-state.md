@@ -90,6 +90,49 @@ SELECT pkg_ctx_get_user();
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
+## Дополнительно проверено: package-level CONSTANT и объявление в спеке
+
+Первая версия детектора (см. `git log` по `package_state.py`) смотрела
+только на объявления в `PACKAGE BODY` и пропускала `CONSTANT`. Оба
+случая проверены реальным прогоном ora2pg 25.0 отдельно:
+
+**CONSTANT.** Пакетная константа получает тот же рерайт, что и обычная
+переменная — реального отличия в поведении ora2pg нет:
+
+```sql
+CREATE OR REPLACE PACKAGE BODY pkg_ctx AS
+  c_max_retries CONSTANT PLS_INTEGER := 3;
+  FUNCTION get_retries RETURN PLS_INTEGER IS
+  BEGIN
+    RETURN c_max_retries;
+  END;
+END pkg_ctx;
+```
+
+сгенерированный вывод:
+
+```sql
+CREATE OR REPLACE FUNCTION pkg_ctx_get_retries () RETURNS integer AS $body$
+BEGIN
+    RETURN current_setting('pkg_ctx.c_max_retries')::integer;
+  END;
+$body$
+```
+
+Хуже, чем для обычной переменной: у константы вообще нет
+"первого `SET`" — ora2pg не генерирует никакого `set_config()` для её
+исходного значения (`:= 3`), так что `current_setting()` гарантированно
+упадёт с `unrecognized configuration parameter` при любом обращении, не
+только до первого вызова записывающей процедуры.
+
+**Объявление в спеке, не в теле.** `PACKAGE ... AS <var>; ... END;`
+(без переобъявления в `PACKAGE BODY`) — тоже полноценно попадает под
+рерайт; ora2pg не различает, откуда взялась пакетная переменная.
+Детектор изначально смотрел только на `PACKAGE BODY` (собственный
+минимальный пример этого документа объявляет переменную в спеке и
+поэтому не детектировался вообще — баг, а не отдельный
+неподтверждённый случай, найден аудитом кода и исправлен).
+
 ## Вердикт
 
 **Gap подтверждён.** Реализовано:

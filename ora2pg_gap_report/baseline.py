@@ -34,6 +34,16 @@ from .models import Finding
 
 SCHEMA_VERSION = 1
 
+# Deliberately narrower than schemas/baseline.schema.json's full required
+# list: just the two fields this module and verification.py actually
+# dereference without a .get() fallback ('detector' is the one that used
+# to surface as a raw KeyError from verify_against_baseline). Not
+# gap_number/failure_stage -- test_load_baseline_tolerates_a_snapshot_
+# saved_before_gap_metadata_existed is an intentional backward-compat
+# guarantee for --save snapshots written before those fields existed,
+# and requiring the schema's full list here would break it.
+_REQUIRED_FINDING_FIELDS = frozenset({"group_key", "detector"})
+
 
 class BaselineLoadError(Exception):
     """A --baseline file couldn't be read or isn't in the expected shape."""
@@ -88,9 +98,20 @@ def load_baseline(path: Path, lang: str = "ru") -> list[dict]:
                 expected=SCHEMA_VERSION,
             )
         )
+    # The full set schemas/baseline.schema.json requires per finding, not
+    # just 'group_key' -- verify_against_baseline() (verification.py)
+    # reads rec["detector"] unconditionally, and a baseline that passed
+    # this check but was missing it used to surface as a raw KeyError
+    # instead of the same clean "this file is broken" message every other
+    # malformed-baseline case gets.
     for rec in raw["findings"]:
-        if not isinstance(rec, dict) or "group_key" not in rec:
-            raise BaselineLoadError(i18n.t(lang, "baseline_missing_group_key", path=path))
+        if not isinstance(rec, dict):
+            raise BaselineLoadError(i18n.t(lang, "baseline_missing_field", path=path, field="group_key"))
+        missing = _REQUIRED_FINDING_FIELDS - rec.keys()
+        if missing:
+            raise BaselineLoadError(
+                i18n.t(lang, "baseline_missing_field", path=path, field=", ".join(sorted(missing)))
+            )
     return raw["findings"]
 
 

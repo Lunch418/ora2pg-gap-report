@@ -52,10 +52,15 @@ def test_scan_source_runs_all_detectors_on_logger():
     # package_state: OraOpenSource/Logger makes heavy real-world use of all
     # three constructs (229 $IF/$ELSIF/$ELSE/$END directives gating version-
     # dependent code paths, 5 genuinely nested helper procedures/functions,
-    # and 3 package-level session-state variables -- g_log_id, g_in_plugin_
-    # error, g_running_timers) -- see each detector's own
-    # test_real_open_source_logger_*() test for individual excerpts.
-    assert len(findings) == 8 + 17 + 1 + 229 + 5 + 3
+    # and 25 package-level session-state declarations -- 3 plain variables
+    # (g_log_id, g_in_plugin_error, g_running_timers) plus 22 package-level
+    # CONSTANTs (gc_line_feed, gc_pref_* and friends) -- see each detector's
+    # own test_real_open_source_logger_*() test for individual excerpts.
+    # The CONSTANT count went from undetected to 22 real findings the
+    # moment package_state.py's grammar covered CONSTANT (see
+    # docs/research/gap-036-package-state.md's addendum) -- this file was
+    # already in the corpus the whole time, just silently under-counted.
+    assert len(findings) == 8 + 17 + 1 + 229 + 5 + 25
 
 
 def test_scan_source_sorts_high_severity_first():
@@ -701,6 +706,82 @@ def test_main_baseline_missing_file_is_a_graceful_error(tmp_path, capsys):
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "does_not_exist.json" in captured.err
+
+
+def test_main_save_and_baseline_pointing_at_the_same_file_is_rejected(tmp_path, capsys):
+    # --baseline reads a *previous* run's snapshot to diff against --
+    # pointing both flags at the same path means --baseline reads back
+    # the file --save is about to overwrite with this run's own result,
+    # comparing the run against itself (always "nothing changed") instead
+    # of erroring on a request that can never do what it looks like it
+    # asks for.
+    same_path = tmp_path / "baseline.json"
+    exit_code = main(
+        [str(SAMPLES / "logger.pkb"), "--save", str(same_path), "--baseline", str(same_path)]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--save" in captured.err and "--baseline" in captured.err
+    assert not same_path.exists()
+
+
+def test_main_save_and_baseline_same_file_via_different_spellings_is_still_rejected(tmp_path, capsys):
+    # Comparing resolved paths, not raw strings -- "./x.json" and "x.json"
+    # (or a path through a symlink) are the same file on disk even though
+    # they don't compare equal as strings.
+    real_path = tmp_path / "baseline.json"
+    exit_code = main(
+        [
+            str(SAMPLES / "logger.pkb"),
+            "--save",
+            str(real_path),
+            "--baseline",
+            str(tmp_path / "." / "baseline.json"),
+        ]
+    )
+    assert exit_code == 2
+    assert not real_path.exists()
+
+
+def test_main_save_is_skipped_when_the_scan_was_partial(tmp_path, capsys):
+    # A snapshot missing some of what was asked to be scanned isn't
+    # "ground truth for the schema" -- writing it anyway would make the
+    # next --baseline diff report those files' findings as NEW the moment
+    # the actual problem (why they were skipped) gets fixed, not as what
+    # they really are: never captured in the first place.
+    baseline_path = tmp_path / "baseline.json"
+    exit_code = main(
+        [
+            str(SAMPLES / "logger.pkb"),
+            str(tmp_path / "does_not_exist.sql"),
+            "--save",
+            str(baseline_path),
+        ]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert not baseline_path.exists()
+    assert "не сохранён" in captured.err
+
+
+def test_main_explain_rejects_format_output_severity_object_too(tmp_path, capsys):
+    # --fail-on/--save/--baseline/--check-connect-by were already rejected
+    # -- --format/--output/--severity/--object used to be silently
+    # ignored instead: --explain would print to stdout as normal and
+    # never touch --output at all, with no indication the other flags did
+    # nothing.
+    out_path = tmp_path / "should_not_be_created.md"
+    for extra in (
+        ["--output", str(out_path)],
+        ["--format", "json"],
+        ["--severity", "high"],
+        ["--object", "X"],
+    ):
+        exit_code = main(["--explain", "GAP-001", *extra])
+        captured = capsys.readouterr()
+        assert exit_code == 2, extra
+        assert "нельзя" in captured.err, extra
+    assert not out_path.exists()
 
 
 def test_main_fail_on_high_fails_when_a_high_finding_exists(capsys):

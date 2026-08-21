@@ -105,7 +105,7 @@ def run_estimate_cost(
             )
         if not out_path.exists():
             return ""
-        return out_path.read_text(errors="replace")
+        return out_path.read_text(encoding="utf-8", errors="replace")
 
 
 def parse_function_costs(ora2pg_output: str) -> list[FunctionCost]:

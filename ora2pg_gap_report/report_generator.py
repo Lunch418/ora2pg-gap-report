@@ -4,6 +4,8 @@ import html
 import io
 import json
 from dataclasses import asdict, fields
+from pathlib import PurePath
+from urllib.parse import quote
 
 from . import i18n
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
@@ -51,6 +53,23 @@ def to_verification_json(results: list[DetectorVerification]) -> str:
 
 _CSV_FIELDNAMES = [*(f.name for f in fields(Finding)), "gap_number", "failure_stage"]
 
+# A cell starting with one of these opens as a formula, not text, the
+# instant the CSV is opened in Excel/LibreOffice/Google Sheets -- and
+# object_name/snippet/source_file all come straight from scanned Oracle
+# source, not from this codebase's own fixed strings. Prefixing a single
+# quote is the standard mitigation (OWASP's CSV Injection guidance): every
+# affected spreadsheet application already treats a leading "'" as "the
+# rest of this cell is literal text", stripping the quote itself from the
+# displayed value, so this is neutralization, not visible mangling. Tab and
+# CR are included too -- both can also anchor a formula in some clients.
+_CSV_FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: object) -> object:
+    if isinstance(value, str) and value.startswith(_CSV_FORMULA_TRIGGER_CHARS):
+        return "'" + value
+    return value
+
 
 def to_csv(findings: list[Finding]) -> str:
     """Flat CSV, one row per finding, same fields/order as to_json()'s
@@ -64,12 +83,17 @@ def to_csv(findings: list[Finding]) -> str:
     (os.linesep == '\\r\\n'), a string that already contained '\\r\\n'
     would come out as '\\r\\r\\n'. Plain '\\n' throughout, matching
     to_json()/to_markdown(), sidesteps that rather than special-casing
-    this one format's write path."""
+    this one format's write path.
+
+    Every string field goes through _csv_safe() -- not just the ones
+    that plausibly start with scanned content today -- so a future field
+    added to Finding doesn't silently reopen the same formula-injection
+    hole (see _csv_safe's own docstring)."""
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=_CSV_FIELDNAMES, lineterminator="\n")
     writer.writeheader()
     for f in findings:
-        writer.writerow(_enrich(f))
+        writer.writerow({k: _csv_safe(v) for k, v in _enrich(f).items()})
     return buffer.getvalue()
 
 
@@ -229,8 +253,32 @@ def _sarif_rule(detector: str, message: str) -> dict:
     return rule
 
 
+def _sarif_uri(source_file: str) -> str:
+    """SARIF's artifactLocation.uri must be a valid URI-reference (RFC
+    3986, the schema's own "uri-reference" format on this field) --
+    source_file is a raw filesystem path (str(pathlib.Path(...)), see
+    cli.py), which regularly contains characters a URI-reference doesn't
+    allow unescaped: a literal space, or -- on Windows -- '\\' path
+    separators and a drive letter's ':' (which would otherwise look like
+    a URI scheme, e.g. 'C:/Users/...' parsed as scheme "C"). Passing the
+    raw path through unchanged used to produce a document GitHub/GitLab's
+    SARIF ingestion could reject or mis-locate, while still passing this
+    project's own tests -- jsonschema.validate() doesn't check "format"
+    constraints (uri-reference included) unless a FormatChecker is
+    explicitly requested, so an invalid uri here was never actually
+    caught.
+
+    PurePath(...).as_posix() normalizes separators to '/' (a no-op on
+    POSIX, where source_file already uses '/'; converts '\\' to '/' on
+    Windows, where PurePath() resolves to PureWindowsPath). quote(...,
+    safe="/") then percent-encodes everything else RFC 3986 doesn't
+    allow unescaped in a path -- spaces, ':', etc. -- while leaving the
+    '/' path separators themselves readable."""
+    return quote(PurePath(source_file).as_posix(), safe="/")
+
+
 def _sarif_location(f: Finding) -> dict:
-    physical_location: dict = {"artifactLocation": {"uri": f.source_file}}
+    physical_location: dict = {"artifactLocation": {"uri": _sarif_uri(f.source_file)}}
     # line == 0 is this project's own "not a line in this file" sentinel
     # (used by the --check-connect-by integration, whose findings come from
     # ora2pg's own generated output, not the scanned file — see cli.py's

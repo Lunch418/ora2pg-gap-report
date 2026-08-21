@@ -70,6 +70,32 @@ def test_scan_source_sorts_high_severity_first():
     assert severities == sorted(severities, key=lambda s: {"high": 0, "medium": 1, "low": 2}[s])
 
 
+def test_help_text_is_rendered_in_english_when_lang_en_is_passed_before_help(capsys):
+    # argparse's --help exits (SystemExit) as soon as it sees -h/--help --
+    # the language has to be resolved from raw argv *before* the parser is
+    # even built (see cli.py's _peek_lang_for_help()), not from the parsed
+    # Namespace, which never gets produced on a --help exit.
+    with pytest.raises(SystemExit):
+        main(["--lang", "en", "--help"])
+    captured = capsys.readouterr()
+    assert "Scans exported Oracle DDL" in captured.out
+    assert "Сканирует выгруженный" not in captured.out
+
+
+def test_help_text_defaults_to_russian_without_an_explicit_lang(capsys):
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    captured = capsys.readouterr()
+    assert "Сканирует выгруженный" in captured.out
+
+
+def test_help_text_recognizes_the_equals_sign_form_of_lang(capsys):
+    with pytest.raises(SystemExit):
+        main(["--lang=en", "--help"])
+    captured = capsys.readouterr()
+    assert "Scans exported Oracle DDL" in captured.out
+
+
 def test_main_end_to_end_markdown_to_stdout(capsys):
     exit_code = main([str(SAMPLES / "compound_trigger_apress.sql")])
     captured = capsys.readouterr()
@@ -1256,7 +1282,7 @@ def test_tui_launches_with_the_given_directory_as_the_start_path(monkeypatch):
     calls = []
     import ora2pg_gap_report.tui_app as tui_app
 
-    monkeypatch.setattr(tui_app, "run_tui", lambda start_path=None: calls.append(start_path))
+    monkeypatch.setattr(tui_app, "run_tui", lambda start_path=None, lang=None: calls.append(start_path))
     exit_code = main(["--tui", str(SAMPLES)])
     assert exit_code == 0
     assert calls == [SAMPLES]
@@ -1266,7 +1292,7 @@ def test_tui_with_no_path_uses_cwd(monkeypatch):
     calls = []
     import ora2pg_gap_report.tui_app as tui_app
 
-    monkeypatch.setattr(tui_app, "run_tui", lambda start_path=None: calls.append(start_path))
+    monkeypatch.setattr(tui_app, "run_tui", lambda start_path=None, lang=None: calls.append(start_path))
     exit_code = main(["--tui"])
     assert exit_code == 0
     assert calls == [None]
@@ -1276,7 +1302,7 @@ def test_tui_with_a_file_path_starts_the_tree_at_its_parent_directory(monkeypatc
     calls = []
     import ora2pg_gap_report.tui_app as tui_app
 
-    monkeypatch.setattr(tui_app, "run_tui", lambda start_path=None: calls.append(start_path))
+    monkeypatch.setattr(tui_app, "run_tui", lambda start_path=None, lang=None: calls.append(start_path))
     target = SAMPLES / "compound_trigger_apress.sql"
     exit_code = main(["--tui", str(target)])
     assert exit_code == 0

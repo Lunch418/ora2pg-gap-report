@@ -35,7 +35,7 @@ NOT_VERIFIABLE (safe, but unnoticed) rather than the classification
 actually being made, checked, and recorded on purpose.
 
 And that every detector module on disk (other than connect_by, deliberately
-opt-in via --check-connect-by) is actually registered in cli.py's
+opt-in via --check-connect-by) is actually registered in core.py's
 _DETECTORS -- a module that's fully wired into gap_registry.py/
 verification.py/i18n.py and has passing tests could otherwise still never
 run during a real scan_source() call if it was simply never added to that
@@ -63,7 +63,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audit_gap_test_counts import count_tests  # noqa: E402
 from ora2pg_gap_report import i18n  # noqa: E402
-from ora2pg_gap_report.cli import detector_names  # noqa: E402
+from ora2pg_gap_report.core import detector_names  # noqa: E402
 from ora2pg_gap_report.gap_registry import (  # noqa: E402
     FAILURE_STAGE_EXEMPT_DETECTORS,
     FAILURE_STAGES,
@@ -288,7 +288,7 @@ def check_verification_mode_parity() -> list[str]:
 def check_scan_loop_registration_parity() -> list[str]:
     """Every detector on disk (other than connect_by, deliberately opt-in
     via --check-connect-by rather than part of the main scan loop) must
-    actually be in cli.py's _DETECTORS -- a detector module that exists,
+    actually be in core.py's _DETECTORS -- a detector module that exists,
     is registered in gap_registry.py/verification.py/i18n.py, and has
     passing tests, but was never added to _DETECTORS would still never
     actually run during a real scan_source() call. Nothing else in this
@@ -302,12 +302,12 @@ def check_scan_loop_registration_parity() -> list[str]:
     problems = []
     for name in sorted(on_disk - in_scan_loop):
         problems.append(
-            f"cli.py: детектор '{name}' есть на диске, но не добавлен в _DETECTORS "
+            f"core.py: детектор '{name}' есть на диске, но не добавлен в _DETECTORS "
             "-- никогда не выполняется при обычном сканировании"
         )
     for name in sorted(in_scan_loop - on_disk):
         problems.append(
-            f"cli.py: _DETECTORS упоминает '{name}', но такого файла нет в "
+            f"core.py: _DETECTORS упоминает '{name}', но такого файла нет в "
             "ora2pg_gap_report/detectors/"
         )
     return problems
@@ -357,7 +357,7 @@ def main() -> int:
             "версии в GAP_REGISTRY.md совпадают с gap_registry.py, у каждого детектора "
             "есть английский перевод в i18n.py, у каждого детектора есть запись в "
             "verification.py, каждый детектор с диска реально зарегистрирован в "
-            "cli._DETECTORS, и у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
+            "core._DETECTORS, и у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
             "задан валидный failure_stage."
         )
         return 0

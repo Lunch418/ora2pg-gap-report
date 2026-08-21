@@ -206,6 +206,42 @@ def test_verification_mode_parity_flags_a_stale_entry_for_a_removed_detector(mon
     assert "нет в ora2pg_gap_report/detectors/" in problems[0]
 
 
+def test_scan_loop_registration_parity_is_clean_on_the_real_repository_state():
+    assert doctor.check_scan_loop_registration_parity() == []
+
+
+def test_scan_loop_registration_parity_flags_a_detector_missing_from_detectors_tuple(monkeypatch):
+    # A module that exists on disk, is fully registered everywhere else,
+    # and has passing tests, but was never added to cli.py's _DETECTORS --
+    # it would silently never actually run during a real scan_source()
+    # call, and nothing else in this project's test suite catches that in
+    # general (see check_scan_loop_registration_parity()'s own docstring).
+    monkeypatch.setattr(doctor, "_detector_names_on_disk", lambda: {"autonomous_tx", "brand_new_detector"})
+    monkeypatch.setattr(doctor, "detector_names", lambda: ("autonomous_tx",))
+    problems = doctor.check_scan_loop_registration_parity()
+    assert len(problems) == 1
+    assert "brand_new_detector" in problems[0]
+    assert "не добавлен в _DETECTORS" in problems[0]
+
+
+def test_scan_loop_registration_parity_flags_a_stale_entry_for_a_removed_detector(monkeypatch):
+    monkeypatch.setattr(doctor, "_detector_names_on_disk", lambda: {"autonomous_tx"})
+    monkeypatch.setattr(doctor, "detector_names", lambda: ("autonomous_tx", "long_removed"))
+    problems = doctor.check_scan_loop_registration_parity()
+    assert len(problems) == 1
+    assert "long_removed" in problems[0]
+    assert "нет в" in problems[0]
+
+
+def test_scan_loop_registration_parity_does_not_require_connect_by_in_the_scan_loop(monkeypatch):
+    # connect_by is deliberately opt-in via --check-connect-by, not part
+    # of the main scan loop -- on disk but absent from _DETECTORS is its
+    # normal, expected state, not something to flag.
+    monkeypatch.setattr(doctor, "_detector_names_on_disk", lambda: {"autonomous_tx", "connect_by"})
+    monkeypatch.setattr(doctor, "detector_names", lambda: ("autonomous_tx",))
+    assert doctor.check_scan_loop_registration_parity() == []
+
+
 def test_failure_stage_values_is_clean_on_the_real_repository_state():
     # Full coverage is required now (rollout is complete), except for the
     # two gaps in FAILURE_STAGE_EXEMPT_DETECTORS.

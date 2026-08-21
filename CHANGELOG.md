@@ -7,6 +7,22 @@ patch — исправления в существующих.
 
 ## [Unreleased]
 
+### Fixed
+- `cli.py` gains `detector_names()` — each detector's `Finding.detector`
+  string derived from its function's own `__module__`, not a second,
+  hand-typed list. `tests/test_terminal_report.py`'s remediation-hint
+  coverage test used to hardcode its own "known detector set" instead;
+  that set had drifted 9 detectors behind `cli._DETECTORS` by the time
+  this was caught (GAP-029..037 were all missing from it) — it was
+  silently checking only a stale subset the whole time, not real
+  completeness. `scripts/doctor.py` also gains a check using the same
+  function: every detector module on disk (other than `connect_by`,
+  deliberately opt-in via `--check-connect-by`) must actually be
+  registered in `cli._DETECTORS` — previously nothing verified this, so
+  a detector fully wired into every other registry but never added to
+  the scan loop itself would have shipped silently dead (registered,
+  tested, documented, and never actually run).
+
 ### Performance
 - `mask_strings_and_comments()`/`mask_dynamic_sql_visible()`/
   `enclosing_object_name_index()` (`plsql_lex.py`) теперь кэшируются

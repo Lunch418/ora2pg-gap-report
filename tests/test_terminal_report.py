@@ -245,45 +245,17 @@ def test_every_detector_registered_in_cli_has_a_remediation_hint():
     from ora2pg_gap_report import cli
     from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT
 
-    registered_names = set()
     for detector_fn in cli._DETECTORS:
         result = detector_fn("")  # empty source: no findings, just need the shape
         assert result == []
-    # detector names aren't derivable from the function alone without
-    # calling it on real content; assert against the known, current set
-    # instead (keeps this test meaningful without over-engineering a
-    # generic detector-name registry that doesn't otherwise exist).
-    registered_names = {
-        "autonomous_tx",
-        "compound_triggers",
-        "dbms_utl_calls",
-        "merge_delete_clause",
-        "bulk_collect",
-        "database_link",
-        "model_clause",
-        "pivot_clause",
-        "object_type",
-        "with_function",
-        "flashback_query",
-        "global_temp_table",
-        "table_partitioning",
-        "connect_by_nocycle",
-        "context_object",
-        "insert_all",
-        "json_table",
-        "external_table",
-        "sql_macro",
-        "invisible_column",
-        "collection_type",
-        "cross_apply",
-        "oracle_text",
-        "recursive_with",
-        "invisible_index",
-        "read_only_table",
-        "materialized_view_log",
-        "identity_column",
-        "connect_by",  # opt-in via --check-connect-by, not in cli._DETECTORS
-    }
+    # cli.detector_names() derives each name from its function's own
+    # __module__ -- the actual, current contents of _DETECTORS, not a
+    # second hand-typed set that can silently drift from it (a real
+    # regression this test previously had: its old hardcoded set was 9
+    # detectors behind cli._DETECTORS by the time this was caught).
+    registered_names = set(cli.detector_names()) | {
+        "connect_by"
+    }  # opt-in via --check-connect-by, not in cli._DETECTORS
     assert registered_names <= set(_REMEDIATION_HINT.keys())
 
 

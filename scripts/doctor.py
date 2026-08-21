@@ -34,6 +34,14 @@ without it, a new detector added to `--verify` would silently default to
 NOT_VERIFIABLE (safe, but unnoticed) rather than the classification
 actually being made, checked, and recorded on purpose.
 
+And that every detector module on disk (other than connect_by, deliberately
+opt-in via --check-connect-by) is actually registered in cli.py's
+_DETECTORS -- a module that's fully wired into gap_registry.py/
+verification.py/i18n.py and has passing tests could otherwise still never
+run during a real scan_source() call if it was simply never added to that
+tuple; nothing else in this project's own test suite catches that in
+general (see check_scan_loop_registration_parity()'s own docstring).
+
 And that every gap's `failure_stage` is one of the defined FAILURE_STAGES
 -- a typo'd stage string would otherwise silently fail to render in
 --explain rather than error -- and that every gap *has* one, except the
@@ -55,6 +63,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audit_gap_test_counts import count_tests  # noqa: E402
 from ora2pg_gap_report import i18n  # noqa: E402
+from ora2pg_gap_report.cli import detector_names  # noqa: E402
 from ora2pg_gap_report.gap_registry import (  # noqa: E402
     FAILURE_STAGE_EXEMPT_DETECTORS,
     FAILURE_STAGES,
@@ -276,6 +285,34 @@ def check_verification_mode_parity() -> list[str]:
     return problems
 
 
+def check_scan_loop_registration_parity() -> list[str]:
+    """Every detector on disk (other than connect_by, deliberately opt-in
+    via --check-connect-by rather than part of the main scan loop) must
+    actually be in cli.py's _DETECTORS -- a detector module that exists,
+    is registered in gap_registry.py/verification.py/i18n.py, and has
+    passing tests, but was never added to _DETECTORS would still never
+    actually run during a real scan_source() call. Nothing else in this
+    project's own test suite catches that specific failure mode in
+    general (a positive test calls find_xxx(source) directly, bypassing
+    _DETECTORS entirely; a real-corpus test like test_scan_source_runs_
+    all_detectors_on_logger only catches it for whichever detectors that
+    one fixture happens to trigger)."""
+    on_disk = _detector_names_on_disk() - {"connect_by"}
+    in_scan_loop = set(detector_names())
+    problems = []
+    for name in sorted(on_disk - in_scan_loop):
+        problems.append(
+            f"cli.py: детектор '{name}' есть на диске, но не добавлен в _DETECTORS "
+            "-- никогда не выполняется при обычном сканировании"
+        )
+    for name in sorted(in_scan_loop - on_disk):
+        problems.append(
+            f"cli.py: _DETECTORS упоминает '{name}', но такого файла нет в "
+            "ora2pg_gap_report/detectors/"
+        )
+    return problems
+
+
 def check_failure_stage_values() -> list[str]:
     """A *set* value must be a real one -- catches a typo silently
     producing an unrendered/missing --explain line instead of an error.
@@ -310,6 +347,7 @@ def main() -> int:
     all_problems.extend(check_gap_registry_md_parity())
     all_problems.extend(check_i18n_translations_parity())
     all_problems.extend(check_verification_mode_parity())
+    all_problems.extend(check_scan_loop_registration_parity())
     all_problems.extend(check_failure_stage_values())
 
     if not all_problems:
@@ -318,7 +356,8 @@ def main() -> int:
             "guard-тест, docs/ARCHITECTURE.md не разошёлся со списком детекторов на диске, "
             "версии в GAP_REGISTRY.md совпадают с gap_registry.py, у каждого детектора "
             "есть английский перевод в i18n.py, у каждого детектора есть запись в "
-            "verification.py, и у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
+            "verification.py, каждый детектор с диска реально зарегистрирован в "
+            "cli._DETECTORS, и у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
             "задан валидный failure_stage."
         )
         return 0

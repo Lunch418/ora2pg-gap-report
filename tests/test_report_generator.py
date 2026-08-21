@@ -170,6 +170,45 @@ def test_to_csv_uses_plain_newlines_not_crlf():
     assert "\r" not in csv_text
 
 
+def test_to_csv_neutralizes_a_formula_injection_attempt_in_scanned_content():
+    # snippet/object_name/source_file all come from scanned Oracle source,
+    # not this codebase's own fixed strings -- a snippet or object name
+    # starting with '=', '+', '-', '@', a tab, or a CR would open as a
+    # live formula the instant the CSV is opened in Excel/Sheets/
+    # LibreOffice. A leading "'" is the standard mitigation: every
+    # affected app treats it as "this cell is literal text" and strips
+    # the quote itself back out on display.
+    finding = Finding(
+        detector="autonomous_tx",
+        severity="high",
+        object_name="=cmd|' /C calc'!A1",
+        line=1,
+        snippet="+SUM(1,1)",
+        message="uses dblink",
+        source_file="@HYPERLINK(\"http://evil\")",
+    )
+    csv_text = to_csv([finding])
+    assert "\n=cmd" not in csv_text
+    assert "\n+SUM" not in csv_text
+    assert "\n@HYPERLINK" not in csv_text
+    reader = csv.DictReader(io.StringIO(csv_text))
+    row = next(reader)
+    assert row["object_name"] == "'=cmd|' /C calc'!A1"
+    assert row["snippet"] == "'+SUM(1,1)"
+    assert row["source_file"] == "'@HYPERLINK(\"http://evil\")"
+
+
+def test_to_csv_does_not_touch_a_field_not_starting_with_a_formula_trigger():
+    # A '=' or '+' appearing mid-field (not as the very first character)
+    # never reaches a spreadsheet application's formula parser -- only a
+    # leading trigger character needs neutralizing.
+    csv_text = to_csv([SAMPLE_FINDING])
+    reader = csv.DictReader(io.StringIO(csv_text))
+    row = next(reader)
+    assert row["object_name"] == "LOGGER.PURGE_ALL"
+    assert not row["object_name"].startswith("'")
+
+
 def test_to_html_empty_findings():
     report = to_html([])
     assert "не найдено" in report

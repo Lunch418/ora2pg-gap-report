@@ -27,13 +27,14 @@ against every detector's message constants on disk, the same drift-
 prevention pattern as its other parity checks.
 """
 
+from __future__ import annotations
+
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.prompt import Prompt
-from rich.text import Text
+if TYPE_CHECKING:
+    from rich.console import Console
 
 Lang = str  # "ru" | "en"
 
@@ -66,7 +67,19 @@ def save_language(lang: str) -> None:
 
 def prompt_language_interactively(console: Console | None = None) -> str:
     """A short, bilingual picker -- readable regardless of which language
-    the user already reads, since at this point we don't know yet."""
+    the user already reads, since at this point we don't know yet.
+
+    Imports rich lazily, here and not at module level: this module is
+    imported by report_generator.py/baseline.py, which the project's own
+    pyproject.toml/README both describe as not depending on rich at all
+    -- a module-level `from rich... import ...` here would make that
+    false for every caller, not just the one (--set-lang) that actually
+    needs a console picker."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.prompt import Prompt
+    from rich.text import Text
+
     console = console or Console()
     console.print(
         Panel(
@@ -226,10 +239,11 @@ _UI: dict[str, dict[str, str]] = {
     "explain_see_github": {"ru": "Смотреть на GitHub: {url}", "en": "See it on GitHub: {url}"},
     "explain_conflict_error": {
         "ru": "[red]--explain — самостоятельный просмотр документации, не сканирование: "
-        "его нельзя сочетать с путями к файлам, --fail-on, --save, --baseline или "
-        "--check-connect-by[/red]",
+        "его нельзя сочетать с путями к файлам, --fail-on, --save, --baseline, "
+        "--check-connect-by, --verify, --format, --output, --severity или --object[/red]",
         "en": "[red]--explain is a standalone documentation lookup, not a scan: it can't be "
-        "combined with file paths, --fail-on, --save, --baseline, or --check-connect-by[/red]",
+        "combined with file paths, --fail-on, --save, --baseline, --check-connect-by, "
+        "--verify, --format, --output, --severity, or --object[/red]",
     },
     "tui_conflict_error": {
         "ru": "[red]--tui — самостоятельный интерактивный режим: принимает не больше одного "
@@ -274,6 +288,20 @@ _UI: dict[str, dict[str, str]] = {
     "save_baseline_error": {
         "ru": "[red]Не удалось сохранить baseline в {path}: {exc}[/red]",
         "en": "[red]Couldn't save baseline to {path}: {exc}[/red]",
+    },
+    "save_baseline_same_path_error": {
+        "ru": "[red]--save и --baseline указывают на один и тот же файл ({path}) — сравнение "
+        "прогона с самим собой всегда покажет «без изменений». Используйте разные пути: "
+        "--baseline на старый снапшот, --save на новый.[/red]",
+        "en": "[red]--save and --baseline point at the same file ({path}) — comparing this run "
+        "against itself always reports \"unchanged\". Use different paths: --baseline for the "
+        "old snapshot, --save for the new one.[/red]",
+    },
+    "save_baseline_skipped_partial_scan": {
+        "ru": "[yellow]baseline не сохранён в {path}: сканирование было неполным (см. "
+        "предупреждения выше) — снапшот с пропущенными файлами не запишется как «полный»[/yellow]",
+        "en": "[yellow]baseline not saved to {path}: the scan was incomplete (see warnings "
+        "above) — a snapshot with skipped files won't be written as though it were complete[/yellow]",
     },
     "write_report_error": {
         "ru": "[red]Не удалось записать отчёт в {path}: {exc}[/red]",
@@ -361,9 +389,9 @@ _UI: dict[str, dict[str, str]] = {
         "en": "{path}: schema_version={schema_version!r}, this version of the tool "
         "expects {expected} — re-save the baseline with --save using the current version",
     },
-    "baseline_missing_group_key": {
-        "ru": "{path}: запись находки без 'group_key'",
-        "en": "{path}: a finding entry is missing 'group_key'",
+    "baseline_missing_field": {
+        "ru": "{path}: запись находки без обязательного поля/полей: {field}",
+        "en": "{path}: a finding entry is missing required field(s): {field}",
     },
     # report_generator.py (to_markdown / to_html)
     "md_no_findings": {"ru": "Проблемных конструкций не найдено.\n", "en": "No problematic constructs found.\n"},

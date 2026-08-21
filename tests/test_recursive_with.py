@@ -161,3 +161,35 @@ def test_cte_name_reused_as_a_column_alias_is_not_a_false_positive():
         "/\n"
     )
     assert find_recursive_with_missing_keyword(source) == []
+
+
+def test_recursive_cte_not_first_in_the_with_list_is_still_detected():
+    # 'WITH seed AS (...), tree AS (...)' -- a non-recursive anchor/seed
+    # CTE listed before the recursive one is a common real-world shape.
+    # _WITH_CTE_RE alone only ever matches the first CTE (it requires a
+    # literal WITH right before the name), so 'tree' here -- preceded by
+    # ', ' from the previous CTE's closing ')', not WITH -- used to be
+    # missed entirely.
+    source = (
+        "create or replace procedure walk_tree as\n"
+        "  v_count number;\n"
+        "begin\n"
+        "  with seed as (\n"
+        "    select employee_id from employees where employee_id = 1\n"
+        "  ),\n"
+        "  tree (employee_id, manager_id) as (\n"
+        "    select employee_id, manager_id from employees where manager_id is null\n"
+        "    union all\n"
+        "    select e.employee_id, e.manager_id\n"
+        "    from employees e, tree t\n"
+        "    where e.manager_id = t.employee_id\n"
+        "  )\n"
+        "  select count(*) into v_count from tree;\n"
+        "end walk_tree;\n"
+        "/\n"
+    )
+    findings = find_recursive_with_missing_keyword(source)
+    # Exactly 1, not 2: 'seed' itself (no UNION, no self-reference) must
+    # not be flagged just because it shares a WITH list with 'tree'.
+    assert len(findings) == 1
+    assert findings[0].snippet == "WITH TREE AS (...)"

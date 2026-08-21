@@ -170,154 +170,119 @@ def count_objects(source: str) -> int:
     )
 
 
-def _build_arg_parser() -> argparse.ArgumentParser:
+def _peek_lang_for_help(argv: list[str]) -> str | None:
+    """Best-effort peek at an explicit --lang value in argv, so
+    _build_arg_parser() can render --help/description text in the right
+    language *before* argparse has actually parsed --lang out (argparse
+    itself needs the parser already built to parse anything, including
+    --lang -- the classic chicken-and-egg with translating --help text,
+    previously flagged as unsolved in i18n.py's own module docstring;
+    this is that solution). Deliberately narrow: only recognizes '--lang
+    en'/'--lang ru' and '--lang=en'/'--lang=ru' -- good enough for
+    choosing a display language for --help text, not a stand-in for
+    argparse's own validation (an invalid or malformed --lang here just
+    falls through to i18n.resolve_language()'s normal precedence, and
+    argparse itself still rejects it properly once real parsing
+    happens)."""
+    for i, arg in enumerate(argv):
+        if arg == "--lang" and i + 1 < len(argv) and argv[i + 1] in ("ru", "en"):
+            return argv[i + 1]
+        if arg.startswith("--lang=") and arg[len("--lang=") :] in ("ru", "en"):
+            return arg[len("--lang=") :]
+    return None
+
+
+def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ora2pg-gap-report",
-        description=(
-            "Сканирует выгруженный Oracle DDL (PACKAGE BODY / TRIGGER) и "
-            "показывает конкретные объекты, которые ora2pg не перенесёт "
-            "корректно, и почему."
-        ),
+        description=i18n.t(lang, "help_description"),
     )
     parser.add_argument(
         "paths",
         nargs="*",
         type=Path,
-        help=(
-            "Файлы с DDL для анализа (.sql/.pks/.pkb) и/или директории — "
-            "директория сканируется рекурсивно на файлы с этими "
-            "расширениями. Не нужны вместе с --explain."
-        ),
+        help=i18n.t(lang, "help_paths"),
     )
     parser.add_argument(
         "--version",
         action=_LazyVersionAction,
-        help="Показать установленную версию и выйти",
+        help=i18n.t(lang, "help_version"),
     )
     parser.add_argument(
         "--explain",
         default=None,
         metavar="GAP-NNN",
-        help=(
-            "Показать research-документ конкретного gap'а из реестра (например, GAP-023 или "
-            "просто 023) и выйти — без сканирования файлов. Самостоятельная команда: нельзя "
-            "сочетать с путями к файлам, --fail-on, --save, --baseline, --check-connect-by, "
-            "--verify, --format, --output, --severity или --object."
-        ),
+        help=i18n.t(lang, "help_explain"),
     )
     parser.add_argument(
         "--format",
         choices=("terminal", "markdown", "json", "csv", "sarif", "html"),
         default=None,
-        help=(
-            "Формат отчёта. По умолчанию — цветной вывод в терминал, если "
-            "stdout это tty и не указан --output; иначе markdown. sarif — "
-            "SARIF 2.1.0, для GitHub/GitLab code scanning. html — "
-            "самодостаточная HTML-страница (без внешних ресурсов), для "
-            "показа заказчику/руководству."
-        ),
+        help=i18n.t(lang, "help_format"),
     )
-    parser.add_argument(
-        "--output", type=Path, default=None, help="Куда сохранить отчёт (по умолчанию — stdout)"
-    )
+    parser.add_argument("--output", type=Path, default=None, help=i18n.t(lang, "help_output"))
     parser.add_argument(
         "--check-connect-by",
         action="store_true",
-        help=(
-            "Дополнительно: для файлов с CONNECT BY реально прогнать ora2pg и "
-            "проверить сгенерированный WITH RECURSIVE на известный баг с LEVEL. "
-            "Требует установленный ora2pg (не ставится через pip — это "
-            "отдельный Perl-инструмент, см. README)."
-        ),
+        help=i18n.t(lang, "help_check_connect_by"),
     )
     parser.add_argument(
         "--ora2pg-bin",
         default="ora2pg",
-        help="Путь к исполняемому файлу ora2pg (по умолчанию ищется в PATH)",
+        help=i18n.t(lang, "help_ora2pg_bin"),
     )
     parser.add_argument(
         "--severity",
         choices=("high", "medium", "low"),
         default=None,
-        help="Показать только находки с этим уровнем серьёзности",
+        help=i18n.t(lang, "help_severity"),
     )
     parser.add_argument(
         "--object",
         default=None,
-        help="Показать только находки для объектов, чьё имя содержит эту подстроку (без учёта регистра)",
+        help=i18n.t(lang, "help_object"),
     )
     parser.add_argument(
         "--save",
         type=Path,
         default=None,
         metavar="PATH",
-        help=(
-            "Сохранить находки этого прогона как baseline-снапшот в PATH (для последующего "
-            "сравнения через --baseline). Снапшот — все находки, независимо от --severity/--object; "
-            "эти флаги влияют только на то, что выводится в отчёте."
-        ),
+        help=i18n.t(lang, "help_save"),
     )
     parser.add_argument(
         "--baseline",
         type=Path,
         default=None,
         metavar="PATH",
-        help=(
-            "Сравнить находки этого прогона с ранее сохранённым --save снапшотом: NEW/RESOLVED/"
-            "UNCHANGED. Сравнение тоже считается по всем находкам, независимо от --severity/--object. "
-            "С флагом --verify означает другое — см. --verify."
-        ),
+        help=i18n.t(lang, "help_baseline"),
     )
     parser.add_argument(
         "--verify",
         action="store_true",
-        help=(
-            "Пост-миграционная статическая проверка: сканирует пути как сгенерированный ora2pg "
-            "PostgreSQL-код (не Oracle-исходник) и сравнивает с --baseline (снапшот, сохранённый "
-            "--save до миграции) на уровне детекторов — STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE. "
-            "Не поведенческая/функциональная проверка — не подключается к БД, ничего не выполняет. "
-            "Требует --baseline. Самостоятельный режим: нельзя сочетать с --explain, --save, "
-            "--fail-on, --check-connect-by, --severity или --object. Поддерживает только "
-            "--format terminal (по умолчанию) и --format json."
-        ),
+        help=i18n.t(lang, "help_verify"),
     )
     parser.add_argument(
         "--fail-on",
         choices=("high", "medium", "low"),
         default=None,
         metavar="SEVERITY",
-        help=(
-            "Завершиться с кодом 1, если среди находок есть хотя бы одна с этим уровнем серьёзности "
-            "или выше (high выше medium выше low) — для CI-гейта. Оценивается по всем находкам, "
-            "независимо от --severity/--object, чтобы фильтр вывода не маскировал провал гейта."
-        ),
+        help=i18n.t(lang, "help_fail_on"),
     )
     parser.add_argument(
         "--lang",
         choices=("ru", "en"),
         default=None,
-        help=(
-            "Язык вывода для этого запуска (не сохраняется). По умолчанию: сохранённый через "
-            "--set-lang выбор, иначе переменная окружения ORA2PG_GAP_REPORT_LANG, иначе "
-            "интерактивный выбор при первом запуске в реальном терминале, иначе русский."
-        ),
+        help=i18n.t(lang, "help_lang"),
     )
     parser.add_argument(
         "--set-lang",
         action="store_true",
-        help="Открыть выбор языка и сохранить его как язык по умолчанию для будущих запусков, затем выйти.",
+        help=i18n.t(lang, "help_set_lang"),
     )
     parser.add_argument(
         "--tui",
         action="store_true",
-        help=(
-            "Интерактивный режим: выбор файла/директории и запуск сканирования мышью или "
-            "клавиатурой вместо флагов. Требует textual (pip install \"ora2pg-gap-report[tui]\"), "
-            "не ставится вместе с базовым пакетом. Если указан один путь-директория — она "
-            "открывается как стартовая точка в дереве; самостоятельный режим, как --explain/"
-            "--verify — не сочетается с --fail-on/--save/--baseline/--check-connect-by/--explain/"
-            "--verify/--severity/--object/--format/--output."
-        ),
+        help=i18n.t(lang, "help_tui"),
     )
     return parser
 
@@ -563,7 +528,9 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _build_arg_parser().parse_args(argv)
+    raw_argv = argv if argv is not None else sys.argv[1:]
+    help_lang = i18n.resolve_language(_peek_lang_for_help(raw_argv), interactive=False)
+    args = _build_arg_parser(help_lang).parse_args(argv)
     err_console = Console(stderr=True)
 
     if args.set_lang:
@@ -621,7 +588,7 @@ def main(argv: list[str] | None = None) -> int:
         except ImportError:
             err_console.print(i18n.t(lang, "tui_not_installed"))
             return 2
-        run_tui(start_path)
+        run_tui(start_path, lang)
         return 0
 
     if args.explain is not None:

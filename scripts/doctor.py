@@ -59,6 +59,7 @@ from ora2pg_gap_report.gap_registry import (  # noqa: E402
     FAILURE_STAGE_EXEMPT_DETECTORS,
     FAILURE_STAGES,
     GAPS,
+    GapEntry,
     research_doc_path,
 )
 from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT  # noqa: E402
@@ -139,7 +140,7 @@ def _detector_names_in_architecture_doc() -> set[str]:
     return _extract_detector_names_from_tree_text(doc_text)
 
 
-def check_gap(gap) -> list[str]:
+def check_gap(gap: GapEntry) -> list[str]:
     prefix = f"GAP-{gap.number}"
     problems = []
 

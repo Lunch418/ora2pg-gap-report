@@ -106,7 +106,7 @@ def find_connect_by_risks(ora2pg_output: str) -> list[Finding]:
     return findings
 
 
-def _enclosing_routine_name(routine_matches: list, position: int):
+def _enclosing_routine_name(routine_matches: list[re.Match[str]], position: int) -> str | None:
     name = None
     for m in routine_matches:
         if m.start() > position:

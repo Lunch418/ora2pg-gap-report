@@ -3,13 +3,15 @@ English strings themselves.
 
 Scope, deliberately: this covers everything a normal scan run prints —
 terminal_report.py's rendered output, report_generator.py's Markdown/HTML
-headers, cli.py's runtime warnings/errors, baseline.py's load errors, and
-every detector's explanation/remediation text. It does NOT cover argparse's
-own --help/description text (translating that needs to know the language
-*before* argparse has parsed --lang out of argv, which is solvable but a
-separate piece of work not done here), and it does NOT cover
+headers, cli.py's runtime warnings/errors, baseline.py's load errors, every
+detector's explanation/remediation text, argparse's own --help/description
+text (cli.py's _peek_lang_for_help() resolves the display language *before*
+argparse has parsed --lang out of argv -- the chicken-and-egg this docstring
+used to flag as unsolved), and tui_app.py's own chrome (button labels,
+status/error text, table headers -- GapReportApp/run_tui() take a `lang`
+threaded in from the CLI's own resolved language). It does NOT cover
 oracle_export.py/oracle_connector.py's messages (a separate console entry
-point, live-Oracle-only, out of scope for this pass). Both boundaries are
+point, live-Oracle-only, out of scope for this pass) -- that boundary is
 intentional, not an oversight -- see CHANGELOG.md.
 
 Russian stays the silent default when nothing selects a language, so every
@@ -434,6 +436,245 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Rough manual-rework estimate: {lo:g}–{hi:g}h. "
         "— an uncalibrated heuristic based on severity, not a measurement "
         "(see README.md, \"Why almost everything is `high`\").\n\n",
+    },
+    # cli.py argparse --help/description text. Resolved *before* argparse
+    # actually parses argv (see cli.py's _peek_lang_for_help()) -- the
+    # classic chicken-and-egg this module's own docstring used to flag as
+    # unsolved: argparse needs a fully-built parser (help text included) to
+    # parse --lang out of argv, but building translated help text needs to
+    # already know --lang.
+    "help_description": {
+        "ru": "Сканирует выгруженный Oracle DDL (PACKAGE BODY / TRIGGER) и "
+        "показывает конкретные объекты, которые ora2pg не перенесёт "
+        "корректно, и почему.",
+        "en": "Scans exported Oracle DDL (PACKAGE BODY / TRIGGER) and shows the "
+        "specific objects ora2pg won't migrate correctly, and why.",
+    },
+    "help_paths": {
+        "ru": "Файлы с DDL для анализа (.sql/.pks/.pkb) и/или директории — "
+        "директория сканируется рекурсивно на файлы с этими "
+        "расширениями. Не нужны вместе с --explain.",
+        "en": "DDL files to analyze (.sql/.pks/.pkb) and/or directories — a "
+        "directory is scanned recursively for files with these "
+        "extensions. Not needed together with --explain.",
+    },
+    "help_version": {"ru": "Показать установленную версию и выйти", "en": "Show the installed version and exit"},
+    "help_explain": {
+        "ru": "Показать research-документ конкретного gap'а из реестра (например, GAP-023 или "
+        "просто 023) и выйти — без сканирования файлов. Самостоятельная команда: нельзя "
+        "сочетать с путями к файлам, --fail-on, --save, --baseline, --check-connect-by, "
+        "--verify, --format, --output, --severity или --object.",
+        "en": "Show a specific gap's research document from the registry (e.g. GAP-023 or "
+        "just 023) and exit — no file scanning. A standalone command: can't be combined "
+        "with file paths, --fail-on, --save, --baseline, --check-connect-by, --verify, "
+        "--format, --output, --severity, or --object.",
+    },
+    "help_format": {
+        "ru": "Формат отчёта. По умолчанию — цветной вывод в терминал, если "
+        "stdout это tty и не указан --output; иначе markdown. sarif — "
+        "SARIF 2.1.0, для GitHub/GitLab code scanning. html — "
+        "самодостаточная HTML-страница (без внешних ресурсов), для "
+        "показа заказчику/руководству.",
+        "en": "Report format. Defaults to colored terminal output if stdout is a "
+        "tty and --output isn't given; markdown otherwise. sarif — SARIF "
+        "2.1.0, for GitHub/GitLab code scanning. html — a self-contained "
+        "HTML page (no external resources), for showing a client/manager.",
+    },
+    "help_output": {"ru": "Куда сохранить отчёт (по умолчанию — stdout)", "en": "Where to save the report (default: stdout)"},
+    "help_check_connect_by": {
+        "ru": "Дополнительно: для файлов с CONNECT BY реально прогнать ora2pg и "
+        "проверить сгенерированный WITH RECURSIVE на известный баг с LEVEL. "
+        "Требует установленный ora2pg (не ставится через pip — это "
+        "отдельный Perl-инструмент, см. README).",
+        "en": "Extra: for files with CONNECT BY, actually run ora2pg and check "
+        "the generated WITH RECURSIVE for a known bug with LEVEL. Requires "
+        "ora2pg installed (not a pip package — a separate Perl tool, see "
+        "README).",
+    },
+    "help_ora2pg_bin": {
+        "ru": "Путь к исполняемому файлу ora2pg (по умолчанию ищется в PATH)",
+        "en": "Path to the ora2pg executable (default: looked up on PATH)",
+    },
+    "help_severity": {
+        "ru": "Показать только находки с этим уровнем серьёзности",
+        "en": "Show only findings at this severity level",
+    },
+    "help_object": {
+        "ru": "Показать только находки для объектов, чьё имя содержит эту подстроку (без учёта регистра)",
+        "en": "Show only findings for objects whose name contains this substring (case-insensitive)",
+    },
+    "help_save": {
+        "ru": "Сохранить находки этого прогона как baseline-снапшот в PATH (для последующего "
+        "сравнения через --baseline). Снапшот — все находки, независимо от --severity/--object; "
+        "эти флаги влияют только на то, что выводится в отчёте.",
+        "en": "Save this run's findings as a baseline snapshot at PATH (for a later comparison "
+        "via --baseline). The snapshot holds every finding regardless of --severity/--object; "
+        "those flags only affect what the report shows.",
+    },
+    "help_baseline": {
+        "ru": "Сравнить находки этого прогона с ранее сохранённым --save снапшотом: NEW/RESOLVED/"
+        "UNCHANGED. Сравнение тоже считается по всем находкам, независимо от --severity/--object. "
+        "С флагом --verify означает другое — см. --verify.",
+        "en": "Compare this run's findings against a previously saved --save snapshot: NEW/"
+        "RESOLVED/UNCHANGED. The comparison also covers every finding regardless of "
+        "--severity/--object. Means something different together with --verify — see --verify.",
+    },
+    "help_verify": {
+        "ru": "Пост-миграционная статическая проверка: сканирует пути как сгенерированный ora2pg "
+        "PostgreSQL-код (не Oracle-исходник) и сравнивает с --baseline (снапшот, сохранённый "
+        "--save до миграции) на уровне детекторов — STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE. "
+        "Не поведенческая/функциональная проверка — не подключается к БД, ничего не выполняет. "
+        "Требует --baseline. Самостоятельный режим: нельзя сочетать с --explain, --save, "
+        "--fail-on, --check-connect-by, --severity или --object. Поддерживает только "
+        "--format terminal (по умолчанию) и --format json.",
+        "en": "Post-migration static check: scans the given paths as ora2pg's generated "
+        "PostgreSQL code (not Oracle source) and compares them against --baseline (a "
+        "snapshot saved via --save before migrating) at the detector level — "
+        "STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE. Not a behavioral/functional check — "
+        "doesn't connect to a database or run anything. Requires --baseline. A standalone "
+        "mode: can't be combined with --explain, --save, --fail-on, --check-connect-by, "
+        "--severity, or --object. Only supports --format terminal (default) and --format "
+        "json.",
+    },
+    "help_fail_on": {
+        "ru": "Завершиться с кодом 1, если среди находок есть хотя бы одна с этим уровнем серьёзности "
+        "или выше (high выше medium выше low) — для CI-гейта. Оценивается по всем находкам, "
+        "независимо от --severity/--object, чтобы фильтр вывода не маскировал провал гейта.",
+        "en": "Exit with code 1 if any finding is at this severity level or above (high above "
+        "medium above low) — for a CI gate. Evaluated over every finding regardless of "
+        "--severity/--object, so an output filter can't mask a failed gate.",
+    },
+    "help_lang": {
+        "ru": "Язык вывода для этого запуска (не сохраняется). По умолчанию: сохранённый через "
+        "--set-lang выбор, иначе переменная окружения ORA2PG_GAP_REPORT_LANG, иначе "
+        "интерактивный выбор при первом запуске в реальном терминале, иначе русский.",
+        "en": "Output language for this run (not persisted). Defaults to: a choice saved via "
+        "--set-lang, else the ORA2PG_GAP_REPORT_LANG environment variable, else an "
+        "interactive picker on first run in a real terminal, else Russian.",
+    },
+    "help_set_lang": {
+        "ru": "Открыть выбор языка и сохранить его как язык по умолчанию для будущих запросов, затем выйти.",
+        "en": "Open the language picker and save the choice as the default for future runs, then exit.",
+    },
+    "help_tui": {
+        "ru": "Интерактивный режим: выбор файла/директории и запуск сканирования мышью или "
+        "клавиатурой вместо флагов. Требует textual (pip install \"ora2pg-gap-report[tui]\"), "
+        "не ставится вместе с базовым пакетом. Если указан один путь-директория — она "
+        "открывается как стартовая точка в дереве; самостоятельный режим, как --explain/"
+        "--verify — не сочетается с --fail-on/--save/--baseline/--check-connect-by/--explain/"
+        "--verify/--severity/--object/--format/--output.",
+        "en": "Interactive mode: pick a file/directory and run a scan with the mouse or "
+        "keyboard instead of flags. Requires textual (pip install "
+        "\"ora2pg-gap-report[tui]\"), not installed with the base package. If a single "
+        "directory path is given, it opens as the tree's starting point; a standalone "
+        "mode, like --explain/--verify — not combinable with --fail-on/--save/--baseline/"
+        "--check-connect-by/--explain/--verify/--severity/--object/--format/--output.",
+    },
+    # tui_app.py (--tui) chrome -- everything the interactive mode's own
+    # screens show (button labels, status/error text, table headers) that
+    # isn't already scanned-detector content (that part was already
+    # routed through this module's other keys, e.g. failure_stage_short_*
+    # in ResultsScreen's detail panel). Reuses col_*/verify_col_*/
+    # verify_footer_note directly rather than duplicating them under a
+    # tui_ prefix -- same words, same screen concept (a findings table / a
+    # verification table), just rendered by Textual instead of Rich.
+    "tui_app_subtitle": {
+        "ru": "Отчёт о пробелах миграции Oracle -> PostgreSQL",
+        "en": "Oracle -> PostgreSQL migration gap report",
+    },
+    "tui_tree_label": {
+        "ru": "Выберите файл .sql/.pks/.pkb или директорию для рекурсивного сканирования:",
+        "en": "Pick a .sql/.pks/.pkb file, or a directory to scan recursively:",
+    },
+    "tui_severity_all": {"ru": "Все уровни", "en": "All severities"},
+    # {level} is deliberately not translated -- "high"/"medium"/"low" are
+    # kept as fixed technical vocabulary everywhere else in this project
+    # (--severity's own choices, col_severity's "Severity" header even in
+    # Russian, terminal_report.py's NEW/RESOLVED/UNCHANGED), not prose.
+    "tui_severity_only": {"ru": "Только {level}", "en": "{level} only"},
+    "tui_scan_btn": {"ru": "Сканировать", "en": "Scan"},
+    "tui_add_to_selection_btn": {"ru": "Добавить к выбору", "en": "Add to selection"},
+    "tui_clear_selection_btn": {"ru": "Очистить выбор", "en": "Clear selection"},
+    "tui_connect_by_checkbox": {
+        "ru": "Проверить CONNECT BY (требует ora2pg)",
+        "en": "Check CONNECT BY (requires ora2pg)",
+    },
+    "tui_baseline_input_placeholder": {
+        "ru": "Файл baseline (опционально — сравнить или сверить с ним)",
+        "en": "Baseline file (optional -- compare or verify against it)",
+    },
+    "tui_verify_checkbox": {
+        "ru": "Режим verify (сканировать как результат после миграции)",
+        "en": "Verify mode (scan as post-migration output)",
+    },
+    "tui_status_nothing_selected": {"ru": "Пока ничего не выбрано.", "en": "Nothing selected yet."},
+    "tui_status_highlighted": {"ru": "Выделено: {path}", "en": "Highlighted: {path}"},
+    "tui_status_queued": {
+        "ru": "Путей в очереди на сканирование: {n}\n{listing}",
+        "en": "{n} path(s) queued for scan:\n{listing}",
+    },
+    "tui_error_pick_in_tree_first": {
+        "ru": "Сначала выберите файл или директорию в дереве.",
+        "en": "Pick a file or directory in the tree first.",
+    },
+    "tui_error_pick_first": {
+        "ru": "Сначала выберите файл или директорию.",
+        "en": "Pick a file or directory first.",
+    },
+    "tui_error_verify_needs_baseline": {
+        "ru": "Режим verify требует файл baseline.",
+        "en": "Verify mode requires a baseline file.",
+    },
+    "tui_error_verify_conflicts_connect_by": {
+        "ru": "Режим verify нельзя сочетать с проверкой CONNECT BY.",
+        "en": "Verify mode can't be combined with the CONNECT BY check.",
+    },
+    "tui_status_scanning": {"ru": "Сканирование...", "en": "Scanning..."},
+    "tui_status_verifying": {"ru": "Проверка...", "en": "Verifying..."},
+    "tui_error_couldnt_load_baseline": {
+        "ru": "Не удалось загрузить baseline: {exc}",
+        "en": "Couldn't load baseline: {exc}",
+    },
+    "tui_warning_not_found": {"ru": "Не найдено: {path}", "en": "Not found: {path}"},
+    "tui_warning_could_not_read": {
+        "ru": "Не удалось прочитать {path}: {exc}",
+        "en": "Could not read {path}: {exc}",
+    },
+    "tui_warning_no_files_under": {
+        "ru": "Файлы .sql/.pks/.pkb не найдены в {dir}",
+        "en": "No .sql/.pks/.pkb files found under {dir}",
+    },
+    "tui_results_select_row_hint": {
+        "ru": "Выберите строку, чтобы увидеть полное объяснение.",
+        "en": "Select a row to see the full explanation.",
+    },
+    "tui_save_baseline_input_placeholder": {
+        "ru": "Сохранить эти находки как baseline в...",
+        "en": "Save these findings as a baseline to...",
+    },
+    "tui_save_baseline_btn": {"ru": "Сохранить baseline", "en": "Save baseline"},
+    "tui_back_to_scan_btn": {"ru": "Назад к сканированию", "en": "Back to scan"},
+    "tui_scanned_no_findings": {
+        "ru": "Просканировано {path} — проблемных конструкций не найдено.",
+        "en": "Scanned {path} — no problematic constructs found.",
+    },
+    "tui_scanned_summary": {
+        "ru": "Просканировано {path} — объектов: {objects}, находок: {count} ({counts_text}) — "
+        "грубая оценка {lo:.2f}-{hi:.2f} ч. (неоткалиброванная эвристика, не измерение)",
+        "en": "Scanned {path} — objects: {objects}, findings: {count} ({counts_text}) — rough "
+        "estimate {lo:.2f}-{hi:.2f}h (uncalibrated heuristic, not a measurement)",
+    },
+    "tui_error_enter_path_first": {"ru": "Сначала введите путь.", "en": "Enter a path first."},
+    "tui_error_couldnt_save": {"ru": "Не удалось сохранить: {exc}", "en": "Couldn't save: {exc}"},
+    "tui_saved_findings": {
+        "ru": "Сохранено находок: {n} в {path}",
+        "en": "Saved {n} findings to {path}",
+    },
+    "tui_verify_summary": {
+        "ru": "Проверено {path} по baseline — детекторов в baseline: {n}: осталось "
+        "{still_present}, не обнаружено {not_detected}, нельзя проверить {not_verifiable}",
+        "en": "Verified {path} against baseline — {n} baseline detectors: {still_present} "
+        "still present, {not_detected} not detected, {not_verifiable} not verifiable",
     },
 }
 

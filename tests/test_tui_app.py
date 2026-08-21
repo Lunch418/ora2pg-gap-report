@@ -16,6 +16,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from textual.widgets import Button, DataTable, Select
 
 from ora2pg_gap_report.baseline import load_baseline, save_baseline
 from ora2pg_gap_report.tui_app import (
@@ -73,7 +74,7 @@ def test_scan_path_on_a_directory_with_no_matching_files_warns(tmp_path):
 
 
 def test_scan_path_on_a_missing_file_warns(tmp_path):
-    findings, objects_scanned, warnings = scan_path(tmp_path / "does_not_exist.pkb")
+    findings, objects_scanned, warnings = scan_path(tmp_path / "does_not_exist.pkb", lang="en")
     assert findings == []
     assert len(warnings) == 1
     assert "Not found" in warnings[0]
@@ -89,7 +90,7 @@ async def test_app_starts_on_the_scan_screen():
 
 @pytest.mark.asyncio
 async def test_scan_button_without_a_selected_path_shows_a_status_error():
-    app = GapReportApp(start_path=SAMPLES)
+    app = GapReportApp(start_path=SAMPLES, lang="en")
     async with app.run_test() as pilot:
         await pilot.pause()
         await pilot.click("#scan-btn")
@@ -214,7 +215,7 @@ async def test_back_button_returns_to_scan_screen():
 
 @pytest.mark.asyncio
 async def test_scanning_an_empty_result_set_shows_a_clean_summary():
-    app = GapReportApp(start_path=SAMPLES)
+    app = GapReportApp(start_path=SAMPLES, lang="en")
     async with app.run_test() as pilot:
         await pilot.pause()
         scan_screen = app.screen
@@ -304,7 +305,7 @@ async def test_clear_selection_empties_the_queued_paths():
 
 @pytest.mark.asyncio
 async def test_add_to_selection_without_a_highlighted_path_shows_a_status_error():
-    app = GapReportApp(start_path=SAMPLES)
+    app = GapReportApp(start_path=SAMPLES, lang="en")
     async with app.run_test() as pilot:
         await pilot.pause()
         scan_screen = app.screen
@@ -337,7 +338,7 @@ async def test_connect_by_checkbox_checks_or_warns_without_crashing():
 
 @pytest.mark.asyncio
 async def test_save_baseline_button_writes_a_loadable_baseline_file(tmp_path):
-    app = GapReportApp(start_path=SAMPLES)
+    app = GapReportApp(start_path=SAMPLES, lang="en")
     async with app.run_test() as pilot:
         await pilot.pause()
         scan_screen = app.screen
@@ -359,7 +360,7 @@ async def test_save_baseline_button_writes_a_loadable_baseline_file(tmp_path):
 
 @pytest.mark.asyncio
 async def test_save_baseline_button_without_a_path_shows_an_error():
-    app = GapReportApp(start_path=SAMPLES)
+    app = GapReportApp(start_path=SAMPLES, lang="en")
     async with app.run_test() as pilot:
         await pilot.pause()
         scan_screen = app.screen
@@ -400,7 +401,7 @@ async def test_scanning_with_a_baseline_file_shows_new_and_resolved_counts(tmp_p
 
 @pytest.mark.asyncio
 async def test_scanning_with_a_missing_baseline_file_shows_an_error_and_stays_on_scan_screen(tmp_path):
-    app = GapReportApp(start_path=SAMPLES)
+    app = GapReportApp(start_path=SAMPLES, lang="en")
     async with app.run_test() as pilot:
         await pilot.pause()
         scan_screen = app.screen
@@ -442,7 +443,7 @@ async def test_verify_mode_compares_against_baseline_and_shows_verify_results(tm
 
 @pytest.mark.asyncio
 async def test_verify_checkbox_without_a_baseline_shows_a_status_error():
-    app = GapReportApp(start_path=SAMPLES)
+    app = GapReportApp(start_path=SAMPLES, lang="en")
     async with app.run_test() as pilot:
         await pilot.pause()
         scan_screen = app.screen
@@ -459,7 +460,7 @@ async def test_verify_mode_conflicts_with_connect_by_checkbox(tmp_path):
     baseline_path = tmp_path / "before.json"
     save_baseline([], baseline_path)
 
-    app = GapReportApp(start_path=SAMPLES)
+    app = GapReportApp(start_path=SAMPLES, lang="en")
     async with app.run_test() as pilot:
         await pilot.pause()
         scan_screen = app.screen
@@ -536,3 +537,44 @@ async def test_bracketed_content_does_not_crash_with_a_markup_error():
         detail = str(results_screen.query_one("#detail").content)
         assert "my[table]" in detail
         assert "arr[i][j]" in detail
+
+
+@pytest.mark.asyncio
+async def test_scan_screen_chrome_defaults_to_russian():
+    # No explicit lang passed -- this project's silent default everywhere
+    # else (i18n.py's own resolve_language()) applies to --tui's chrome
+    # too, not just to a scan's findings/messages.
+    app = GapReportApp(start_path=SAMPLES)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        scan_screen = app.screen
+        assert isinstance(scan_screen, ScanScreen)
+        assert "Пока ничего не выбрано." in scan_screen.query_one("#status").content
+        assert scan_screen.query_one("#scan-btn", Button).label.plain == "Сканировать"
+        assert scan_screen.query_one("#lang-select", Select).value == "ru"
+
+
+@pytest.mark.asyncio
+async def test_scan_screen_chrome_switches_to_english_when_requested():
+    app = GapReportApp(start_path=SAMPLES, lang="en")
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        scan_screen = app.screen
+        assert isinstance(scan_screen, ScanScreen)
+        assert "Nothing selected yet." in scan_screen.query_one("#status").content
+        assert scan_screen.query_one("#scan-btn", Button).label.plain == "Scan"
+        assert scan_screen.query_one("#lang-select", Select).value == "en"
+
+
+@pytest.mark.asyncio
+async def test_results_screen_table_headers_are_translated_to_russian():
+    findings, _, _ = scan_path(SAMPLES / "compound_trigger_apress.sql")
+    app = GapReportApp(start_path=SAMPLES)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await app.push_screen(ResultsScreen(findings, findings, 1, [], "ru", str(SAMPLES)))
+        await pilot.pause()
+        results_screen = app.screen
+        table = results_screen.query_one("#findings-table", DataTable)
+        headers = [str(col.label) for col in table.columns.values()]
+        assert headers == ["Severity", "Файл", "Объект", "Строка", "Детектор", "GAP"]

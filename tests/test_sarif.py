@@ -7,6 +7,7 @@ it directly, not just against hand-written expectations about its shape."""
 
 import json
 from pathlib import Path
+from urllib.parse import urlparse
 
 import jsonschema
 import pytest
@@ -66,6 +67,70 @@ def test_line_zero_sentinel_produces_valid_sarif_without_a_region(sarif_schema):
     location = doc["runs"][0]["results"][0]["locations"][0]["physicalLocation"]
     assert "region" not in location
     assert location["artifactLocation"]["uri"] == "generated_output.sql"
+
+
+def test_artifact_location_uri_percent_encodes_a_space(sarif_schema):
+    # artifactLocation.uri must be a valid URI-reference (RFC 3986) --
+    # jsonschema.validate() doesn't actually check the schema's own
+    # "format": "uri-reference" constraint here (this environment has no
+    # format-checker plugin registered for it -- see
+    # jsonschema.FormatChecker().checkers), so a raw, unencoded path
+    # would still pass this project's own schema-validating tests even
+    # though it isn't a real URI. A literal space is not a valid
+    # URI-reference character; it must come out percent-encoded.
+    finding = Finding(
+        detector="autonomous_tx",
+        severity="high",
+        object_name="X",
+        line=1,
+        snippet="s",
+        message="m",
+        source_file="my folder/logger.pkb",
+    )
+    doc = json.loads(to_sarif([finding]))
+    jsonschema.validate(doc, sarif_schema)
+    uri = doc["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+    assert uri == "my%20folder/logger.pkb"
+    assert urlparse(uri).scheme == ""
+
+
+def test_artifact_location_uri_does_not_let_a_windows_drive_letter_look_like_a_scheme():
+    # A Windows-style absolute path's drive letter ('C:\\Users\\...') would
+    # parse as if 'C' were the URI scheme if the colon were left
+    # unescaped -- urlparse().scheme must stay empty (a relative
+    # reference), not 'c'.
+    finding = Finding(
+        detector="autonomous_tx",
+        severity="high",
+        object_name="X",
+        line=1,
+        snippet="s",
+        message="m",
+        source_file="C:\\Users\\me\\logger.pkb",
+    )
+    doc = json.loads(to_sarif([finding]))
+    uri = doc["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+    assert urlparse(uri).scheme == ""
+    assert "\\" not in uri
+    assert ":" not in uri
+
+
+def test_artifact_location_uri_leaves_a_plain_relative_path_unchanged():
+    # No characters needing escaping -- must round-trip byte-for-byte,
+    # matching what a real SARIF consumer resolves back to the scanned
+    # file on disk.
+    finding = Finding(
+        detector="autonomous_tx",
+        severity="high",
+        object_name="X",
+        line=1,
+        snippet="s",
+        message="m",
+        source_file="docs/research/samples/logger.pkb",
+    )
+    doc = json.loads(to_sarif([finding]))
+    uri = doc["runs"][0]["results"][0]["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+    assert uri == "docs/research/samples/logger.pkb"
 
 
 def test_severity_maps_to_the_expected_sarif_level():

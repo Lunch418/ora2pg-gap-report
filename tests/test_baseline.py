@@ -132,6 +132,18 @@ def test_load_baseline_missing_group_key_raises_baseline_load_error(tmp_path):
         load_baseline(path)
 
 
+def test_load_baseline_missing_detector_raises_baseline_load_error_not_keyerror(tmp_path):
+    # verify_against_baseline() (verification.py) reads rec["detector"]
+    # unconditionally -- a record with a group_key but no detector used to
+    # sail through load_baseline()'s validation and blow up as a raw
+    # KeyError from deep inside --verify instead of a clean, catchable
+    # BaselineLoadError right here where the file is actually read.
+    path = tmp_path / "no_detector.json"
+    path.write_text(json.dumps({"schema_version": 1, "findings": [{"group_key": "abc123"}]}))
+    with pytest.raises(BaselineLoadError, match="detector"):
+        load_baseline(path)
+
+
 def test_load_baseline_rejects_a_mismatched_schema_version(tmp_path):
     path = tmp_path / "future.json"
     path.write_text(json.dumps({"schema_version": 999, "findings": []}))

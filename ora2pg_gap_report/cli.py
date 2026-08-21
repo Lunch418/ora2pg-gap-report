@@ -201,7 +201,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Показать research-документ конкретного gap'а из реестра (например, GAP-023 или "
             "просто 023) и выйти — без сканирования файлов. Самостоятельная команда: нельзя "
-            "сочетать с путями к файлам, --fail-on, --save, --baseline или --check-connect-by."
+            "сочетать с путями к файлам, --fail-on, --save, --baseline, --check-connect-by, "
+            "--verify, --format, --output, --severity или --object."
         ),
     )
     parser.add_argument(
@@ -523,7 +524,7 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
             had_error = True
             continue
         try:
-            source = path.read_text(errors="replace")
+            source = path.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:
             err_console.print(
                 i18n.t(lang, "skipped_unreadable", exc=escape(str(exc)), path=escape(str(path)))
@@ -632,7 +633,17 @@ def main(argv: list[str] | None = None) -> int:
         # those flags are there to act on, silently masking a real gate
         # failure instead of erroring on the nonsensical combination.
         conflicting = args.paths or any(
-            (args.fail_on, args.save, args.baseline, args.check_connect_by, args.verify)
+            (
+                args.fail_on,
+                args.save,
+                args.baseline,
+                args.check_connect_by,
+                args.verify,
+                args.format,
+                args.output,
+                args.severity,
+                args.object,
+            )
         )
         if conflicting:
             err_console.print(i18n.t(lang, "explain_conflict_error"))
@@ -644,6 +655,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.paths:
         err_console.print(i18n.t(lang, "no_paths_error"))
+        return 2
+
+    # --save writes this run's findings, --baseline reads a *previous*
+    # run's snapshot to diff against -- the same path for both means
+    # --baseline reads back the file --save is about to overwrite with
+    # this run's own result, silently comparing it against itself
+    # (NEW/RESOLVED always 0, UNCHANGED always everything) regardless of
+    # what actually changed.
+    if args.save and args.baseline and args.save.resolve() == args.baseline.resolve():
+        err_console.print(i18n.t(lang, "save_baseline_same_path_error", path=escape(str(args.save))))
         return 2
 
     fmt = resolve_format(args.format, args.output, sys.stdout.isatty())
@@ -664,7 +685,7 @@ def main(argv: list[str] | None = None) -> int:
             had_error = True
             continue
         try:
-            source = path.read_text(errors="replace")
+            source = path.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:
             err_console.print(
                 i18n.t(lang, "skipped_unreadable", exc=escape(str(exc)), path=escape(str(path)))
@@ -705,7 +726,16 @@ def main(argv: list[str] | None = None) -> int:
     # baseline snapshot is meant as ground truth for the schema, and a CI
     # gate silently muted by an unrelated display filter would be a much
     # worse surprise than a gate that's a little noisier than expected.
-    if args.save:
+    if args.save and had_error:
+        # A snapshot missing some of what was asked to be scanned (a
+        # not-found file, an empty directory, an unreadable file) isn't
+        # "ground truth for the schema" -- it's ground truth for whatever
+        # scanning actually completed, silently. The next --baseline diff
+        # against it would report the skipped files' findings as NEW the
+        # moment the actual problem (why they were skipped) gets fixed,
+        # not as what they really are: never captured in the first place.
+        err_console.print(i18n.t(lang, "save_baseline_skipped_partial_scan", path=escape(str(args.save))))
+    elif args.save:
         try:
             save_baseline(all_findings, args.save)
         except OSError as exc:

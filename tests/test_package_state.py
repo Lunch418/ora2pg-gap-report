@@ -65,13 +65,36 @@ def test_local_variable_inside_a_member_routine_is_not_flagged():
     assert find_package_state(source) == []
 
 
-def test_package_level_constant_and_exception_are_not_flagged():
-    # CONSTANT/EXCEPTION declarations don't match the scalar-type/%TYPE
-    # shape this detector looks for, and aren't what ora2pg's
-    # set_config/current_setting rewrite applies to.
+def test_package_level_constant_is_flagged():
+    # CONSTANT gets the exact same set_config/current_setting rewrite as
+    # an ordinary variable -- confirmed by a real ora2pg 25.0 run (see
+    # docs/research/gap-036-package-state.md's "CONSTANT" addendum), and
+    # arguably worse: ora2pg never generates a set_config() call for the
+    # constant's own initializer at all, so current_setting() is
+    # guaranteed to raise "unrecognized configuration parameter" on
+    # every read, not just before the first write.
     source = (
         "create or replace package body pkg_ctx as\n"
         "  c_max_retries constant pls_integer := 3;\n"
+        "  function get_retries return pls_integer is\n"
+        "  begin\n"
+        "    return c_max_retries;\n"
+        "  end;\n"
+        "end pkg_ctx;\n"
+    )
+    findings = find_package_state(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "PKG_CTX.C_MAX_RETRIES"
+
+
+def test_package_level_exception_is_not_flagged():
+    # An EXCEPTION isn't state data at all (nothing to read/write), so
+    # ora2pg's set_config/current_setting rewrite has no reason to apply
+    # to it -- unlike CONSTANT above, not empirically re-checked against
+    # a real ora2pg run, just structurally not the shape this gap is
+    # about.
+    source = (
+        "create or replace package body pkg_ctx as\n"
         "  invalid_state exception;\n"
         "  procedure noop is\n"
         "  begin\n"
@@ -79,12 +102,7 @@ def test_package_level_constant_and_exception_are_not_flagged():
         "  end;\n"
         "end pkg_ctx;\n"
     )
-    findings = find_package_state(source)
-    # 'CONSTANT' sits between the variable name and its type
-    # ('c_max_retries CONSTANT PLS_INTEGER'), so _PACKAGE_VAR_RE (which
-    # requires the type immediately after the name) doesn't match it
-    # either -- neither the constant nor the exception is flagged.
-    assert findings == []
+    assert find_package_state(source) == []
 
 
 def test_multiple_package_level_variables_are_each_flagged():
@@ -104,16 +122,84 @@ def test_multiple_package_level_variables_are_each_flagged():
     assert names == {"PKG_CTX.G_USER_ID", "PKG_CTX.G_TENANT_ID"}
 
 
-def test_package_spec_alone_is_not_flagged():
-    # This detector only looks at PACKAGE BODY -- a package spec's own
-    # public variable declaration is a separate, unverified case.
+def test_package_spec_variable_is_flagged():
+    # A spec-level (public) package variable gets the same rewrite as a
+    # body-level one -- ora2pg doesn't care where the declaration lives.
+    # Also GAP-036's own documented minimal example's exact shape: a
+    # spec-only declaration with an *empty* body declare section (the
+    # body only has member routine bodies, no top-level state of its
+    # own) -- this used to score zero findings entirely, on the gap's
+    # own canonical example.
     source = (
         "create or replace package pkg_ctx as\n"
         "  g_user_id number;\n"
         "  procedure set_user(p_id number);\n"
+        "  function get_user return number;\n"
+        "end pkg_ctx;\n"
+        "create or replace package body pkg_ctx as\n"
+        "  procedure set_user(p_id number) is\n"
+        "  begin\n"
+        "    g_user_id := p_id;\n"
+        "  end;\n"
+        "  function get_user return number is\n"
+        "  begin\n"
+        "    return g_user_id;\n"
+        "  end;\n"
+        "end pkg_ctx;\n"
+    )
+    findings = find_package_state(source)
+    assert len(findings) == 1
+    assert findings[0].object_name == "PKG_CTX.G_USER_ID"
+
+
+def test_package_spec_and_body_variables_are_both_flagged_independently():
+    # A spec-level (public) variable and a body-level (private) one in
+    # the same package are two distinct findings, not deduplicated --
+    # they're different declarations serving different visibility.
+    source = (
+        "create or replace package pkg_ctx as\n"
+        "  g_public_id number;\n"
+        "  procedure noop;\n"
+        "end pkg_ctx;\n"
+        "create or replace package body pkg_ctx as\n"
+        "  g_private_flag number;\n"
+        "  procedure noop is\n"
+        "  begin\n"
+        "    null;\n"
+        "  end;\n"
+        "end pkg_ctx;\n"
+    )
+    findings = find_package_state(source)
+    names = {f.object_name for f in findings}
+    assert names == {"PKG_CTX.G_PUBLIC_ID", "PKG_CTX.G_PRIVATE_FLAG"}
+
+
+def test_package_spec_with_no_top_level_variables_is_not_flagged():
+    source = (
+        "create or replace package pkg_ctx as\n"
+        "  procedure noop;\n"
         "end pkg_ctx;\n"
     )
     assert find_package_state(source) == []
+
+
+def test_a_second_unrelated_package_spec_does_not_absorb_the_first_ones_declarations():
+    # Regression for the shared next_boundary() computation: a spec with
+    # no member routines of its own must stop its declare-section search
+    # at the *next* package container (spec or body), not run past it
+    # into an unrelated package's own declarations.
+    source = (
+        "create or replace package pkg_a as\n"
+        "  g_a number;\n"
+        "end pkg_a;\n"
+        "create or replace package pkg_b as\n"
+        "  g_b number;\n"
+        "  procedure noop;\n"
+        "end pkg_b;\n"
+    )
+    findings = find_package_state(source)
+    names = {f.object_name for f in findings}
+    assert names == {"PKG_A.G_A", "PKG_B.G_B"}
 
 
 def test_default_keyword_initializer_is_flagged():

@@ -1,3 +1,5 @@
+import time
+
 from ora2pg_gap_report.detectors.bulk_collect import find_bulk_collect_usage
 
 
@@ -161,6 +163,36 @@ def test_create_type_with_a_long_comment_before_type_is_still_recognized_as_sche
     # that made it miss the CREATE prefix entirely.
     source = "CREATE OR REPLACE /* " + "x" * 100 + " */ TYPE num_tab IS TABLE OF NUMBER;\n/\n"
     assert find_bulk_collect_usage(source) == []
+
+
+def test_many_local_type_declarations_scale_close_to_linearly_not_quadratically():
+    # Regression for the old per-match backward re.search(text[:match_start],
+    # ...) in _is_schema_level_create_type: it re-copied and re-scanned an
+    # ever-growing prefix for every single local TYPE declaration, making
+    # the whole detector O(n^2) on a file with many of them. Measured
+    # directly: the old implementation grew ~3.7-4.0x when the input
+    # doubled (the signature of quadratic scaling); the new single
+    # forward-pass position-set version measures ~2.3-2.5x. A 3x ceiling
+    # comfortably separates the two without being sensitive to ordinary
+    # timing noise.
+    def make_source(n):
+        lines = ["create or replace package body pkg as", "procedure p is"]
+        lines += [f"  type t_{i} is table of number index by pls_integer;" for i in range(n)]
+        lines += ["begin", "  null;", "end;", "end pkg;", "/"]
+        return "\n".join(lines)
+
+    small = make_source(600)
+    large = make_source(1200)
+
+    start = time.perf_counter()
+    assert len(find_bulk_collect_usage(small)) == 600
+    small_elapsed = time.perf_counter() - start
+
+    start = time.perf_counter()
+    assert len(find_bulk_collect_usage(large)) == 1200
+    large_elapsed = time.perf_counter() - start
+
+    assert large_elapsed < small_elapsed * 3 + 0.1
 
 
 def test_real_open_source_utplsql_bulk_collect_into_is_attributed():

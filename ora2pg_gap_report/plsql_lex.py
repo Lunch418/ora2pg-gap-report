@@ -336,7 +336,7 @@ PACKAGE_BODY_NAME_RE = re.compile(
 # what keeps this from double-matching a real 'PACKAGE BODY name'
 # occurrence (already handled by PACKAGE_BODY_NAME_RE above) as a
 # second, spurious 'package' entry at the same position.
-_PACKAGE_SPEC_NAME_RE = re.compile(
+PACKAGE_SPEC_NAME_RE = re.compile(
     qualified_name_pattern(_CREATE_PREFIX + _EDITIONABLE_PREFIX + r"PACKAGE(?!\s+BODY\b)"), re.IGNORECASE
 )
 # A standalone 'CREATE [OR REPLACE] PROCEDURE/FUNCTION name' — distinct from
@@ -426,7 +426,7 @@ def enclosing_object_name_index(text: str) -> list[tuple[int, str, str]]:
         ]
         + [
             (m.start(), "package", m.group(1).upper())
-            for m in _PACKAGE_SPEC_NAME_RE.finditer(text)
+            for m in PACKAGE_SPEC_NAME_RE.finditer(text)
             if not is_inside_grant_or_revoke_statement(text, m.start())
         ]
         + [(m.start(), "nested_routine", m.group(1).upper()) for m in ROUTINE_START_RE.finditer(text)]

@@ -40,6 +40,8 @@ table dependency) is expected and fine for this script's purposes; a
 genuinely broken run will still show up as a count MISMATCH at the end.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import shutil
@@ -47,6 +49,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLES = REPO_ROOT / "docs" / "research" / "samples"
@@ -55,6 +58,9 @@ sys.path.insert(0, str(REPO_ROOT))
 from ora2pg_gap_report import oracle_connector  # noqa: E402
 from ora2pg_gap_report.cli import scan_source  # noqa: E402
 from ora2pg_gap_report.plsql_lex import mask_strings_and_comments  # noqa: E402
+
+if TYPE_CHECKING:
+    import oracledb
 
 
 def split_sql_statements(text: str) -> list[str]:
@@ -78,7 +84,7 @@ def split_sql_statements(text: str) -> list[str]:
         current_original: list[str] = []
         current_masked: list[str] = []
 
-        def _flush():
+        def _flush() -> None:
             if "".join(current_masked).strip():
                 statements.append("\n".join(current_original).strip())
 
@@ -96,7 +102,7 @@ def split_sql_statements(text: str) -> list[str]:
     return [s.strip() for s in text.split(";") if s.strip()]
 
 
-def run_sql_file(conn, path: Path, label: str) -> None:
+def run_sql_file(conn: oracledb.Connection, path: Path, label: str) -> None:
     statements = split_sql_statements(path.read_text())
     with conn.cursor() as cursor:
         for i, stmt in enumerate(statements, 1):

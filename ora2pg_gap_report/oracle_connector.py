@@ -24,15 +24,28 @@ owner), and EXECUTE on DBMS_METADATA (granted via SELECT_CATALOG_ROLE in
 most environments).
 """
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING
+
+# Type-only: never actually imported at runtime unless _oracledb() below
+# does it (lazily, only once a caller has a real reason to need it). With
+# `from __future__ import annotations`, every annotation in this module is
+# a lazy string, so referencing `oracledb.Connection` in a signature below
+# doesn't require oracledb to be installed just to import this module --
+# same reasoning as i18n.py's own TYPE_CHECKING-guarded `rich` import.
+if TYPE_CHECKING:
+    import oracledb
 
 
 class OracleDriverMissingError(RuntimeError):
     """python-oracledb isn't installed."""
 
 
-def _oracledb():
+def _oracledb() -> ModuleType:
     try:
         import oracledb
     except ImportError as exc:
@@ -43,14 +56,14 @@ def _oracledb():
     return oracledb
 
 
-def connect(dsn: str, user: str, password: str):
+def connect(dsn: str, user: str, password: str) -> oracledb.Connection:
     """Open a connection in oracledb's default thin mode (pure Python, no
     Instant Client). `dsn` is a normal Oracle connect string, e.g.
     "host:1521/ORCLPDB1". Returns the connection as-is — oracledb's own
     connection errors (bad password, unreachable host, ...) propagate
     unwrapped; their messages are already clear."""
-    oracledb = _oracledb()
-    return oracledb.connect(user=user, password=password, dsn=dsn)
+    oracledb_module = _oracledb()
+    return oracledb_module.connect(user=user, password=password, dsn=dsn)
 
 
 _LIST_PACKAGE_BODIES_SQL = """
@@ -77,19 +90,19 @@ _LIST_TRIGGERS_SQL = """
 _GET_DDL_SQL = "SELECT DBMS_METADATA.GET_DDL(:object_type, :name, :owner) FROM dual"
 
 
-def list_package_bodies(conn, owner: str) -> list[str]:
+def list_package_bodies(conn: oracledb.Connection, owner: str) -> list[str]:
     with conn.cursor() as cursor:
         cursor.execute(_LIST_PACKAGE_BODIES_SQL, owner=owner.upper())
         return [row[0] for row in cursor]
 
 
-def list_triggers(conn, owner: str) -> list[str]:
+def list_triggers(conn: oracledb.Connection, owner: str) -> list[str]:
     with conn.cursor() as cursor:
         cursor.execute(_LIST_TRIGGERS_SQL, owner=owner.upper())
         return [row[0] for row in cursor]
 
 
-def get_ddl(conn, object_type: str, name: str, owner: str) -> str:
+def get_ddl(conn: oracledb.Connection, object_type: str, name: str, owner: str) -> str:
     """object_type is a DBMS_METADATA object type string — 'PACKAGE_BODY'
     or 'TRIGGER' for what this module lists, but any type GET_DDL accepts
     works. Returns "" if the object has no DDL (shouldn't happen for a
@@ -136,7 +149,7 @@ def _unique_output_path(output_dir: Path, stem: str, suffix: str) -> Path:
     return candidate
 
 
-def export_schema(conn, owner: str, output_dir: Path) -> list[Path]:
+def export_schema(conn: oracledb.Connection, owner: str, output_dir: Path) -> list[Path]:
     """Export every PACKAGE BODY and TRIGGER in `owner`'s schema as one
     .sql file per object into output_dir. Returns the written paths — feed
     them straight into `ora2pg-gap-report`.

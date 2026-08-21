@@ -34,7 +34,7 @@ oracle = ["oracledb>=2.0"]
 # зависит и без этого extra продолжает работать как раньше — установка
 # `textual` требуется только тем, кто явно хочет интерактивный режим.
 tui = ["textual>=1.0"]
-dev = ["pytest>=7.0", "pytest-asyncio>=0.24", "ruff>=0.6,<0.17", "jsonschema>=4.0", "textual>=1.0"]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.24", "ruff>=0.6,<0.17", "jsonschema>=4.0", "textual>=1.0", "mypy>=1.10"]
 
 [project.urls]
 Repository = "https://github.com/Lunch418/ora2pg-gap-report"
@@ -59,3 +59,34 @@ include = ["ora2pg_gap_report*"]
 # [project.optional-dependencies]) pins the tool version alongside this
 # selection -- belt and suspenders against the same class of drift.
 select = ["E4", "E7", "E9", "F"]
+
+[tool.mypy]
+# Scoped to the package + scripts/, not tests/ -- test files lean on
+# fixtures/monkeypatching/dynamic construction patterns that don't carry
+# much of their own type-safety value, and checking them adds friction
+# without a real payoff. disallow_untyped_defs is what actually makes
+# this meaningful: without it mypy skips checking the *body* of any
+# function that has no annotations at all, silently passing over
+# whatever's inside. Every one of these was already true of the codebase
+# as it stood (mypy needed zero `type: ignore`s to get here) -- this
+# config just makes that a checked, CI-enforced fact instead of an
+# unverified impression.
+files = ["ora2pg_gap_report", "scripts"]
+python_version = "3.10"
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+
+# oracledb is a genuinely optional extra (see [project.optional-
+# dependencies]'s own "oracle" group) -- oracle_connector.py/
+# scripts/verify_against_live_oracle.py only reference its types under
+# `if TYPE_CHECKING:`, exactly so this package stays importable without
+# it installed. Not installed in CI's own dev environment either, so
+# mypy must not hard-fail when it can't find it -- treated as Any there
+# instead, real type checking against it whenever a dev happens to have
+# `pip install ora2pg-gap-report[oracle]` in their own environment too.
+[[tool.mypy.overrides]]
+module = "oracledb"
+ignore_missing_imports = true

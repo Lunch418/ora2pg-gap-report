@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
+from typing import cast
 
 from rich.text import Text
 from textual import work
@@ -252,8 +253,13 @@ class ScanScreen(Screen):
             self._show_status_error(i18n.t(self.lang, "tui_error_pick_first"))
             return
 
-        severity = self.query_one("#severity-select", Select).value
-        lang = self.query_one("#lang-select", Select).value
+        # cast(), not a runtime check: Select.value's declared type is
+        # broader (Any | NoSelection) to cover allow_blank=True selects,
+        # but both these selects are built with allow_blank=False and a
+        # fixed set of str options -- NoSelection is genuinely
+        # unreachable here.
+        severity = cast(str, self.query_one("#severity-select", Select).value)
+        lang = cast(str, self.query_one("#lang-select", Select).value)
         check_connect_by = self.query_one("#connect-by-checkbox", Checkbox).value
         verify_mode = self.query_one("#verify-checkbox", Checkbox).value
         baseline_value = self.query_one("#baseline-input", Input).value.strip()
@@ -271,6 +277,7 @@ class ScanScreen(Screen):
             return
 
         if verify_mode:
+            assert baseline_path is not None  # ruled out by the check above
             self.query_one("#status", Static).update(i18n.t(lang, "tui_status_verifying"))
             self._run_verify(paths, Path(baseline_path), lang)
         else:
@@ -530,7 +537,9 @@ class ResultsScreen(Screen):
             )
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        index = int(event.row_key.value)
+        row_key_value = event.row_key.value
+        assert row_key_value is not None  # every row is added with key=str(i) in on_mount()
+        index = int(row_key_value)
         f = self.findings[index]
         gap_number, failure_stage = gap_metadata(f.detector)
         # GAP-NNN/stage comes right after the header, before the message

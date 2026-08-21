@@ -18,6 +18,17 @@ _WITH_CTE_RE = re.compile(
     rf"\bWITH\s+(?!RECURSIVE\b)({IDENTIFIER})\s*(?:\([^()]*\))?\s*AS\s*\(",
     re.IGNORECASE,
 )
+# A later CTE in the same WITH list, right after the previous CTE's closing
+# ')' -- 'WITH seed AS (...), tree AS (...)' is the common real-world shape
+# (a non-recursive anchor/seed CTE listed before the recursive one), and
+# _WITH_CTE_RE alone only ever matches the first CTE (it requires a literal
+# WITH immediately before the name). Matched with .match(pos) (anchored,
+# not .search()) so it only fires immediately after the prior body's ')' --
+# anything else there means the WITH list has ended.
+_NEXT_CTE_RE = re.compile(
+    rf"\s*,\s*({IDENTIFIER})\s*(?:\([^()]*\))?\s*AS\s*\(",
+    re.IGNORECASE,
+)
 _UNION_RE = re.compile(r"\bUNION\b", re.IGNORECASE)
 
 _MESSAGE = (
@@ -64,37 +75,56 @@ def find_recursive_with_missing_keyword(source: str) -> list[Finding]:
     right before it), and a schema-qualified reference to an unrelated
     real table that happens to share the CTE's bare name ('FROM
     archive.tree' -- 'tree' there is preceded by 'archive.', not by
-    FROM/JOIN/comma directly)."""
+    FROM/JOIN/comma directly).
+
+    A WITH clause can list more than one CTE ('WITH seed AS (...), tree
+    AS (...)' -- a non-recursive anchor CTE listed before the recursive
+    one is a common real-world shape). _WITH_CTE_RE only ever matches the
+    first, since it requires a literal WITH right before the name; every
+    later one is picked up by _NEXT_CTE_RE immediately after the previous
+    CTE's own closing ')', each checked for self-reference independently."""
     clean = mask_strings_and_comments(source)
     visible = mask_dynamic_sql_visible(source)
     name_index = enclosing_object_name_index(clean)
     findings: list[Finding] = []
 
     for m in _WITH_CTE_RE.finditer(visible):
-        cte_name = m.group(1)
-        body_start = m.end() - 1  # index of the opening '('
-        body_end = skip_balanced_parens(visible, body_start)
-        body = visible[body_start:body_end]
+        # (name, name_start, body_start) for every CTE in this WITH list --
+        # the first one from _WITH_CTE_RE itself, then every following
+        # ', name AS (' picked up right after the previous one's ')'.
+        ctes = [(m.group(1), m.start(), m.end() - 1)]
+        pos = skip_balanced_parens(visible, ctes[0][2])
+        while True:
+            next_m = _NEXT_CTE_RE.match(visible, pos)
+            if next_m is None:
+                break
+            next_body_start = next_m.end() - 1
+            ctes.append((next_m.group(1), next_m.start(), next_body_start))
+            pos = skip_balanced_parens(visible, next_body_start)
 
-        union_match = _UNION_RE.search(body)
-        if union_match is None:
-            continue
+        for cte_name, name_start, body_start in ctes:
+            body_end = skip_balanced_parens(visible, body_start)
+            body = visible[body_start:body_end]
 
-        self_ref_re = re.compile(
-            rf"(?:\bFROM\s+|\bJOIN\s+|,\s*){re.escape(cte_name)}\b", re.IGNORECASE
-        )
-        if not self_ref_re.search(body, union_match.end()):
-            continue
+            union_match = _UNION_RE.search(body)
+            if union_match is None:
+                continue
 
-        findings.append(
-            Finding(
-                detector="recursive_with",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet=f"WITH {cte_name.upper()} AS (...)",
-                message=_MESSAGE,
+            self_ref_re = re.compile(
+                rf"(?:\bFROM\s+|\bJOIN\s+|,\s*){re.escape(cte_name)}\b", re.IGNORECASE
             )
-        )
+            if not self_ref_re.search(body, union_match.end()):
+                continue
+
+            findings.append(
+                Finding(
+                    detector="recursive_with",
+                    severity="high",
+                    object_name=enclosing_object_name(name_index, name_start),
+                    line=line_at(clean, name_start),
+                    snippet=f"WITH {cte_name.upper()} AS (...)",
+                    message=_MESSAGE,
+                )
+            )
 
     return findings

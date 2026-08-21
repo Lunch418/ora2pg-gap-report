@@ -491,3 +491,48 @@ async def test_verify_back_button_returns_to_scan_screen(tmp_path):
         await pilot.click("#verify-back-btn")
         await pilot.pause()
         assert isinstance(app.screen, ScanScreen)
+
+
+@pytest.mark.asyncio
+async def test_bracketed_content_does_not_crash_with_a_markup_error():
+    """Textual's Static/DataTable parse plain strings as Textual markup --
+    a quoted Oracle identifier or a path containing brackets used to raise
+    textual.markup.MarkupError (closing tag mismatch) the moment it hit
+    Static.update() or DataTable.add_row(), crashing the whole app. Every
+    scanned-content field (object_name, message, source_file, a queued
+    path) now goes through rich.text.Text(...) instead of an f-string, so
+    none of it is ever parsed as markup."""
+    from ora2pg_gap_report.models import Finding
+    from ora2pg_gap_report.tui_app import ResultsScreen
+
+    finding = Finding(
+        detector="bulk_collect",
+        severity="high",
+        object_name='PKG."my[table]"',
+        line=1,
+        snippet="x",
+        message="Found in arr[i][j] -- [not a style tag]",
+        source_file="/data/notes[/archive]/x.sql",
+    )
+
+    app = GapReportApp(start_path=SAMPLES)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await app.push_screen(
+            ResultsScreen([finding], [finding], 1, ["warning with a ] bracket"], "ru", "/data/[bracketed]/path.sql")
+        )
+        await pilot.pause()
+
+        results_screen = app.screen
+        assert isinstance(results_screen, ResultsScreen)
+        assert "bracketed" in str(results_screen.query_one("#summary").content)
+
+        table = results_screen.query_one("#findings-table")
+        table.focus()
+        await pilot.pause()
+        await pilot.press("enter")
+        await pilot.pause()
+
+        detail = str(results_screen.query_one("#detail").content)
+        assert "my[table]" in detail
+        assert "arr[i][j]" in detail

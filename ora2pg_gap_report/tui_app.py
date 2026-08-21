@@ -26,6 +26,7 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
+from rich.text import Text
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal
@@ -102,7 +103,7 @@ def scan_paths(
             warnings.append(f"Not found: {file_path}")
             continue
         try:
-            source = file_path.read_text(errors="replace")
+            source = file_path.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:
             warnings.append(f"Could not read {file_path}: {exc}")
             continue
@@ -173,6 +174,13 @@ class ScanScreen(Screen):
         yield Footer()
 
     def _update_status(self) -> None:
+        # Text(...), not an f-string handed to Static.update(): a selected
+        # path can contain anything the filesystem allows, brackets
+        # included, and Static parses plain strings as Textual markup --
+        # "/data/notes[/archive]/x.sql" would otherwise raise MarkupError
+        # (confirmed the hard way, see CHANGELOG). Same reasoning as
+        # terminal_report.py's own Text(...) wrapping of scanned-content
+        # table cells.
         lines = []
         if self.selected_path is not None:
             lines.append(f"Highlighted: {self.selected_path}")
@@ -181,10 +189,14 @@ class ScanScreen(Screen):
             lines.append(f"{len(self.selected_paths)} path(s) queued for scan:\n{listing}")
         if not lines:
             lines.append("Nothing selected yet.")
-        self.query_one("#status", Static).update("\n".join(lines))
+        self.query_one("#status", Static).update(Text("\n".join(lines)))
 
     def _show_status_error(self, message: str) -> None:
-        self.query_one("#status", Static).update(f"[bold #FF5555]{message}[/bold #FF5555]")
+        # Style via Text(..., style=...), not inline markup around an
+        # f-string -- `message` can carry an exception's own text (e.g. a
+        # baseline load error quoting the bad file's content), which must
+        # never be parsed as markup either.
+        self.query_one("#status", Static).update(Text(message, style="bold #FF5555"))
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
         self.selected_path = event.path
@@ -302,7 +314,7 @@ class ScanScreen(Screen):
                 warnings.append(f"Not found: {file_path}")
                 continue
             try:
-                source = file_path.read_text(errors="replace")
+                source = file_path.read_text(encoding="utf-8", errors="replace")
             except OSError as exc:
                 warnings.append(f"Could not read {file_path}: {exc}")
                 continue
@@ -388,8 +400,10 @@ class ResultsScreen(Screen):
         # Set by the "Save baseline" button, folded into #summary instead of
         # its own row -- a screen already tight enough at 80x24 to have
         # pushed #back-btn out of the visible viewport once (see the CSS
-        # comment on #detail below) doesn't have a spare row for it.
-        self._save_status: str | None = None
+        # comment on #detail below) doesn't have a spare row for it. A
+        # Text, not a markup string: it carries a user-typed path or an
+        # OSError's own text, neither safe to run through markup parsing.
+        self._save_status: Text | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -403,29 +417,40 @@ class ResultsScreen(Screen):
         yield Button("Back to scan", id="back-btn")
         yield Footer()
 
-    def _summary_text(self) -> str:
+    def _summary_text(self) -> Text:
+        # Built as a Text, appended to piece by piece, not as an f-string
+        # with inline [style] markup: scanned_path and warnings carry
+        # scanned-content/filesystem text verbatim (a path with brackets
+        # would raise MarkupError on Static.update() otherwise -- same
+        # class of bug terminal_report.py's own Text(...) wrapping avoids).
+        # Only the style spans below (Text(..., style=...)) are markup;
+        # everything else is plain appended text, never parsed.
         if not self.findings:
-            base = f"Scanned {self.scanned_path} — no problematic constructs found."
+            text = Text(f"Scanned {self.scanned_path} — no problematic constructs found.")
         else:
             counts = summarize_by_severity(self.findings)
             counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
             lo, hi = estimate_hours(self.findings)
-            base = (
+            text = Text(
                 f"Scanned {self.scanned_path} — objects: {self.objects_scanned}, "
                 f"findings: {len(self.findings)} ({counts_text}) — rough estimate {lo:.2f}-{hi:.2f}h "
                 f"(uncalibrated heuristic, not a measurement)"
             )
         if self.baseline_diff is not None:
             d = self.baseline_diff
-            base += (
-                f"\n[bold]Baseline:[/bold] [#FF5555]{len(d.new)} new[/#FF5555], "
-                f"[#50FA7B]{len(d.resolved)} resolved[/#50FA7B], {d.unchanged_count} unchanged"
-            )
+            text.append("\n")
+            text.append("Baseline: ", style="bold")
+            text.append(f"{len(d.new)} new", style="#FF5555")
+            text.append(", ")
+            text.append(f"{len(d.resolved)} resolved", style="#50FA7B")
+            text.append(f", {d.unchanged_count} unchanged")
         if self.warnings:
-            base += "\n[#F1FA8C]" + " / ".join(self.warnings) + "[/#F1FA8C]"
+            text.append("\n")
+            text.append(" / ".join(self.warnings), style="#F1FA8C")
         if self._save_status is not None:
-            base += f"\n{self._save_status}"
-        return base
+            text.append("\n")
+            text.append(self._save_status)
+        return text
 
     def on_mount(self) -> None:
         table = self.query_one("#findings-table", DataTable)
@@ -438,13 +463,19 @@ class ResultsScreen(Screen):
         table.add_columns("Severity", "File", "Object", "Line", "Detector", "GAP")
         for i, f in enumerate(self.findings):
             gap_number, _ = gap_metadata(f.detector)
+            # Text(...) per cell, not markup strings: object_name/file name
+            # come straight from the scanned Oracle source (a quoted
+            # identifier like "my[table]" is legal Oracle and would
+            # otherwise be parsed as a style tag) -- same reasoning as
+            # terminal_report.py's own table. Only Severity gets an actual
+            # style, passed as Text's own style= kwarg, never inline markup.
             table.add_row(
-                f"[{_SEVERITY_STYLE.get(f.severity, '')}]{f.severity}[/]",
-                Path(f.source_file).name if f.source_file else "—",
-                f.object_name,
-                str(f.line),
-                f.detector,
-                f"GAP-{gap_number}" if gap_number else "—",
+                Text(f.severity, style=_SEVERITY_STYLE.get(f.severity, "")),
+                Text(Path(f.source_file).name if f.source_file else "—"),
+                Text(f.object_name),
+                Text(str(f.line)),
+                Text(f.detector),
+                Text(f"GAP-{gap_number}" if gap_number else "—"),
                 key=str(i),
             )
 
@@ -459,7 +490,17 @@ class ResultsScreen(Screen):
         # enough message pushes the one thing this panel exists to show
         # (when does this actually break) below the visible area with no
         # obvious indication there's more to scroll to.
-        lines = [f"[bold]{f.detector}[/bold] ({f.object_name}:{f.line})"]
+        #
+        # Built as a Text, appended piece by piece: f.object_name/f.message
+        # can carry scanned-content text verbatim (a quoted Oracle
+        # identifier, or a detector message that echoes a captured snippet)
+        # -- never safe to hand to Static.update() as an f-string with
+        # inline markup. Only ref/stage_label are markup-safe (built
+        # entirely from our own GAP-NNN numbering and i18n dict), so those
+        # are the only pieces styled here.
+        text = Text()
+        text.append(f.detector, style="bold")
+        text.append(f" ({f.object_name}:{f.line})")
         if gap_number is not None:
             ref = f"GAP-{gap_number}"
             if failure_stage is not None:
@@ -467,28 +508,34 @@ class ResultsScreen(Screen):
                 # panel uses -- respects the language picked for this
                 # scan, same as f.message already does.
                 stage_label = i18n.t(self.lang, f"failure_stage_short_{failure_stage}")
-                lines.append(f"[dim]{ref} · {stage_label}[/dim]")
+                text.append(f"\n{ref} · {stage_label}", style="dim")
             else:
-                lines.append(f"[dim]{ref}[/dim]")
-        lines.append("")
-        lines.append(f.message)
-        self.query_one("#detail", Static).update("\n".join(lines))
+                text.append(f"\n{ref}", style="dim")
+        text.append("\n\n")
+        text.append(f.message)
+        self.query_one("#detail", Static).update(text)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "back-btn":
             self.app.pop_screen()
             return
         if event.button.id == "save-baseline-btn":
+            # Text(..., style=...), not markup around an f-string: `value`
+            # is whatever the user typed and `exc` is an OSError's own
+            # text (could quote the path back), neither safe to parse as
+            # markup.
             value = self.query_one("#save-baseline-input", Input).value.strip()
             if not value:
-                self._save_status = "[bold #FF5555]Enter a path first.[/bold #FF5555]"
+                self._save_status = Text("Enter a path first.", style="bold #FF5555")
             else:
                 try:
                     save_baseline(self.all_findings, Path(value))
                 except OSError as exc:
-                    self._save_status = f"[bold #FF5555]Couldn't save: {exc}[/bold #FF5555]"
+                    self._save_status = Text(f"Couldn't save: {exc}", style="bold #FF5555")
                 else:
-                    self._save_status = f"[#50FA7B]Saved {len(self.all_findings)} findings to {value}[/#50FA7B]"
+                    self._save_status = Text(
+                        f"Saved {len(self.all_findings)} findings to {value}", style="#50FA7B"
+                    )
             self.query_one("#summary", Static).update(self._summary_text())
 
 
@@ -528,29 +575,33 @@ class VerifyResultsScreen(Screen):
         yield Button("Back to scan", id="verify-back-btn")
         yield Footer()
 
-    def _summary_text(self) -> str:
+    def _summary_text(self) -> Text:
+        # Text(...), not an f-string with inline markup: scanned_path and
+        # warnings carry scanned-path/filesystem text verbatim -- same
+        # reasoning as ResultsScreen._summary_text().
         counts = {"still_present": 0, "not_detected": 0, "not_verifiable": 0}
         for r in self.results:
             counts[r.status] = counts.get(r.status, 0) + 1
-        base = (
+        text = Text(
             f"Verified {self.scanned_path} against baseline — {len(self.results)} baseline "
             f"detectors: {counts['still_present']} still present, {counts['not_detected']} not "
             f"detected, {counts['not_verifiable']} not verifiable"
         )
         if self.warnings:
-            base += "\n[#F1FA8C]" + " / ".join(self.warnings) + "[/#F1FA8C]"
-        return base
+            text.append("\n")
+            text.append(" / ".join(self.warnings), style="#F1FA8C")
+        return text
 
     def on_mount(self) -> None:
         table = self.query_one("#verify-table", DataTable)
         table.add_columns("Detector", "GAP", "Before", "After", "Status")
         for r in self.results:
             table.add_row(
-                r.detector,
-                f"GAP-{r.gap_number}" if r.gap_number else "—",
-                str(r.baseline_count),
-                str(r.post_migration_count) if r.status != "not_verifiable" else "—",
-                f"[{_VERIFY_STATUS_STYLE.get(r.status, '')}]{r.status.upper()}[/]",
+                Text(r.detector),
+                Text(f"GAP-{r.gap_number}" if r.gap_number else "—"),
+                Text(str(r.baseline_count)),
+                Text(str(r.post_migration_count) if r.status != "not_verifiable" else "—"),
+                Text(r.status.upper(), style=_VERIFY_STATUS_STYLE.get(r.status, "")),
             )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

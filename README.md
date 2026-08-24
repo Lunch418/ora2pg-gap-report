@@ -61,6 +61,7 @@ empirically against real PL/SQL code
 | **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED between runs |
 | **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code (not a functional check, see below) |
 | **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags |
+| **Autofix** | `--fix`/`--write` — one known-safe mechanical fix for `ora2pg`'s generated code (GAP-028's identity-column double parens), see below |
 
 ## Detectors
 
@@ -425,6 +426,31 @@ honest check from a comfortable lie.
 `--verify` is a standalone mode: requires `--baseline`, incompatible with
 `--explain`/`--save`/`--fail-on`/`--check-connect-by`/`--severity`/`--object`,
 supports only `--format terminal` (default) and `--format json`.
+
+### Autofix (`--fix`)
+
+Everything above only flags and explains — this project is a detector, not
+a parser, and rewriting DDL about to be deployed is a much riskier thing to
+get wrong than a missed or extra flag (see `docs/ARCHITECTURE.md`). `--fix`
+is a narrow, deliberate exception: exactly one correction, for the one gap
+where the "buggy" shape is never what a correct migration would produce and
+the fix is a pure, unambiguous text transformation — GAP-028's identity
+columns. `ora2pg` wraps the sequence options in an extra, redundant pair of
+parens (`GENERATED ALWAYS AS IDENTITY ((START WITH 1 INCREMENT BY 1))`),
+which fails to load into PostgreSQL at all. `--fix` strips exactly that
+outer pair, nothing else:
+
+```sh
+ora2pg-gap-report --fix generated_postgresql/          # prints a diff, changes nothing
+ora2pg-gap-report --fix --write generated_postgresql/  # actually rewrites the files
+```
+
+Like `--verify`, it reads its paths as `ora2pg`'s *generated* PostgreSQL
+output, not the Oracle source — the bug lives in `ora2pg`'s own conversion
+logic, not in anything the Oracle DDL says. Dry-run by default; `--write`
+is required to touch anything on disk. Standalone mode, same as
+`--verify`/`--tui`/`--explain` — not combinable with the scan-shaping
+flags.
 
 A runnable, real (not simulated) walk through the whole SCAN → migrate →
 VERIFY lifecycle — real `ora2pg 25.0` output, both the broken and a

@@ -7,6 +7,17 @@ patch — исправления в существующих.
 
 ## [Unreleased]
 
+### Added
+- `--fix` (+ `--write`): applies the one known mechanical, provably
+  safe correction we currently trust to `--fix` — GAP-028's identity-column
+  double-paren bug in ora2pg's *generated* PostgreSQL output (`GENERATED
+  ... AS IDENTITY ((...))` → `IDENTITY (...)`, see `autofix.py`'s module
+  docstring for why this gap specifically qualifies and most others don't).
+  Dry-run by default (prints a unified diff, touches nothing on disk);
+  `--write` is required to actually rewrite the files. Standalone mode,
+  same as `--verify`/`--tui`/`--explain` — not combinable with the
+  scan-shaping flags.
+
 ### Changed
 - Новый `core.py`: `scan_source()`/`count_objects()`/`_expand_paths()`/
   `_connect_by_check()`/`_sort_findings()` (плюс `_DETECTORS`/

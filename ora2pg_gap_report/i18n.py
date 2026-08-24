@@ -242,20 +242,21 @@ _UI: dict[str, dict[str, str]] = {
     "explain_conflict_error": {
         "ru": "[red]--explain — самостоятельный просмотр документации, не сканирование: "
         "его нельзя сочетать с путями к файлам, --fail-on, --save, --baseline, "
-        "--check-connect-by, --verify, --format, --output, --severity или --object[/red]",
+        "--check-connect-by, --verify, --fix, --write, --format, --output, --severity или "
+        "--object[/red]",
         "en": "[red]--explain is a standalone documentation lookup, not a scan: it can't be "
         "combined with file paths, --fail-on, --save, --baseline, --check-connect-by, "
-        "--verify, --format, --output, --severity, or --object[/red]",
+        "--verify, --fix, --write, --format, --output, --severity, or --object[/red]",
     },
     "tui_conflict_error": {
         "ru": "[red]--tui — самостоятельный интерактивный режим: принимает не больше одного "
-        "пути (стартовая точка в дереве) и не сочетается с --explain, --verify, --fail-on, "
-        "--save, --baseline, --check-connect-by, --severity, --object, --format или "
-        "--output[/red]",
+        "пути (стартовая точка в дереве) и не сочетается с --explain, --verify, --fix, "
+        "--write, --fail-on, --save, --baseline, --check-connect-by, --severity, --object, "
+        "--format или --output[/red]",
         "en": "[red]--tui is a standalone interactive mode: it takes at most one path (a "
         "starting point for the tree) and can't be combined with --explain, --verify, "
-        "--fail-on, --save, --baseline, --check-connect-by, --severity, --object, --format, "
-        "or --output[/red]",
+        "--fix, --write, --fail-on, --save, --baseline, --check-connect-by, --severity, "
+        "--object, --format, or --output[/red]",
     },
     "tui_not_installed": {
         "ru": "[red]--tui требует пакет textual, который не установлен.[/red] "
@@ -328,10 +329,11 @@ _UI: dict[str, dict[str, str]] = {
     },
     "verify_conflict_error": {
         "ru": "[red]--verify — отдельный режим сравнения с baseline, его нельзя сочетать "
-        "с --explain, --save, --fail-on, --check-connect-by, --severity или --object[/red]",
+        "с --explain, --save, --fail-on, --check-connect-by, --fix, --write, --severity "
+        "или --object[/red]",
         "en": "[red]--verify is a standalone baseline-comparison mode, it can't be "
-        "combined with --explain, --save, --fail-on, --check-connect-by, --severity, "
-        "or --object[/red]",
+        "combined with --explain, --save, --fail-on, --check-connect-by, --fix, --write, "
+        "--severity, or --object[/red]",
     },
     "verify_unsupported_format": {
         "ru": "[red]--verify поддерживает только --format terminal и --format json[/red]",
@@ -362,6 +364,41 @@ _UI: dict[str, dict[str, str]] = {
         "\"the problem is provably fixed\" — see docs/ARCHITECTURE.md. NOT_VERIFIABLE — "
         "ora2pg drops this construct from its output on every migration, so re-running "
         "the detector here can't prove anything either way.",
+    },
+    # --fix (mechanical autofix of ora2pg's generated output, see autofix.py)
+    "fix_conflict_error": {
+        "ru": "[red]--fix — отдельный режим исправления сгенерированного кода, его нельзя "
+        "сочетать с --explain, --verify, --tui, --fail-on, --save, --baseline, "
+        "--check-connect-by, --severity, --object, --format или --output[/red]",
+        "en": "[red]--fix is a standalone mode for fixing generated code, it can't be "
+        "combined with --explain, --verify, --tui, --fail-on, --save, --baseline, "
+        "--check-connect-by, --severity, --object, --format, or --output[/red]",
+    },
+    "fix_write_without_fix_error": {
+        "ru": "[red]--write работает только вместе с --fix[/red]",
+        "en": "[red]--write only makes sense together with --fix[/red]",
+    },
+    "fix_diff_header": {
+        "ru": "[cyan]{path}[/cyan]: найдено исправлений — {count}",
+        "en": "[cyan]{path}[/cyan]: fixes found — {count}",
+    },
+    "fix_summary_clean": {
+        "ru": "{path}: исправлений не найдено",
+        "en": "{path}: no fixes found",
+    },
+    "fix_summary_written": {
+        "ru": "[green]{path}: записано, исправлений — {count}[/green]",
+        "en": "[green]{path}: written, fixes applied — {count}[/green]",
+    },
+    "fix_summary_dry_run_hint": {
+        "ru": "[yellow]Показан diff, файлы не изменены. Добавьте --write для реальной "
+        "перезаписи.[/yellow]",
+        "en": "[yellow]Diff shown, files unchanged. Add --write to actually rewrite "
+        "them.[/yellow]",
+    },
+    "fix_write_error": {
+        "ru": "[red]Не удалось записать {path}: {exc}[/red]",
+        "en": "[red]Couldn't write {path}: {exc}[/red]",
     },
     "set_lang_not_interactive": {
         "ru": "[red]--set-lang открывает интерактивный выбор языка — нужен настоящий "
@@ -569,6 +606,28 @@ _UI: dict[str, dict[str, str]] = {
         "directory path is given, it opens as the tree's starting point; a standalone "
         "mode, like --explain/--verify — not combinable with --fail-on/--save/--baseline/"
         "--check-connect-by/--explain/--verify/--severity/--object/--format/--output.",
+    },
+    "help_fix": {
+        "ru": "Применить известные механические исправления к сгенерированному ora2pg "
+        "PostgreSQL-коду (не к Oracle-исходнику — как --verify, читает пути как результат "
+        "миграции). Сейчас единственное исправление — двойные скобки в GENERATED ... AS "
+        "IDENTITY (...) (GAP-028). По умолчанию ничего не меняет на диске, только печатает "
+        "unified diff; для реальной перезаписи файлов добавьте --write. Самостоятельный "
+        "режим — не сочетается с --explain/--verify/--tui/--fail-on/--save/--baseline/"
+        "--check-connect-by/--severity/--object/--format/--output.",
+        "en": "Apply known mechanical fixes to ora2pg's *generated* PostgreSQL code (not "
+        "Oracle source -- like --verify, reads paths as post-migration output). Currently "
+        "the only fix is the double-paren bug in GENERATED ... AS IDENTITY (...) "
+        "(GAP-028). Prints a unified diff by default, without touching anything on disk; "
+        "add --write to actually rewrite the files. A standalone mode -- not combinable "
+        "with --explain/--verify/--tui/--fail-on/--save/--baseline/--check-connect-by/"
+        "--severity/--object/--format/--output.",
+    },
+    "help_write": {
+        "ru": "Вместе с --fix: реально перезаписать файлы на диске вместо печати diff. "
+        "Без --fix ни на что не влияет.",
+        "en": "With --fix: actually rewrite the files on disk instead of printing a diff. "
+        "Has no effect without --fix.",
     },
     # tui_app.py (--tui) chrome -- everything the interactive mode's own
     # screens show (button labels, status/error text, table headers) that

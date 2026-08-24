@@ -1,5 +1,6 @@
 import argparse
 import dataclasses
+import difflib
 import sys
 import time
 from collections.abc import Sequence
@@ -12,6 +13,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from . import i18n
+from .autofix import fix_identity_double_parens
 from .baseline import BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
 from .core import (
     _SEVERITY_ORDER,
@@ -183,6 +185,16 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
         action="store_true",
         help=i18n.t(lang, "help_tui"),
     )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help=i18n.t(lang, "help_fix"),
+    )
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help=i18n.t(lang, "help_write"),
+    )
     return parser
 
 
@@ -281,7 +293,7 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
     # we're here args.explain is always None. The --explain branch above
     # is the one that has to know about --verify (and does).
     conflicting = any(
-        (args.save, args.fail_on, args.check_connect_by, args.severity, args.object)
+        (args.save, args.fail_on, args.check_connect_by, args.fix, args.write, args.severity, args.object)
     )
     if conflicting:
         err_console.print(i18n.t(lang, "verify_conflict_error"))
@@ -355,6 +367,84 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
     return 2 if had_error else 0
 
 
+def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Console, lang: str) -> int:
+    """--fix: applies autofix.py's mechanical fixes to `args.paths`, treated
+    like --verify's inputs as ora2pg's *generated* PostgreSQL output, not
+    Oracle source (see autofix.py's module docstring for why). Dry-run by
+    default -- prints a unified diff and touches nothing on disk; --write is
+    required to actually persist the fix."""
+    conflicting = any(
+        (
+            args.fail_on,
+            args.save,
+            args.baseline,
+            args.check_connect_by,
+            args.severity,
+            args.object,
+            args.format,
+            args.output,
+        )
+    )
+    if conflicting:
+        err_console.print(i18n.t(lang, "fix_conflict_error"))
+        return 2
+    if not args.paths:
+        err_console.print(i18n.t(lang, "no_paths_error"))
+        return 2
+
+    paths_to_scan, empty_dirs = _expand_paths(args.paths)
+    had_error = False
+    for empty_dir in empty_dirs:
+        err_console.print(i18n.t(lang, "empty_dir_warning", dir=escape(str(empty_dir))))
+        had_error = True
+
+    total_fixes = 0
+    for path in paths_to_scan:
+        if not path.is_file():
+            err_console.print(i18n.t(lang, "skipped_not_found", path=escape(str(path))))
+            had_error = True
+            continue
+        try:
+            source = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            err_console.print(
+                i18n.t(lang, "skipped_unreadable", exc=escape(str(exc)), path=escape(str(path)))
+            )
+            had_error = True
+            continue
+
+        fixed, count = fix_identity_double_parens(source)
+        if count == 0:
+            out_console.print(i18n.t(lang, "fix_summary_clean", path=escape(str(path))))
+            continue
+        total_fixes += count
+
+        if args.write:
+            try:
+                path.write_text(fixed, encoding="utf-8")
+            except OSError as exc:
+                err_console.print(
+                    i18n.t(lang, "fix_write_error", path=escape(str(path)), exc=escape(str(exc)))
+                )
+                had_error = True
+                continue
+            out_console.print(i18n.t(lang, "fix_summary_written", path=escape(str(path)), count=count))
+        else:
+            out_console.print(i18n.t(lang, "fix_diff_header", path=escape(str(path)), count=count))
+            diff = difflib.unified_diff(
+                source.splitlines(keepends=True),
+                fixed.splitlines(keepends=True),
+                fromfile=str(path),
+                tofile=str(path),
+            )
+            out_console.print("".join(diff), markup=False, highlight=False)
+
+    if total_fixes and not args.write:
+        out_console.print(i18n.t(lang, "fix_summary_dry_run_hint"))
+
+    return 2 if had_error else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     raw_argv = argv if argv is not None else sys.argv[1:]
     help_lang = i18n.resolve_language(_peek_lang_for_help(raw_argv), interactive=False)
@@ -395,6 +485,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.baseline,
                 args.check_connect_by,
                 args.verify,
+                args.fix,
+                args.write,
                 args.severity,
                 args.object,
                 args.format,
@@ -434,6 +526,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.baseline,
                 args.check_connect_by,
                 args.verify,
+                args.fix,
+                args.write,
                 args.format,
                 args.output,
                 args.severity,
@@ -447,6 +541,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.verify:
         return _handle_verify(args, err_console, lang)
+
+    if args.fix:
+        return _handle_fix(args, Console(), err_console, lang)
+
+    if args.write:
+        # --write alone (without --fix) has nothing to do -- catch it here
+        # rather than silently falling through to a normal scan that just
+        # ignores an argument the user clearly meant to matter.
+        err_console.print(i18n.t(lang, "fix_write_without_fix_error"))
+        return 2
 
     if not args.paths:
         err_console.print(i18n.t(lang, "no_paths_error"))

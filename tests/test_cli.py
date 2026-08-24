@@ -1307,3 +1307,106 @@ def test_tui_with_a_file_path_starts_the_tree_at_its_parent_directory(monkeypatc
     exit_code = main(["--tui", str(target)])
     assert exit_code == 0
     assert calls == [target.parent]
+
+
+_GENERATED_IDENTITY_BUG = (
+    "CREATE TABLE foo (\n"
+    "    id integer GENERATED ALWAYS AS IDENTITY ((START WITH 1 INCREMENT BY 1)),\n"
+    "    name text\n"
+    ");\n"
+)
+
+
+def test_fix_dry_run_prints_a_diff_and_does_not_touch_the_file(tmp_path, capsys):
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_IDENTITY_BUG)
+
+    exit_code = main(["--fix", str(generated)])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "-    id integer GENERATED ALWAYS AS IDENTITY ((START WITH 1 INCREMENT BY 1))" in captured.out
+    assert "+    id integer GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1)" in captured.out
+    assert generated.read_text() == _GENERATED_IDENTITY_BUG
+
+
+def test_fix_write_actually_rewrites_the_file(tmp_path, capsys):
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_IDENTITY_BUG)
+
+    exit_code = main(["--fix", "--write", str(generated)])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "((" not in generated.read_text()
+    assert "IDENTITY (START WITH 1 INCREMENT BY 1)" in generated.read_text()
+    assert "записано" in captured.out
+
+
+def test_fix_reports_clean_when_nothing_to_fix(tmp_path, capsys):
+    generated = tmp_path / "generated.sql"
+    generated.write_text("CREATE TABLE foo (id integer, name text);\n")
+
+    exit_code = main(["--fix", str(generated)])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "исправлений не найдено" in captured.out
+
+
+def test_write_without_fix_is_rejected(tmp_path, capsys):
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_IDENTITY_BUG)
+
+    exit_code = main(["--write", str(generated)])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--fix" in captured.err
+    assert generated.read_text() == _GENERATED_IDENTITY_BUG
+
+
+def test_fix_rejects_conflicting_flags(tmp_path, capsys):
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_IDENTITY_BUG)
+
+    exit_code = main(["--fix", "--fail-on", "high", str(generated)])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--fix" in captured.err
+
+
+def test_fix_combined_with_verify_is_rejected(tmp_path, capsys):
+    generated = tmp_path / "generated.sql"
+    generated.write_text(_GENERATED_IDENTITY_BUG)
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text('{"schema_version": 1, "findings": [], "complete": true}')
+
+    exit_code = main(["--verify", "--fix", "--baseline", str(baseline_path), str(generated)])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--verify" in captured.err
+
+
+def test_fix_combined_with_tui_is_rejected(capsys):
+    exit_code = main(["--tui", "--fix"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--tui" in captured.err
+
+
+def test_fix_combined_with_explain_is_rejected(capsys):
+    exit_code = main(["--explain", "GAP-028", "--fix"])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "--explain" in captured.err
+
+
+def test_fix_reports_missing_file_as_error(tmp_path, capsys):
+    missing = tmp_path / "does_not_exist.sql"
+    exit_code = main(["--fix", str(missing)])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "does_not_exist.sql" in captured.err
+
+
+def test_fix_requires_at_least_one_path(capsys):
+    exit_code = main(["--fix"])
+    capsys.readouterr()
+    assert exit_code == 2

@@ -1,49 +1,51 @@
-# Нормы поведения
+*English | [Русский](CODE_OF_CONDUCT.ru.md)*
 
-## Коротко
+# Code of Conduct
 
-Обсуждайте код и находки, а не людей. Присланный отчёт об ошибке, PR или
-issue оценивается по содержанию — насколько он подтверждён, насколько
-корректен, — а не по тому, кто его прислал.
+## Short version
 
-## Приемлемо
+Discuss the code and the findings, not the people. A submitted bug report,
+PR, or issue is judged on its content — how well it's confirmed, how
+correct it is — not on who sent it.
 
-- Конкретная, обоснованная критика: "этот регэксп ловит ложные срабатывания
-  на X, вот пример" полезнее, чем "детектор плохой".
-- Несогласие с решением по существу — с примерами, почему альтернатива
-  лучше.
-- Вопросы новичков про то, как устроен проект — это не менее равноценный
-  вклад, чем PR.
+## Acceptable
 
-## Неприемлемо
+- Specific, substantiated criticism: "this regex false-positives on X, here's
+  an example" is more useful than "this detector is bad."
+- Disagreeing with a decision on the merits — with examples of why an
+  alternative is better.
+- Newcomer questions about how the project works — just as valid a
+  contribution as a PR.
 
-- Оскорбления, переход на личности, троллинг — в issue, PR, комментариях к
-  коммитам, где угодно в рамках этого репозитория.
-- Публикация чужих приватных данных (email, реального имени и т.п.) без
-  явного согласия.
-- Любое поведение, которое разумно можно счесть домогательством.
+## Not acceptable
 
-## Что будет, если нарушить
+- Insults, personal attacks, trolling — in issues, PRs, commit comments,
+  anywhere within this repository.
+- Publishing someone else's private data (email, real name, etc.) without
+  their explicit consent.
+- Any behavior that could reasonably be considered harassment.
 
-Мейнтейнер (владелец репозитория) может редактировать, скрывать или удалять
-комментарии/issue/PR, нарушающие эти нормы, и — в случае повторных или
-серьёзных нарушений — заблокировать участника в репозитории. Решение
-принимается по своему усмотрению, без формального процесса апелляции (это
-проект одного человека, не организация с комитетом по этике).
+## What happens if you violate this
 
-## Сообщить о нарушении
+The maintainer (repository owner) may edit, hide, or delete comments/
+issues/PRs that violate these norms, and — for repeated or serious
+violations — block the participant from the repository. The decision is
+made at the maintainer's discretion, with no formal appeals process (this
+is a one-person project, not an organization with an ethics committee).
 
-Через [GitHub Security Advisories](https://github.com/Lunch418/ora2pg-gap-report/security/advisories/new)
-(приватный канал) или отдельным приватным сообщением мейнтейнеру, если
-речь не про уязвимость, а именно про поведение.
+## Reporting a violation
 
-## Область действия
+Through [GitHub Security Advisories](https://github.com/Lunch418/ora2pg-gap-report/security/advisories/new)
+(a private channel) or a separate private message to the maintainer, if
+it's about behavior rather than a vulnerability.
 
-Действует в пределах этого репозитория — issue, pull request, обсуждения,
-комментарии к коммитам. Не распространяется на поведение вне GitHub.
+## Scope
+
+Applies within this repository — issues, pull requests, discussions,
+commit comments. Does not extend to behavior outside GitHub.
 
 ---
 
-Основано по духу на [Contributor Covenant](https://www.contributor-covenant.org/),
-но переписано короче и без части формального языка, не подходящего для
-проекта такого размера.
+Based in spirit on the [Contributor Covenant](https://www.contributor-covenant.org/),
+but rewritten shorter and without some of the formal language that doesn't
+fit a project of this size.

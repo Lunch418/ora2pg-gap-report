@@ -5,7 +5,7 @@
 [![tests](https://github.com/Lunch418/ora2pg-gap-report/actions/workflows/tests.yml/badge.svg)](https://github.com/Lunch418/ora2pg-gap-report/actions/workflows/tests.yml)
 [![PyPI](https://img.shields.io/pypi/v/ora2pg-gap-report)](https://pypi.org/project/ora2pg-gap-report/)
 [![Python](https://img.shields.io/pypi/pyversions/ora2pg-gap-report)](https://pypi.org/project/ora2pg-gap-report/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 Инструмент для оценки миграции Oracle → PostgreSQL Pro (Standard/Certified) **до** её начала.
 
@@ -506,9 +506,9 @@ pytest
 изменения, что за корпус реального открытого кода используется для
 проверки детекторов, как подтвердить находку на живой Oracle — в
 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). Как прислать находку или
-PR — в [`CONTRIBUTING.md`](CONTRIBUTING.md), нормы поведения — в
-[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), как сообщить об уязвимости —
-в [`SECURITY.md`](SECURITY.md). Куда движется проект, и что из
+PR — в [`CONTRIBUTING.md`](CONTRIBUTING.ru.md), нормы поведения — в
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.ru.md), как сообщить об уязвимости —
+в [`SECURITY.md`](SECURITY.ru.md). Куда движется проект, и что из
 задуманного уже реализовано, а что — пока просто идея в ожидании
 реального повода — в [`ROADMAP.md`](ROADMAP.md).
 
@@ -518,4 +518,4 @@ PR — в [`CONTRIBUTING.md`](CONTRIBUTING.md), нормы поведения �
 
 ## Лицензия
 
-MIT, см. [LICENSE](LICENSE).
+Apache 2.0, см. [LICENSE](LICENSE).

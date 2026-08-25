@@ -1,45 +1,45 @@
-# Политика безопасности
+*English | [Русский](SECURITY.ru.md)*
 
-## Поддерживаемые версии
+# Security Policy
 
-Багфиксы и патчи безопасности выходят только для последней опубликованной
-версии на [PyPI](https://pypi.org/project/ora2pg-gap-report/). Старые версии
-не поддерживаются отдельно — обновитесь до актуальной перед тем, как сообщать
-о проблеме.
+## Supported versions
 
-## Что здесь вообще может быть уязвимостью
+Bug fixes and security patches only go out for the latest version published
+on [PyPI](https://pypi.org/project/ora2pg-gap-report/). Older versions
+aren't supported separately, update to the current one before reporting a
+problem.
 
-Основной путь использования (`ora2pg-gap-report`, без `[oracle]`-экстры) —
-чистый Python без внешних зависимостей, кроме `rich`. Он читает локальные
-файлы (уже выгруженный Oracle DDL) и ничего никуда не отправляет по сети —
-поверхность атаки здесь узкая: в основном ReDoS-риски в регулярных
-выражениях детекторов (вход — произвольный текстовый файл, который может
-прислать кто угодно) и корректность парсинга путей файлов.
+## What can actually be a vulnerability here
 
-`ora2pg-gap-export` (нужен `pip install "ora2pg-gap-report[oracle]"`) —
-отдельная команда с живым подключением к Oracle через `python-oracledb`.
-Пароль никогда не принимается как аргумент командной строки (был бы виден в
-`ps`/истории шелла) — только через переменную окружения `ORACLE_PASSWORD`
-или интерактивный запрос (`getpass`). Если нашли способ, которым пароль или
-DSN всё же может утечь (в лог, в исключение, в аргументы дочернего
-процесса) — это и есть та уязвимость, о которой стоит сообщить в первую
-очередь.
+The main usage path (`ora2pg-gap-report`, without the `[oracle]` extra) is
+plain Python with no external dependencies besides `rich`. It reads local
+files (an already-exported Oracle DDL) and sends nothing over the network,
+so the attack surface is narrow: mainly ReDoS risk in the detectors'
+regular expressions (the input is an arbitrary text file anyone could send
+you) and correctness of file-path parsing.
 
-## Как сообщить об уязвимости
+`ora2pg-gap-export` (requires `pip install "ora2pg-gap-report[oracle]"`) is
+a separate command with a live connection to Oracle via `python-oracledb`.
+The password is never accepted as a command-line argument (it would be
+visible in `ps`/shell history), only via the `ORACLE_PASSWORD` environment
+variable or an interactive prompt (`getpass`). If you find a way the
+password or DSN can still leak (into a log, an exception, a child
+process's arguments), that's the vulnerability worth reporting first.
 
-**Не создавайте публичный issue.** Используйте
+## Reporting a vulnerability
+
+**Don't open a public issue.** Use
 [GitHub Security Advisories](https://github.com/Lunch418/ora2pg-gap-report/security/advisories/new)
-для этого репозитория — это приватный канал, содержимое не видно никому,
-кроме мейнтейнеров, пока вы сами не согласитесь его раскрыть.
+for this repository, it's a private channel, nobody sees the contents
+except the maintainers until you choose to disclose it yourself.
 
-В отчёте по возможности укажите:
+In your report, if possible include:
 
-- минимальный воспроизводимый пример (файл/входные данные, вызывающие
-  проблему);
-- версию `ora2pg-gap-report` (`ora2pg-gap-report --version`);
-- чем это отличается от обычного бага — то есть какую реальную угрозу
-  создаёт (не просто "падает с исключением", а что именно можно из этого
-  получить).
+- a minimal reproducible example (a file/input that triggers the problem);
+- the `ora2pg-gap-report` version (`ora2pg-gap-report --version`);
+- how this differs from a regular bug, i.e. what actual threat it creates
+  (not just "it throws an exception", but what you can actually get from
+  it).
 
-Это open-source проект одного человека без SLA — ответ на первое сообщение
-постараюсь дать в течение недели, но formal-обязательств по срокам нет.
+This is a one-person open-source project with no SLA, I'll try to respond
+to a first report within a week, but there's no formal time commitment.

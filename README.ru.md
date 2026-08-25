@@ -365,7 +365,7 @@ echo $?   # 1, если нашёлся хотя бы один high
 [`docs/examples/logger-autonomous_tx-report.md`](docs/examples/logger-autonomous_tx-report.md).
 Полный рецепт для CI — гейт на PR, совместный пайплайн с самим `ora2pg` и
 находки построчно прямо в PR через SARIF без своего бота — в
-[`docs/ci-integration.md`](docs/ci-integration.md).
+[`docs/ci-integration.md`](docs/ci-integration.ru.md).
 
 Оценка трудозатрат в отчёте — грубая эвристика по severity (диапазон
 часов, не точечное число). Это ориентир для планирования, а не
@@ -419,7 +419,7 @@ read_only_table   GAP-026   1 → —   NOT_VERIFIABLE
   проект специально избегает (см. «Почему почти всё `high`» выше).
 
 Какой режим у какого детектора и почему, по всем 37 —
-[`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
+[`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.ru.md).
 
 `NOT_DETECTED` тоже не означает «доказанно исправлено» — только «паттерн
 не нашёлся в этом коде». Разница мелкая, но именно она отделяет честную

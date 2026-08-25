@@ -1,94 +1,97 @@
+*English | [Русский](verification-capability-matrix.ru.md)*
+
 # Verification capability matrix
 
-`--verify` (см. README, раздел "Post-migration verification") сравнивает
-pre-migration находки (снапшот `--save`) с тем, что реально осталось в уже
-сгенерированном `ora2pg` PostgreSQL-коде. Для части детекторов это
-содержательная проверка. Для другой части — нет, и не потому что что-то
-не реализовано, а потому что для них сам вопрос "осталось ли это в
-выводе" тавтологичен: конструкция гарантированно не появится в выводе ни
-на одной миграции, независимо от того, исправил её кто-то руками или
-нет. Docstring `verification.py` объясняет это подробно; здесь — таблица
-по каждому из 37 gap'ов, чтобы не листать код ради одного вопроса
-"а можно ли верифицировать конкретно этот".
+`--verify` (see the README, "Post-migration verification" section)
+compares pre-migration findings (a `--save` snapshot) against what's
+actually left in the already-generated `ora2pg` PostgreSQL code. For some
+detectors this is a meaningful check. For others it isn't, not because
+something's unimplemented, but because the question itself, "is this
+still in the output," is a tautology for them: the construct is
+guaranteed to never appear in the output on any migration, regardless of
+whether someone fixed it by hand or not. `verification.py`'s docstring
+explains this in detail; this is a table for each of the 37 gaps, so
+nobody has to read the code just to answer "can this specific one be
+verified."
 
-## Как читать колонку "режим"
+## How to read the "mode" column
 
-- **`verbatim`** — `ora2pg` копирует помеченную Oracle-конструкцию в
-  вывод практически без изменений (подтверждено для каждого детектора в
-  собственном `docs/research/gap-*.md`, разделе "Вывод ora2pg"). Повторный
-  прогон детектора по сгенерированному файлу — реальная проверка: если
-  паттерна больше нет, кто-то осознанно переписал код руками.
-  `--verify` в этом случае даёт `STILL_PRESENT` или `NOT_DETECTED`.
-- **`not_verifiable`** — `ora2pg` либо полностью отбрасывает конструкцию,
-  либо переписывает её в нечто другое (само ключевое слово в принципе не
-  может оказаться в выводе — не потому что кто-то исправил проблему, а
-  по построению), либо настолько разваливает окружающую структуру, что
-  повторному обнаружению нельзя доверять. `--verify` в этом случае
-  всегда выдаёт `NOT_VERIFIABLE`, а не `NOT_DETECTED` — потому что
-  `NOT_DETECTED` было бы обманчивым: оно выглядело бы как "проблема
-  решена", а на самом деле означало бы "мы физически не можем это
-  увидеть в выводе, независимо от того, решена проблема или нет".
-- **`generated_only`** — детектор (`connect_by`, GAP-005) уже анализирует
-  только сгенерированный `ora2pg`-код (`--check-connect-by`); отдельной
-  pre-migration находки на стороне Oracle для него нет, поэтому `--verify`
-  сравнивать не с чем.
+- **`verbatim`** — `ora2pg` copies the flagged Oracle construct into the
+  output essentially unchanged (confirmed for each detector in its own
+  `docs/research/gap-*.md`, the "ora2pg output" section). Re-running the
+  detector against the generated file is a real check: if the pattern is
+  gone, someone deliberately rewrote the code by hand. `--verify` gives
+  `STILL_PRESENT` or `NOT_DETECTED` in this case.
+- **`not_verifiable`** — `ora2pg` either drops the construct entirely, or
+  rewrites it into something else (the keyword itself can never end up
+  in the output, not because someone fixed the problem, but by
+  construction), or flattens the surrounding structure badly enough that
+  re-detection can't be trusted. `--verify` always reports
+  `NOT_VERIFIABLE` here, not `NOT_DETECTED`, because `NOT_DETECTED` would
+  be misleading: it would look like "problem solved," when it actually
+  means "we physically can't see this in the output, regardless of
+  whether the problem is solved or not."
+- **`generated_only`** — the detector (`connect_by`, GAP-005) already
+  only analyzes generated `ora2pg` code (`--check-connect-by`); there's
+  no separate pre-migration Oracle-side finding for it, so `--verify` has
+  nothing to compare against.
 
-## Таблица
+## Table
 
-| GAP | Детектор | Режим | Почему |
+| GAP | Detector | Mode | Why |
 |---|---|---|---|
-| 001 | `autonomous_tx` | `not_verifiable` | Находка — про недооценку/пропуск стоимости в `SHOW_REPORT`/`--estimate_cost`, а не про форму кода. Сравнивать в сгенерированном выводе нечего. |
-| 002 | `merge_delete_clause` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 003 | `bulk_collect` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 004 | `compound_triggers` | `not_verifiable` | `COMPOUND TRIGGER` полностью выпадает из файлового режима, без предупреждения. |
-| 005 | `connect_by` | `generated_only` | Уже анализирует только сгенерированный код (`--check-connect-by`) — pre-migration находки для сравнения не существует. |
-| 006 | `database_link` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 007 | `model_clause` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 008 | `pivot_clause` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 009 | `object_type` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 010 | `with_function` | `not_verifiable` | Окружающая структура разваливается достаточно, чтобы повторному обнаружению нельзя было доверять. |
-| 011 | `flashback_query` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 012 | `global_temp_table` | `not_verifiable` | Секция `ON COMMIT` пропадает полностью, без следа. |
-| 013 | `table_partitioning` | `not_verifiable` | `PARTITION BY` отбрасывается полностью. |
-| 014 | `connect_by_nocycle` | `not_verifiable` | Окружающая структура разваливается достаточно, чтобы повторному обнаружению нельзя было доверять. |
-| 015 | `context_object` | `not_verifiable` | Конструкция полностью пропадает из вывода, единственный след — служебная DEBUG-строка в логе. |
-| 016 | `insert_all` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 017 | `json_table` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 018 | `external_table` | `not_verifiable` | Вся секция `ORGANIZATION EXTERNAL` отбрасывается. |
-| 019 | `sql_macro` | `not_verifiable` | Ключевое слово `SQL_MACRO` безусловно отбрасывается. |
-| 020 | `invisible_column` | `not_verifiable` | Модификатор `INVISIBLE` отбрасывается. |
-| 021 | `collection_type` | `not_verifiable` | `CREATE TYPE ... TABLE OF/VARRAY OF` не появляется в выводе вовсе, только DEBUG-строка в логе. |
-| 022 | `cross_apply` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 023 | `oracle_text` | `not_verifiable` | Смешанный случай: `INDEXTYPE` отбрасывается, `CONTAINS()`/аналоги копируются как есть — детектор целиком помечен `not_verifiable`, чтобы не выдавать частичный сигнал за полный. |
-| 024 | `recursive_with` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 025 | `invisible_index` | `not_verifiable` | Модификатор `INVISIBLE` пропадает без следа. |
-| 026 | `read_only_table` | `not_verifiable` | `READ ONLY` отбрасывается полностью. |
-| 027 | `materialized_view_log` | `not_verifiable` | Конструкция полностью пропадает из вывода, единственный след — служебная DEBUG-строка в логе. |
-| 028 | `identity_column` | `verbatim` | Конструкция копируется в вывод без изменений. |
-| 029 | `rowid_type` | `not_verifiable` | `ROWID`/`UROWID` переписывается в `oid` — само ключевое слово никогда не сохраняется. |
-| 030 | `sequence_cycle` | `not_verifiable` | Ключевое слово `CYCLE` безусловно отбрасывается. |
-| 031 | `default_on_null` | `verbatim` | Клауза `ON NULL` копируется в `CREATE TABLE` без изменений. |
-| 032 | `public_synonym` | `not_verifiable` | Переписывается в `CREATE VIEW`; `SYNONYM`/`FOR` никогда не сохраняются. |
-| 033 | `virtual_column` | `not_verifiable` | Переписывается в обычный столбец + триггер; исходная клауза никогда не сохраняется. |
-| 034 | `nested_subprogram` | `not_verifiable` | Вложенность выпрямляется; структуру нельзя повторно обнаружить. |
-| 035 | `conditional_compilation` | `verbatim` | Директивы `$IF`/`$ELSIF`/`$ELSE`/`$END` копируются в тело без изменений. |
-| 036 | `package_state` | `not_verifiable` | Переписывается в `set_config`/`current_setting`; исходное объявление никогда не сохраняется. |
-| 037 | `index_organized_table` | `not_verifiable` | Ключевое слово `ORGANIZATION INDEX` безусловно отбрасывается. |
+| 001 | `autonomous_tx` | `not_verifiable` | The finding is about underestimated/missing cost in `SHOW_REPORT`/`--estimate_cost`, not about the shape of the code. There's nothing to compare in the generated output. |
+| 002 | `merge_delete_clause` | `verbatim` | The construct is copied into the output unchanged. |
+| 003 | `bulk_collect` | `verbatim` | The construct is copied into the output unchanged. |
+| 004 | `compound_triggers` | `not_verifiable` | `COMPOUND TRIGGER` drops out of the file mode entirely, with no warning. |
+| 005 | `connect_by` | `generated_only` | Already only analyzes generated code (`--check-connect-by`) — there's no pre-migration finding to compare against. |
+| 006 | `database_link` | `verbatim` | The construct is copied into the output unchanged. |
+| 007 | `model_clause` | `verbatim` | The construct is copied into the output unchanged. |
+| 008 | `pivot_clause` | `verbatim` | The construct is copied into the output unchanged. |
+| 009 | `object_type` | `verbatim` | The construct is copied into the output unchanged. |
+| 010 | `with_function` | `not_verifiable` | The surrounding structure gets flattened badly enough that re-detection can't be trusted. |
+| 011 | `flashback_query` | `verbatim` | The construct is copied into the output unchanged. |
+| 012 | `global_temp_table` | `not_verifiable` | The `ON COMMIT` clause disappears entirely, without a trace. |
+| 013 | `table_partitioning` | `not_verifiable` | `PARTITION BY` gets dropped entirely. |
+| 014 | `connect_by_nocycle` | `not_verifiable` | The surrounding structure gets flattened badly enough that re-detection can't be trusted. |
+| 015 | `context_object` | `not_verifiable` | The construct disappears from the output entirely, the only trace is a DEBUG log line. |
+| 016 | `insert_all` | `verbatim` | The construct is copied into the output unchanged. |
+| 017 | `json_table` | `verbatim` | The construct is copied into the output unchanged. |
+| 018 | `external_table` | `not_verifiable` | The whole `ORGANIZATION EXTERNAL` clause gets dropped. |
+| 019 | `sql_macro` | `not_verifiable` | The `SQL_MACRO` keyword is unconditionally dropped. |
+| 020 | `invisible_column` | `not_verifiable` | The `INVISIBLE` modifier gets dropped. |
+| 021 | `collection_type` | `not_verifiable` | `CREATE TYPE ... TABLE OF/VARRAY OF` never appears in the output at all, only a DEBUG log line. |
+| 022 | `cross_apply` | `verbatim` | The construct is copied into the output unchanged. |
+| 023 | `oracle_text` | `not_verifiable` | A mixed case: `INDEXTYPE` is dropped, `CONTAINS()`/similar are copied as-is — the whole detector is marked `not_verifiable` so a partial signal doesn't get passed off as a complete one. |
+| 024 | `recursive_with` | `verbatim` | The construct is copied into the output unchanged. |
+| 025 | `invisible_index` | `not_verifiable` | The `INVISIBLE` modifier disappears without a trace. |
+| 026 | `read_only_table` | `not_verifiable` | `READ ONLY` gets dropped entirely. |
+| 027 | `materialized_view_log` | `not_verifiable` | The construct disappears from the output entirely, the only trace is a DEBUG log line. |
+| 028 | `identity_column` | `verbatim` | The construct is copied into the output unchanged. |
+| 029 | `rowid_type` | `not_verifiable` | `ROWID`/`UROWID` gets rewritten to `oid` — the keyword itself is never preserved. |
+| 030 | `sequence_cycle` | `not_verifiable` | The `CYCLE` keyword is unconditionally dropped. |
+| 031 | `default_on_null` | `verbatim` | The `ON NULL` clause is copied into `CREATE TABLE` unchanged. |
+| 032 | `public_synonym` | `not_verifiable` | Rewritten into a `CREATE VIEW`; `SYNONYM`/`FOR` are never preserved. |
+| 033 | `virtual_column` | `not_verifiable` | Rewritten into a plain column + trigger; the original clause is never preserved. |
+| 034 | `nested_subprogram` | `not_verifiable` | The nesting gets flattened; the structure can't be re-detected. |
+| 035 | `conditional_compilation` | `verbatim` | The `$IF`/`$ELSIF`/`$ELSE`/`$END` directives are copied into the body unchanged. |
+| 036 | `package_state` | `not_verifiable` | Rewritten into `set_config`/`current_setting`; the original declaration is never preserved. |
+| 037 | `index_organized_table` | `not_verifiable` | The `ORGANIZATION INDEX` keyword is unconditionally dropped. |
 
-Итого среди самих 37 gap'ов: 14 `verbatim`, 22 `not_verifiable`
-(включая `autonomous_tx`, но по другой причине — см. выше), 1
+Totals among the 37 gaps themselves: 14 `verbatim`, 22 `not_verifiable`
+(including `autonomous_tx`, but for a different reason, see above), 1
 `generated_only` (`connect_by`).
 
-Отдельно от реестра gap'ов, но тоже в `VERIFICATION_MODE`: `dbms_utl_calls`
-— это классификатор конкретных вызовов `DBMS_*`/`UTL_*`, а не отдельный
-зарегистрированный gap (у него нет номера GAP-NNN), поэтому в таблице выше
-его нет. Режим — `verbatim`: классифицируемые вызовы копируются в вывод
-без изменений.
+Separate from the gap registry, but also in `VERIFICATION_MODE`:
+`dbms_utl_calls` is a classifier for specific `DBMS_*`/`UTL_*` calls, not
+a separately registered gap (it has no GAP-NNN number), so it isn't in
+the table above. Mode: `verbatim` — the classified calls are copied into
+the output unchanged.
 
-Эта таблица и `ora2pg_gap_report/verification.py::VERIFICATION_MODE` — один
-источник правды: `scripts/doctor.py` проверяет, что режим задан для
-каждого детектора из реестра, но не то, что эта таблица не разошлась с
-кодом построчно (текстовое markdown-описание причины не поддаётся
-автоматической сверке). При добавлении нового детектора см.
-`CONTRIBUTING.md`/`DEVELOPMENT.md` — режим верификации задаётся в паре с
-самим детектором, эту таблицу нужно обновлять вручную.
+This table and `ora2pg_gap_report/verification.py::VERIFICATION_MODE` are
+one source of truth in intent: `scripts/doctor.py` checks that a mode is
+set for every detector in the registry, but not that this table hasn't
+drifted from the code line by line (a textual markdown description of
+the reason can't be automatically cross-checked). When adding a new
+detector, see `CONTRIBUTING.md`/`DEVELOPMENT.md` — the verification mode
+is set alongside the detector itself, this table needs a manual update.

@@ -62,13 +62,13 @@
 - **Оффлайн-установка**: `scripts/build_offline_bundle.py` +
   автоматическая сборка бандла в CI на каждый релиз (для closed-network
   окружений — частый случай для Oracle→PostgreSQL миграций).
-- **CI-рецепт**: [`docs/ci-integration.md`](docs/ci-integration.md) —
+- **CI-рецепт**: [`docs/ci-integration.md`](docs/ci-integration.ru.md) —
   пайплайн вместе с `ora2pg` (гейт до конвертации, `--check-connect-by`,
   `--verify` после) и пример GitHub Actions workflow, который через
   `--format sarif` + `upload-sarif` даёт находки построчно в PR без
   своего бота или Action.
 - **Verification capability matrix**:
-  [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md)
+  [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.ru.md)
   — по каждому из 37 gap'ов явно, какой режим верификации у него
   (`verbatim`/`not_verifiable`/`generated_only`) и почему, сверено с
   `VERIFICATION_MODE` в коде построчно (не написано на глаз).

@@ -29,6 +29,11 @@ patch for fixes to existing ones.
   English version; it only parses the tree's `.py` filenames, not the
   comment text, so translating the inline comments didn't need any
   change to the check itself (verified: `doctor.py` still passes clean).
+- English versions of `docs/ci-integration.md`/`docs/verification-
+  capability-matrix.md`, same split as every other doc so far.
+- `pyproject.toml`'s `[project.urls]` gained `Homepage`, `Documentation`,
+  `Changelog`, and `Issues` -- it only had `Repository` before, so PyPI's
+  project page was missing the links it can otherwise auto-render.
 
 ### Changed
 - License switched from MIT to Apache-2.0 (`LICENSE`, `pyproject.toml`,

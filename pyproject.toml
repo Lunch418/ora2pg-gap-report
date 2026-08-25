@@ -37,7 +37,11 @@ tui = ["textual>=1.0"]
 dev = ["pytest>=7.0", "pytest-asyncio>=0.24", "ruff>=0.6,<0.17", "jsonschema>=4.0", "textual>=1.0", "mypy>=1.10"]
 
 [project.urls]
+Homepage = "https://github.com/Lunch418/ora2pg-gap-report"
+Documentation = "https://github.com/Lunch418/ora2pg-gap-report#readme"
 Repository = "https://github.com/Lunch418/ora2pg-gap-report"
+Changelog = "https://github.com/Lunch418/ora2pg-gap-report/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Lunch418/ora2pg-gap-report/issues"
 
 [project.scripts]
 ora2pg-gap-report = "ora2pg_gap_report.cli:main"

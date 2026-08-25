@@ -1,47 +1,50 @@
-# CI-интеграция
+*English | [Русский](ci-integration.ru.md)*
 
-Два рецепта: как встроить `ora2pg-gap-report` в пайплайн миграции рядом с
-`ora2pg`, и как получить находки прямо построчно в GitHub PR — без своего
-Action и без своего бота, силами самого GitHub.
+# CI integration
 
-## Пайплайн вместе с ora2pg
+Two recipes: how to fit `ora2pg-gap-report` into a migration pipeline
+alongside `ora2pg`, and how to get findings inline, line by line, in a
+GitHub PR, with no custom Action and no custom bot, using GitHub's own
+features.
 
-`ora2pg-gap-report` не заменяет `ora2pg` и не встраивается в него — это
-отдельный шаг до и после конвертации:
+## A pipeline alongside ora2pg
+
+`ora2pg-gap-report` doesn't replace `ora2pg` and doesn't hook into it,
+it's a separate step before and after conversion:
 
 ```sh
-# 1. До конвертации: гейт на Oracle-исходник. Останавливает пайплайн,
-#    если есть high-находки — не тратим время на конвертацию схемы,
-#    которую и так придётся чинить руками.
+# 1. Before conversion: gate on the Oracle source. Stops the pipeline if
+#    there are high-severity findings -- no point spending time
+#    converting a schema that will need manual fixing anyway.
 ora2pg-gap-report schema/ --save baseline.json --fail-on high
 
-# 2. Конвертация самим ora2pg — как обычно.
+# 2. Conversion via ora2pg itself -- as usual.
 ora2pg -c ora2pg.conf -t COPY
 
-# 3. Опционально: реальный прогон ora2pg на CONNECT BY-конструкциях —
-#    проверка конкретного известного бага в сгенерированном WITH RECURSIVE
-#    (требует установленный ora2pg, см. README, "Optional: lint...").
+# 3. Optional: a real ora2pg run against CONNECT BY constructs -- checks
+#    a specific known bug in the generated WITH RECURSIVE (requires
+#    ora2pg installed, see the README, "Optional: lint...").
 ora2pg-gap-report schema/ --check-connect-by
 
-# 4. После конвертации: сравнить, что из baseline реально осталось в уже
-#    сгенерированном PostgreSQL-коде — не гипотеза, а STILL_PRESENT/
-#    NOT_DETECTED/NOT_VERIFIABLE по факту.
+# 4. After conversion: compare what from the baseline is actually still
+#    there in the already-generated PostgreSQL code -- not a guess, an
+#    actual STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE answer.
 ora2pg-gap-report --verify --baseline baseline.json generated_postgresql/
 ```
 
-Шаг 4 — статическая проверка (детекторы повторно прогоняются на
-сгенерированном файле), не поведенческая: она не подключается к БД и
-ничего не выполняет. Подробности и список `NOT_VERIFIABLE`-детекторов — в
-разделе README про `--verify`.
+Step 4 is a static check (the detectors are simply re-run against the
+generated file), not a behavioral one: it never connects to a database
+and never executes anything. Details and the list of `NOT_VERIFIABLE`
+detectors are in the README's `--verify` section.
 
-## Находки прямо в GitHub PR (без своего бота)
+## Findings inline in a GitHub PR (no custom bot)
 
-`--format sarif` — не просто ещё один формат вывода. SARIF 2.1.0 — формат,
-который GitHub понимает нативно через `github/codeql-action/upload-sarif`:
-результаты появляются во вкладке **Security → Code scanning alerts**, а на
-PR, где сработал сам workflow (`on: pull_request`), — построчными
-аннотациями на изменённых строках диффа. Специального Action или бота
-писать не нужно.
+`--format sarif` isn't just another output format. SARIF 2.1.0 is a
+format GitHub understands natively via
+`github/codeql-action/upload-sarif`: results show up under **Security →
+Code scanning alerts**, and on the PR that triggered the workflow itself
+(`on: pull_request`), as inline annotations on the diff's changed lines.
+No custom Action or bot needed.
 
 ```yaml
 # .github/workflows/migration-gap-scan.yml
@@ -54,7 +57,7 @@ on:
 
 permissions:
   contents: read
-  security-events: write   # обязателен для загрузки SARIF
+  security-events: write   # required to upload SARIF
 
 jobs:
   scan:
@@ -68,13 +71,13 @@ jobs:
 
       - run: pip install ora2pg-gap-report
 
-      # Гейт: явно ломает джобу, если есть high-находка. SARIF отдельно
-      # ничего не гейтит сам по себе — только показывает находки.
+      # Gate: explicitly fails the job if there's a high-severity finding.
+      # SARIF on its own doesn't gate anything, it only shows findings.
       - name: Gate on high-severity findings
         run: ora2pg-gap-report schema/ --fail-on high
 
-      # SARIF грузится отдельным шагом, даже если гейт выше упал —
-      # чтобы аннотации всё равно появились в PR для разбора.
+      # SARIF is uploaded as a separate step, even if the gate above
+      # failed, so the annotations still show up in the PR for review.
       - name: Generate SARIF report
         if: always()
         run: ora2pg-gap-report schema/ --format sarif --output results.sarif
@@ -86,18 +89,18 @@ jobs:
           sarif_file: results.sarif
 ```
 
-Оговорки, чтобы не переобещать:
+Caveats, so this doesn't overpromise:
 
-- На приватных репозиториях загрузка SARIF в code scanning требует GitHub
-  Advanced Security (на публичных — бесплатно). Для этого проекта не
-  актуально (репозиторий публичный), но важно для тех, кто переносит
-  рецепт в закрытый корпоративный репозиторий.
-- Построчные аннотации в самом PR появляются для находок на строках,
-  входящих в дифф. Находки вне диффа (например, в файле, который PR не
-  трогает) видны во вкладке Security, но не подсвечиваются построчно в
-  Files changed.
-- GitLab SAST использует свой собственный JSON-формат отчёта, не SARIF
-  напрямую — просто загрузить `results.sarif` как GitLab SAST-артефакт не
-  получится. Точный путь конвертации SARIF → формат GitLab здесь не
-  проверялся, поэтому не приводится как готовый рецепт — если понадобится,
-  это отдельная, некрупная задача.
+- On private repositories, uploading SARIF to code scanning requires
+  GitHub Advanced Security (free on public ones). Doesn't apply to this
+  project (the repository is public), but matters for anyone porting
+  this recipe into a closed corporate repository.
+- Inline annotations in the PR itself only show up for findings on lines
+  that are part of the diff. Findings outside the diff (e.g. in a file
+  the PR doesn't touch) are visible under the Security tab, but aren't
+  highlighted inline in Files changed.
+- GitLab SAST uses its own JSON report format, not SARIF directly, so
+  just uploading `results.sarif` as a GitLab SAST artifact won't work.
+  The exact SARIF → GitLab format conversion path hasn't been checked
+  here, so it isn't given as a ready recipe, if it's ever needed, that's
+  a separate, small task.

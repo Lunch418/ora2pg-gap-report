@@ -115,7 +115,10 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 Of the 37 registered gaps (`gap_registry.py`), 33 are `high` and 4 are
 `medium` (`context_object`, `invisible_index`, `virtual_column`,
-`index_organized_table`). Separately, there's a 38th detector,
+`index_organized_table`) — `severity` is a `GapEntry` field now,
+cross-checked by `scripts/doctor.py` against the literal a detector's own
+source actually uses, not just a count taken on faith. Separately, there's
+a 38th detector,
 `dbms_utl_calls` — a classifier for `DBMS_*`/`UTL_*` calls, not tied to a
 specific GAP-NNN (it has no single reproducible minimal example — that's a
 deliberately broad category), also `medium`. `low` is a valid value in the

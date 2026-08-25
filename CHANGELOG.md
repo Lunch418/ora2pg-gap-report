@@ -34,6 +34,19 @@ patch for fixes to existing ones.
 - `pyproject.toml`'s `[project.urls]` gained `Homepage`, `Documentation`,
   `Changelog`, and `Issues` -- it only had `Repository` before, so PyPI's
   project page was missing the links it can otherwise auto-render.
+- `GapEntry.severity`: the one gap-level fact that had never been
+  centralized anywhere -- it lived only as a `severity="..."` literal
+  inline in each detector's own source, with nothing cross-checking it
+  against anything. `scripts/doctor.py` gains a matching check: for every
+  gap, scans the detector's own source text for every `severity="..."`
+  literal and fails the build if that set isn't exactly `{gap.severity}`
+  -- the same drift-prevention pattern as `ora2pg_version`/
+  `postgresql_version`/`failure_stage`, just for the field that had none
+  before. `--explain GAP-NNN` now prints a `Severity: HIGH` line
+  alongside the existing version/failure-stage lines.
+  `docs/research/GAP_REGISTRY.md` gains a Severity column, cross-checked
+  against `gap_registry.py` the same way its ora2pg/PostgreSQL version
+  columns already are.
 
 ### Changed
 - License switched from MIT to Apache-2.0 (`LICENSE`, `pyproject.toml`,

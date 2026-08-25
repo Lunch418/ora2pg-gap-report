@@ -114,7 +114,9 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 
 Из 37 зарегистрированных gap'ов (`gap_registry.py`) 33 — `high`, 4 —
 `medium` (`context_object`, `invisible_index`, `virtual_column`,
-`index_organized_table`). Отдельно от них есть 38-й детектор,
+`index_organized_table`) — `severity` теперь поле `GapEntry`, `scripts/
+doctor.py` сверяет его с тем, что реально написано в исходнике детектора,
+а не просто верит счёту на слово. Отдельно от них есть 38-й детектор,
 `dbms_utl_calls` — классификатор вызовов `DBMS_*`/`UTL_*`,
 не привязанный к конкретному GAP-NNN (у него нет одного воспроизводимого
 минимального примера — это намеренно широкая категория), тоже `medium`.

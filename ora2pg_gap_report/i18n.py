@@ -197,6 +197,7 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "Подтверждено на: ora2pg {ora2pg_version}, PostgreSQL {postgresql_version}",
         "en": "Confirmed on: ora2pg {ora2pg_version}, PostgreSQL {postgresql_version}",
     },
+    "explain_severity_line": {"ru": "Severity: {severity}", "en": "Severity: {severity}"},
     "explain_failure_stage_line": {"ru": "Когда ломается: {stage}", "en": "Fails at: {stage}"},
     "failure_stage_conversion": {
         "ru": "конвертация — видно только в собственном логе прогона ora2pg "

@@ -5,6 +5,7 @@ originally in README.md before the docs split) was found and fixed by
 hand once already; this makes it a rerunnable check instead of something
 that has to be rediscovered by rereading the whole document."""
 
+import dataclasses
 import importlib.util
 import sys
 from pathlib import Path
@@ -93,18 +94,18 @@ def test_architecture_doc_parity_flags_a_stale_entry_for_a_removed_detector(monk
     assert "нет в ora2pg_gap_report/detectors/" in problems[0]
 
 
-def test_gap_registry_row_regex_extracts_number_and_versions_from_a_realistic_row():
+def test_gap_registry_row_regex_extracts_number_severity_and_versions_from_a_realistic_row():
     fragment = (
-        "| ID | Конструкция | Детектор | Статус | ora2pg | PostgreSQL | Документ |\n"
-        "|---|---|---|---|---|---|---|\n"
-        "| GAP-001 | some construct | `autonomous_tx` | confirmed | 25.0 | 16 | [gap-001](gap-001.md) |\n"
-        "| GAP-002 | fixed upstream one | `whatever` | fixed-upstream | 24.0 | 15 | [gap-002](gap-002.md) |\n"
+        "| ID | Конструкция | Детектор | Severity | Статус | ora2pg | PostgreSQL | Документ |\n"
+        "|---|---|---|---|---|---|---|---|\n"
+        "| GAP-001 | some construct | `autonomous_tx` | high | confirmed | 25.0 | 16 | [gap-001](gap-001.md) |\n"
+        "| GAP-002 | fixed upstream one | `whatever` | high | fixed-upstream | 24.0 | 15 | [gap-002](gap-002.md) |\n"
     )
     matches = doctor._GAP_REGISTRY_ROW_RE.findall(fragment)
     # Only the 'confirmed' row is matched -- a fixed-upstream/wont-fix row
     # has no corresponding tracked version in gap_registry.py to compare
     # against, so it's deliberately not parsed as if it were confirmed.
-    assert matches == [("001", "25.0", "16")]
+    assert matches == [("001", "high", "25.0", "16")]
 
 
 def test_gap_registry_row_regex_accepts_dotted_postgresql_versions():
@@ -113,8 +114,8 @@ def test_gap_registry_row_regex_accepts_dotted_postgresql_versions():
     # the row would then be excluded from confirmed_rows entirely and
     # check_gap_registry_md_parity() would skip comparing it instead of
     # flagging a real mismatch, defeating the whole point of the check.
-    fragment = "| GAP-001 | x | `autonomous_tx` | confirmed | 25.0 | 16.4 | [x](x.md) |\n"
-    assert doctor._GAP_REGISTRY_ROW_RE.findall(fragment) == [("001", "25.0", "16.4")]
+    fragment = "| GAP-001 | x | `autonomous_tx` | high | confirmed | 25.0 | 16.4 | [x](x.md) |\n"
+    assert doctor._GAP_REGISTRY_ROW_RE.findall(fragment) == [("001", "high", "25.0", "16.4")]
 
 
 def test_gap_registry_md_parity_is_clean_on_the_real_repository_state():
@@ -126,11 +127,11 @@ def test_gap_registry_md_parity_is_clean_on_the_real_repository_state():
 
 def test_confirmed_gap_versions_in_text_ignores_non_confirmed_rows():
     fragment = (
-        "| GAP-001 | some construct | `autonomous_tx` | confirmed | 25.0 | 16 | [gap-001](gap-001.md) |\n"
-        "| GAP-002 | fixed upstream one | `whatever` | fixed-upstream | 24.0 | 15 | [gap-002](gap-002.md) |\n"
+        "| GAP-001 | some construct | `autonomous_tx` | high | confirmed | 25.0 | 16 | [gap-001](gap-001.md) |\n"
+        "| GAP-002 | fixed upstream one | `whatever` | high | fixed-upstream | 24.0 | 15 | [gap-002](gap-002.md) |\n"
     )
     versions = doctor._confirmed_gap_versions_in_text(fragment)
-    assert versions == {"001": ("25.0", "16")}
+    assert versions == {"001": ("high", "25.0", "16")}
     assert "002" not in versions
 
 
@@ -139,12 +140,25 @@ def test_gap_registry_md_parity_flags_a_version_mismatch(monkeypatch):
     monkeypatch.setattr(
         doctor,
         "_confirmed_gap_versions_in_text",
-        lambda text: {"001": ("99.9", "16")},
+        lambda text: {"001": ("high", "99.9", "16")},
     )
     problems = doctor.check_gap_registry_md_parity()
     assert len(problems) == 1
     assert "GAP-001" in problems[0]
     assert "99.9" in problems[0]
+
+
+def test_gap_registry_md_parity_flags_a_severity_mismatch(monkeypatch):
+    monkeypatch.setattr(doctor, "GAPS", [gap_by_number("001")])
+    monkeypatch.setattr(
+        doctor,
+        "_confirmed_gap_versions_in_text",
+        lambda text: {"001": ("low", "25.0", "16")},
+    )
+    problems = doctor.check_gap_registry_md_parity()
+    assert len(problems) == 1
+    assert "GAP-001" in problems[0]
+    assert "low" in problems[0]
 
 
 def test_gap_registry_md_parity_skips_a_gap_with_no_matching_confirmed_row(monkeypatch):
@@ -249,7 +263,7 @@ def test_failure_stage_values_is_clean_on_the_real_repository_state():
 
 
 def test_failure_stage_values_flags_an_unknown_stage(monkeypatch):
-    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), failure_stage="mid_flight")
+    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), severity="high", failure_stage="mid_flight")
     monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
     problems = doctor.check_failure_stage_values()
     assert len(problems) == 1
@@ -261,7 +275,7 @@ def test_failure_stage_values_flags_a_new_gap_left_unset(monkeypatch):
     # A gap not in FAILURE_STAGE_EXEMPT_DETECTORS must have a
     # failure_stage -- unset is only allowed for the two documented
     # exceptions, not a silent default for every new gap going forward.
-    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", ())  # failure_stage defaults to None
+    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), severity="high")  # failure_stage defaults to None
     monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
     problems = doctor.check_failure_stage_values()
     assert len(problems) == 1
@@ -270,6 +284,74 @@ def test_failure_stage_values_flags_a_new_gap_left_unset(monkeypatch):
 
 
 def test_failure_stage_values_allows_unset_for_exempt_detectors(monkeypatch):
-    fake_gap = GapEntry("001", "autonomous_tx", "autonomous-transaction", ())
+    fake_gap = GapEntry("001", "autonomous_tx", "autonomous-transaction", (), severity="high")
     monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
     assert doctor.check_failure_stage_values() == []
+
+
+def test_gap_severity_matches_detector_source_is_clean_on_the_real_repository_state():
+    # Integration-style, same spirit as the other parity tests: must hold
+    # against the real gap_registry.py and detectors/ in this checkout --
+    # this is the check that would have caught the exact class of drift
+    # this field is meant to prevent (registry claims one severity, a
+    # later edit to the detector's own code emits another).
+    assert doctor.check_gap_severity_matches_detector_source() == []
+
+
+def test_gap_severity_matches_detector_source_flags_an_invalid_value(monkeypatch):
+    fake_gap = dataclasses.replace(gap_by_number("028"), severity="critical")
+    monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
+    problems = doctor.check_gap_severity_matches_detector_source()
+    assert len(problems) == 1
+    assert "GAP-028" in problems[0]
+    assert "critical" in problems[0]
+
+
+def test_gap_severity_matches_detector_source_flags_a_mismatch_against_the_real_detector(monkeypatch):
+    # identity_column's own source really does use severity="high" --
+    # claiming "medium" in the registry must be caught against the real
+    # file, not a mock.
+    fake_gap = dataclasses.replace(gap_by_number("028"), severity="medium")
+    monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
+    problems = doctor.check_gap_severity_matches_detector_source()
+    assert len(problems) == 1
+    assert "GAP-028" in problems[0]
+    assert "medium" in problems[0]
+    assert "high" in problems[0]
+
+
+def test_gap_severity_matches_detector_source_flags_multiple_severities_in_one_file(monkeypatch, tmp_path):
+    detectors_dir = tmp_path / "ora2pg_gap_report" / "detectors"
+    detectors_dir.mkdir(parents=True)
+    (detectors_dir / "fake_detector.py").write_text(
+        'severity="high"\nseverity="medium"\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(doctor, "REPO_ROOT", tmp_path)
+    fake_gap = GapEntry("999", "fake_detector", "fake-detector", (), severity="high")
+    monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
+    problems = doctor.check_gap_severity_matches_detector_source()
+    assert len(problems) == 1
+    assert "GAP-999" in problems[0]
+    assert "несколько" in problems[0]
+
+
+def test_gap_severity_matches_detector_source_flags_no_severity_literal_found(monkeypatch, tmp_path):
+    detectors_dir = tmp_path / "ora2pg_gap_report" / "detectors"
+    detectors_dir.mkdir(parents=True)
+    (detectors_dir / "fake_detector.py").write_text("# no severity literal here\n", encoding="utf-8")
+    monkeypatch.setattr(doctor, "REPO_ROOT", tmp_path)
+    fake_gap = GapEntry("999", "fake_detector", "fake-detector", (), severity="high")
+    monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
+    problems = doctor.check_gap_severity_matches_detector_source()
+    assert len(problems) == 1
+    assert "GAP-999" in problems[0]
+
+
+def test_gap_severity_matches_detector_source_skips_a_missing_detector_file(monkeypatch, tmp_path):
+    # A missing detector file is already reported by check_gap() -- this
+    # check must not pile on a second, duplicate complaint about the same
+    # underlying problem.
+    monkeypatch.setattr(doctor, "REPO_ROOT", tmp_path)
+    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), severity="high")
+    monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
+    assert doctor.check_gap_severity_matches_detector_source() == []

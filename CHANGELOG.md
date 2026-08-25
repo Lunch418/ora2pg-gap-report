@@ -7,7 +7,7 @@ The project follows [SemVer](https://semver.org/) in a simplified form
 until it reaches 1.0.0: minor version bumps for new detectors/features,
 patch for fixes to existing ones.
 
-## [Unreleased]
+## [0.8.0] - 2026-08-25
 
 ### Added
 - `--fix` (+ `--write`): applies the one known mechanical, provably

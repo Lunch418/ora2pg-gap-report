@@ -502,15 +502,15 @@ pytest
 
 Как устроен инструмент внутри (лексер, маскирование, атрибуция находок,
 обработка динамического SQL, файловая структура) — в
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Как проверять
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.ru.md). Как проверять
 изменения, что за корпус реального открытого кода используется для
 проверки детекторов, как подтвердить находку на живой Oracle — в
-[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). Как прислать находку или
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.ru.md). Как прислать находку или
 PR — в [`CONTRIBUTING.md`](CONTRIBUTING.ru.md), нормы поведения — в
 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.ru.md), как сообщить об уязвимости —
 в [`SECURITY.md`](SECURITY.ru.md). Куда движется проект, и что из
 задуманного уже реализовано, а что — пока просто идея в ожидании
-реального повода — в [`ROADMAP.md`](ROADMAP.md).
+реального повода — в [`ROADMAP.md`](ROADMAP.ru.md).
 
 ## Changelog
 

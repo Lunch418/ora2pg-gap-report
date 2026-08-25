@@ -21,6 +21,12 @@ patch — исправления в существующих.
   (the canonical filenames now, matching `README.md`), with the previous
   Russian text moved to `*.ru.md` and a language switcher on both, same
   split as `README.md`/`README.ru.md`.
+- Same treatment for `ROADMAP.md`/`docs/DEVELOPMENT.md`/
+  `docs/ARCHITECTURE.md`. `scripts/doctor.py`'s detector-file-tree parity
+  check reads `docs/ARCHITECTURE.md` by path, so it now checks the
+  English version; it only parses the tree's `.py` filenames, not the
+  comment text, so translating the inline comments didn't need any
+  change to the check itself (verified: `doctor.py` still passes clean).
 
 ### Changed
 - License switched from MIT to Apache-2.0 (`LICENSE`, `pyproject.toml`,

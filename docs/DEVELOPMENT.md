@@ -1,119 +1,125 @@
-# Разработка
+*English | [Русский](DEVELOPMENT.ru.md)*
 
-Как проверять изменения, что за корпус реального кода используется, как
-подтвердить новый детектор на живой Oracle. Для "что это и зачем" — см.
-[README.md](../README.md); для внутренней архитектуры — см.
+# Development
+
+How to verify changes, what real-code corpus is used, how to confirm a
+new detector against a live Oracle. For "what this is and why," see
+[README.md](../README.md); for the internal architecture, see
 [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Как добавляется новый детектор
+## How a new detector gets added
 
-Этот проект не пытается найти детектор под каждую специфичную для Oracle
-конструкцию. `ROWNUM`, `DECODE`, `NVL`, `SYSDATE`, `%TYPE`, sequences,
-стандартная семантика исключений — всё это `ora2pg` конвертирует корректно,
-и детекторы под них не нужны, как бы по-ораклиному сложно они ни звучали.
+This project doesn't try to find a detector for every Oracle-specific
+construct. `ROWNUM`, `DECODE`, `NVL`, `SYSDATE`, `%TYPE`, sequences,
+standard exception semantics — `ora2pg` converts all of these correctly,
+and no detector is needed for them no matter how exotically Oracle-ish
+they sound.
 
-Новый детектор появляется только после того, как гипотеза проверена на
-практике:
+A new detector only shows up after the hypothesis has been confirmed in
+practice:
 
-1. Берётся конкретная Oracle-конструкция.
-2. Собирается минимальный воспроизводимый пример.
-3. Пример прогоняется через настоящий `ora2pg`.
-4. Сгенерированный PostgreSQL-код проверяется на корректность.
-5. Если `ora2pg` справился — гипотеза отклоняется, детектора не будет.
-   Если нашёлся реальный, воспроизводимый баг — заводится тест-фикстура и
-   пишется детектор.
+1. Pick a specific Oracle construct.
+2. Build a minimal reproducible example.
+3. Run the example through a real `ora2pg`.
+4. Check the generated PostgreSQL code for correctness.
+5. If `ora2pg` handled it fine, the hypothesis is rejected, no detector
+   gets added. If a real, reproducible bug turns up, a test fixture is
+   added and the detector gets written.
 
-Так, например, отсеялась изначальная гипотеза про `CREATE PACKAGE` — на
-первый взгляд очевидный кандидат, а на практике `ora2pg` переносит его без
-проблем (`docs/research/step0-show-report-baseline.md`). И так же
-подтвердились `COMPOUND TRIGGER` и баг с `LEVEL` в `CONNECT BY` — оба
-воспроизведены на реальном прогоне `ora2pg`, а не предположены по описанию.
+This is how, for example, the initial hypothesis about `CREATE PACKAGE`
+got filtered out — an obvious-looking candidate at first glance, but in
+practice `ora2pg` carries it over fine (`docs/research/step0-show-report-
+baseline.md`). And this is how `COMPOUND TRIGGER` and the `LEVEL` bug in
+`CONNECT BY` got confirmed — both reproduced against a real `ora2pg` run,
+not assumed from a description.
 
-Все подтверждённые находки пронумерованы и собраны в
-[`research/GAP_REGISTRY.md`](research/GAP_REGISTRY.md) — по каждой
-указано, каким детектором она покрыта и на какой версии `ora2pg`
-подтверждена. [`research/AUDIT.md`](research/AUDIT.md) — сводная
-проверка доказательной базы по каждому подтверждённому gap'у
-(research-документ, реальный вывод ora2pg, expected/actual, тесты,
-включая guard-тесты на ложные срабатывания).
+Every confirmed finding is numbered and collected in
+[`research/GAP_REGISTRY.md`](research/GAP_REGISTRY.md) — each row states
+which detector covers it and which `ora2pg` version it was confirmed
+against. [`research/AUDIT.md`](research/AUDIT.md) is a summary check of
+the evidence behind every confirmed gap (research doc, real ora2pg
+output, expected/actual, tests, including guard tests against false
+positives).
 
-## Регистрация целостности (doctor)
+## Registry integrity (doctor)
 
-Реестр (`ora2pg_gap_report/gap_registry.py`) и файловая структура
-проверяются автоматически:
+The registry (`ora2pg_gap_report/gap_registry.py`) and the file layout
+are checked automatically:
 
 ```sh
-python3 scripts/doctor.py     # у каждого GAP-NNN есть research-документ, детектор и тесты
-python3 scripts/audit_gap_test_counts.py   # пересчитать колонку "Тесты" в AUDIT.md
+python3 scripts/doctor.py     # every GAP-NNN has a research doc, a detector, and tests
+python3 scripts/audit_gap_test_counts.py   # recompute AUDIT.md's "Tests" column
 ```
 
-`doctor.py` — часть CI (job `lint`): если реестр разъехался с файлами на
-диске (например, кто-то добавил gap в `gap_registry.py`, но забыл
-детектор или тест), сборка падает сразу, а не остаётся незамеченной до
-следующего ручного аудита. Отдельная проверка — что файловое дерево
-детекторов в `ARCHITECTURE.md` не разошлось со списком файлов в
-`ora2pg_gap_report/detectors/` (ровно тот класс проблемы, из-за которого
-README какое-то время содержало устаревшее описание архитектуры) —
-тоже часть `doctor.py`, а не только про registry.
+`doctor.py` is part of CI (the `lint` job): if the registry drifts from
+the files on disk (say, someone added a gap to `gap_registry.py` but
+forgot the detector or the test), the build fails right away instead of
+staying unnoticed until the next manual audit. A separate check verifies
+that the detector file tree in `ARCHITECTURE.md` hasn't drifted from the
+actual file list in `ora2pg_gap_report/detectors/` (exactly the class of
+problem that once left the README with a stale architecture description
+for a while) — also part of `doctor.py`, not just the registry checks.
 
-## Тестирование
+## Testing
 
 ```sh
-pip install -e ".[dev]"   # editable-режим + pytest/ruff/mypy
+pip install -e ".[dev]"   # editable install + pytest/ruff/mypy
 pytest
 ruff check ora2pg_gap_report/ tests/
-mypy                       # ora2pg_gap_report/ + scripts/, конфиг в pyproject.toml
+mypy                       # ora2pg_gap_report/ + scripts/, config in pyproject.toml
 ```
 
-`mypy` настроен с `disallow_untyped_defs` — не просто "не падает на
-аннотированном коде", а реально требует аннотаций у каждой функции.
-`oracledb` (опциональная зависимость extra `oracle`) размечен как
-`ignore_missing_imports` — типы из него используются только под `if
-TYPE_CHECKING:` (`oracle_connector.py`), поэтому пакет остаётся
-импортируемым без него, и `mypy` не падает в CI, где `oracledb` не
-установлен.
+`mypy` is configured with `disallow_untyped_defs` — not just "doesn't
+fail on annotated code," it actually requires an annotation on every
+function. `oracledb` (the optional `oracle` extra's dependency) is marked
+`ignore_missing_imports` — its types are only used under `if
+TYPE_CHECKING:` (`oracle_connector.py`), so the package stays importable
+without it, and `mypy` doesn't fail in CI, where `oracledb` isn't
+installed.
 
-Детекторы и лексер проверены на реальном открытом PL/SQL-коде — не
-только на синтетических примерах. Помимо точечных фикстур (Logger,
-составной триггер из Apress), детекторы прогонялись целиком на
-247 298 строках (точный свежий подсчёт по `git clone --depth 1` каждого
-репозитория) из семи независимых открытых проектов: официальных
-демо-схем Oracle (`oracle-samples/db-sample-schemas`), библиотеки утилит
-`mortenbra/alexandria-plsql-utils`, фреймворка юнит-тестирования
-`utPLSQL/utPLSQL`, логгера `OraOpenSource/Logger`, лексера/токенизатора
-`method5/plsql_lexer`, генератора Excel-файлов `mbleron/ExcelGen` и
-шаблонизатора `osalvador/tePLSQL` — ноль падений, только одна честно
-задокументированная граница применимости (см.
+The detectors and the lexer are checked against real open-source PL/SQL
+code, not just synthetic examples. Beyond targeted fixtures (Logger, a
+compound trigger from Apress), the detectors were also run in full
+against 247,298 lines (an exact, current count via `git clone --depth 1`
+of each repository) from seven independent open-source projects:
+Oracle's own demo schemas (`oracle-samples/db-sample-schemas`), the
+`mortenbra/alexandria-plsql-utils` utility library, the
+`utPLSQL/utPLSQL` unit-testing framework, the `OraOpenSource/Logger`
+logger, the `method5/plsql_lexer` lexer/tokenizer, the `mbleron/ExcelGen`
+Excel-file generator, and the `osalvador/tePLSQL` templating engine —
+zero crashes, only one honestly documented boundary of applicability (see
 `test_real_open_source_logger_install_script_
-anonymous_block_is_unknown_not_a_crash` в `tests/test_bulk_collect.py`).
-Подробности и полный список corpus-validated детекторов — в
+anonymous_block_is_unknown_not_a_crash` in `tests/test_bulk_collect.py`).
+Details and the full list of corpus-validated detectors are in
 `research/AUDIT.md`.
 
-### Проверка на живой Oracle
+### Checking against a live Oracle
 
-Юнит-тесты `oracle_connector.py` идут на fake-соединении
-(`tests/fakes/fake_oracle.py`) — быстро, детерминированно, не требует
-Oracle. Живой путь ("подключился к настоящей Oracle → выгрузил через
-`DBMS_METADATA.GET_DDL` → проанализировал") ими не покрыт — для него
-нужна настоящая база:
+`oracle_connector.py`'s unit tests run against a fake connection
+(`tests/fakes/fake_oracle.py`) — fast, deterministic, no Oracle required.
+The live path ("connect to a real Oracle → export via
+`DBMS_METADATA.GET_DDL` → analyze") isn't covered by those, it needs a
+real database:
 
 ```sh
 docker compose -f scripts/oracle-test-compose.yml up -d
-docker compose -f scripts/oracle-test-compose.yml logs -f   # ждать "DATABASE IS READY TO USE"
+docker compose -f scripts/oracle-test-compose.yml logs -f   # wait for "DATABASE IS READY TO USE"
 
 pip install -e ".[oracle]"
 ORACLE_DSN=localhost:1521/FREEPDB1 ORACLE_USER=testuser ORACLE_PASSWORD=testpass1 \
   python scripts/verify_against_live_oracle.py
 ```
 
-Скрипт создаёт пару служебных таблиц (`scripts/setup_oracle_test_schema.sql`
-— триггерам, в отличие от пакетов, нужна реально существующая целевая
-таблица), заливает реальные фикстуры из `docs/research/samples/` как
-есть, выгружает их обратно живым `DBMS_METADATA.GET_DDL`, прогоняет
-детекторы и сверяет счётчики с уже независимо проверенными на этих же
-файлах как на тексте (`tests/`). Если в `PATH` есть `ora2pg` — заодно
-прогоняет `SHOW_REPORT` против живого подключения.
+The script creates a couple of scaffolding tables
+(`scripts/setup_oracle_test_schema.sql` — unlike packages, triggers need
+an actually-existing target table), loads the real fixtures from
+`docs/research/samples/` as-is, exports them back out via a live
+`DBMS_METADATA.GET_DDL`, runs the detectors, and cross-checks the counts
+against what was already independently verified against the same files
+as plain text (`tests/`). If `ora2pg` is on `PATH`, it also runs
+`SHOW_REPORT` against the live connection.
 
-`gvenzl/oracle-free:23-slim` — контейнерный пакет официального
-бесплатного дистрибутива Oracle (тот же движок), просто с более удобной
-для CI/тестов оберткой, чем прямой образ Oracle Container Registry.
+`gvenzl/oracle-free:23-slim` is a container packaging of the official
+free Oracle distribution (the same engine), just with a wrapper that's
+more convenient for CI/tests than the raw Oracle Container Registry
+image.

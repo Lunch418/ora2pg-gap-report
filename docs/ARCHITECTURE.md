@@ -1,236 +1,234 @@
-# Архитектура
+*English | [Русский](ARCHITECTURE.ru.md)*
 
-Этот документ — про то, как устроен инструмент внутри: лексер,
-маскирование, атрибуция находок, обработка динамического SQL, файловая
-структура. Для "что это и зачем" — см. [README.md](../README.md); для
-"как разрабатывать/тестировать" — см. [DEVELOPMENT.md](DEVELOPMENT.md).
+# Architecture
 
-`ora2pg SHOW_REPORT` целиком не имеет офлайн-режима — он требует живого
-подключения к Oracle (`ORACLE_DSN`). Офлайн от DDL-дампа работает только
-анализ *отдельных типов объектов* (`-t PACKAGE`, `-t TRIGGER`, `-t FUNCTION`,
-…) — именно так работает `ora2pg_wrapper.py`, а не через `SHOW_REPORT`. Это
-принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
-госсектор.
+This document covers how the tool is built internally: the lexer,
+masking, finding attribution, dynamic SQL handling, file layout. For
+"what this is and why," see [README.md](../README.md); for "how to
+develop/test," see [DEVELOPMENT.md](DEVELOPMENT.md).
 
-Детекторов сейчас 38 (полная таблица — в README.md, «Детекторы»; 37 из
-них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
-README.md, «Почему почти всё high»), и почти все они устроены
-одинаково: анализируют Oracle-исходник напрямую и не требуют
-установленного `ora2pg` — чистый Python, без внешних зависимостей.
-Исключение ровно одно — `connect_by`: он устроен иначе, линтит
-*сгенерированный* ora2pg-код, а не исходник (ora2pg сам неплохо считает
-CONNECT BY — ценность не в обнаружении, а в проверке качества
-конвертации), поэтому ему нужен реальный `ora2pg` и он подключается
-только через `--check-connect-by`. Это единственный детектор с таким
-требованием — не "один из четырёх", как было на самых ранних версиях
-README, когда детекторов и правда было всего четыре.
+`ora2pg SHOW_REPORT` has no offline mode at all, it requires a live
+connection to Oracle (`ORACLE_DSN`). Offline analysis from a DDL dump only
+covers *individual object types* (`-t PACKAGE`, `-t TRIGGER`, `-t
+FUNCTION`, …), which is exactly how `ora2pg_wrapper.py` works, not
+through `SHOW_REPORT`. This is a hard requirement for the target
+audience: closed networks, air-gapped environments, the public sector.
 
-## Файловая структура
+There are 38 detectors right now (the full table is in README.md,
+"Detectors"; 37 of them are tied to a registered GAP-NNN, `dbms_utl_calls`
+isn't, see README.md, "Why almost everything is high"), and almost all of
+them work the same way: they analyze the Oracle source directly and don't
+need `ora2pg` installed, plain Python, no external dependencies. There's
+exactly one exception, `connect_by`: it's built differently, it lints
+*generated* ora2pg code rather than the source (ora2pg handles CONNECT BY
+reasonably well on its own, the value here isn't detection but checking
+conversion quality), so it needs a real `ora2pg` and is only wired in via
+`--check-connect-by`. It's the only detector with that requirement, not
+"one of four" like the README's earliest versions said, back when there
+really were only four detectors.
+
+## File layout
 
 ```
-pyproject.toml                 # единственный источник правды по зависимостям/точкам входа
+pyproject.toml                 # single source of truth for dependencies/entry points
 ora2pg_gap_report/
-├── models.py                  # Finding — общая структура находки для всех детекторов
-├── plsql_lex.py                # общая инфраструктура: маскирование строк/комментариев
-│                               # (включая q-quote) в двух видах — безопасном и с видимым
-│                               # аргументом EXECUTE IMMEDIATE, сопоставление блоков
-│                               # BEGIN/CASE/IF/LOOP...END, разбор идентификаторов —
-│                               # используется всеми детекторами
-├── oracle_connector.py         # живая выгрузка PACKAGE BODY/TRIGGER через DBMS_METADATA.GET_DDL
-├── oracle_export.py            # консольная команда ora2pg-gap-export
+├── models.py                  # Finding -- the shared finding structure for every detector
+├── plsql_lex.py                # shared infrastructure: string/comment masking (including
+│                               # q-quotes) in two flavors -- safe, and with the EXECUTE
+│                               # IMMEDIATE argument left visible -- BEGIN/CASE/IF/LOOP...END
+│                               # block matching, identifier parsing -- used by every detector
+├── oracle_connector.py         # live PACKAGE BODY/TRIGGER export via DBMS_METADATA.GET_DDL
+├── oracle_export.py            # the ora2pg-gap-export console command
 ├── detectors/
-│   ├── autonomous_tx.py        # PRAGMA AUTONOMOUS_TRANSACTION в PACKAGE BODY
-│   ├── compound_triggers.py    # COMPOUND TRIGGER — тихий провал парсинга у ora2pg
-│   ├── dbms_utl_calls.py       # классификатор конкретных DBMS_*/UTL_* функций
-│   ├── connect_by.py            # линтинг сгенерированного WITH RECURSIVE (нужен ora2pg)
-│   ├── merge_delete_clause.py   # MERGE ... DELETE WHERE — не имеет аналога в MERGE PostgreSQL
+│   ├── autonomous_tx.py        # PRAGMA AUTONOMOUS_TRANSACTION inside a PACKAGE BODY
+│   ├── compound_triggers.py    # COMPOUND TRIGGER -- ora2pg's parser silently fails on it
+│   ├── dbms_utl_calls.py       # classifier for specific DBMS_*/UTL_* functions
+│   ├── connect_by.py            # lints the generated WITH RECURSIVE (needs ora2pg)
+│   ├── merge_delete_clause.py   # MERGE ... DELETE WHERE -- no equivalent in PostgreSQL's MERGE
 │   ├── bulk_collect.py          # TYPE ... IS TABLE OF / BULK COLLECT INTO / FORALL
-│   ├── database_link.py         # table@dblink_name — прямая ссылка на удалённую БД
+│   ├── database_link.py         # table@dblink_name -- a direct reference to a remote DB
 │   ├── model_clause.py          # MODEL PARTITION BY / DIMENSION BY / MEASURES / RULES
 │   ├── pivot_clause.py          # PIVOT / UNPIVOT
 │   ├── object_type.py           # CREATE TYPE ... AS OBJECT / TYPE BODY
 │   ├── with_function.py         # WITH FUNCTION / WITH PROCEDURE
 │   ├── flashback_query.py       # AS OF TIMESTAMP / AS OF SCN
-│   ├── global_temp_table.py     # CREATE GLOBAL TEMPORARY TABLE — теряется ON COMMIT
-│   ├── table_partitioning.py    # PARTITION BY RANGE/LIST/HASH — отбрасывается целиком
+│   ├── global_temp_table.py     # CREATE GLOBAL TEMPORARY TABLE -- ON COMMIT gets lost
+│   ├── table_partitioning.py    # PARTITION BY RANGE/LIST/HASH -- dropped entirely
 │   ├── connect_by_nocycle.py    # CONNECT BY NOCYCLE / ORDER SIBLINGS BY
-│   ├── context_object.py        # CREATE CONTEXT — application context
-│   ├── insert_all.py            # INSERT ALL / INSERT FIRST — многотабличная вставка
-│   ├── json_table.py            # JSON_TABLE(...) — нет в PostgreSQL 16 и старше
+│   ├── context_object.py        # CREATE CONTEXT -- an application context
+│   ├── insert_all.py            # INSERT ALL / INSERT FIRST -- multi-table insert
+│   ├── json_table.py            # JSON_TABLE(...) -- not in PostgreSQL 16 or older
 │   ├── external_table.py        # CREATE TABLE ... ORGANIZATION EXTERNAL
-│   ├── sql_macro.py             # SQL_MACRO — конвертируется в обычную функцию
-│   ├── invisible_column.py      # столбец INVISIBLE теряет своё скрытие
+│   ├── sql_macro.py             # SQL_MACRO -- converted into a plain function
+│   ├── invisible_column.py      # an INVISIBLE column loses its invisibility
 │   ├── collection_type.py       # CREATE TYPE ... TABLE OF / VARRAY OF
 │   ├── cross_apply.py           # CROSS APPLY / OUTER APPLY
-│   ├── oracle_text.py           # Oracle Text — INDEXTYPE / CONTAINS / CATSEARCH / MATCHES
-│   ├── recursive_with.py        # рекурсивная WITH без RECURSIVE
-│   ├── invisible_index.py       # INVISIBLE-индекс
+│   ├── oracle_text.py           # Oracle Text -- INDEXTYPE / CONTAINS / CATSEARCH / MATCHES
+│   ├── recursive_with.py        # a recursive WITH with no RECURSIVE keyword
+│   ├── invisible_index.py       # an INVISIBLE index
 │   ├── read_only_table.py       # CREATE TABLE ... READ ONLY
 │   ├── materialized_view_log.py # CREATE MATERIALIZED VIEW LOG
-│   ├── identity_column.py       # GENERATED ... AS IDENTITY (...) — баг двойных скобок
-│   ├── rowid_type.py            # ROWID/UROWID как тип столбца — конвертируется в oid
-│   ├── sequence_cycle.py        # CREATE SEQUENCE ... CYCLE — секция отбрасывается
-│   ├── default_on_null.py       # DEFAULT ... ON NULL — копируется verbatim, syntax error
-│   ├── public_synonym.py        # CREATE [PUBLIC] SYNONYM — теряет схему целевого объекта
-│   ├── virtual_column.py        # GENERATED ALWAYS AS (...) VIRTUAL — теряет защиту ORA-54016
-│   ├── nested_subprogram.py     # локальная вложенная процедура/функция — портится при экспорте
-│   ├── conditional_compilation.py # $IF/$ELSIF/$ELSE/$END — копируются verbatim
-│   ├── package_state.py         # пакетная переменная — сломанная эмуляция через set_config
-│   └── index_organized_table.py # ORGANIZATION INDEX (IOT) — отбрасывается
-├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
-├── i18n.py                     # язык вывода (--lang/--set-lang): резолюция, английские
-│                               # строки UI и переводы объяснений детекторов
-├── verification.py             # --verify: детекторный (не построчный) статус
+│   ├── identity_column.py       # GENERATED ... AS IDENTITY (...) -- double-paren bug
+│   ├── rowid_type.py            # ROWID/UROWID as a column type -- converted to oid
+│   ├── sequence_cycle.py        # CREATE SEQUENCE ... CYCLE -- the clause gets dropped
+│   ├── default_on_null.py       # DEFAULT ... ON NULL -- copied verbatim, a syntax error
+│   ├── public_synonym.py        # CREATE [PUBLIC] SYNONYM -- loses the target object's schema
+│   ├── virtual_column.py        # GENERATED ALWAYS AS (...) VIRTUAL -- loses ORA-54016 protection
+│   ├── nested_subprogram.py     # a local nested procedure/function -- broken on export
+│   ├── conditional_compilation.py # $IF/$ELSIF/$ELSE/$END -- copied verbatim
+│   ├── package_state.py         # a package variable -- broken emulation via set_config
+│   └── index_organized_table.py # ORGANIZATION INDEX (IOT) -- dropped entirely
+├── ora2pg_wrapper.py            # runs ora2pg per object type, parses --estimate_cost
+├── i18n.py                     # output language (--lang/--set-lang): resolution, English
+│                               # UI strings, and translations of detector explanations
+├── verification.py             # --verify: detector-level (not line-level) status
 │                               # STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE
-├── core.py                      # scan_source/count_objects/expand_paths/connect_by_check —
-│                               #  общая логика между cli.py и tui_app.py
-├── cli.py                      # консольная команда ora2pg-gap-report
-├── effort_estimator.py          # грубая эвристика по severity, диапазон часов
-├── report_generator.py          # JSON + Markdown (машиночитаемые форматы)
-├── terminal_report.py           # цветной вывод через rich (единственная зависимость;
-│                               #  библиотеки-детекторов не касается, только CLI)
-└── tui_app.py                   # --tui: интерактивный экран на textual (опциональный
-                                 #  extra [tui], не часть базовой установки)
+├── core.py                      # scan_source/count_objects/expand_paths/connect_by_check --
+│                               #  the shared logic between cli.py and tui_app.py
+├── cli.py                      # the ora2pg-gap-report console command
+├── effort_estimator.py          # a rough severity-based heuristic, hour range
+├── report_generator.py          # JSON + Markdown (machine-readable formats)
+├── terminal_report.py           # colored output via rich (the only dependency;
+│                               #  doesn't touch the detector library, only the CLI)
+└── tui_app.py                   # --tui: an interactive screen on textual (an optional
+                                 #  [tui] extra, not part of the base install)
 tests/
-├── fixtures/                   # реальные захваченные прогоны ora2pg — тесты парсера не требуют
-│                               # установленного ora2pg, кроме нескольких live-тестов
-│                               # (пропускаются автоматически, если ora2pg не найден в PATH)
-docs/research/                  # эмпирическая проверка предпосылок, реальные PL/SQL примеры
-docs/examples/                  # примеры вывода детекторов на реальных данных
+├── fixtures/                   # real captured ora2pg runs -- the parser tests don't need
+│                               # ora2pg installed, except a few live tests
+│                               # (auto-skipped when ora2pg isn't found on PATH)
+docs/research/                  # empirical verification of assumptions, real PL/SQL examples
+docs/examples/                  # examples of detector output on real data
 scripts/
-├── build_offline_bundle.py     # сборка автономного архива для установки без интернета
-├── oracle-test-compose.yml     # Oracle Free 23ai в Docker для живой проверки
+├── build_offline_bundle.py     # builds a self-contained archive for offline install
+├── oracle-test-compose.yml     # Oracle Free 23ai in Docker, for live verification
 ├── setup_oracle_test_schema.sql
 └── verify_against_live_oracle.py
-.github/workflows/tests.yml     # CI: pytest на 3.10-3.13 + сборка и smoke-test пакета
+.github/workflows/tests.yml     # CI: pytest on 3.10-3.13 + package build and smoke test
 ```
 
-## Конструкции, спрятанные в динамическом SQL
+## Constructs hidden inside dynamic SQL
 
-Инструмент — статический анализатор: он ищет синтаксические паттерны в
-тексте, а не анализирует семантику выполнения. Один реальный частный
-случай этого ограничения — конструкция, построенная как строка внутри
-`EXECUTE IMMEDIATE`, обычной масштабной маскировкой строк/комментариев
-не видна вообще (маскировка намеренно ослепляет содержимое всех
-строковых литералов, чтобы ключевые слова не находились внутри
-комментария или обычной строки).
+The tool is a static analyzer: it looks for syntactic patterns in text, it
+doesn't analyze execution semantics. One real, concrete instance of that
+limitation: a construct built as a string inside `EXECUTE IMMEDIATE` is
+completely invisible to the ordinary, blanket string/comment masking
+(masking deliberately blinds the contents of every string literal, so
+keywords inside a comment or a plain string don't get matched).
 
-14 детекторов, использующих общий индекс "какой объект окружает эту
-позицию" (`bulk_collect`, `connect_by_nocycle`, `cross_apply`,
+14 detectors that use the shared "which object surrounds this position"
+index (`bulk_collect`, `connect_by_nocycle`, `cross_apply`,
 `database_link`, `flashback_query`, `insert_all`, `json_table`,
 `merge_delete_clause`, `model_clause`, `oracle_text`, `pivot_clause`,
-`recursive_with`, `sql_macro`, `with_function`), и отдельно
-`autonomous_tx` (свой собственный, не общий механизм отслеживания границ
-процедур) теперь используют второй, отдельный вид маскировки
-(`mask_dynamic_sql_visible()` в `plsql_lex.py`), в котором именно
-аргумент `EXECUTE IMMEDIATE` — одиночный литерал или конкатенация
-`'...' || выражение || '...'`, вплоть до первой "голой" `;` — остаётся
-видимым, а не заменяется пробелами. Подтверждено на реальном открытом
-коде: у `utPLSQL` нашлась и скрытая `PRAGMA AUTONOMOUS_TRANSACTION`
-(внутри динамически создаваемого пакета), и скрытый `BULK COLLECT INTO`
-(внутри динамически выполняемого анонимного блока) — оба теперь
-находятся, оба верно приписаны реальной, находимой в дереве исходников
-процедуре (не вымышленному объекту, который существует только в момент
-выполнения) — регрессионные тесты на этих же настоящих фрагментах лежат
-в `tests/test_autonomous_tx.py`/`tests/test_bulk_collect.py`.
+`recursive_with`, `sql_macro`, `with_function`), plus `autonomous_tx`
+separately (its own procedure-boundary tracking mechanism, not the shared
+one), now use a second, distinct masking flavor
+(`mask_dynamic_sql_visible()` in `plsql_lex.py`) in which the `EXECUTE
+IMMEDIATE` argument specifically, a single literal or a `'...' ||
+expression || '...'` concatenation, up to the first "bare" `;`, stays
+visible instead of being blanked out. Confirmed against real open-source
+code: `utPLSQL` turned up both a hidden `PRAGMA AUTONOMOUS_TRANSACTION`
+(inside a dynamically created package) and a hidden `BULK COLLECT INTO`
+(inside a dynamically executed anonymous block), both are now found, and
+both are correctly attributed to the real procedure findable in the
+source tree (not to a fictional object that only exists at execution
+time), regression tests on these same real fragments live in
+`tests/test_autonomous_tx.py`/`tests/test_bulk_collect.py`.
 
-Важно, что индекс "какой объект окружает эту позицию" при этом всегда
-строится из безопасного, полностью замаскированного текста, а не из
-текста с видимым динамическим SQL — иначе пакет/процедура, которую
-код создаёт динамически в момент выполнения, была бы принята за
-настоящий объект, объявленный в дереве исходников, и испортила бы
-атрибуцию не связанных с ней находок несуществующим в статике именем.
-Эта деталь дизайна закреплена тестом
+Importantly, the "which object surrounds this position" index is always
+built from the safe, fully masked text, never from text with visible
+dynamic SQL, otherwise a package/procedure the code creates dynamically
+at runtime would get mistaken for a real object declared in the source
+tree, and corrupt the attribution of unrelated findings with a name that
+doesn't exist statically. This design detail is locked in by the test
 `test_dynamic_sql_that_creates_a_package_at_runtime_is_not_picked_up_as_a_real_container`
-в `tests/test_plsql_lex.py`.
+in `tests/test_plsql_lex.py`.
 
-Не покрыто этим же способом: детекторы схемного уровня (`table_partitioning`,
-`external_table`, `invisible_column` и т.д., включая часть `oracle_text`,
-отвечающую за `CREATE INDEX ... INDEXTYPE`) по-прежнему не видят
-одноимённую DDL-конструкцию, если она построена динамически — на
-практике редкий случай (DDL почти всегда статичен), но не проверенный
-эмпирически с той же строгостью, поэтому честно остаётся вне рамок этого
-исправления, а не тихо считается решённым заодно.
+Not covered the same way: schema-level detectors (`table_partitioning`,
+`external_table`, `invisible_column`, etc., including the part of
+`oracle_text` that handles `CREATE INDEX ... INDEXTYPE`) still don't see
+the same-named DDL construct if it's built dynamically, a rare case in
+practice (DDL is almost always static), but not verified empirically with
+the same rigor, so it honestly stays outside the scope of this fix rather
+than being silently assumed solved along the way.
 
-Даже там, где видимость динамического SQL есть, у неё есть свои
-границы. `mask_dynamic_sql_visible()` видит только сам аргумент
-`EXECUTE IMMEDIATE` — одиночный строковый литерал или конкатенацию
-`'...' || выражение || '...'` прямо в вызове. Если текст запроса
-собирается по частям в переменную несколькими отдельными операторами
-до самого `EXECUTE IMMEDIATE` (`l_sql := 'BULK'; l_sql := l_sql ||
-' COLLECT INTO ...'; ... EXECUTE IMMEDIATE l_sql;`), видна только
-финальная переменная — то, как именно она была собрана, не
-отслеживается. И отдельно: динамический SQL через старый API
-`DBMS_SQL.PARSE`/`DBMS_SQL.EXECUTE` (не `EXECUTE IMMEDIATE`) не
-поддержан вообще — ни один детектор его не ищет. Оба случая на
-практике реже, чем прямой `EXECUTE IMMEDIATE` с литералом или
-конкатенацией (которого достаточно для реальных находок в `utPLSQL`,
-см. выше), но не проверены эмпирически с той же строгостью.
+Even where dynamic SQL visibility exists, it has its own limits.
+`mask_dynamic_sql_visible()` only sees the `EXECUTE IMMEDIATE` argument
+itself, a single string literal or a `'...' || expression || '...'`
+concatenation directly in the call. If the query text gets assembled into
+a variable piece by piece across several separate statements before the
+`EXECUTE IMMEDIATE` itself (`l_sql := 'BULK'; l_sql := l_sql || '
+COLLECT INTO ...'; ... EXECUTE IMMEDIATE l_sql;`), only the final
+variable is visible, how exactly it was assembled isn't tracked.
+Separately: dynamic SQL via the old `DBMS_SQL.PARSE`/`DBMS_SQL.EXECUTE`
+API (not `EXECUTE IMMEDIATE`) isn't supported at all, no detector looks
+for it. Both cases are rarer in practice than a direct `EXECUTE IMMEDIATE`
+with a literal or concatenation (which was enough to produce real
+findings in `utPLSQL`, see above), but haven't been verified empirically
+with the same rigor.
 
-## Пост-миграционная проверка (`--verify`)
+## Post-migration verification (`--verify`)
 
-`--verify` сравнивает pre-migration находки (снапшот `--save`) с тем, что
-статически видно в уже сгенерированном ora2pg PostgreSQL-коде — на
-уровне детектора, не отдельной находки (сопоставление по файлу/объекту/
-фрагменту, как в `baseline.py`, не переживает границу Oracle→PostgreSQL:
-ora2pg переименовывает объекты — например, `autonomous_tx` в своей
-dblink-стратегии добавляет суффикс `_atx` — и файл в любом случае другой).
-Реализовано в `verification.py`.
+`--verify` compares pre-migration findings (a `--save` snapshot) against
+what's statically visible in the already-generated ora2pg PostgreSQL
+code, at detector granularity, not per finding (file/object/snippet
+matching, like `baseline.py` uses, doesn't survive the Oracle→PostgreSQL
+boundary: ora2pg renames objects, e.g. `autonomous_tx`'s own dblink
+strategy appends an `_atx` suffix, and the file is different either way).
+Implemented in `verification.py`.
 
-Не поведенческая/функциональная проверка: инструмент не подключается ни
-к одной из баз, ничего не выполняет, не сравнивает данные. Он просто
-запускает те же детекторы на сгенерированном файле вместо исходного
-Oracle-файла — и это работает не для всех 38 детекторов одинаково,
-потому что не все конструкции одинаково переживают конвертацию:
+This is not a behavioral/functional check: the tool never connects to
+either database, never executes anything, never compares data. It simply
+runs the same detectors against the generated file instead of the
+original Oracle file, and that doesn't work the same way for all 38
+detectors, because not every construct survives conversion the same way:
 
-- **`VERBATIM`** (15 детекторов) — `ora2pg` копирует помеченную
-  Oracle-конструкцию в вывод практически без изменений (подтверждено по
-  собственному research-документу каждого детектора, разделу «что
-  делает ora2pg»): `bulk_collect`, `conditional_compilation`,
-  `cross_apply`, `database_link`, `dbms_utl_calls`, `default_on_null`,
+- **`VERBATIM`** (15 detectors) — `ora2pg` copies the flagged Oracle
+  construct into its output essentially unchanged (confirmed from each
+  detector's own research doc, the "what ora2pg does" section):
+  `bulk_collect`, `conditional_compilation`, `cross_apply`,
+  `database_link`, `dbms_utl_calls`, `default_on_null`,
   `flashback_query`, `identity_column`, `insert_all`, `json_table`,
   `merge_delete_clause`, `model_clause`, `object_type`, `pivot_clause`,
-  `recursive_with`. Для них повторный прогон того же детектора по
-  сгенерированному файлу — реальная проверка: `STILL_PRESENT`, если
-  паттерн остался, `NOT_DETECTED`, если пропал.
+  `recursive_with`. For these, re-running the same detector against the
+  generated file is a real check: `STILL_PRESENT` if the pattern remains,
+  `NOT_DETECTED` if it's gone.
 
-- **`NOT_VERIFIABLE`** (22 детектора) — `ora2pg` либо целиком
-  отбрасывает конструкцию или полностью переписывает её в другую форму
+- **`NOT_VERIFIABLE`** (22 detectors) — `ora2pg` either drops the
+  construct entirely or rewrites it into a completely different shape
   (`read_only_table`, `table_partitioning`, `invisible_column`,
   `invisible_index`, `external_table`, `collection_type`,
   `context_object`, `materialized_view_log`, `sql_macro`, `rowid_type`,
-  `sequence_cycle`, `index_organized_table`, `public_synonym` — конструкция переписывается в
-  `CREATE VIEW`, ключевые слова `SYNONYM`/`FOR` не переживают
-  конвертацию, `virtual_column` — конструкция переписывается в обычный
-  столбец + триггер, `GENERATED ALWAYS AS ... VIRTUAL` не переживает
-  конвертацию, `package_state` — пакетная переменная переписывается в
-  вызовы `set_config`/`current_setting`, само объявление не переживает
-  конвертацию — конкретное ключевое слово/тип, которое ищет детектор,
-  физически не может оказаться в выводе ни при какой миграции, вне
-  зависимости от того, решил ли кто-то проблему вручную другим
-  способом), либо настолько разваливает окружающую структуру
-  (`with_function`, `connect_by_nocycle`, `nested_subprogram` —
-  вложенность полностью расплющивается при экспорте, повторное
-  обнаружение самой структуры нельзя доверять — см. их собственные
-  research-документы, «разваливает структуру»), что чистое повторное
-  обнаружение нельзя доверять. `oracle_text` смешанный (сам
-  домен-индекс отбрасывается, вызовы `CONTAINS`/`CATSEARCH`/`MATCHES`
-  копируются как есть) и консервативно отнесён целиком к
-  `NOT_VERIFIABLE`. `autonomous_tx` — по другой причине: его находка
-  вообще не про форму кода, а про недооценку стоимости в
-  `SHOW_REPORT`/`--estimate_cost`, там нечего перепроверять
-  постфактум. Для всех них показывать `NOT_DETECTED` было бы
-  тавтологией (конструкции гарантированно не будет в выводе на *любой*
-  миграции) — вместо этого `--verify` явно говорит `NOT_VERIFIABLE`.
+  `sequence_cycle`, `index_organized_table`, `public_synonym`: rewritten
+  into a `CREATE VIEW`, the `SYNONYM`/`FOR` keywords don't survive
+  conversion; `virtual_column`: rewritten into a plain column + trigger,
+  `GENERATED ALWAYS AS ... VIRTUAL` doesn't survive conversion;
+  `package_state`: a package variable rewritten into
+  `set_config`/`current_setting` calls, the declaration itself doesn't
+  survive conversion — the specific keyword/type the detector looks for
+  physically cannot end up in the output for any migration, regardless of
+  whether someone worked around the problem by hand some other way), or
+  it flattens the surrounding structure so badly (`with_function`,
+  `connect_by_nocycle`, `nested_subprogram`: nesting is completely
+  flattened on export, re-detecting the structure itself can't be
+  trusted, see each one's own research doc, "flattens the structure")
+  that a clean re-detection can't be trusted. `oracle_text` is mixed (the
+  domain index itself is dropped, `CONTAINS`/`CATSEARCH`/`MATCHES` calls
+  are copied as-is) and is conservatively classified entirely as
+  `NOT_VERIFIABLE`. `autonomous_tx` is `NOT_VERIFIABLE` for a different
+  reason: its finding isn't about the shape of the code at all, it's
+  about `SHOW_REPORT`/`--estimate_cost` underestimating cost, there's
+  nothing to re-check after the fact. Showing `NOT_DETECTED` for any of
+  these would be a tautology (the construct is guaranteed to be absent
+  from the output on *any* migration), so `--verify` says
+  `NOT_VERIFIABLE` explicitly instead.
 
-- **`connect_by`** не входит ни в одну из категорий: он и так анализирует
-  только сгенерированный код (`--check-connect-by`), поэтому у него нет
-  отдельной pre-migration Oracle-находки, с которой `--verify` могло бы
-  сравнивать.
+- **`connect_by`** falls into neither category: it already only analyzes
+  generated code (`--check-connect-by`), so it has no separate
+  pre-migration Oracle finding for `--verify` to compare against.
 
-`scripts/doctor.py` сверяет, что у каждого реального детектора на диске
-есть запись в `VERIFICATION_MODE` — тот же класс проверки, что и для
+`scripts/doctor.py` checks that every real detector on disk has an entry
+in `VERIFICATION_MODE`, the same class of check as for
 `EXPLANATION_EN`/`REMEDIATION_HINT_EN`.
 
-Таблица режима по каждому конкретному gap'у (не только по категориям, как
-здесь) — [`docs/verification-capability-matrix.md`](verification-capability-matrix.md).
+A per-gap table of this mode (not just by category, as above) is in
+[`docs/verification-capability-matrix.md`](verification-capability-matrix.md).

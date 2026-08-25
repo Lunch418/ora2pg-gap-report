@@ -514,7 +514,7 @@ PR — в [`CONTRIBUTING.md`](CONTRIBUTING.ru.md), нормы поведения
 
 ## Changelog
 
-История изменений по версиям — [CHANGELOG.md](CHANGELOG.md).
+История изменений по версиям — [CHANGELOG.md](CHANGELOG.ru.md).
 
 ## Лицензия
 

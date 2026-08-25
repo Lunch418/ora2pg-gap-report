@@ -1,33 +1,36 @@
+*English | [Русский](CONTRIBUTING.ru.md)*
+
 # Contributing
 
-## Прислать находку без кода
+## Send a finding without any code
 
-Не обязательно писать детектор самому. Если у вас есть реальная Oracle-схема
-с конструкцией, которую `ora2pg` конвертирует с потерей семантики или багом
-— опишите её в [issue #2](https://github.com/Lunch418/ora2pg-gap-report/issues/2)
-или заведите отдельный issue: минимальный пример DDL/PL-SQL, что делает
-`ora2pg` (реальный вывод, не по документации), что происходит при загрузке
-результата в PostgreSQL.
+You don't have to write a detector yourself. If you have a real Oracle
+schema with a construct that `ora2pg` converts with a loss of semantics or
+a bug, describe it in [issue #2](https://github.com/Lunch418/ora2pg-gap-report/issues/2)
+or open a separate issue: a minimal DDL/PL-SQL example, what `ora2pg`
+actually does with it (real output, not what the docs say), and what
+happens when you load the result into PostgreSQL.
 
-## Прислать код
+## Send code
 
-Полный процесс — как добавляется детектор, что за корпус реального кода
-используется для проверки на ложные срабатывания, как подтвердить находку
-на живой Oracle — описан в [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
-Коротко:
+The full process — how a detector gets added, what real-code corpus is
+used to check for false positives, how to confirm a finding against a live
+Oracle — is described in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). In
+short:
 
-1. Гипотеза подтверждается на практике: минимальный пример → реальный
-   `ora2pg` → проверка сгенерированного PostgreSQL-кода. Если `ora2pg`
-   справился — детектора не будет, это нормальный исход.
-2. Перед PR: `pytest`, `ruff check`, `mypy`, `python3 scripts/doctor.py` —
-   все четыре зелёные (`doctor.py` — часть CI, ловит расхождение
-   реестра/документации с кодом на диске).
-3. У каждого детектора — минимум один позитивный тест и минимум один
-   guard-тест на ложные срабатывания.
+1. The hypothesis is confirmed in practice: minimal example → real
+   `ora2pg` → check the generated PostgreSQL code. If `ora2pg` handled it
+   fine, there's no detector to add, that's a normal outcome.
+2. Before a PR: `pytest`, `ruff check`, `mypy`, `python3 scripts/doctor.py`
+   all green (`doctor.py` is part of CI, catches the registry/docs
+   drifting from the code on disk).
+3. Every detector gets at least one positive test and at least one guard
+   test against false positives.
 
-## Стиль
+## Style
 
-Без внешних зависимостей в `ora2pg_gap_report/` (кроме `rich` — только у
-CLI-обёртки — и `textual`, только у `tui_app.py`/`--tui`, опциональный
-extra `[tui]`, не часть базовой установки). Комментарии — только там, где
-объясняют неочевидное решение ("почему так", а не "что делает код").
+No external dependencies in `ora2pg_gap_report/` (other than `rich`, used
+only by the CLI wrapper, and `textual`, used only by `tui_app.py`/`--tui`,
+an optional `[tui]` extra, not part of the base install). Comments only
+where they explain a non-obvious decision ("why", not "what the code
+does").

@@ -17,8 +17,17 @@ patch — исправления в существующих.
   `--write` is required to actually rewrite the files. Standalone mode,
   same as `--verify`/`--tui`/`--explain` — not combinable with the
   scan-shaping flags.
+- English versions of `CODE_OF_CONDUCT.md`/`CONTRIBUTING.md`/`SECURITY.md`
+  (the canonical filenames now, matching `README.md`), with the previous
+  Russian text moved to `*.ru.md` and a language switcher on both, same
+  split as `README.md`/`README.ru.md`.
 
 ### Changed
+- License switched from MIT to Apache-2.0 (`LICENSE`, `pyproject.toml`,
+  both READMEs). MIT already required keeping the copyright/license notice
+  on redistribution; Apache-2.0 additionally requires modified files to
+  carry a notice that they were changed. Sole author, no other
+  contributors to get consent from.
 - Новый `core.py`: `scan_source()`/`count_objects()`/`_expand_paths()`/
   `_connect_by_check()`/`_sort_findings()` (плюс `_DETECTORS`/
   `detector_names()`) переехали туда из `cli.py`. `tui_app.py` раньше

@@ -246,6 +246,10 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
     version_line = i18n.t(
         lang, "confirmed_versions", ora2pg_version=gap.ora2pg_version, postgresql_version=gap.postgresql_version
     )
+    # Same "high"/"medium"/"low" the terminal report shows uppercased
+    # elsewhere (_SEVERITY_STYLE in terminal_report.py) -- not translated
+    # into Russian words, kept consistent with that existing display.
+    severity_line = i18n.t(lang, "explain_severity_line", severity=gap.severity.upper())
     # None for most gaps so far -- a deliberate partial rollout, see
     # gap_registry.py's own failure_stage field docstring. No line at all
     # when unset, rather than an empty/placeholder one.
@@ -266,6 +270,7 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
         # for this module, see its docstring.
         console.print(i18n.t(lang, "explain_doc_not_local", number=gap.number, detector=gap.detector))
         console.print(version_line)
+        console.print(severity_line)
         if stage_line is not None:
             console.print(stage_line)
         console.print(i18n.t(lang, "explain_see_github", url=research_doc_url(gap)))
@@ -273,6 +278,7 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
 
     console.print(Panel(Text(f"GAP-{gap.number} — {gap.detector}"), border_style="cyan"))
     console.print(version_line)
+    console.print(severity_line)
     if stage_line is not None:
         console.print(stage_line)
     console.print(doc_path.read_text(encoding="utf-8"))

@@ -49,6 +49,13 @@ two in FAILURE_STAGE_EXEMPT_DETECTORS (see gap_registry.py's own
 docstring and docs/failure-stage-notes.md for why those two are
 different in kind, not just unclassified yet).
 
+And that every gap's `severity` is a real value and matches the literal
+severity="..." string the detector's own source actually uses -- this
+was the one gap-level fact that had no cross-check against reality at
+all before: nothing previously would have noticed if gap_registry.py's
+claimed severity for a detector drifted from what a later edit to that
+detector's own code actually emits.
+
 Run: python3 scripts/doctor.py
 Exit code: 0 if every gap's artifacts check out, 1 if any is missing.
 """
@@ -81,9 +88,9 @@ from ora2pg_gap_report.verification import VERIFICATION_MODE  # noqa: E402
 _TREE_ENTRY_RE = re.compile(r"^│\s+(?:├──|└──)\s+([a-z_]+)\.py")
 _DETECTORS_LINE_RE = re.compile(r"^├── detectors/\s*$")
 
-# Matches a GAP_REGISTRY.md table row's number/ora2pg-version/postgresql-
-# version columns, e.g.
-# '| GAP-001 | ... | `autonomous_tx` | confirmed | 25.0 | 16 | [gap-001](...) |'.
+# Matches a GAP_REGISTRY.md table row's number/severity/ora2pg-version/
+# postgresql-version columns, e.g.
+# '| GAP-001 | ... | `autonomous_tx` | high | confirmed | 25.0 | 16 | [gap-001](...) |'.
 # Anchored on '| confirmed |' specifically (not just any two version-
 # shaped columns) so a future non-'confirmed' status row (fixed-upstream/
 # wont-fix, both real statuses this table documents) isn't silently
@@ -96,7 +103,18 @@ _DETECTORS_LINE_RE = re.compile(r"^├── detectors/\s*$")
 # md_parity() would skip comparing it instead of flagging real drift --
 # a digits-only pattern here would fail exactly the way this whole check
 # exists to prevent.
-_GAP_REGISTRY_ROW_RE = re.compile(r"^\| GAP-(\d{3}) \|.*\| confirmed \| ([\d.]+) \| ([\d.]+) \|", re.MULTILINE)
+_GAP_REGISTRY_ROW_RE = re.compile(
+    r"^\| GAP-(\d{3}) \|.*\| (high|medium|low) \| confirmed \| ([\d.]+) \| ([\d.]+) \|", re.MULTILINE
+)
+
+# Matches a `severity="high"`-shaped literal anywhere in a detector's own
+# source text -- used to cross-check GapEntry.severity against what the
+# detector's Finding(...) calls actually emit, not just what the registry
+# claims. VALID_SEVERITIES is the same three values models.Finding's own
+# `severity` field comment documents; kept here rather than imported, since
+# Finding doesn't expose them as a checkable collection of its own.
+_SEVERITY_LITERAL_RE = re.compile(r'severity="(high|medium|low)"')
+VALID_SEVERITIES = ("high", "medium", "low")
 
 
 def _detector_names_on_disk() -> set[str]:
@@ -206,25 +224,27 @@ def check_architecture_doc_parity() -> list[str]:
     return problems
 
 
-def _confirmed_gap_versions_in_text(registry_md_text: str) -> dict[str, tuple[str, str]]:
+def _confirmed_gap_versions_in_text(registry_md_text: str) -> dict[str, tuple[str, str, str]]:
     return {
-        number: (ora2pg_version, postgresql_version)
-        for number, ora2pg_version, postgresql_version in _GAP_REGISTRY_ROW_RE.findall(registry_md_text)
+        number: (severity, ora2pg_version, postgresql_version)
+        for number, severity, ora2pg_version, postgresql_version in _GAP_REGISTRY_ROW_RE.findall(
+            registry_md_text
+        )
     }
 
 
 def check_gap_registry_md_parity() -> list[str]:
-    """docs/research/GAP_REGISTRY.md's ora2pg/PostgreSQL version columns
-    must match gap_registry.py's own ora2pg_version/postgresql_version
-    fields for every gap the table marks 'confirmed' -- the Python fields
-    are the canonical source (GapEntry's own docstring says so), the
-    table is a human-facing restatement, and this only flags an actual
-    mismatch between the two, not a missing row: a gap the table marks
-    'fixed-upstream'/'wont-fix' instead of 'confirmed' is deliberately
-    not compared here, since neither of those statuses is tracked in
-    gap_registry.py at all -- there's nothing to compare it against, and
-    reporting that as a "drift" would be a false positive on a real,
-    intentional status change."""
+    """docs/research/GAP_REGISTRY.md's Severity/ora2pg/PostgreSQL columns
+    must match gap_registry.py's own severity/ora2pg_version/
+    postgresql_version fields for every gap the table marks 'confirmed'
+    -- the Python fields are the canonical source (GapEntry's own
+    docstring says so), the table is a human-facing restatement, and
+    this only flags an actual mismatch between the two, not a missing
+    row: a gap the table marks 'fixed-upstream'/'wont-fix' instead of
+    'confirmed' is deliberately not compared here, since neither of
+    those statuses is tracked in gap_registry.py at all -- there's
+    nothing to compare it against, and reporting that as a "drift" would
+    be a false positive on a real, intentional status change."""
     registry_md = (REPO_ROOT / "docs" / "research" / "GAP_REGISTRY.md").read_text(encoding="utf-8")
     confirmed_rows = _confirmed_gap_versions_in_text(registry_md)
 
@@ -232,7 +252,12 @@ def check_gap_registry_md_parity() -> list[str]:
     for gap in GAPS:
         if gap.number not in confirmed_rows:
             continue
-        row_ora2pg, row_postgresql = confirmed_rows[gap.number]
+        row_severity, row_ora2pg, row_postgresql = confirmed_rows[gap.number]
+        if row_severity != gap.severity:
+            problems.append(
+                f"GAP-{gap.number}: docs/research/GAP_REGISTRY.md указывает severity "
+                f"'{row_severity}', а gap_registry.py — '{gap.severity}'"
+            )
         if row_ora2pg != gap.ora2pg_version or row_postgresql != gap.postgresql_version:
             problems.append(
                 f"GAP-{gap.number}: docs/research/GAP_REGISTRY.md указывает ora2pg "
@@ -337,6 +362,57 @@ def check_failure_stage_values() -> list[str]:
     return problems
 
 
+def check_gap_severity_matches_detector_source() -> list[str]:
+    """GapEntry.severity must be one of VALID_SEVERITIES, and must match
+    what the detector's own source actually emits -- severity had never
+    been centralized anywhere before this field existed, so nothing
+    previously caught a registry claim drifting from a detector edited
+    later (or a typo at the point this field was first filled in for all
+    37 gaps by hand). Scans the detector's source text for every
+    `severity="..."` literal rather than importing and running the
+    detector against a fixture: every detector in this registry was
+    confirmed by hand to use exactly one such literal throughout its own
+    file (see gap_registry.py's GapEntry.severity docstring), so a plain
+    text scan is enough to catch drift without needing a triggering input
+    per detector -- the same style check_architecture_doc_parity() already
+    uses for the detector file tree, just scanning a .py file instead of a
+    .md one. A detector genuinely using more than one severity value would
+    make the source-derived set ambiguous rather than wrong -- reported as
+    its own, distinct problem, not silently resolved by picking one."""
+    problems = []
+    for gap in GAPS:
+        if gap.severity not in VALID_SEVERITIES:
+            problems.append(
+                f"GAP-{gap.number} ({gap.detector}): severity='{gap.severity}' "
+                f"не из VALID_SEVERITIES ({', '.join(VALID_SEVERITIES)})"
+            )
+            continue
+
+        detector_path = REPO_ROOT / "ora2pg_gap_report" / "detectors" / f"{gap.detector}.py"
+        if not detector_path.is_file():
+            continue  # already reported by check_gap()
+
+        source_severities = set(_SEVERITY_LITERAL_RE.findall(detector_path.read_text(encoding="utf-8")))
+        if len(source_severities) > 1:
+            problems.append(
+                f"GAP-{gap.number} ({gap.detector}): исходник детектора использует несколько "
+                f"разных severity ({', '.join(sorted(source_severities))}) -- gap_registry.py "
+                "не может задать одно значение для всех"
+            )
+        elif source_severities and source_severities != {gap.severity}:
+            (actual,) = source_severities
+            problems.append(
+                f"GAP-{gap.number} ({gap.detector}): gap_registry.py задаёт severity='{gap.severity}', "
+                f"а исходник детектора реально использует severity='{actual}'"
+            )
+        elif not source_severities:
+            problems.append(
+                f"GAP-{gap.number} ({gap.detector}): в исходнике детектора не нашлось ни одного "
+                "severity=\"...\" литерала для сверки с gap_registry.py"
+            )
+    return problems
+
+
 def main() -> int:
     print(f"Проверено {len(GAPS)} gap'ов из реестра (ora2pg_gap_report/gap_registry.py).\n")
 
@@ -349,6 +425,7 @@ def main() -> int:
     all_problems.extend(check_verification_mode_parity())
     all_problems.extend(check_scan_loop_registration_parity())
     all_problems.extend(check_failure_stage_values())
+    all_problems.extend(check_gap_severity_matches_detector_source())
 
     if not all_problems:
         print(
@@ -357,8 +434,9 @@ def main() -> int:
             "версии в GAP_REGISTRY.md совпадают с gap_registry.py, у каждого детектора "
             "есть английский перевод в i18n.py, у каждого детектора есть запись в "
             "verification.py, каждый детектор с диска реально зарегистрирован в "
-            "core._DETECTORS, и у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
-            "задан валидный failure_stage."
+            "core._DETECTORS, у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
+            "задан валидный failure_stage, и у каждого gap'а severity в реестре совпадает "
+            "с тем, что реально использует исходник детектора."
         )
         return 0
 

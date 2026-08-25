@@ -867,6 +867,23 @@ def test_main_explain_prints_the_confirmed_version_stamp(capsys):
     assert "PostgreSQL 16" in captured.out
 
 
+def test_main_explain_prints_severity(capsys):
+    # GAP-023 (oracle_text) is high severity -- shown uppercased, same as
+    # the terminal report's own severity styling elsewhere.
+    exit_code = main(["--explain", "GAP-023"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Severity: HIGH" in captured.out
+
+
+def test_main_explain_prints_severity_for_a_medium_gap(capsys):
+    # GAP-015 (context_object) is one of the four medium-severity gaps.
+    exit_code = main(["--explain", "GAP-015"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Severity: MEDIUM" in captured.out
+
+
 def test_main_explain_prints_failure_stage_when_set(capsys):
     # GAP-031 is one of the trial batch with failure_stage populated (see
     # gap_registry.py) -- deployment.

@@ -355,3 +355,46 @@ def test_gap_severity_matches_detector_source_skips_a_missing_detector_file(monk
     fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), severity="high")
     monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
     assert doctor.check_gap_severity_matches_detector_source() == []
+
+
+def test_translations_are_not_glued_is_clean_on_the_real_repository_state():
+    # Integration-style, same spirit as the other parity tests. This one
+    # exists because the bug it catches actually shipped: a batch of
+    # translations was generated with a line-wrapper that stripped the
+    # separating spaces, producing "anobject type" and similar. Every
+    # other check passed on that state -- the translations were present
+    # and the module imported fine.
+    assert doctor.check_translations_are_not_glued() == []
+
+
+def test_translations_are_not_glued_flags_a_glued_word(monkeypatch):
+    monkeypatch.setattr(
+        doctor.i18n,
+        "EXPLANATION_EN",
+        {"какое-то русское сообщение": "an Oracle table where anobjecttypeinstance lives"},
+    )
+    monkeypatch.setattr(doctor.i18n, "REMEDIATION_HINT_EN", {})
+    problems = doctor.check_translations_are_not_glued()
+    assert len(problems) == 1
+    assert "anobjecttypeinstance" in problems[0]
+    assert "EXPLANATION_EN" in problems[0]
+
+
+def test_translations_are_not_glued_also_checks_remediation_hints(monkeypatch):
+    monkeypatch.setattr(doctor.i18n, "EXPLANATION_EN", {})
+    monkeypatch.setattr(
+        doctor.i18n, "REMEDIATION_HINT_EN", {"some_detector": "rewriteusingwindowfunctions instead"}
+    )
+    problems = doctor.check_translations_are_not_glued()
+    assert len(problems) == 1
+    assert "REMEDIATION_HINT_EN" in problems[0]
+
+
+def test_translations_are_not_glued_allows_ordinary_text(monkeypatch):
+    monkeypatch.setattr(
+        doctor.i18n,
+        "EXPLANATION_EN",
+        {"ru": "an Oracle object table: every row is an instance of an object type"},
+    )
+    monkeypatch.setattr(doctor.i18n, "REMEDIATION_HINT_EN", {})
+    assert doctor.check_translations_are_not_glued() == []

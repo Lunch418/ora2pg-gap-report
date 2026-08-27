@@ -1553,126 +1553,126 @@ EXPLANATION_EN: dict[str, str] = {
         "real load after migration."
     ),
     'MATCH_RECOGNIZE (Oracle 12c+) — сопоставление строк с шаблоном прямо в SQL (PARTITION BY / ORDER BY / MEASURES / PATTERN / DEFINE): поиск последовательностей строк, соответствующих регулярному выражению над потоком, для анализа трендов, сессий, последовательностей событий. ora2pg копирует конструкцию в вывод как есть, без изменений (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/gap-038-match-recognize.md). У PostgreSQL нет никакого аналога row pattern matching — падает синтаксической ошибкой уже при загрузке сгенерированного DDL. Переписывается вручную через оконные функции (LAG/LEAD над разделами) плюс фильтрацию, либо через рекурсивный CTE — прямой замены на одну конструкцию не существует.': (
-        'MATCH_RECOGNIZE (Oracle 12c+) — row pattern matching directly in SQL (PARTITION BY /'
-        'ORDER BY / MEASURES / PATTERN / DEFINE): finding sequences of rows that match a'
-        'regular-expression-like pattern over an ordered stream, used for trend, session and'
-        'event-sequence analysis. ora2pg copies the clause into its output unchanged'
-        '(confirmed against a real ora2pg 25.0 + PostgreSQL 16 run,'
-        'docs/research/gap-038-match-recognize.md). PostgreSQL has no row pattern matching of'
-        'any kind — the generated DDL fails to load with a syntax error. Rewritten by hand'
-        'using window functions (LAG/LEAD over the partition) plus filtering, or a recursive'
+        'MATCH_RECOGNIZE (Oracle 12c+) — row pattern matching directly in SQL (PARTITION BY / '
+        'ORDER BY / MEASURES / PATTERN / DEFINE): finding sequences of rows that match a '
+        'regular-expression-like pattern over an ordered stream, used for trend, session and '
+        'event-sequence analysis. ora2pg copies the clause into its output unchanged '
+        '(confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, '
+        'docs/research/gap-038-match-recognize.md). PostgreSQL has no row pattern matching of '
+        'any kind — the generated DDL fails to load with a syntax error. Rewritten by hand '
+        'using window functions (LAG/LEAD over the partition) plus filtering, or a recursive '
         'CTE — there is no single-construct replacement.'
     ),
     'CONNECT_BY_ROOT / CONNECT_BY_ISLEAF / CONNECT_BY_ISCYCLE — иерархические операторы и псевдостолбцы Oracle: корневое значение ветки, признак листа, признак цикла. ora2pg разворачивает сам CONNECT BY в WITH RECURSIVE, но эти три конструкции переносит в сгенерированный код как есть, без замены (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/gap-039-connect-by-pseudocolumn.md). PostgreSQL их не знает — падает при загрузке (синтаксическая ошибка на CONNECT_BY_ROOT, «column does not exist» на ISLEAF/ISCYCLE). Переписывается вручную: корень ветки протаскивается через дополнительный столбец рекурсивного CTE, признак листа считается отдельным NOT EXISTS-подзапросом, признак цикла — через CYCLE-секцию рекурсивного CTE (PostgreSQL 14+). Отдельно: SYS_CONNECT_BY_PATH этим детектором НЕ помечается — его ora2pg конвертирует корректно.': (
-        "CONNECT_BY_ROOT / CONNECT_BY_ISLEAF / CONNECT_BY_ISCYCLE — Oracle's hierarchical"
-        "operator and pseudocolumns: the branch's root value, the leaf flag, the cycle flag."
-        'ora2pg does expand the surrounding CONNECT BY into a WITH RECURSIVE, but carries'
-        'these three through into the generated code unchanged (confirmed against a real'
-        'ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-039-connect-by-pseudocolumn.md).'
-        "PostgreSQL doesn't know them — it fails at load time (a syntax error on"
-        'CONNECT_BY_ROOT, "column does not exist" on ISLEAF/ISCYCLE). Rewritten by hand:'
-        'carry the branch root through an extra recursive-CTE column, compute the leaf flag'
-        "with a NOT EXISTS subquery, and the cycle flag with the CTE's own CYCLE clause"
-        '(PostgreSQL 14+). Note: SYS_CONNECT_BY_PATH is deliberately NOT flagged by this'
+        "CONNECT_BY_ROOT / CONNECT_BY_ISLEAF / CONNECT_BY_ISCYCLE — Oracle's hierarchical "
+        "operator and pseudocolumns: the branch's root value, the leaf flag, the cycle flag. "
+        'ora2pg does expand the surrounding CONNECT BY into a WITH RECURSIVE, but carries '
+        'these three through into the generated code unchanged (confirmed against a real '
+        'ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-039-connect-by-pseudocolumn.md). '
+        "PostgreSQL doesn't know them — it fails at load time (a syntax error on "
+        'CONNECT_BY_ROOT, "column does not exist" on ISLEAF/ISCYCLE). Rewritten by hand: '
+        'carry the branch root through an extra recursive-CTE column, compute the leaf flag '
+        "with a NOT EXISTS subquery, and the cycle flag with the CTE's own CYCLE clause "
+        '(PostgreSQL 14+). Note: SYS_CONNECT_BY_PATH is deliberately NOT flagged by this '
         'detector — ora2pg converts that one correctly.'
     ),
     'KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) — Oracle-специфичный вариант агрегатной функции: взять значение агрегата не по всей группе, а по строке, первой (или последней) в заданном порядке внутри группы (классика — «зарплата самого раннего нанятого в отделе»). ora2pg копирует конструкцию в вывод как есть (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/gap-040-keep-dense-rank.md). У PostgreSQL нет KEEP-синтаксиса — падает синтаксической ошибкой при загрузке. Переписывается вручную: чаще всего через оконную функцию FIRST_VALUE/LAST_VALUE с той же ORDER BY в OVER-разделе, либо через DISTINCT ON, либо через агрегаты PostgreSQL с FILTER.': (
-        "KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) — Oracle's aggregate modifier that takes"
-        'the aggregate not over the whole group but over the row that comes first (or last)'
-        'in a given order within that group (the classic case: "the salary of the earliest'
-        'hire in each department"). ora2pg copies the construct into its output unchanged'
-        '(confirmed against a real ora2pg 25.0 + PostgreSQL 16 run,'
-        'docs/research/gap-040-keep-dense-rank.md). PostgreSQL has no KEEP syntax — it fails'
-        'to load with a syntax error. Rewritten by hand: usually a FIRST_VALUE/LAST_VALUE'
-        'window function with the same ORDER BY inside OVER, or DISTINCT ON, or a PostgreSQL'
+        "KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) — Oracle's aggregate modifier that takes "
+        'the aggregate not over the whole group but over the row that comes first (or last) '
+        'in a given order within that group (the classic case: "the salary of the earliest '
+        'hire in each department"). ora2pg copies the construct into its output unchanged '
+        '(confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, '
+        'docs/research/gap-040-keep-dense-rank.md). PostgreSQL has no KEEP syntax — it fails '
+        'to load with a syntax error. Rewritten by hand: usually a FIRST_VALUE/LAST_VALUE '
+        'window function with the same ORDER BY inside OVER, or DISTINCT ON, or a PostgreSQL '
         'aggregate with FILTER.'
     ),
     "Операторы над коллекциями Oracle — CAST(MULTISET(...)), MULTISET UNION/INTERSECT/EXCEPT, MEMBER OF, SUBMULTISET OF: работа с вложенными таблицами и VARRAY как со множествами прямо в SQL. ora2pg копирует эти конструкции в вывод как есть, без изменений (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/gap-041-multiset-operator.md). У PostgreSQL нет ни одного из этих операторов — падает синтаксической ошибкой при загрузке. Переписывается вручную под модель массивов PostgreSQL: CAST(MULTISET(...)) → ARRAY(SELECT ...), MULTISET UNION → оператор || над массивами или отдельный UNION-подзапрос, MEMBER OF → '= ANY(массив)', SUBMULTISET OF → оператор <@ над массивами.": (
-        "Oracle's collection operators — CAST(MULTISET(...)), MULTISET"
-        'UNION/INTERSECT/EXCEPT, MEMBER OF, SUBMULTISET OF: treating nested tables and'
-        'VARRAYs as sets directly in SQL. ora2pg copies these constructs into its output'
-        'unchanged (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run,'
-        'docs/research/gap-041-multiset-operator.md). PostgreSQL has none of these operators'
-        "— it fails to load with a syntax error. Rewritten by hand against PostgreSQL's array"
-        'model: CAST(MULTISET(...)) → ARRAY(SELECT ...), MULTISET UNION → the || operator'
-        "over arrays or a separate UNION subquery, MEMBER OF → '= ANY(array)', SUBMULTISET OF"
+        "Oracle's collection operators — CAST(MULTISET(...)), MULTISET "
+        'UNION/INTERSECT/EXCEPT, MEMBER OF, SUBMULTISET OF: treating nested tables and '
+        'VARRAYs as sets directly in SQL. ora2pg copies these constructs into its output '
+        'unchanged (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, '
+        'docs/research/gap-041-multiset-operator.md). PostgreSQL has none of these operators '
+        "— it fails to load with a syntax error. Rewritten by hand against PostgreSQL's array "
+        'model: CAST(MULTISET(...)) → ARRAY(SELECT ...), MULTISET UNION → the || operator '
+        "over arrays or a separate UNION subquery, MEMBER OF → '= ANY(array)', SUBMULTISET OF "
         '→ the <@ operator over arrays.'
     ),
     'SAMPLE (n) / SAMPLE BLOCK (n) — выборка случайного процента строк (или блоков) таблицы прямо во FROM, Oracle-специфичный синтаксис. ora2pg копирует конструкцию в вывод как есть (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/gap-042-sample-clause.md). У PostgreSQL есть своя выборка, но с другим синтаксисом и другим местом в запросе — TABLESAMPLE BERNOULLI (n) / TABLESAMPLE SYSTEM (n) — поэтому скопированный как есть Oracle-вариант падает синтаксической ошибкой при загрузке. Переписывается вручную: SAMPLE (n) → TABLESAMPLE BERNOULLI (n) (построчная выборка, ближе к Oracle SAMPLE), SAMPLE BLOCK (n) → TABLESAMPLE SYSTEM (n) (поблочная, быстрее, но статистически грубее).': (
-        "SAMPLE (n) / SAMPLE BLOCK (n) — selecting a random percentage of a table's rows (or"
-        'blocks) directly in the FROM clause, Oracle-specific syntax. ora2pg copies the'
-        'construct into its output unchanged (confirmed against a real ora2pg 25.0 +'
-        'PostgreSQL 16 run, docs/research/gap-042-sample-clause.md). PostgreSQL has its own'
-        'sampling, but with different syntax and a different position in the query —'
-        'TABLESAMPLE BERNOULLI (n) / TABLESAMPLE SYSTEM (n) — so the verbatim-copied Oracle'
-        'form fails to load with a syntax error. Rewritten by hand: SAMPLE (n) → TABLESAMPLE'
-        "BERNOULLI (n) (per-row sampling, closer to Oracle's SAMPLE), SAMPLE BLOCK (n) →"
+        "SAMPLE (n) / SAMPLE BLOCK (n) — selecting a random percentage of a table's rows (or "
+        'blocks) directly in the FROM clause, Oracle-specific syntax. ora2pg copies the '
+        'construct into its output unchanged (confirmed against a real ora2pg 25.0 + '
+        'PostgreSQL 16 run, docs/research/gap-042-sample-clause.md). PostgreSQL has its own '
+        'sampling, but with different syntax and a different position in the query — '
+        'TABLESAMPLE BERNOULLI (n) / TABLESAMPLE SYSTEM (n) — so the verbatim-copied Oracle '
+        'form fails to load with a syntax error. Rewritten by hand: SAMPLE (n) → TABLESAMPLE '
+        "BERNOULLI (n) (per-row sampling, closer to Oracle's SAMPLE), SAMPLE BLOCK (n) → "
         'TABLESAMPLE SYSTEM (n) (per-block, faster but statistically coarser).'
     ),
     'ACCESSIBLE BY (Oracle 12c+) — «белый список» вызывающих: подпрограмма объявляется доступной только перечисленным пакетам/процедурам, остальные получают ошибку компиляции при попытке её вызвать. Это средство инкапсуляции внутри схемы, работающее поверх обычных GRANT. ora2pg копирует секцию в вывод как есть, прямо в заголовок функции (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/gap-043-accessible-by.md). PostgreSQL такого синтаксиса не знает — CREATE PROCEDURE/FUNCTION падает синтаксической ошибкой уже при загрузке. Прямого аналога нет: ограничение «кто именно из кода может вызвать» в PostgreSQL не выражается — ближайшее по смыслу решение это вынести подпрограмму в отдельную схему и раздать права через GRANT/REVOKE, что даёт защиту на уровне ролей, а не на уровне конкретных вызывающих подпрограмм.': (
-        'ACCESSIBLE BY (Oracle 12c+) — a caller whitelist: the subprogram is declared'
-        'accessible only to the listed packages/procedures, and anything else gets a compile'
-        'error when it tries to call it. This is intra-schema encapsulation layered on top of'
-        'ordinary GRANTs. ora2pg copies the clause into its output verbatim, right into the'
-        'function header (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run,'
-        'docs/research/gap-043-accessible-by.md). PostgreSQL has no such syntax — CREATE'
-        'PROCEDURE/FUNCTION fails with a syntax error at load time. There is no direct'
-        'equivalent: "which code specifically may call this" isn\'t expressible in PostgreSQL'
-        '— the closest approach is moving the subprogram into its own schema and controlling'
-        'access with GRANT/REVOKE, which protects at the role level rather than per calling'
+        'ACCESSIBLE BY (Oracle 12c+) — a caller whitelist: the subprogram is declared '
+        'accessible only to the listed packages/procedures, and anything else gets a compile '
+        'error when it tries to call it. This is intra-schema encapsulation layered on top of '
+        'ordinary GRANTs. ora2pg copies the clause into its output verbatim, right into the '
+        'function header (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, '
+        'docs/research/gap-043-accessible-by.md). PostgreSQL has no such syntax — CREATE '
+        'PROCEDURE/FUNCTION fails with a syntax error at load time. There is no direct '
+        'equivalent: "which code specifically may call this" isn\'t expressible in PostgreSQL '
+        '— the closest approach is moving the subprogram into its own schema and controlling '
+        'access with GRANT/REVOKE, which protects at the role level rather than per calling '
         'subprogram.'
     ),
     'TIMESTAMP WITH LOCAL TIME ZONE — Oracle хранит момент времени в нормализованном виде и на чтении автоматически пересчитывает его в часовой пояс текущей сессии. ora2pg конвертирует такой столбец в простой timestamp — БЕЗ часового пояса (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/gap-044-local-time-zone.md). Ошибки не будет никогда: CREATE TABLE проходит, INSERT проходит, SELECT возвращает значение. Но пересчёт в часовой пояс сессии молча исчезает — одно и то же значение теперь отдаётся одинаковым во всех сессиях, независимо от их TIME ZONE, тогда как в Oracle оно сдвигалось. Для системы, где клиенты в разных поясах, это тихое расхождение в данных, которое проявится только как жалоба пользователя на неверное время. Правильная замена в PostgreSQL — timestamptz (timestamp with time zone): именно он делает то же, что Oracle LTZ.': (
-        'TIMESTAMP WITH LOCAL TIME ZONE — Oracle stores the instant normalised and'
-        "automatically converts it into the current session's time zone on read. ora2pg"
-        'converts such a column into a plain timestamp — WITHOUT any time zone (confirmed'
-        'against a real ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-044-local-time-'
-        'zone.md). No error is ever raised: CREATE TABLE succeeds, INSERT succeeds, SELECT'
-        'returns a value. But the session-time-zone conversion silently disappears — the same'
-        'value now comes back identical in every session regardless of its TIME ZONE, where'
-        'in Oracle it would have shifted. For a system with clients in different time zones'
-        'this is a silent data discrepancy that surfaces only as a user complaining about'
-        'wrong times. The faithful PostgreSQL replacement is timestamptz (timestamp with time'
+        'TIMESTAMP WITH LOCAL TIME ZONE — Oracle stores the instant normalised and '
+        "automatically converts it into the current session's time zone on read. ora2pg "
+        'converts such a column into a plain timestamp — WITHOUT any time zone (confirmed '
+        'against a real ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-044-local-time- '
+        'zone.md). No error is ever raised: CREATE TABLE succeeds, INSERT succeeds, SELECT '
+        'returns a value. But the session-time-zone conversion silently disappears — the same '
+        'value now comes back identical in every session regardless of its TIME ZONE, where '
+        'in Oracle it would have shifted. For a system with clients in different time zones '
+        'this is a silent data discrepancy that surfaces only as a user complaining about '
+        'wrong times. The faithful PostgreSQL replacement is timestamptz (timestamp with time '
         "zone): it does exactly what Oracle's LTZ does."
     ),
     "PERIOD FOR (Oracle 12c Temporal Validity) — объявление периода действительности строки: таблица получает пару границ времени и возможность запрашивать состояние «как было на дату» через AS OF PERIOD FOR. ora2pg не просто отбрасывает секцию — он разрушает её остатком, вставляя в список столбцов обрубок 'period FOR' (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/gap-045-temporal-validity.md). Сгенерированный CREATE TABLE падает синтаксической ошибкой уже при загрузке — то есть теряется не только сама фича, ломается создание всей таблицы. У PostgreSQL нет встроенной temporal validity; переписывается вручную: обычная пара timestamp-столбцов плюс фильтрация по ним в запросах (или расширение с типом tstzrange и ограничением-исключением, если нужен контроль пересечений).": (
-        "PERIOD FOR (Oracle 12c Temporal Validity) — declaring a row's validity period: the"
-        'table gets a pair of time boundaries and the ability to query "as it was on date X"'
-        "via AS OF PERIOD FOR. ora2pg doesn't merely drop the clause — it corrupts the"
-        "statement with a leftover, emitting a truncated 'period FOR' fragment into the"
-        'column list (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run,'
-        'docs/research/gap-045-temporal-validity.md). The generated CREATE TABLE fails to'
-        "load with a syntax error — so it isn't just the feature that's lost, creating the"
-        'whole table breaks. PostgreSQL has no built-in temporal validity; rewritten by hand'
-        'as an ordinary pair of timestamp columns plus filtering in queries (or a tstzrange'
+        "PERIOD FOR (Oracle 12c Temporal Validity) — declaring a row's validity period: the "
+        'table gets a pair of time boundaries and the ability to query "as it was on date X" '
+        "via AS OF PERIOD FOR. ora2pg doesn't merely drop the clause — it corrupts the "
+        "statement with a leftover, emitting a truncated 'period FOR' fragment into the "
+        'column list (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, '
+        'docs/research/gap-045-temporal-validity.md). The generated CREATE TABLE fails to '
+        "load with a syntax error — so it isn't just the feature that's lost, creating the "
+        'whole table breaks. PostgreSQL has no built-in temporal validity; rewritten by hand '
+        'as an ordinary pair of timestamp columns plus filtering in queries (or a tstzrange '
         'column with an exclusion constraint, if overlap control is needed).'
     ),
     'CREATE BITMAP INDEX — битовый индекс Oracle, рассчитанный на столбцы малой кардинальности (пол, статус, флаг) и на комбинирование нескольких таких индексов побитовыми операциями. ora2pg заменяет его на \'CREATE INDEX ... USING gin(...)\' (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/gap-046-bitmap-index.md). Для обычного скалярного столбца это не работает: PostgreSQL падает при загрузке с \'data type ... has no default operator class for access method "gin"\' — у gin по умолчанию нет класса операторов ни для varchar, ни для чисел, он рассчитан на составные типы (массивы, jsonb, tsvector). То есть индекс не просто станет другим по характеристикам — его создание не пройдёт вообще. У PostgreSQL нет битовых индексов как типа; на практике замена — обычный btree (планировщик умеет комбинировать несколько btree через bitmap scan самостоятельно, во время выполнения), либо gin с явным классом операторов из расширения btree_gin, если комбинирование нужно на уровне самого индекса.': (
-        "CREATE BITMAP INDEX — Oracle's bitmap index, designed for low-cardinality columns"
-        '(gender, status, a flag) and for combining several such indexes with bitwise'
-        "operations. ora2pg replaces it with 'CREATE INDEX ... USING gin(...)' (confirmed"
-        'against a real ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-046-bitmap-'
-        "index.md). For an ordinary scalar column that doesn't work: PostgreSQL fails at load"
-        'time with \'data type ... has no default operator class for access method "gin"\' —'
-        "GIN has no default operator class for varchar or numeric, it's designed for"
-        "composite types (arrays, jsonb, tsvector). So the index doesn't merely end up with"
-        'different characteristics — it fails to be created at all. PostgreSQL has no bitmap'
-        'index as an index type; in practice the replacement is a plain btree (the planner'
-        'can combine several btrees via a bitmap scan on its own, at execution time), or gin'
-        'with an explicit operator class from the btree_gin extension if the combining is'
+        "CREATE BITMAP INDEX — Oracle's bitmap index, designed for low-cardinality columns "
+        '(gender, status, a flag) and for combining several such indexes with bitwise '
+        "operations. ora2pg replaces it with 'CREATE INDEX ... USING gin(...)' (confirmed "
+        'against a real ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-046-bitmap- '
+        "index.md). For an ordinary scalar column that doesn't work: PostgreSQL fails at load "
+        'time with \'data type ... has no default operator class for access method "gin"\' — '
+        "GIN has no default operator class for varchar or numeric, it's designed for "
+        "composite types (arrays, jsonb, tsvector). So the index doesn't merely end up with "
+        'different characteristics — it fails to be created at all. PostgreSQL has no bitmap '
+        'index as an index type; in practice the replacement is a plain btree (the planner '
+        'can combine several btrees via a bitmap scan on its own, at execution time), or gin '
+        'with an explicit operator class from the btree_gin extension if the combining is '
         'needed at the index level.'
     ),
     "CREATE TABLE ... OF <тип> — объектная таблица Oracle: каждая строка является экземпляром объектного типа, а атрибуты типа становятся столбцами таблицы. ora2pg не конвертирует конструкцию и не отбрасывает её — он разрушает структуру таблицы: ключевое слово OF попадает в вывод как ИМЯ СТОЛБЦА, а объявления ограничений (например 'person_id PRIMARY KEY') теряются целиком (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/gap-047-object-table.md). Самое опасное здесь в том, что при существующем в целевой базе типе загрузка проходит БЕЗ ОШИБКИ: создаётся таблица с единственным столбцом по имени 'of' и без первичного ключа. Миграция выглядит успешной, а таблица молча имеет неверную структуру. Переписывается вручную: объектная таблица разворачивается в обычную таблицу с отдельным столбцом на каждый атрибут типа плюс явные ограничения.": (
-        'CREATE TABLE ... OF <type> — an Oracle object table: every row is an instance of an'
-        "object type, and the type's attributes become the table's columns. ora2pg neither"
-        "converts the construct nor drops it — it corrupts the table's structure: the OF"
-        'keyword ends up in the output as a COLUMN NAME, and the constraint declarations'
-        "(e.g. 'person_id PRIMARY KEY') are lost entirely (confirmed against a real ora2pg"
-        '25.0 + PostgreSQL 16 run, docs/research/gap-047-object-table.md). The most dangerous'
-        'part is that when the type does exist in the target database, the load succeeds WITH'
-        "NO ERROR: it creates a table with a single column named 'of' and no primary key. The"
-        'migration looks successful while the table silently has the wrong structure.'
-        'Rewritten by hand: expand the object table into an ordinary table with a separate'
+        'CREATE TABLE ... OF <type> — an Oracle object table: every row is an instance of an '
+        "object type, and the type's attributes become the table's columns. ora2pg neither "
+        "converts the construct nor drops it — it corrupts the table's structure: the OF "
+        'keyword ends up in the output as a COLUMN NAME, and the constraint declarations '
+        "(e.g. 'person_id PRIMARY KEY') are lost entirely (confirmed against a real ora2pg "
+        '25.0 + PostgreSQL 16 run, docs/research/gap-047-object-table.md). The most dangerous '
+        'part is that when the type does exist in the target database, the load succeeds WITH '
+        "NO ERROR: it creates a table with a single column named 'of' and no primary key. The "
+        'migration looks successful while the table silently has the wrong structure. '
+        'Rewritten by hand: expand the object table into an ordinary table with a separate '
         'column per type attribute plus explicit constraints.'
     ),
 }

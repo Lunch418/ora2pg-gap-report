@@ -1,0 +1,67 @@
+import re
+
+from ..models import Finding
+from ..plsql_lex import (
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_dynamic_sql_visible,
+    mask_strings_and_comments,
+)
+
+# CONNECT_BY_ROOT is an operator (prefix, applied to an expression),
+# CONNECT_BY_ISLEAF/CONNECT_BY_ISCYCLE are pseudocolumns -- all three are
+# copied verbatim by ora2pg and all three break the same way. Deliberately
+# does NOT match SYS_CONNECT_BY_PATH: ora2pg genuinely converts that one
+# into a working string concatenation inside the recursive CTE it builds
+# (verified separately, see the research doc) -- flagging it would be a
+# false positive on a construct that actually migrates fine.
+_PSEUDOCOLUMN_RE = re.compile(
+    r"\b(CONNECT_BY_ROOT|CONNECT_BY_ISLEAF|CONNECT_BY_ISCYCLE)\b",
+    re.IGNORECASE,
+)
+
+_MESSAGE = (
+    "CONNECT_BY_ROOT / CONNECT_BY_ISLEAF / CONNECT_BY_ISCYCLE — "
+    "иерархические операторы и псевдостолбцы Oracle: корневое значение "
+    "ветки, признак листа, признак цикла. ora2pg разворачивает сам "
+    "CONNECT BY в WITH RECURSIVE, но эти три конструкции переносит в "
+    "сгенерированный код как есть, без замены (подтверждено реальным "
+    "прогоном ora2pg 25.0 + PostgreSQL 16, "
+    "docs/research/gap-039-connect-by-pseudocolumn.md). PostgreSQL их не "
+    "знает — падает при загрузке (синтаксическая ошибка на "
+    "CONNECT_BY_ROOT, «column does not exist» на ISLEAF/ISCYCLE). "
+    "Переписывается вручную: корень ветки протаскивается через "
+    "дополнительный столбец рекурсивного CTE, признак листа считается "
+    "отдельным NOT EXISTS-подзапросом, признак цикла — через CYCLE-секцию "
+    "рекурсивного CTE (PostgreSQL 14+). Отдельно: SYS_CONNECT_BY_PATH "
+    "этим детектором НЕ помечается — его ora2pg конвертирует корректно."
+)
+
+
+def find_connect_by_pseudocolumns(source: str) -> list[Finding]:
+    """Detect Oracle's CONNECT_BY_ROOT operator and the
+    CONNECT_BY_ISLEAF/CONNECT_BY_ISCYCLE pseudocolumns. ora2pg rewrites
+    the surrounding CONNECT BY into a WITH RECURSIVE but carries these
+    three through unchanged, so the generated code fails to load.
+    SYS_CONNECT_BY_PATH is deliberately excluded -- ora2pg does convert
+    that one correctly. See
+    docs/research/gap-039-connect-by-pseudocolumn.md."""
+    clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
+    name_index = enclosing_object_name_index(clean)
+    findings: list[Finding] = []
+
+    for m in _PSEUDOCOLUMN_RE.finditer(visible):
+        findings.append(
+            Finding(
+                detector="connect_by_pseudocolumn",
+                severity="high",
+                object_name=enclosing_object_name(name_index, m.start()),
+                line=line_at(clean, m.start()),
+                snippet=m.group(1).upper(),
+                message=_MESSAGE,
+            )
+        )
+
+    return findings

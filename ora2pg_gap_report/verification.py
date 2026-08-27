@@ -82,6 +82,12 @@ VERIFICATION_MODE: dict[str, str] = {
     "dbms_utl_calls": VERBATIM,
     "default_on_null": VERBATIM,  # the ON NULL clause itself is copied into CREATE TABLE unchanged
     "conditional_compilation": VERBATIM,  # $IF/$ELSIF/$ELSE/$END are copied into the body unchanged
+    "match_recognize": VERBATIM,  # the whole MATCH_RECOGNIZE(...) clause is copied unchanged
+    "connect_by_pseudocolumn": VERBATIM,  # CONNECT_BY_ROOT/ISLEAF/ISCYCLE survive into the generated CTE
+    "keep_dense_rank": VERBATIM,  # KEEP(DENSE_RANK ...) is copied unchanged
+    "multiset_operator": VERBATIM,  # MULTISET/MEMBER OF/SUBMULTISET are copied unchanged
+    "sample_clause": VERBATIM,  # SAMPLE(n) is copied unchanged
+    "accessible_by": VERBATIM,  # the clause is copied verbatim into the generated function header
     # NOT_VERIFIABLE -- ora2pg drops the construct entirely (the
     # Oracle-specific keyword the detector looks for cannot appear in the
     # output, by construction, on any migration) or mangles the
@@ -108,6 +114,10 @@ VERIFICATION_MODE: dict[str, str] = {
     "nested_subprogram": NOT_VERIFIABLE,  # the nesting itself is flattened away; structure not re-detectable
     "package_state": NOT_VERIFIABLE,  # rewritten to set_config/current_setting; the declaration never survives
     "index_organized_table": NOT_VERIFIABLE,  # the ORGANIZATION INDEX keyword itself is dropped unconditionally
+    "local_time_zone": NOT_VERIFIABLE,  # rewritten to a bare `timestamp`; WITH LOCAL TIME ZONE never survives
+    "temporal_validity": NOT_VERIFIABLE,  # mangled to a bare `period FOR`; the named PERIOD FOR shape never survives
+    "bitmap_index": NOT_VERIFIABLE,  # rewritten to CREATE INDEX ... USING gin; the BITMAP keyword never survives
+    "object_table": NOT_VERIFIABLE,  # OF <type> becomes a column named `of`; the object-table shape never survives
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists
     # for verify to compare against.

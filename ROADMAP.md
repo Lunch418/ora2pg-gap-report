@@ -43,7 +43,7 @@ project exists — is already in place:
   SARIF 2.1.0. Via `github/codeql-action/upload-sarif`, GitHub draws the
   findings inline in the PR itself, no custom bot or Action needed for
   that (see "Near-term" — only a documented example is missing).
-- **Evidence pages**: `--explain GAP-NNN` + `docs/research/gap-*.md` (37
+- **Evidence pages**: `--explain GAP-NNN` + `docs/research/gap-*.md` (47
   of them) — minimal example, real `ora2pg` output, what happens in
   PostgreSQL, the severity rationale.
 - **Reproduce for CONNECT BY**: `--check-connect-by` actually runs an
@@ -66,13 +66,13 @@ project exists — is already in place:
   PR with no custom bot or Action.
 - **Verification capability matrix**:
   [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md)
-  — for each of the 37 gaps, explicitly which verification mode it has
+  — for each of the 47 gaps, explicitly which verification mode it has
   (`verbatim`/`not_verifiable`/`generated_only`) and why, cross-checked
   against `VERIFICATION_MODE` in the code line by line (not written by
   eye).
 - **`failure_stage`**: at which stage a gap actually becomes visible —
   `deployment`/`runtime`/`semantic` (`conversion` is defined but has never
-  been needed, see `docs/failure-stage-notes.md`). Rolled out to all 37
+  been needed, see `docs/failure-stage-notes.md`). Rolled out to all 47
   gaps (except two deliberate exceptions — findings that aren't about the
   shape of the code but about `--estimate_cost` underestimating effort),
   `doctor.py` requires full coverage. Shown not just in `--explain`, but

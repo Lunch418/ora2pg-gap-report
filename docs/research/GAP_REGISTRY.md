@@ -51,6 +51,16 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-035 | `$IF`/`$ELSIF`/`$ELSE`/`$END` копируются verbatim | `conditional_compilation` | high | confirmed | 25.0 | 16 | [gap-035](gap-035-conditional-compilation.md) |
 | GAP-036 | Пакетная переменная — сломанная эмуляция через `set_config` | `package_state` | high | confirmed | 25.0 | 16 | [gap-036](gap-036-package-state.md) |
 | GAP-037 | `ORGANIZATION INDEX` (IOT) отбрасывается | `index_organized_table` | medium | confirmed | 25.0 | 16 | [gap-037](gap-037-index-organized-table.md) |
+| GAP-038 | `MATCH_RECOGNIZE` — сопоставление строк с шаблоном, аналога в PostgreSQL нет | `match_recognize` | high | confirmed | 25.0 | 16 | [gap-038](gap-038-match-recognize.md) |
+| GAP-039 | `CONNECT_BY_ROOT`/`CONNECT_BY_ISLEAF`/`CONNECT_BY_ISCYCLE` переносятся без конвертации | `connect_by_pseudocolumn` | high | confirmed | 25.0 | 16 | [gap-039](gap-039-connect-by-pseudocolumn.md) |
+| GAP-040 | `KEEP (DENSE_RANK FIRST/LAST ORDER BY ...)` — модификатор агрегата | `keep_dense_rank` | high | confirmed | 25.0 | 16 | [gap-040](gap-040-keep-dense-rank.md) |
+| GAP-041 | `CAST(MULTISET(...))`, `MULTISET UNION`, `MEMBER OF`, `SUBMULTISET OF` | `multiset_operator` | high | confirmed | 25.0 | 16 | [gap-041](gap-041-multiset-operator.md) |
+| GAP-042 | `SAMPLE (n)` — в PostgreSQL это `TABLESAMPLE`, ora2pg не конвертирует | `sample_clause` | high | confirmed | 25.0 | 16 | [gap-042](gap-042-sample-clause.md) |
+| GAP-043 | `ACCESSIBLE BY` копируется в заголовок сгенерированной функции | `accessible_by` | high | confirmed | 25.0 | 16 | [gap-043](gap-043-accessible-by.md) |
+| GAP-044 | `TIMESTAMP WITH LOCAL TIME ZONE` → `timestamp` без часового пояса | `local_time_zone` | high | confirmed | 25.0 | 16 | [gap-044](gap-044-local-time-zone.md) |
+| GAP-045 | `PERIOD FOR` (Temporal Validity) превращается в обрубок `period FOR` | `temporal_validity` | high | confirmed | 25.0 | 16 | [gap-045](gap-045-temporal-validity.md) |
+| GAP-046 | `CREATE BITMAP INDEX` → `USING gin` без класса операторов | `bitmap_index` | high | confirmed | 25.0 | 16 | [gap-046](gap-046-bitmap-index.md) |
+| GAP-047 | `CREATE TABLE ... OF <тип>` — `OF` становится именем столбца | `object_table` | high | confirmed | 25.0 | 16 | [gap-047](gap-047-object-table.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

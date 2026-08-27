@@ -168,6 +168,41 @@ GAPS: tuple[GapEntry, ...] = (
         ("test_index_organized_table.py",),
         severity="medium", failure_stage="semantic",
     ),
+GapEntry(
+        "038", "match_recognize", "match-recognize", ("test_match_recognize.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "039",
+        "connect_by_pseudocolumn",
+        "connect-by-pseudocolumn",
+        ("test_connect_by_pseudocolumn.py",),
+        severity="high",
+        failure_stage="deployment",
+    ),
+    GapEntry(
+        "040", "keep_dense_rank", "keep-dense-rank", ("test_keep_dense_rank.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "041", "multiset_operator", "multiset-operator", ("test_multiset_operator.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "042", "sample_clause", "sample-clause", ("test_sample_clause.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "043", "accessible_by", "accessible-by", ("test_accessible_by.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "044", "local_time_zone", "local-time-zone", ("test_local_time_zone.py",), severity="high", failure_stage="semantic"
+    ),
+    GapEntry(
+        "045", "temporal_validity", "temporal-validity", ("test_temporal_validity.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "046", "bitmap_index", "bitmap-index", ("test_bitmap_index.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "047", "object_table", "object-table", ("test_object_table.py",), severity="high", failure_stage="semantic"
+    ),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

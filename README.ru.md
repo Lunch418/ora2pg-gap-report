@@ -21,7 +21,7 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
             ora2pg-gap-report
                     │
                     ▼
-   37 подтверждённых типов пробелов миграции ora2pg
+   47 подтверждённых типов пробелов миграции ora2pg
    ┌──────────────────────────────────────────────────────┐
    │ HIGH    GAP-006  database_link    — @dblink нет в PG  │
    │ HIGH    GAP-023  oracle_text      — CONTAINS()/...    │
@@ -104,6 +104,16 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
 | `conditional_compilation` | `$IF`/`$ELSIF`/`$ELSE`/`$END` копируются verbatim — падает при первом вызове, не при CREATE |
 | `package_state` | Пакетная переменная — эмуляция через `set_config`/`current_setting` сломана (нет приведения типа, нет `missing_ok`) |
 | `index_organized_table` | `ORGANIZATION INDEX` (IOT) отбрасывается — таблица становится обычной кучей с отдельным индексом, теряется архитектура хранения |
+| `match_recognize` | `MATCH_RECOGNIZE` — сопоставление строк с шаблоном, копируется verbatim; аналога в PostgreSQL нет вообще, DDL не загружается |
+| `connect_by_pseudocolumn` | `CONNECT_BY_ROOT`/`CONNECT_BY_ISLEAF`/`CONNECT_BY_ISCYCLE` — переносятся в сгенерированный рекурсивный CTE без конвертации. `SYS_CONNECT_BY_PATH` намеренно *не* помечается: его ora2pg конвертирует правильно |
+| `keep_dense_rank` | `KEEP (DENSE_RANK FIRST/LAST ORDER BY ...)` — модификатор агрегата Oracle, копируется verbatim; синтаксиса KEEP в PostgreSQL нет |
+| `multiset_operator` | `CAST(MULTISET(...))`, `MULTISET UNION/INTERSECT/EXCEPT`, `MEMBER OF`, `SUBMULTISET OF` — операторы над коллекциями, ни одного из них в PostgreSQL нет |
+| `sample_clause` | `SAMPLE (n)` / `SAMPLE BLOCK (n)` — у PostgreSQL та же возможность есть под другим синтаксисом (`TABLESAMPLE`), но ora2pg её не переводит |
+| `accessible_by` | `ACCESSIBLE BY` — белый список вызывающих копируется прямо в заголовок сгенерированной функции, PostgreSQL его не принимает |
+| `local_time_zone` | `TIMESTAMP WITH LOCAL TIME ZONE` становится простым `timestamp` — пересчёт в часовой пояс сессии молча исчезает (верным был бы `timestamptz`). Ошибки не будет никогда |
+| `temporal_validity` | `PERIOD FOR` (Temporal Validity) превращается в обрубок `period FOR` — ломается весь `CREATE TABLE`, а не только сама фича |
+| `bitmap_index` | `CREATE BITMAP INDEX` становится `USING gin`, который PostgreSQL не принимает на обычном скалярном столбце (нет класса операторов) — индекс не создаётся вообще |
+| `object_table` | `CREATE TABLE ... OF <тип>` — `OF` попадает в вывод как *имя столбца*, ограничения теряются. При существующем типе загрузка проходит молча, оставляя структурно неверную таблицу |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -112,11 +122,11 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 
 ### Почему почти всё `high`
 
-Из 37 зарегистрированных gap'ов (`gap_registry.py`) 33 — `high`, 4 —
+Из 47 зарегистрированных gap'ов (`gap_registry.py`) 43 — `high`, 4 —
 `medium` (`context_object`, `invisible_index`, `virtual_column`,
 `index_organized_table`) — `severity` теперь поле `GapEntry`, `scripts/
 doctor.py` сверяет его с тем, что реально написано в исходнике детектора,
-а не просто верит счёту на слово. Отдельно от них есть 38-й детектор,
+а не просто верит счёту на слово. Отдельно от них есть 48-й детектор,
 `dbms_utl_calls` — классификатор вызовов `DBMS_*`/`UTL_*`,
 не привязанный к конкретному GAP-NNN (у него нет одного воспроизводимого
 минимального примера — это намеренно широкая категория), тоже `medium`.
@@ -291,7 +301,7 @@ NEW/RESOLVED/UNCHANGED (и своей кнопкой «Save baseline» умее�
 `--explain GAP-023` (или просто `--explain 23`) печатает research-документ
 конкретного gap'а из реестра — Oracle-конструкцию, реальный вывод
 `ora2pg`, наблюдаемую проблему, вердикт, а также версии `ora2pg`/PostgreSQL,
-на которых находка подтверждена (сейчас 25.0/16 у всех 37 — единая
+на которых находка подтверждена (сейчас 25.0/16 у всех 47 — единая
 версия, потому что второй пока не было; `gap_registry.py` уже готов
 хранить разные версии для будущих находок) — без сканирования файлов:
 
@@ -420,7 +430,7 @@ read_only_table   GAP-026   1 → —   NOT_VERIFIABLE
   исправления было бы ровно той придуманной уверенностью, которой этот
   проект специально избегает (см. «Почему почти всё `high`» выше).
 
-Какой режим у какого детектора и почему, по всем 37 —
+Какой режим у какого детектора и почему, по всем 47 —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.ru.md).
 
 `NOT_DETECTED` тоже не означает «доказанно исправлено» — только «паттерн

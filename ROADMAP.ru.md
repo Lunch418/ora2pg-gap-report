@@ -46,7 +46,7 @@
   или Action для этого (см. "Ближайшее" — не хватает только
   задокументированного примера).
 - **Evidence pages**: `--explain GAP-NNN` + `docs/research/gap-*.md`
-  (37 штук) — минимальный пример, реальный вывод `ora2pg`, что
+  (47 штук) — минимальный пример, реальный вывод `ora2pg`, что
   происходит в PostgreSQL, обоснование severity.
 - **Reproduce для CONNECT BY**: `--check-connect-by` реально прогоняет
   установленный `ora2pg` и проверяет сгенерированный `WITH RECURSIVE`
@@ -69,13 +69,13 @@
   своего бота или Action.
 - **Verification capability matrix**:
   [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.ru.md)
-  — по каждому из 37 gap'ов явно, какой режим верификации у него
+  — по каждому из 47 gap'ов явно, какой режим верификации у него
   (`verbatim`/`not_verifiable`/`generated_only`) и почему, сверено с
   `VERIFICATION_MODE` в коде построчно (не написано на глаз).
 - **`failure_stage`**: на каком этапе gap реально становится заметен —
   `deployment`/`runtime`/`semantic` (`conversion` определён, но ни разу
   не понадобился — см. `docs/failure-stage-notes.md`). Раскатано на все
-  37 gap'ов (кроме двух намеренных исключений — находки не о форме кода,
+  47 gap'ов (кроме двух намеренных исключений — находки не о форме кода,
   а о недооценке `--estimate_cost`), `doctor.py` требует полное покрытие.
   Показывается не только в `--explain`, но и в основном отчёте: колонки
   в `--format markdown`/`html`, поля в `--format json`/`csv`, `properties`

@@ -1,0 +1,69 @@
+import re
+
+from ..models import Finding
+from ..plsql_lex import (
+    enclosing_object_name,
+    enclosing_object_name_index,
+    line_at,
+    mask_dynamic_sql_visible,
+    mask_strings_and_comments,
+)
+
+# All four shapes were confirmed against a real ora2pg 25.0 + PostgreSQL 16
+# run (see the research doc); each is copied into the output unchanged.
+#   CAST(MULTISET(SELECT ...) AS type)  -- the collect-a-subquery idiom
+#   a MULTISET UNION|INTERSECT|EXCEPT b -- collection set operators
+#   x MEMBER OF coll                    -- membership test
+#   a SUBMULTISET OF b                  -- subset test
+# `MEMBER` alone is deliberately not matched: `MEMBER FUNCTION` /
+# `MEMBER PROCEDURE` are ordinary object-type method declarations that
+# have nothing to do with collection membership, and requiring the
+# following `OF` keeps them out.
+_MULTISET_RE = re.compile(
+    r"\bCAST\s*\(\s*MULTISET\s*\("
+    r"|\bMULTISET\s+(?:UNION|INTERSECT|EXCEPT)\b"
+    r"|\bMEMBER\s+OF\b"
+    r"|\bSUBMULTISET\s+OF\b",
+    re.IGNORECASE,
+)
+
+_MESSAGE = (
+    "Операторы над коллекциями Oracle — CAST(MULTISET(...)), "
+    "MULTISET UNION/INTERSECT/EXCEPT, MEMBER OF, SUBMULTISET OF: работа с "
+    "вложенными таблицами и VARRAY как со множествами прямо в SQL. ora2pg "
+    "копирует эти конструкции в вывод как есть, без изменений "
+    "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
+    "docs/research/gap-041-multiset-operator.md). У PostgreSQL нет ни "
+    "одного из этих операторов — падает синтаксической ошибкой при "
+    "загрузке. Переписывается вручную под модель массивов PostgreSQL: "
+    "CAST(MULTISET(...)) → ARRAY(SELECT ...), MULTISET UNION → оператор "
+    "|| над массивами или отдельный UNION-подзапрос, MEMBER OF → "
+    "'= ANY(массив)', SUBMULTISET OF → оператор <@ над массивами."
+)
+
+
+def find_multiset_operators(source: str) -> list[Finding]:
+    """Detect Oracle's collection operators: CAST(MULTISET(...)),
+    MULTISET UNION/INTERSECT/EXCEPT, MEMBER OF, SUBMULTISET OF. ora2pg
+    copies all of them through unchanged; PostgreSQL has none of them, so
+    the generated code fails to load. See
+    docs/research/gap-041-multiset-operator.md."""
+    clean = mask_strings_and_comments(source)
+    visible = mask_dynamic_sql_visible(source)
+    name_index = enclosing_object_name_index(clean)
+    findings: list[Finding] = []
+
+    for m in _MULTISET_RE.finditer(visible):
+        snippet = " ".join(m.group(0).upper().split())
+        findings.append(
+            Finding(
+                detector="multiset_operator",
+                severity="high",
+                object_name=enclosing_object_name(name_index, m.start()),
+                line=line_at(clean, m.start()),
+                snippet=snippet,
+                message=_MESSAGE,
+            )
+        )
+
+    return findings

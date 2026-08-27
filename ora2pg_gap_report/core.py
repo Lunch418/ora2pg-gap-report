@@ -15,13 +15,16 @@ import dataclasses
 from pathlib import Path
 
 from . import i18n
+from .detectors.accessible_by import find_accessible_by
 from .detectors.autonomous_tx import find_autonomous_transactions
+from .detectors.bitmap_index import find_bitmap_indexes
 from .detectors.bulk_collect import find_bulk_collect_usage
 from .detectors.collection_type import find_collection_types
 from .detectors.compound_triggers import find_compound_triggers
 from .detectors.conditional_compilation import find_conditional_compilation
 from .detectors.connect_by import find_connect_by_risks, guess_object_type, has_connect_by
 from .detectors.connect_by_nocycle import find_connect_by_nocycle_or_order_siblings
+from .detectors.connect_by_pseudocolumn import find_connect_by_pseudocolumns
 from .detectors.context_object import find_context_declarations
 from .detectors.cross_apply import find_apply_joins
 from .detectors.database_link import find_database_link_references
@@ -36,10 +39,15 @@ from .detectors.insert_all import find_multitable_inserts
 from .detectors.invisible_column import find_invisible_columns
 from .detectors.invisible_index import find_invisible_indexes
 from .detectors.json_table import find_json_table_calls
+from .detectors.keep_dense_rank import find_keep_dense_rank
+from .detectors.local_time_zone import find_local_time_zone_columns
+from .detectors.match_recognize import find_match_recognize
 from .detectors.materialized_view_log import find_materialized_view_logs
 from .detectors.merge_delete_clause import find_merge_delete_clauses
 from .detectors.model_clause import find_model_clauses
+from .detectors.multiset_operator import find_multiset_operators
 from .detectors.nested_subprogram import find_nested_subprograms
+from .detectors.object_table import find_object_tables
 from .detectors.object_type import find_object_types
 from .detectors.oracle_text import find_oracle_text_usage
 from .detectors.package_state import find_package_state
@@ -48,9 +56,11 @@ from .detectors.public_synonym import find_public_synonyms
 from .detectors.read_only_table import find_read_only_tables
 from .detectors.recursive_with import find_recursive_with_missing_keyword
 from .detectors.rowid_type import find_rowid_types
+from .detectors.sample_clause import find_sample_clauses
 from .detectors.sequence_cycle import find_sequence_cycle_usage
 from .detectors.sql_macro import find_sql_macros
 from .detectors.table_partitioning import find_dropped_table_partitioning
+from .detectors.temporal_validity import find_temporal_validity
 from .detectors.virtual_column import find_virtual_columns
 from .detectors.with_function import find_with_function_clauses
 from .models import Finding
@@ -95,6 +105,16 @@ _DETECTORS = (
     find_nested_subprograms,
     find_package_state,
     find_index_organized_tables,
+    find_match_recognize,
+    find_connect_by_pseudocolumns,
+    find_keep_dense_rank,
+    find_multiset_operators,
+    find_sample_clauses,
+    find_accessible_by,
+    find_local_time_zone_columns,
+    find_temporal_validity,
+    find_bitmap_indexes,
+    find_object_tables,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")

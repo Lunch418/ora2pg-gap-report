@@ -10,7 +10,7 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 выводе" тавтологичен: конструкция гарантированно не появится в выводе ни
 на одной миграции, независимо от того, исправил её кто-то руками или
 нет. Docstring `verification.py` объясняет это подробно; здесь — таблица
-по каждому из 37 gap'ов, чтобы не листать код ради одного вопроса
+по каждому из 47 gap'ов, чтобы не листать код ради одного вопроса
 "а можно ли верифицировать конкретно этот".
 
 ## Как читать колонку "режим"
@@ -76,8 +76,18 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 035 | `conditional_compilation` | `verbatim` | Директивы `$IF`/`$ELSIF`/`$ELSE`/`$END` копируются в тело без изменений. |
 | 036 | `package_state` | `not_verifiable` | Переписывается в `set_config`/`current_setting`; исходное объявление никогда не сохраняется. |
 | 037 | `index_organized_table` | `not_verifiable` | Ключевое слово `ORGANIZATION INDEX` безусловно отбрасывается. |
+| 038 | `match_recognize` | `verbatim` | Вся секция MATCH_RECOGNIZE(...) копируется в вывод без изменений. |
+| 039 | `connect_by_pseudocolumn` | `verbatim` | CONNECT_BY_ROOT/ISLEAF/ISCYCLE переживают конвертацию дословно, попадая в сгенерированный рекурсивный CTE. |
+| 040 | `keep_dense_rank` | `verbatim` | Модификатор KEEP (DENSE_RANK ...) копируется в вывод без изменений. |
+| 041 | `multiset_operator` | `verbatim` | CAST(MULTISET(...)), MULTISET UNION, MEMBER OF, SUBMULTISET OF — все копируются без изменений. |
+| 042 | `sample_clause` | `verbatim` | SAMPLE (n) копируется в вывод без изменений (в TABLESAMPLE не переписывается). |
+| 043 | `accessible_by` | `verbatim` | Секция копируется дословно в заголовок сгенерированной функции. |
+| 044 | `local_time_zone` | `not_verifiable` | Переписывается в простой `timestamp`; слова WITH LOCAL TIME ZONE не переживают конвертацию. |
+| 045 | `temporal_validity` | `not_verifiable` | Превращается в обрубок `period FOR`; именованная форма PERIOD FOR не переживает конвертацию. |
+| 046 | `bitmap_index` | `not_verifiable` | Переписывается в CREATE INDEX ... USING gin; ключевое слово BITMAP не переживает конвертацию. |
+| 047 | `object_table` | `not_verifiable` | `OF <тип>` становится столбцом по имени `of`; форма объектной таблицы не переживает конвертацию. |
 
-Итого среди самих 37 gap'ов: 14 `verbatim`, 22 `not_verifiable`
+Итого среди самих 47 gap'ов: 20 `verbatim`, 26 `not_verifiable`
 (включая `autonomous_tx`, но по другой причине — см. выше), 1
 `generated_only` (`connect_by`).
 

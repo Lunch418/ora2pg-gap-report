@@ -14,7 +14,7 @@
 принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
 госсектор.
 
-Детекторов сейчас 38 (полная таблица — в README.md, «Детекторы»; 37 из
+Детекторов сейчас 48 (полная таблица — в README.md, «Детекторы»; 47 из
 них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
 README.md, «Почему почти всё high»), и почти все они устроены
 одинаково: анализируют Oracle-исходник напрямую и не требуют
@@ -78,7 +78,17 @@ ora2pg_gap_report/
 │   ├── nested_subprogram.py     # локальная вложенная процедура/функция — портится при экспорте
 │   ├── conditional_compilation.py # $IF/$ELSIF/$ELSE/$END — копируются verbatim
 │   ├── package_state.py         # пакетная переменная — сломанная эмуляция через set_config
-│   └── index_organized_table.py # ORGANIZATION INDEX (IOT) — отбрасывается
+│   ├── index_organized_table.py # ORGANIZATION INDEX (IOT) — отбрасывается
+│   ├── match_recognize.py      # MATCH_RECOGNIZE — сопоставление с шаблоном, аналога в PG нет
+│   ├── connect_by_pseudocolumn.py # CONNECT_BY_ROOT/ISLEAF/ISCYCLE — переносятся без конвертации
+│   ├── keep_dense_rank.py      # KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) — модификатор агрегата
+│   ├── multiset_operator.py    # CAST(MULTISET(...)), MULTISET UNION, MEMBER OF, SUBMULTISET OF
+│   ├── sample_clause.py        # SAMPLE (n) — в PG это TABLESAMPLE, ora2pg не конвертирует
+│   ├── accessible_by.py        # ACCESSIBLE BY — копируется в заголовок сгенерированной функции
+│   ├── local_time_zone.py      # TIMESTAMP WITH LOCAL TIME ZONE — становится простым timestamp
+│   ├── temporal_validity.py    # PERIOD FOR — превращается в обрубок `period FOR`
+│   ├── bitmap_index.py         # CREATE BITMAP INDEX — становится USING gin без класса операторов
+│   └── object_table.py         # CREATE TABLE ... OF <тип> — OF становится именем столбца
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── i18n.py                     # язык вывода (--lang/--set-lang): резолюция, английские
 │                               # строки UI и переводы объяснений детекторов
@@ -182,10 +192,10 @@ dblink-стратегии добавляет суффикс `_atx` — и фай
 Не поведенческая/функциональная проверка: инструмент не подключается ни
 к одной из баз, ничего не выполняет, не сравнивает данные. Он просто
 запускает те же детекторы на сгенерированном файле вместо исходного
-Oracle-файла — и это работает не для всех 38 детекторов одинаково,
+Oracle-файла — и это работает не для всех 48 детекторов одинаково,
 потому что не все конструкции одинаково переживают конвертацию:
 
-- **`VERBATIM`** (15 детекторов) — `ora2pg` копирует помеченную
+- **`VERBATIM`** (21 детектор) — `ora2pg` копирует помеченную
   Oracle-конструкцию в вывод практически без изменений (подтверждено по
   собственному research-документу каждого детектора, разделу «что
   делает ora2pg»): `bulk_collect`, `conditional_compilation`,
@@ -196,7 +206,7 @@ Oracle-файла — и это работает не для всех 38 дет�
   сгенерированному файлу — реальная проверка: `STILL_PRESENT`, если
   паттерн остался, `NOT_DETECTED`, если пропал.
 
-- **`NOT_VERIFIABLE`** (22 детектора) — `ora2pg` либо целиком
+- **`NOT_VERIFIABLE`** (26 детекторов) — `ora2pg` либо целиком
   отбрасывает конструкцию или полностью переписывает её в другую форму
   (`read_only_table`, `table_partitioning`, `invisible_column`,
   `invisible_index`, `external_table`, `collection_type`,

@@ -14,8 +14,8 @@ FUNCTION`, …), which is exactly how `ora2pg_wrapper.py` works, not
 through `SHOW_REPORT`. This is a hard requirement for the target
 audience: closed networks, air-gapped environments, the public sector.
 
-There are 38 detectors right now (the full table is in README.md,
-"Detectors"; 37 of them are tied to a registered GAP-NNN, `dbms_utl_calls`
+There are 48 detectors right now (the full table is in README.md,
+"Detectors"; 47 of them are tied to a registered GAP-NNN, `dbms_utl_calls`
 isn't, see README.md, "Why almost everything is high"), and almost all of
 them work the same way: they analyze the Oracle source directly and don't
 need `ora2pg` installed, plain Python, no external dependencies. There's
@@ -77,7 +77,17 @@ ora2pg_gap_report/
 │   ├── nested_subprogram.py     # a local nested procedure/function -- broken on export
 │   ├── conditional_compilation.py # $IF/$ELSIF/$ELSE/$END -- copied verbatim
 │   ├── package_state.py         # a package variable -- broken emulation via set_config
-│   └── index_organized_table.py # ORGANIZATION INDEX (IOT) -- dropped entirely
+│   ├── index_organized_table.py # ORGANIZATION INDEX (IOT) -- dropped entirely
+│   ├── match_recognize.py      # MATCH_RECOGNIZE -- row pattern matching, no PG equivalent
+│   ├── connect_by_pseudocolumn.py # CONNECT_BY_ROOT/ISLEAF/ISCYCLE -- carried through unconverted
+│   ├── keep_dense_rank.py      # KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) aggregate modifier
+│   ├── multiset_operator.py    # CAST(MULTISET(...)), MULTISET UNION, MEMBER OF, SUBMULTISET OF
+│   ├── sample_clause.py        # SAMPLE (n) -- PG spells it TABLESAMPLE, ora2pg doesn't convert
+│   ├── accessible_by.py        # ACCESSIBLE BY -- copied into the generated function header
+│   ├── local_time_zone.py      # TIMESTAMP WITH LOCAL TIME ZONE -- becomes a bare timestamp
+│   ├── temporal_validity.py    # PERIOD FOR -- mangled into a truncated `period FOR`
+│   ├── bitmap_index.py         # CREATE BITMAP INDEX -- becomes USING gin, no operator class
+│   └── object_table.py         # CREATE TABLE ... OF <type> -- OF becomes a column name
 ├── ora2pg_wrapper.py            # runs ora2pg per object type, parses --estimate_cost
 ├── i18n.py                     # output language (--lang/--set-lang): resolution, English
 │                               # UI strings, and translations of detector explanations
@@ -182,7 +192,7 @@ runs the same detectors against the generated file instead of the
 original Oracle file, and that doesn't work the same way for all 38
 detectors, because not every construct survives conversion the same way:
 
-- **`VERBATIM`** (15 detectors) — `ora2pg` copies the flagged Oracle
+- **`VERBATIM`** (21 detectors) — `ora2pg` copies the flagged Oracle
   construct into its output essentially unchanged (confirmed from each
   detector's own research doc, the "what ora2pg does" section):
   `bulk_collect`, `conditional_compilation`, `cross_apply`,
@@ -193,7 +203,7 @@ detectors, because not every construct survives conversion the same way:
   generated file is a real check: `STILL_PRESENT` if the pattern remains,
   `NOT_DETECTED` if it's gone.
 
-- **`NOT_VERIFIABLE`** (22 detectors) — `ora2pg` either drops the
+- **`NOT_VERIFIABLE`** (26 detectors) — `ora2pg` either drops the
   construct entirely or rewrites it into a completely different shape
   (`read_only_table`, `table_partitioning`, `invisible_column`,
   `invisible_index`, `external_table`, `collection_type`,

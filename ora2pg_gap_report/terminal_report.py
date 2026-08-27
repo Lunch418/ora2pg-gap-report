@@ -100,6 +100,16 @@ _REMEDIATION_HINT = {
     "nested_subprogram": "Вручную вынести вложенную логику в отдельную функцию/процедуру PostgreSQL верхнего уровня",
     "package_state": "Добавить явное приведение типа к set_config() и missing_ok => true к current_setting(), либо спроектировать состояние иначе (временная таблица, параметр приложения)",
     "index_organized_table": "Перепроверить производительность на реальной нагрузке — у PostgreSQL нет настоящих индекс-организованных таблиц, конвертированная таблица — обычная куча с отдельным индексом",
+    "match_recognize": "Переписать на оконные функции (LAG/LEAD над разделом) с фильтрацией или на рекурсивный CTE — прямого аналога row pattern matching в PostgreSQL нет",
+    "connect_by_pseudocolumn": "Корень ветки протащить дополнительным столбцом рекурсивного CTE, признак листа — через NOT EXISTS, признак цикла — через секцию CYCLE (PostgreSQL 14+)",
+    "keep_dense_rank": "Переписать на оконную функцию FIRST_VALUE/LAST_VALUE с той же ORDER BY внутри OVER, либо на DISTINCT ON, либо на агрегат с FILTER",
+    "multiset_operator": "Перевести на модель массивов PostgreSQL: CAST(MULTISET(...)) → ARRAY(SELECT ...), MULTISET UNION → ||, MEMBER OF → = ANY(...), SUBMULTISET OF → <@",
+    "sample_clause": "Заменить на TABLESAMPLE: SAMPLE (n) → TABLESAMPLE BERNOULLI (n), SAMPLE BLOCK (n) → TABLESAMPLE SYSTEM (n)",
+    "accessible_by": "Прямого аналога нет — вынести подпрограмму в отдельную схему и ограничить доступ через GRANT/REVOKE (защита на уровне ролей, а не вызывающих подпрограмм)",
+    "local_time_zone": "Заменить тип столбца на timestamptz — именно он воспроизводит пересчёт в часовой пояс сессии, который делает Oracle LTZ",
+    "temporal_validity": "Развернуть в обычную пару timestamp-столбцов с фильтрацией в запросах, либо в тип tstzrange с ограничением-исключением при контроле пересечений",
+    "bitmap_index": "Заменить на обычный btree (планировщик сам комбинирует их через bitmap scan) либо на gin с явным классом операторов из расширения btree_gin",
+    "object_table": "Развернуть объектную таблицу в обычную: отдельный столбец на каждый атрибут типа плюс явные ограничения",
 }
 
 

@@ -10,7 +10,7 @@ something's unimplemented, but because the question itself, "is this
 still in the output," is a tautology for them: the construct is
 guaranteed to never appear in the output on any migration, regardless of
 whether someone fixed it by hand or not. `verification.py`'s docstring
-explains this in detail; this is a table for each of the 37 gaps, so
+explains this in detail; this is a table for each of the 47 gaps, so
 nobody has to read the code just to answer "can this specific one be
 verified."
 
@@ -77,8 +77,18 @@ verified."
 | 035 | `conditional_compilation` | `verbatim` | The `$IF`/`$ELSIF`/`$ELSE`/`$END` directives are copied into the body unchanged. |
 | 036 | `package_state` | `not_verifiable` | Rewritten into `set_config`/`current_setting`; the original declaration is never preserved. |
 | 037 | `index_organized_table` | `not_verifiable` | The `ORGANIZATION INDEX` keyword is unconditionally dropped. |
+| 038 | `match_recognize` | `verbatim` | The whole MATCH_RECOGNIZE(...) clause is copied into the output unchanged. |
+| 039 | `connect_by_pseudocolumn` | `verbatim` | CONNECT_BY_ROOT/ISLEAF/ISCYCLE survive verbatim into the generated recursive CTE. |
+| 040 | `keep_dense_rank` | `verbatim` | The KEEP (DENSE_RANK ...) modifier is copied into the output unchanged. |
+| 041 | `multiset_operator` | `verbatim` | CAST(MULTISET(...)), MULTISET UNION, MEMBER OF, SUBMULTISET OF are all copied unchanged. |
+| 042 | `sample_clause` | `verbatim` | SAMPLE (n) is copied into the output unchanged (never rewritten to TABLESAMPLE). |
+| 043 | `accessible_by` | `verbatim` | The clause is copied verbatim into the generated function header. |
+| 044 | `local_time_zone` | `not_verifiable` | Rewritten to a bare `timestamp`; the WITH LOCAL TIME ZONE keywords never survive. |
+| 045 | `temporal_validity` | `not_verifiable` | Mangled into a bare `period FOR`; the named PERIOD FOR shape never survives. |
+| 046 | `bitmap_index` | `not_verifiable` | Rewritten to CREATE INDEX ... USING gin; the BITMAP keyword never survives. |
+| 047 | `object_table` | `not_verifiable` | `OF <type>` becomes a column named `of`; the object-table shape never survives. |
 
-Totals among the 37 gaps themselves: 14 `verbatim`, 22 `not_verifiable`
+Totals among the 47 gaps themselves: 20 `verbatim`, 26 `not_verifiable`
 (including `autonomous_tx`, but for a different reason, see above), 1
 `generated_only` (`connect_by`).
 

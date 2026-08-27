@@ -21,7 +21,7 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
             ora2pg-gap-report
                     │
                     ▼
-   37 confirmed types of ora2pg migration gaps
+   47 confirmed types of ora2pg migration gaps
    ┌────────────────────────────────────────────────────────┐
    │ HIGH    GAP-006  database_link    — @dblink not in PG  │
    │ HIGH    GAP-023  oracle_text      — CONTAINS()/...     │
@@ -105,6 +105,16 @@ empirically against real PL/SQL code
 | `conditional_compilation` | `$IF`/`$ELSIF`/`$ELSE`/`$END` are copied verbatim — fails on the first call, not at CREATE time |
 | `package_state` | A package-level variable — the `set_config`/`current_setting` emulation is broken (no type cast, no `missing_ok`) |
 | `index_organized_table` | `ORGANIZATION INDEX` (IOT) is dropped — the table becomes an ordinary heap with a separate index, losing the storage architecture |
+| `match_recognize` | `MATCH_RECOGNIZE` — row pattern matching, copied verbatim; PostgreSQL has no equivalent at all, so the DDL fails to load |
+| `connect_by_pseudocolumn` | `CONNECT_BY_ROOT`/`CONNECT_BY_ISLEAF`/`CONNECT_BY_ISCYCLE` — carried into the generated recursive CTE unconverted. `SYS_CONNECT_BY_PATH` is deliberately *not* flagged: ora2pg converts that one correctly |
+| `keep_dense_rank` | `KEEP (DENSE_RANK FIRST/LAST ORDER BY ...)` — Oracle's aggregate modifier, copied verbatim; no KEEP syntax in PostgreSQL |
+| `multiset_operator` | `CAST(MULTISET(...))`, `MULTISET UNION/INTERSECT/EXCEPT`, `MEMBER OF`, `SUBMULTISET OF` — collection operators, none of which exist in PostgreSQL |
+| `sample_clause` | `SAMPLE (n)` / `SAMPLE BLOCK (n)` — PostgreSQL has the same capability under different syntax (`TABLESAMPLE`), but ora2pg doesn't translate it |
+| `accessible_by` | `ACCESSIBLE BY` — the caller whitelist is copied straight into the generated function header, which PostgreSQL rejects |
+| `local_time_zone` | `TIMESTAMP WITH LOCAL TIME ZONE` becomes a bare `timestamp` — the session-time-zone conversion silently disappears (`timestamptz` would be faithful). No error, ever |
+| `temporal_validity` | `PERIOD FOR` (Temporal Validity) is mangled into a truncated `period FOR` fragment — breaks the whole `CREATE TABLE`, not just the feature |
+| `bitmap_index` | `CREATE BITMAP INDEX` becomes `USING gin`, which PostgreSQL refuses on an ordinary scalar column (no default operator class) — the index isn't created at all |
+| `object_table` | `CREATE TABLE ... OF <type>` — `OF` ends up as a *column name* and the constraints are lost. With the type present the load succeeds silently, leaving a structurally wrong table |
 
 Plus `ora2pg_wrapper.py` — runs `ora2pg` per object type against exported DDL
 and parses `--estimate_cost`, and `oracle_connector.py`/`oracle_export.py` —
@@ -113,12 +123,12 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 37 registered gaps (`gap_registry.py`), 33 are `high` and 4 are
+Of the 47 registered gaps (`gap_registry.py`), 43 are `high` and 4 are
 `medium` (`context_object`, `invisible_index`, `virtual_column`,
 `index_organized_table`) — `severity` is a `GapEntry` field now,
 cross-checked by `scripts/doctor.py` against the literal a detector's own
 source actually uses, not just a count taken on faith. Separately, there's
-a 38th detector,
+a 48th detector,
 `dbms_utl_calls` — a classifier for `DBMS_*`/`UTL_*` calls, not tied to a
 specific GAP-NNN (it has no single reproducible minimal example — that's a
 deliberately broad category), also `medium`. `low` is a valid value in the
@@ -290,7 +300,7 @@ the `[tui]` extra installed prints a plain install hint, not a traceback.
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 37 — a single
+finding was confirmed against (currently 25.0/16 for all 47 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -419,7 +429,7 @@ the same way for every detector:
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 37 —
+Which mode applies to which detector, and why, for all 47 —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't

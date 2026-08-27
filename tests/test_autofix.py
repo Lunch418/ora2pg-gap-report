@@ -61,3 +61,50 @@ def test_returns_the_source_unchanged_when_there_is_no_identity_clause_at_all():
     fixed, count = fix_identity_double_parens(source)
     assert count == 0
     assert fixed == source
+
+
+def test_strips_exactly_one_redundant_layer_not_all_of_them():
+    # Deliberate, documented behaviour rather than an oversight: ora2pg's
+    # actual bug always produces exactly one extra pair, so one pass is a
+    # complete fix for every shape it really emits. A hypothetical triple
+    # wrap is already invalid PostgreSQL either way, and looping until no
+    # parens are left would mean rewriting more aggressively than the
+    # evidence supports -- the opposite of this module's whole premise.
+    fixed, count = fix_identity_double_parens(
+        "id integer GENERATED ALWAYS AS IDENTITY (((START WITH 1)))"
+    )
+    assert count == 1
+    assert fixed == "id integer GENERATED ALWAYS AS IDENTITY ((START WITH 1))"
+
+
+def test_fixing_is_idempotent_for_the_shape_ora2pg_actually_produces():
+    once, n1 = fix_identity_double_parens(
+        "id integer GENERATED ALWAYS AS IDENTITY ((START WITH 1 INCREMENT BY 1))"
+    )
+    twice, n2 = fix_identity_double_parens(once)
+    assert n1 == 1
+    assert n2 == 0
+    assert twice == once
+
+
+def test_oracle_source_syntax_is_never_rewritten():
+    # --write is the only thing in this project that modifies a file, and
+    # the single most dangerous mistake a user can make is pointing it at
+    # their Oracle source instead of ora2pg's generated output. The bug
+    # only ever exists in generated PostgreSQL, so that mistake must be a
+    # no-op. Verified separately across 209,793 lines of real open-source
+    # Oracle (utPLSQL, alexandria-plsql-utils, db-sample-schemas): zero
+    # files would be rewritten. This locks in the same property.
+    oracle_source = (
+        "CREATE TABLE customers (\n"
+        "    customer_id NUMBER GENERATED ALWAYS AS IDENTITY "
+        "(START WITH 1 INCREMENT BY 1),\n"
+        "    name        VARCHAR2(100)\n"
+        ");\n"
+        "CREATE OR REPLACE PACKAGE BODY p IS\n"
+        "  PROCEDURE go IS BEGIN NULL; END;\n"
+        "END p;\n"
+    )
+    fixed, count = fix_identity_double_parens(oracle_source)
+    assert count == 0
+    assert fixed == oracle_source

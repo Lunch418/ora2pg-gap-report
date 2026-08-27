@@ -49,6 +49,14 @@ two in FAILURE_STAGE_EXEMPT_DETECTORS (see gap_registry.py's own
 docstring and docs/failure-stage-notes.md for why those two are
 different in kind, not just unclassified yet).
 
+And that no English translation in i18n.py contains a word glued together
+out of two by Python's implicit string concatenation -- writing a long
+message as adjacent literals silently drops the separating space whenever
+a line ends mid-sentence without one ("an" + "object type" -> "anobject
+type"). That class of typo is invisible to every other check here (the
+translation exists, it's just malformed), and it really did ship once in
+this project before this check existed.
+
 And that every gap's `severity` is a real value and matches the literal
 severity="..." string the detector's own source actually uses -- this
 was the one gap-level fact that had no cross-check against reality at
@@ -362,6 +370,41 @@ def check_failure_stage_values() -> list[str]:
     return problems
 
 
+# A run of letters this long is a glued-together pair in ordinary prose --
+# no real English or Russian word in these messages reaches it. Deliberately
+# generous: the point is to catch the obvious breakage without flagging
+# legitimately long technical terms.
+_GLUED_WORD_RE = re.compile(r"[A-Za-z]{18,}")
+
+
+def check_translations_are_not_glued() -> list[str]:
+    """Every English translation must be free of words glued together by
+    Python's implicit string concatenation. Writing a long message as a
+    run of adjacent literals is the established style in i18n.py, and it
+    silently loses the separating space whenever one literal ends a word
+    and the next begins one -- 'an' + 'object type' becomes 'anobject
+    type'. Nothing else here would notice: the translation is present, so
+    check_i18n_translations_parity() passes, and the string is a valid
+    Python literal, so nothing fails at import. This exact bug shipped
+    once in this project (a batch of translations generated with a
+    line-wrapper that stripped the separators), which is why it's now a
+    rerunnable check rather than something spotted by reading output."""
+    problems = []
+    for name, mapping in (
+        ("EXPLANATION_EN", i18n.EXPLANATION_EN),
+        ("REMEDIATION_HINT_EN", i18n.REMEDIATION_HINT_EN),
+    ):
+        for key, value in mapping.items():
+            for word in _GLUED_WORD_RE.findall(value):
+                label = key if len(key) < 40 else key[:37] + "..."
+                problems.append(
+                    f"i18n.py: {name}[{label!r}] содержит склеенное слово "
+                    f"'{word}' -- скорее всего потерян пробел на стыке "
+                    "соседних строковых литералов"
+                )
+    return problems
+
+
 def check_gap_severity_matches_detector_source() -> list[str]:
     """GapEntry.severity must be one of VALID_SEVERITIES, and must match
     what the detector's own source actually emits -- severity had never
@@ -426,6 +469,7 @@ def main() -> int:
     all_problems.extend(check_scan_loop_registration_parity())
     all_problems.extend(check_failure_stage_values())
     all_problems.extend(check_gap_severity_matches_detector_source())
+    all_problems.extend(check_translations_are_not_glued())
 
     if not all_problems:
         print(
@@ -435,8 +479,9 @@ def main() -> int:
             "есть английский перевод в i18n.py, у каждого детектора есть запись в "
             "verification.py, каждый детектор с диска реально зарегистрирован в "
             "core._DETECTORS, у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
-            "задан валидный failure_stage, и у каждого gap'а severity в реестре совпадает "
-            "с тем, что реально использует исходник детектора."
+            "задан валидный failure_stage, у каждого gap'а severity в реестре совпадает "
+            "с тем, что реально использует исходник детектора, и ни в одном английском "
+            "переводе нет слов, склеенных на стыке строковых литералов."
         )
         return 0
 

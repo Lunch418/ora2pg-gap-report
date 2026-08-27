@@ -66,8 +66,18 @@
 | 035 | `conditional_compilation` | high | ✅ | ✅ (`$IF`/`$THEN`/`$ELSE`/`$END` копируются как есть) | ✅ `ERROR: syntax error at or near "$"` на первом вызове | 6 / 2 | да — `test_real_open_source_logger_assert_procedure_is_flagged` (`assert`, `Logger`; сканирование полного файла реально находит 229 таких директив) |
 | 036 | `package_state` | high | ✅ | ✅ (`set_config`/`current_setting` без приведения типа/`missing_ok`) | ✅ `ERROR: function set_config(unknown, bigint, boolean) does not exist` | 13 / 4 | да — `test_real_open_source_logger_package_variables_are_flagged` (`g_log_id`/`g_running_timers`/`g_in_plugin_error`, `Logger`) |
 | 037 | `index_organized_table` | medium | ✅ | ✅ (переписан в кучу + отдельный индекс) | н/д — ограничения целостности сохраняются, теряется только архитектура хранения | 7 / 3 | нет |
+| 038 | `match_recognize` | high | ✅ | ✅ (копируется дословно) | ✅ `ERROR: syntax error at or near "BY"` при загрузке | 4 / 2 | нет |
+| 039 | `connect_by_pseudocolumn` | high | ✅ | ✅ (`CONNECT_BY_ROOT`/`ISLEAF`/`ISCYCLE` переносятся дословно в сгенерированный CTE) | ✅ `ERROR: syntax error at or near "AS"` / `column "connect_by_iscycle" does not exist` | 4 / 2 | нет |
+| 040 | `keep_dense_rank` | high | ✅ | ✅ (копируется дословно) | ✅ `ERROR: syntax error at or near "("` | 4 / 2 | нет |
+| 041 | `multiset_operator` | high | ✅ | ✅ (все четыре формы копируются дословно) | ✅ `ERROR: syntax error at or near "col_b"` / `"SELECT"` / `"SUBMULTISET"` | 5 / 1 | да — `test_real_utplsql_multiset_union_all_is_flagged` (`ut_suite_builder.pkb`, `utPLSQL`; полное сканирование корпуса даёт 52 находки) |
+| 042 | `sample_clause` | high | ✅ | ✅ (копируется дословно, в `TABLESAMPLE` не переписывается) | ✅ `ERROR: syntax error at or near "10"` | 4 / 2 | нет |
+| 043 | `accessible_by` | high | ✅ | ✅ (копируется в заголовок сгенерированной функции) | ✅ `ERROR: syntax error at or near "ACCESSIBLE"` | 4 / 2 | нет |
+| 044 | `local_time_zone` | high | ✅ | ✅ (`ts_ltz timestamp` — без часового пояса) | н/д — ошибки нет никогда; проверено на живом PG, что пересчёт в TZ сессии пропадает | 5 / 2 | да — `test_real_oracle_sample_schema_orders_table_is_flagged` (`order_entry/cord_v3.sql`, `db-sample-schemas`) |
+| 045 | `temporal_validity` | high | ✅ | ✅ (обрубок `period FOR` в списке столбцов) | ✅ `ERROR: syntax error at or near "FOR"` | 4 / 2 | нет |
+| 046 | `bitmap_index` | high | ✅ | ✅ (`CREATE INDEX ... USING gin(...)`) | ✅ `ERROR: data type character varying has no default operator class for access method "gin"` | 5 / 1 | да — `test_real_oracle_sample_schema_star_schema_bitmap_indexes_are_flagged` (`sales_history/sh_populate.sql`, `db-sample-schemas`; 15 находок при сканировании) |
+| 047 | `object_table` | high | ✅ | ✅ (`OF` становится именем столбца, PK теряется) | н/д — при существующем типе загрузка проходит молча, таблица структурно неверна | 6 / 2 | да — `test_real_utplsql_object_table_line_points_at_the_of_keyword_not_create_table` (`ut_suite_cache.sql`, `utPLSQL`) и `categories_tab` из `db-sample-schemas` |
 
-**37/37 по каждому из первых пяти критериев.** Отдельная колонка —
+**47/47 по каждому из первых пяти критериев.** Отдельная колонка —
 проверка на реальном открытом коде: 9 детекторов (`autonomous_tx`,
 `bulk_collect`, `object_type`, `global_temp_table`, `table_partitioning`,
 `json_table`, `collection_type`, `oracle_text`, `with_function`) реально
@@ -163,3 +173,32 @@ python3 scripts/audit_gap_test_counts.py      # пересчитать коло�
 `psql -f` и `CALL`/`SELECT`, с точно теми же результатами, что
 задокументированы (`ora2pg` 25.0 и PostgreSQL 16 использовались во всех
 случаях в этом реестре).
+
+
+## Проверка корпусом для GAP-038..047
+
+Партия GAP-038..047 проверялась отдельным прогоном по **3 из 7**
+репозиториев корпуса (`utPLSQL/utPLSQL`,
+`mortenbra/alexandria-plsql-utils`, `oracle-samples/db-sample-schemas`),
+свежий `git clone --depth 1` каждого — **209 793 строки**, 511 файлов.
+Это намеренно меньший охват, чем полные 247 298 строк по семи
+репозиториям выше: остальные четыре в этот прогон не входили, и
+записывать его как эквивалент полного было бы неверно.
+
+Результат: **0 падений**, сработали 4 из 10 новых детекторов, все
+находки проверены глазами и оказались настоящими конструкциями, не
+ложными срабатываниями:
+
+| Детектор | Находок | Где |
+|---|---|---|
+| `multiset_operator` | 52 | `utPLSQL` — активно использует коллекции |
+| `bitmap_index` | 15 | `db-sample-schemas/sales_history` — учебная звёздная схема |
+| `object_table` | 2 | `utPLSQL/ut_suite_cache.sql`, `db-sample-schemas/oc_cre.sql` |
+| `local_time_zone` | 1 | `db-sample-schemas/order_entry/cord_v3.sql` |
+
+Прогон дополнительно вскрыл реальный баг атрибуции, который не поймали
+синтетические тесты: `object_table` указывал строку `CREATE TABLE`
+вместо строки самого `OF`, когда между ними стоит комментарий (в
+`ut_suite_cache.sql` — лицензионный заголовок на 13 строк).
+Исправлено, регрессионный тест построен на этой же реальной форме.
+

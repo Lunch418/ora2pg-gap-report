@@ -83,15 +83,19 @@ def _q_quote_open_delim_pos(source: str, i: int) -> int | None:
 _EXEC_IMMEDIATE_RE = re.compile(r"\bEXECUTE\s+IMMEDIATE\b", re.IGNORECASE)
 
 
-def _mask(source: str, reveal_dynamic_sql: bool) -> str:
-    """Shared tokenizer for mask_strings_and_comments() and
-    mask_dynamic_sql_visible() -- both views must agree on exactly where
-    every comment/string/q-quote starts and ends, or their "same length,
-    valid offsets in both" contract (every dynamic-SQL-aware detector
-    relies on it) could silently break if one view's rules drifted from the
-    other's under a future fix. `reveal_dynamic_sql=False` reproduces
-    mask_strings_and_comments() exactly: `in_dynamic_sql` can never become
-    True, so every branch below that checks it takes its "mask" side."""
+def _mask(source: str, reveal_dynamic_sql: bool, reveal_strings: bool = False) -> str:
+    """Shared tokenizer for mask_strings_and_comments(),
+    mask_dynamic_sql_visible() and mask_comments_only() -- all three views
+    must agree on exactly where every comment/string/q-quote starts and
+    ends, or their "same length, valid offsets in every view" contract
+    (every dynamic-SQL-aware detector relies on it) could silently break
+    if one view's rules drifted from another's under a future fix.
+    `reveal_dynamic_sql=False` reproduces mask_strings_and_comments()
+    exactly: `in_dynamic_sql` can never become True, so every branch below
+    that checks it takes its "mask" side. `reveal_strings=True` keeps
+    literal *content* -- ordinary and q-quoted alike -- while still
+    blanking comments, for the two detectors whose subject matter is the
+    literal itself (a q'...' literal, a 'RR' date format model)."""
     out = []
     i, n = 0, len(source)
     in_dynamic_sql = False
@@ -131,7 +135,7 @@ def _mask(source: str, reveal_dynamic_sql: bool) -> str:
                 close_delim = _Q_QUOTE_PAIRS.get(open_delim, open_delim)
                 end = source.find(close_delim + "'", open_pos + 1)
                 if end != -1:
-                    if in_dynamic_sql:
+                    if in_dynamic_sql or reveal_strings:
                         out.append(source[i : end + 2])
                     else:
                         for k in range(i, end + 2):
@@ -139,18 +143,19 @@ def _mask(source: str, reveal_dynamic_sql: bool) -> str:
                     i = end + 2
                     continue
         if source[i] == "'":
-            out.append("'" if in_dynamic_sql else " ")
+            reveal = in_dynamic_sql or reveal_strings
+            out.append("'" if reveal else " ")
             i += 1
             while i < n:
                 if source[i] == "'":
                     if source[i : i + 2] == "''":
-                        out.append("''" if in_dynamic_sql else "  ")
+                        out.append("''" if reveal else "  ")
                         i += 2
                         continue
-                    out.append("'" if in_dynamic_sql else " ")
+                    out.append("'" if reveal else " ")
                     i += 1
                     break
-                if in_dynamic_sql:
+                if reveal:
                     out.append(source[i])
                 else:
                     out.append("\n" if source[i] == "\n" else " ")
@@ -208,6 +213,28 @@ def mask_dynamic_sql_visible(source: str) -> str:
 
     Cached -- see mask_strings_and_comments()'s own docstring for why."""
     return _mask(source, reveal_dynamic_sql=True)
+
+
+@lru_cache(maxsize=8)
+def mask_comments_only(source: str) -> str:
+    """Blank out comments but leave string-literal content -- ordinary
+    and q-quoted alike -- exactly as written.
+
+    The mirror image of the other two views, and needed for the same
+    reason they are: a detector must never match inside a comment. But
+    two gaps are *about* the literal itself rather than about code around
+    it -- Oracle's q'...' alternative quoting (GAP-062) and an 'RR' code
+    inside a TO_DATE format model (GAP-058) -- and both views above blank
+    precisely the text those two need to see. Scanning the raw source
+    instead would work but would also match commented-out code, which is
+    the one thing every detector here is careful not to do.
+
+    Same length- and newline-preserving contract as the other two views,
+    produced by the same tokenizer, so offsets found here stay valid for
+    line_at() and enclosing_object_name_index() built from the safe view.
+
+    Cached -- see mask_strings_and_comments()'s own docstring for why."""
+    return _mask(source, reveal_dynamic_sql=False, reveal_strings=True)
 
 
 def line_at(text: str, pos: int) -> int:

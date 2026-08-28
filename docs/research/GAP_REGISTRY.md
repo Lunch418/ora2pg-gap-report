@@ -61,6 +61,26 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-045 | `PERIOD FOR` (Temporal Validity) превращается в обрубок `period FOR` | `temporal_validity` | high | confirmed | 25.0 | 16 | [gap-045](gap-045-temporal-validity.md) |
 | GAP-046 | `CREATE BITMAP INDEX` → `USING gin` без класса операторов | `bitmap_index` | high | confirmed | 25.0 | 16 | [gap-046](gap-046-bitmap-index.md) |
 | GAP-047 | `CREATE TABLE ... OF <тип>` — `OF` становится именем столбца | `object_table` | high | confirmed | 25.0 | 16 | [gap-047](gap-047-object-table.md) |
+| GAP-048 | `IGNORE NULLS` / `RESPECT NULLS` — такого синтаксиса в PostgreSQL 16 нет | `ignore_nulls` | high | confirmed | 25.0 | 16 | [gap-048](gap-048-ignore-nulls.md) |
+| GAP-049 | `NLSSORT` — становится `COLLATE` с несуществующим именем сортировки | `nlssort` | high | confirmed | 25.0 | 16 | [gap-049](gap-049-nlssort.md) |
+| GAP-050 | `LONG RAW` отображается в `text`, а не в задокументированный `bytea` | `long_raw_type` | high | confirmed | 25.0 | 16 | [gap-050](gap-050-long-raw-type.md) |
+| GAP-051 | `SYS.ANYDATA` — имя типа копируется, схемы `SYS` в PostgreSQL нет | `anydata_type` | high | confirmed | 25.0 | 16 | [gap-051](gap-051-anydata-type.md) |
+| GAP-052 | системные триггеры (`ON DATABASE`/`ON SCHEMA`) выводятся как табличные | `system_trigger` | high | confirmed | 25.0 | 16 | [gap-052](gap-052-system-trigger.md) |
+| GAP-053 | `FOLLOWS`/`PRECEDES` попадает внутрь тела функции триггера | `trigger_follows` | high | confirmed | 25.0 | 16 | [gap-053](gap-053-trigger-follows.md) |
+| GAP-054 | оператор `TABLE(...)` — разворот коллекции, копируется как есть | `table_collection` | high | confirmed | 25.0 | 16 | [gap-054](gap-054-table-collection.md) |
+| GAP-055 | `CURSOR(SELECT ...)` — курсорное выражение, аналога нет | `cursor_expression` | high | confirmed | 25.0 | 16 | [gap-055](gap-055-cursor-expression.md) |
+| GAP-056 | `FOR UPDATE ... WAIT n` — есть только `NOWAIT`/`SKIP LOCKED` | `for_update_wait` | high | confirmed | 25.0 | 16 | [gap-056](gap-056-for-update-wait.md) |
+| GAP-057 | `ROWNUM` в `UPDATE`/`DELETE` превращается в недопустимый `LIMIT` | `rownum_dml` | high | confirmed | 25.0 | 16 | [gap-057](gap-057-rownum-dml.md) |
+| GAP-058 | формат `RR` в `TO_DATE` — молча возвращает 1 год до нашей эры | `to_date_rr` | high | confirmed | 25.0 | 16 | [gap-058](gap-058-to-date-rr.md) |
+| GAP-059 | `AUTHID` — процедура молча пропадает из вывода целиком | `authid_clause` | high | confirmed | 25.0 | 16 | [gap-059](gap-059-authid-clause.md) |
+| GAP-060 | `PRAGMA EXCEPTION_INIT` — обработчик получает чужой `SQLSTATE '50001'` | `pragma_exception_init` | high | confirmed | 25.0 | 16 | [gap-060](gap-060-pragma-exception-init.md) |
+| GAP-061 | `SUBTYPE ... RANGE` переносится в `CREATE DOMAIN` дословно | `subtype_range` | high | confirmed | 25.0 | 16 | [gap-061](gap-061-subtype-range.md) |
+| GAP-062 | `q'[...]'` — альтернативные кавычки, копируются как есть | `alt_quote_literal` | high | confirmed | 25.0 | 16 | [gap-062](gap-062-alt-quote-literal.md) |
+| GAP-063 | `GOTO` — в PL/pgSQL такого оператора нет | `goto_statement` | high | confirmed | 25.0 | 16 | [gap-063](gap-063-goto-statement.md) |
+| GAP-064 | `<курсор>%ROWTYPE` — PL/pgSQL допускает только таблицу/представление | `cursor_rowtype` | high | confirmed | 25.0 | 16 | [gap-064](gap-064-cursor-rowtype.md) |
+| GAP-065 | `WM_CONCAT` копируется как есть, в отличие от `LISTAGG` | `wm_concat` | high | confirmed | 25.0 | 16 | [gap-065](gap-065-wm-concat.md) |
+| GAP-066 | `WITH READ ONLY` выбрасывается — представление становится обновляемым | `read_only_view` | high | confirmed | 25.0 | 16 | [gap-066](gap-066-read-only-view.md) |
+| GAP-067 | `SDO_GEOMETRY` — тип PostGIS без `CREATE EXTENSION postgis` | `sdo_geometry` | medium | confirmed | 25.0 | 16 | [gap-067](gap-067-sdo-geometry.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

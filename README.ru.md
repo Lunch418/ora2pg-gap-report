@@ -21,7 +21,7 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
             ora2pg-gap-report
                     │
                     ▼
-   47 подтверждённых типов пробелов миграции ora2pg
+   67 подтверждённых типов пробелов миграции ora2pg
    ┌──────────────────────────────────────────────────────┐
    │ HIGH    GAP-006  database_link    — @dblink нет в PG  │
    │ HIGH    GAP-023  oracle_text      — CONTAINS()/...    │
@@ -114,6 +114,26 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
 | `temporal_validity` | `PERIOD FOR` (Temporal Validity) превращается в обрубок `period FOR` — ломается весь `CREATE TABLE`, а не только сама фича |
 | `bitmap_index` | `CREATE BITMAP INDEX` становится `USING gin`, который PostgreSQL не принимает на обычном скалярном столбце (нет класса операторов) — индекс не создаётся вообще |
 | `object_table` | `CREATE TABLE ... OF <тип>` — `OF` попадает в вывод как *имя столбца*, ограничения теряются. При существующем типе загрузка проходит молча, оставляя структурно неверную таблицу |
+| `ignore_nulls` | `IGNORE NULLS` / `RESPECT NULLS` у аналитических функций копируется как есть; в PostgreSQL 16 такого синтаксиса нет вообще, запрос не разбирается |
+| `nlssort` | `NLSSORT` превращается в `COLLATE` с перенесённым один в один Oracle-именем языка — сортировки с таким именем в PostgreSQL нет, запрос падает на выполнении |
+| `long_raw_type` | `LONG RAW` отображается в `text`, хотя собственное задокументированное значение ora2pg — `LONG RAW:bytea`; двоичные данные после этого вообще не загрузить |
+| `anydata_type` | `SYS.ANYDATA` / `ANYDATASET` / `ANYTYPE` переносится как имя типа; в PostgreSQL нет ни такого типа, ни схемы `SYS` |
+| `system_trigger` | триггер `ON DATABASE`/`ON SCHEMA` выводится как обычный табличный — на таблицу с именем `database`/`schema`, с сохранением Oracle-события |
+| `trigger_follows` | `FOLLOWS`/`PRECEDES` попадает **внутрь** тела сгенерированной функции — триггер загружается чисто, а потом ломает любую запись в таблицу |
+| `table_collection` | оператор разворота коллекции `TABLE(...)` копируется как есть; в PostgreSQL такого оператора нет |
+| `cursor_expression` | `CURSOR(SELECT ...)` копируется как есть; курсорных выражений в PostgreSQL нет |
+| `for_update_wait` | `FOR UPDATE ... WAIT n` копируется как есть; у PostgreSQL там есть только `NOWAIT` и `SKIP LOCKED` |
+| `rownum_dml` | `ROWNUM` в `UPDATE`/`DELETE` переписывается в `LIMIT n`, который PostgreSQL в DML не принимает (во вложенном подзапросе конвертируется корректно и не помечается) |
+| `to_date_rr` | формат `RR` внутри `TO_DATE` остаётся как есть; PostgreSQL молча возвращает 1 год до нашей эры вместо ошибки — неверные данные без единого сообщения |
+| `authid_clause` | из-за `AUTHID CURRENT_USER`/`DEFINER` ora2pg выбрасывает процедуру целиком — ни вывода, ни ошибки, ни даже строки DEBUG в логе |
+| `pragma_exception_init` | все обработчики `PRAGMA EXCEPTION_INIT` схлопываются в `SQLSTATE '50001'`, который PostgreSQL никогда не возбуждает — обработчик становится мёртвым кодом, ошибка вылетает наружу |
+| `subtype_range` | `SUBTYPE ... RANGE lo .. hi` переносится в `CREATE DOMAIN` дословно, а у `CREATE DOMAIN` в PostgreSQL оговорки `RANGE` нет |
+| `alt_quote_literal` | альтернативные кавычки Oracle `q'[...]'` копируются как есть; PostgreSQL читает `q` как идентификатор, и разбор остатка оператора уезжает |
+| `goto_statement` | `GOTO` копируется как есть; в PL/pgSQL оператора `GOTO` нет вообще |
+| `cursor_rowtype` | `<курсор>%ROWTYPE` копируется как есть; PL/pgSQL допускает `%ROWTYPE` только от таблицы или представления (обычное `<таблица>%ROWTYPE` конвертируется нормально и не помечается) |
+| `wm_concat` | `WM_CONCAT` копируется как есть — в отличие от `LISTAGG`, который ora2pg переписывает в `string_agg` |
+| `read_only_view` | `WITH READ ONLY` выбрасывается; полученное представление PostgreSQL автоматически обновляемое, поэтому запись, которую Oracle запрещал, теперь молча проходит |
+| `sdo_geometry` | `SDO_GEOMETRY` становится типом PostGIS `geometry`, но строка `CREATE EXTENSION postgis` не выводится — на обычном сервере DDL не загружается |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -122,7 +142,7 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 
 ### Почему почти всё `high`
 
-Из 47 зарегистрированных gap'ов (`gap_registry.py`) 43 — `high`, 4 —
+Из 67 зарегистрированных gap'ов (`gap_registry.py`) 62 — `high`, 5 —
 `medium` (`context_object`, `invisible_index`, `virtual_column`,
 `index_organized_table`) — `severity` теперь поле `GapEntry`, `scripts/
 doctor.py` сверяет его с тем, что реально написано в исходнике детектора,
@@ -301,7 +321,7 @@ NEW/RESOLVED/UNCHANGED (и своей кнопкой «Save baseline» умее�
 `--explain GAP-023` (или просто `--explain 23`) печатает research-документ
 конкретного gap'а из реестра — Oracle-конструкцию, реальный вывод
 `ora2pg`, наблюдаемую проблему, вердикт, а также версии `ora2pg`/PostgreSQL,
-на которых находка подтверждена (сейчас 25.0/16 у всех 47 — единая
+на которых находка подтверждена (сейчас 25.0/16 у всех 67 — единая
 версия, потому что второй пока не было; `gap_registry.py` уже готов
 хранить разные версии для будущих находок) — без сканирования файлов:
 
@@ -430,7 +450,7 @@ read_only_table   GAP-026   1 → —   NOT_VERIFIABLE
   исправления было бы ровно той придуманной уверенностью, которой этот
   проект специально избегает (см. «Почему почти всё `high`» выше).
 
-Какой режим у какого детектора и почему, по всем 47 —
+Какой режим у какого детектора и почему, по всем 67 —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.ru.md).
 
 `NOT_DETECTED` тоже не означает «доказанно исправлено» — только «паттерн

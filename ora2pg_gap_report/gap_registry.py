@@ -203,6 +203,76 @@ GapEntry(
     GapEntry(
         "047", "object_table", "object-table", ("test_object_table.py",), severity="high", failure_stage="semantic"
     ),
+    GapEntry(
+        "048", "ignore_nulls", "ignore-nulls", ("test_ignore_nulls.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry("049", "nlssort", "nlssort", ("test_nlssort.py",), severity="high", failure_stage="deployment"),
+    GapEntry(
+        "050", "long_raw_type", "long-raw-type", ("test_long_raw_type.py",), severity="high", failure_stage="runtime"
+    ),
+    GapEntry(
+        "051", "anydata_type", "anydata-type", ("test_anydata_type.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "052", "system_trigger", "system-trigger", ("test_system_trigger.py",), severity="high", failure_stage="deployment"
+    ),
+    # trigger_follows: "runtime", not "deployment" -- the clause lands
+    # *inside* the generated function body, so check_function_bodies=false
+    # defers it past CREATE FUNCTION/CREATE TRIGGER and it only breaks on
+    # the first row the trigger fires for. Confirmed that way round by a
+    # real INSERT, not assumed (see the gap's own research doc).
+    GapEntry(
+        "053", "trigger_follows", "trigger-follows", ("test_trigger_follows.py",), severity="high", failure_stage="runtime"
+    ),
+    GapEntry(
+        "054", "table_collection", "table-collection", ("test_table_collection.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "055", "cursor_expression", "cursor-expression", ("test_cursor_expression.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "056", "for_update_wait", "for-update-wait", ("test_for_update_wait.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "057", "rownum_dml", "rownum-dml", ("test_rownum_dml.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "058", "to_date_rr", "to-date-rr", ("test_to_date_rr.py",), severity="high", failure_stage="semantic"
+    ),
+    # authid_clause: the first and so far only gap whose failure_stage is
+    # "conversion" -- the stage FAILURE_STAGES has defined since the
+    # taxonomy was introduced but which nothing had ever landed in (see
+    # docs/failure-stage-notes.md). Nothing fails at deploy or run time
+    # because the routine never reaches the output at all.
+    GapEntry(
+        "059", "authid_clause", "authid-clause", ("test_authid_clause.py",), severity="high", failure_stage="conversion"
+    ),
+    GapEntry(
+        "060", "pragma_exception_init", "pragma-exception-init", ("test_pragma_exception_init.py",), severity="high", failure_stage="runtime"
+    ),
+    GapEntry(
+        "061", "subtype_range", "subtype-range", ("test_subtype_range.py",), severity="high", failure_stage="deployment"
+    ),
+    GapEntry(
+        "062", "alt_quote_literal", "alt-quote-literal", ("test_alt_quote_literal.py",), severity="high", failure_stage="runtime"
+    ),
+    GapEntry(
+        "063", "goto_statement", "goto-statement", ("test_goto_statement.py",), severity="high", failure_stage="runtime"
+    ),
+    GapEntry(
+        "064", "cursor_rowtype", "cursor-rowtype", ("test_cursor_rowtype.py",), severity="high", failure_stage="runtime"
+    ),
+    GapEntry("065", "wm_concat", "wm-concat", ("test_wm_concat.py",), severity="high", failure_stage="runtime"),
+    GapEntry(
+        "066", "read_only_view", "read-only-view", ("test_read_only_view.py",), severity="high", failure_stage="semantic"
+    ),
+    # sdo_geometry: the only "medium" of this batch -- ora2pg picks the
+    # right target type (PostGIS geometry) and merely omits the
+    # CREATE EXTENSION line it needs, so one line fixes it, unlike the
+    # rest of the batch where the construct has to be rewritten.
+    GapEntry(
+        "067", "sdo_geometry", "sdo-geometry", ("test_sdo_geometry.py",), severity="medium", failure_stage="deployment"
+    ),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

@@ -88,6 +88,16 @@ VERIFICATION_MODE: dict[str, str] = {
     "multiset_operator": VERBATIM,  # MULTISET/MEMBER OF/SUBMULTISET are copied unchanged
     "sample_clause": VERBATIM,  # SAMPLE(n) is copied unchanged
     "accessible_by": VERBATIM,  # the clause is copied verbatim into the generated function header
+    "ignore_nulls": VERBATIM,  # IGNORE/RESPECT NULLS is copied unchanged
+    "anydata_type": VERBATIM,  # the SYS.ANYDATA type name is copied unchanged
+    "system_trigger": VERBATIM,  # the ON DATABASE/SCHEMA scope survives (lowercased) in the generated CREATE TRIGGER
+    "table_collection": VERBATIM,  # the TABLE(...) operator is copied unchanged
+    "cursor_expression": VERBATIM,  # CURSOR(SELECT ...) is copied unchanged
+    "for_update_wait": VERBATIM,  # the WAIT n clause is copied unchanged
+    "to_date_rr": VERBATIM,  # the RR format model is left in place inside TO_DATE
+    "alt_quote_literal": VERBATIM,  # the q'...' literal is copied unchanged
+    "goto_statement": VERBATIM,  # GOTO and its label are copied unchanged
+    "wm_concat": VERBATIM,  # the WM_CONCAT call is copied unchanged (unlike LISTAGG)
     # NOT_VERIFIABLE -- ora2pg drops the construct entirely (the
     # Oracle-specific keyword the detector looks for cannot appear in the
     # output, by construction, on any migration) or mangles the
@@ -118,6 +128,22 @@ VERIFICATION_MODE: dict[str, str] = {
     "temporal_validity": NOT_VERIFIABLE,  # mangled to a bare `period FOR`; the named PERIOD FOR shape never survives
     "bitmap_index": NOT_VERIFIABLE,  # rewritten to CREATE INDEX ... USING gin; the BITMAP keyword never survives
     "object_table": NOT_VERIFIABLE,  # OF <type> becomes a column named `of`; the object-table shape never survives
+    "nlssort": NOT_VERIFIABLE,  # rewritten to a COLLATE clause; the NLSSORT call never survives
+    "long_raw_type": NOT_VERIFIABLE,  # rewritten to `text`; the LONG RAW keyword never survives
+    # trigger_follows: the clause *does* survive, but into the generated
+    # trigger *function's* body -- not into the CREATE TRIGGER header,
+    # which is the only place this detector looks (deliberately, since
+    # FOLLOWS is an ordinary identifier elsewhere). So it is verbatim in
+    # the file and still not re-detectable, which is exactly what
+    # NOT_VERIFIABLE means here.
+    "trigger_follows": NOT_VERIFIABLE,
+    "rownum_dml": NOT_VERIFIABLE,  # rewritten to LIMIT n; the ROWNUM keyword never survives
+    "authid_clause": NOT_VERIFIABLE,  # the whole routine is dropped, so nothing at all reaches the output
+    "pragma_exception_init": NOT_VERIFIABLE,  # the pragma is dropped; only a placeholder SQLSTATE remains
+    "subtype_range": NOT_VERIFIABLE,  # becomes CREATE DOMAIN; the SUBTYPE keyword never survives
+    "cursor_rowtype": NOT_VERIFIABLE,  # %ROWTYPE survives but `CURSOR c IS` becomes `c CURSOR FOR`, so the cursor name no longer resolves
+    "read_only_view": NOT_VERIFIABLE,  # the WITH READ ONLY clause is dropped unconditionally
+    "sdo_geometry": NOT_VERIFIABLE,  # rewritten to PostGIS `geometry`; the SDO_GEOMETRY name never survives
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists
     # for verify to compare against.

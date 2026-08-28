@@ -14,8 +14,8 @@ FUNCTION`, …), which is exactly how `ora2pg_wrapper.py` works, not
 through `SHOW_REPORT`. This is a hard requirement for the target
 audience: closed networks, air-gapped environments, the public sector.
 
-There are 48 detectors right now (the full table is in README.md,
-"Detectors"; 47 of them are tied to a registered GAP-NNN, `dbms_utl_calls`
+There are 68 detectors right now (the full table is in README.md,
+"Detectors"; 67 of them are tied to a registered GAP-NNN, `dbms_utl_calls`
 isn't, see README.md, "Why almost everything is high"), and almost all of
 them work the same way: they analyze the Oracle source directly and don't
 need `ora2pg` installed, plain Python, no external dependencies. There's
@@ -40,54 +40,74 @@ ora2pg_gap_report/
 ├── oracle_connector.py         # live PACKAGE BODY/TRIGGER export via DBMS_METADATA.GET_DDL
 ├── oracle_export.py            # the ora2pg-gap-export console command
 ├── detectors/
-│   ├── autonomous_tx.py        # PRAGMA AUTONOMOUS_TRANSACTION inside a PACKAGE BODY
-│   ├── compound_triggers.py    # COMPOUND TRIGGER -- ora2pg's parser silently fails on it
-│   ├── dbms_utl_calls.py       # classifier for specific DBMS_*/UTL_* functions
-│   ├── connect_by.py            # lints the generated WITH RECURSIVE (needs ora2pg)
-│   ├── merge_delete_clause.py   # MERGE ... DELETE WHERE -- no equivalent in PostgreSQL's MERGE
-│   ├── bulk_collect.py          # TYPE ... IS TABLE OF / BULK COLLECT INTO / FORALL
-│   ├── database_link.py         # table@dblink_name -- a direct reference to a remote DB
-│   ├── model_clause.py          # MODEL PARTITION BY / DIMENSION BY / MEASURES / RULES
-│   ├── pivot_clause.py          # PIVOT / UNPIVOT
-│   ├── object_type.py           # CREATE TYPE ... AS OBJECT / TYPE BODY
-│   ├── with_function.py         # WITH FUNCTION / WITH PROCEDURE
-│   ├── flashback_query.py       # AS OF TIMESTAMP / AS OF SCN
-│   ├── global_temp_table.py     # CREATE GLOBAL TEMPORARY TABLE -- ON COMMIT gets lost
-│   ├── table_partitioning.py    # PARTITION BY RANGE/LIST/HASH -- dropped entirely
-│   ├── connect_by_nocycle.py    # CONNECT BY NOCYCLE / ORDER SIBLINGS BY
-│   ├── context_object.py        # CREATE CONTEXT -- an application context
-│   ├── insert_all.py            # INSERT ALL / INSERT FIRST -- multi-table insert
-│   ├── json_table.py            # JSON_TABLE(...) -- not in PostgreSQL 16 or older
-│   ├── external_table.py        # CREATE TABLE ... ORGANIZATION EXTERNAL
-│   ├── sql_macro.py             # SQL_MACRO -- converted into a plain function
-│   ├── invisible_column.py      # an INVISIBLE column loses its invisibility
-│   ├── collection_type.py       # CREATE TYPE ... TABLE OF / VARRAY OF
-│   ├── cross_apply.py           # CROSS APPLY / OUTER APPLY
-│   ├── oracle_text.py           # Oracle Text -- INDEXTYPE / CONTAINS / CATSEARCH / MATCHES
-│   ├── recursive_with.py        # a recursive WITH with no RECURSIVE keyword
-│   ├── invisible_index.py       # an INVISIBLE index
-│   ├── read_only_table.py       # CREATE TABLE ... READ ONLY
-│   ├── materialized_view_log.py # CREATE MATERIALIZED VIEW LOG
-│   ├── identity_column.py       # GENERATED ... AS IDENTITY (...) -- double-paren bug
-│   ├── rowid_type.py            # ROWID/UROWID as a column type -- converted to oid
-│   ├── sequence_cycle.py        # CREATE SEQUENCE ... CYCLE -- the clause gets dropped
-│   ├── default_on_null.py       # DEFAULT ... ON NULL -- copied verbatim, a syntax error
-│   ├── public_synonym.py        # CREATE [PUBLIC] SYNONYM -- loses the target object's schema
-│   ├── virtual_column.py        # GENERATED ALWAYS AS (...) VIRTUAL -- loses ORA-54016 protection
-│   ├── nested_subprogram.py     # a local nested procedure/function -- broken on export
+│   ├── autonomous_tx.py           # PRAGMA AUTONOMOUS_TRANSACTION inside a PACKAGE BODY
+│   ├── compound_triggers.py       # COMPOUND TRIGGER -- ora2pg's parser silently fails on it
+│   ├── dbms_utl_calls.py          # classifier for specific DBMS_*/UTL_* functions
+│   ├── connect_by.py              # lints the generated WITH RECURSIVE (needs ora2pg)
+│   ├── merge_delete_clause.py     # MERGE ... DELETE WHERE -- no equivalent in PostgreSQL's MERGE
+│   ├── bulk_collect.py            # TYPE ... IS TABLE OF / BULK COLLECT INTO / FORALL
+│   ├── database_link.py           # table@dblink_name -- a direct reference to a remote DB
+│   ├── model_clause.py            # MODEL PARTITION BY / DIMENSION BY / MEASURES / RULES
+│   ├── pivot_clause.py            # PIVOT / UNPIVOT
+│   ├── object_type.py             # CREATE TYPE ... AS OBJECT / TYPE BODY
+│   ├── with_function.py           # WITH FUNCTION / WITH PROCEDURE
+│   ├── flashback_query.py         # AS OF TIMESTAMP / AS OF SCN
+│   ├── global_temp_table.py       # CREATE GLOBAL TEMPORARY TABLE -- ON COMMIT gets lost
+│   ├── table_partitioning.py      # PARTITION BY RANGE/LIST/HASH -- dropped entirely
+│   ├── connect_by_nocycle.py      # CONNECT BY NOCYCLE / ORDER SIBLINGS BY
+│   ├── context_object.py          # CREATE CONTEXT -- an application context
+│   ├── insert_all.py              # INSERT ALL / INSERT FIRST -- multi-table insert
+│   ├── json_table.py              # JSON_TABLE(...) -- not in PostgreSQL 16 or older
+│   ├── external_table.py          # CREATE TABLE ... ORGANIZATION EXTERNAL
+│   ├── sql_macro.py               # SQL_MACRO -- converted into a plain function
+│   ├── invisible_column.py        # an INVISIBLE column loses its invisibility
+│   ├── collection_type.py         # CREATE TYPE ... TABLE OF / VARRAY OF
+│   ├── cross_apply.py             # CROSS APPLY / OUTER APPLY
+│   ├── oracle_text.py             # Oracle Text -- INDEXTYPE / CONTAINS / CATSEARCH / MATCHES
+│   ├── recursive_with.py          # a recursive WITH with no RECURSIVE keyword
+│   ├── invisible_index.py         # an INVISIBLE index
+│   ├── read_only_table.py         # CREATE TABLE ... READ ONLY
+│   ├── materialized_view_log.py   # CREATE MATERIALIZED VIEW LOG
+│   ├── identity_column.py         # GENERATED ... AS IDENTITY (...) -- double-paren bug
+│   ├── rowid_type.py              # ROWID/UROWID as a column type -- converted to oid
+│   ├── sequence_cycle.py          # CREATE SEQUENCE ... CYCLE -- the clause gets dropped
+│   ├── default_on_null.py         # DEFAULT ... ON NULL -- copied verbatim, a syntax error
+│   ├── public_synonym.py          # CREATE [PUBLIC] SYNONYM -- loses the target object's schema
+│   ├── virtual_column.py          # GENERATED ALWAYS AS (...) VIRTUAL -- loses ORA-54016 protection
+│   ├── nested_subprogram.py       # a local nested procedure/function -- broken on export
 │   ├── conditional_compilation.py # $IF/$ELSIF/$ELSE/$END -- copied verbatim
-│   ├── package_state.py         # a package variable -- broken emulation via set_config
-│   ├── index_organized_table.py # ORGANIZATION INDEX (IOT) -- dropped entirely
-│   ├── match_recognize.py      # MATCH_RECOGNIZE -- row pattern matching, no PG equivalent
+│   ├── package_state.py           # a package variable -- broken emulation via set_config
+│   ├── index_organized_table.py   # ORGANIZATION INDEX (IOT) -- dropped entirely
+│   ├── match_recognize.py         # MATCH_RECOGNIZE -- row pattern matching, no PG equivalent
 │   ├── connect_by_pseudocolumn.py # CONNECT_BY_ROOT/ISLEAF/ISCYCLE -- carried through unconverted
-│   ├── keep_dense_rank.py      # KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) aggregate modifier
-│   ├── multiset_operator.py    # CAST(MULTISET(...)), MULTISET UNION, MEMBER OF, SUBMULTISET OF
-│   ├── sample_clause.py        # SAMPLE (n) -- PG spells it TABLESAMPLE, ora2pg doesn't convert
-│   ├── accessible_by.py        # ACCESSIBLE BY -- copied into the generated function header
-│   ├── local_time_zone.py      # TIMESTAMP WITH LOCAL TIME ZONE -- becomes a bare timestamp
-│   ├── temporal_validity.py    # PERIOD FOR -- mangled into a truncated `period FOR`
-│   ├── bitmap_index.py         # CREATE BITMAP INDEX -- becomes USING gin, no operator class
-│   └── object_table.py         # CREATE TABLE ... OF <type> -- OF becomes a column name
+│   ├── keep_dense_rank.py         # KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) aggregate modifier
+│   ├── multiset_operator.py       # CAST(MULTISET(...)), MULTISET UNION, MEMBER OF, SUBMULTISET OF
+│   ├── sample_clause.py           # SAMPLE (n) -- PG spells it TABLESAMPLE, ora2pg doesn't convert
+│   ├── accessible_by.py           # ACCESSIBLE BY -- copied into the generated function header
+│   ├── local_time_zone.py         # TIMESTAMP WITH LOCAL TIME ZONE -- becomes a bare timestamp
+│   ├── temporal_validity.py       # PERIOD FOR -- mangled into a truncated `period FOR`
+│   ├── bitmap_index.py            # CREATE BITMAP INDEX -- becomes USING gin, no operator class
+│   ├── object_table.py            # CREATE TABLE ... OF <type> -- OF becomes a column name
+│   ├── ignore_nulls.py            # IGNORE/RESPECT NULLS -- no such syntax in PostgreSQL 16
+│   ├── nlssort.py                 # NLSSORT -- becomes COLLATE with a nonexistent collation name
+│   ├── long_raw_type.py           # LONG RAW -- mapped to text, not the documented bytea
+│   ├── anydata_type.py            # SYS.ANYDATA -- type name copied through, SYS schema absent
+│   ├── system_trigger.py          # ON DATABASE/SCHEMA triggers -- emitted as table triggers
+│   ├── trigger_follows.py         # FOLLOWS/PRECEDES -- leaks into the trigger function body
+│   ├── table_collection.py        # TABLE(...) collection unnesting -- copied verbatim
+│   ├── cursor_expression.py       # CURSOR(SELECT ...) -- copied verbatim, no equivalent
+│   ├── for_update_wait.py         # FOR UPDATE ... WAIT n -- only NOWAIT/SKIP LOCKED exist
+│   ├── rownum_dml.py              # ROWNUM in UPDATE/DELETE -- becomes an illegal LIMIT
+│   ├── to_date_rr.py              # RR format in TO_DATE -- silently yields year 1 BC
+│   ├── authid_clause.py           # AUTHID -- the whole routine is silently dropped
+│   ├── pragma_exception_init.py   # PRAGMA EXCEPTION_INIT -- handler gets a placeholder SQLSTATE
+│   ├── subtype_range.py           # SUBTYPE ... RANGE -- copied into CREATE DOMAIN verbatim
+│   ├── alt_quote_literal.py       # q'[...]' alternative quoting -- copied verbatim
+│   ├── goto_statement.py          # GOTO -- PL/pgSQL has no such statement
+│   ├── cursor_rowtype.py          # <cursor>%ROWTYPE -- PL/pgSQL allows only table/view
+│   ├── wm_concat.py               # WM_CONCAT -- copied verbatim, unlike LISTAGG
+│   ├── read_only_view.py          # WITH READ ONLY -- dropped, view becomes auto-updatable
+│   └── sdo_geometry.py            # SDO_GEOMETRY -- PostGIS type without CREATE EXTENSION
 ├── ora2pg_wrapper.py            # runs ora2pg per object type, parses --estimate_cost
 ├── i18n.py                     # output language (--lang/--set-lang): resolution, English
 │                               # UI strings, and translations of detector explanations

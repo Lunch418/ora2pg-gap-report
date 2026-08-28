@@ -14,7 +14,7 @@
 принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
 госсектор.
 
-Детекторов сейчас 48 (полная таблица — в README.md, «Детекторы»; 47 из
+Детекторов сейчас 68 (полная таблица — в README.md, «Детекторы»; 67 из
 них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
 README.md, «Почему почти всё high»), и почти все они устроены
 одинаково: анализируют Oracle-исходник напрямую и не требуют
@@ -41,54 +41,74 @@ ora2pg_gap_report/
 ├── oracle_connector.py         # живая выгрузка PACKAGE BODY/TRIGGER через DBMS_METADATA.GET_DDL
 ├── oracle_export.py            # консольная команда ora2pg-gap-export
 ├── detectors/
-│   ├── autonomous_tx.py        # PRAGMA AUTONOMOUS_TRANSACTION в PACKAGE BODY
-│   ├── compound_triggers.py    # COMPOUND TRIGGER — тихий провал парсинга у ora2pg
-│   ├── dbms_utl_calls.py       # классификатор конкретных DBMS_*/UTL_* функций
-│   ├── connect_by.py            # линтинг сгенерированного WITH RECURSIVE (нужен ora2pg)
-│   ├── merge_delete_clause.py   # MERGE ... DELETE WHERE — не имеет аналога в MERGE PostgreSQL
-│   ├── bulk_collect.py          # TYPE ... IS TABLE OF / BULK COLLECT INTO / FORALL
-│   ├── database_link.py         # table@dblink_name — прямая ссылка на удалённую БД
-│   ├── model_clause.py          # MODEL PARTITION BY / DIMENSION BY / MEASURES / RULES
-│   ├── pivot_clause.py          # PIVOT / UNPIVOT
-│   ├── object_type.py           # CREATE TYPE ... AS OBJECT / TYPE BODY
-│   ├── with_function.py         # WITH FUNCTION / WITH PROCEDURE
-│   ├── flashback_query.py       # AS OF TIMESTAMP / AS OF SCN
-│   ├── global_temp_table.py     # CREATE GLOBAL TEMPORARY TABLE — теряется ON COMMIT
-│   ├── table_partitioning.py    # PARTITION BY RANGE/LIST/HASH — отбрасывается целиком
-│   ├── connect_by_nocycle.py    # CONNECT BY NOCYCLE / ORDER SIBLINGS BY
-│   ├── context_object.py        # CREATE CONTEXT — application context
-│   ├── insert_all.py            # INSERT ALL / INSERT FIRST — многотабличная вставка
-│   ├── json_table.py            # JSON_TABLE(...) — нет в PostgreSQL 16 и старше
-│   ├── external_table.py        # CREATE TABLE ... ORGANIZATION EXTERNAL
-│   ├── sql_macro.py             # SQL_MACRO — конвертируется в обычную функцию
-│   ├── invisible_column.py      # столбец INVISIBLE теряет своё скрытие
-│   ├── collection_type.py       # CREATE TYPE ... TABLE OF / VARRAY OF
-│   ├── cross_apply.py           # CROSS APPLY / OUTER APPLY
-│   ├── oracle_text.py           # Oracle Text — INDEXTYPE / CONTAINS / CATSEARCH / MATCHES
-│   ├── recursive_with.py        # рекурсивная WITH без RECURSIVE
-│   ├── invisible_index.py       # INVISIBLE-индекс
-│   ├── read_only_table.py       # CREATE TABLE ... READ ONLY
-│   ├── materialized_view_log.py # CREATE MATERIALIZED VIEW LOG
-│   ├── identity_column.py       # GENERATED ... AS IDENTITY (...) — баг двойных скобок
-│   ├── rowid_type.py            # ROWID/UROWID как тип столбца — конвертируется в oid
-│   ├── sequence_cycle.py        # CREATE SEQUENCE ... CYCLE — секция отбрасывается
-│   ├── default_on_null.py       # DEFAULT ... ON NULL — копируется verbatim, syntax error
-│   ├── public_synonym.py        # CREATE [PUBLIC] SYNONYM — теряет схему целевого объекта
-│   ├── virtual_column.py        # GENERATED ALWAYS AS (...) VIRTUAL — теряет защиту ORA-54016
-│   ├── nested_subprogram.py     # локальная вложенная процедура/функция — портится при экспорте
+│   ├── autonomous_tx.py           # PRAGMA AUTONOMOUS_TRANSACTION в PACKAGE BODY
+│   ├── compound_triggers.py       # COMPOUND TRIGGER — тихий провал парсинга у ora2pg
+│   ├── dbms_utl_calls.py          # классификатор конкретных DBMS_*/UTL_* функций
+│   ├── connect_by.py              # линтинг сгенерированного WITH RECURSIVE (нужен ora2pg)
+│   ├── merge_delete_clause.py     # MERGE ... DELETE WHERE — не имеет аналога в MERGE PostgreSQL
+│   ├── bulk_collect.py            # TYPE ... IS TABLE OF / BULK COLLECT INTO / FORALL
+│   ├── database_link.py           # table@dblink_name — прямая ссылка на удалённую БД
+│   ├── model_clause.py            # MODEL PARTITION BY / DIMENSION BY / MEASURES / RULES
+│   ├── pivot_clause.py            # PIVOT / UNPIVOT
+│   ├── object_type.py             # CREATE TYPE ... AS OBJECT / TYPE BODY
+│   ├── with_function.py           # WITH FUNCTION / WITH PROCEDURE
+│   ├── flashback_query.py         # AS OF TIMESTAMP / AS OF SCN
+│   ├── global_temp_table.py       # CREATE GLOBAL TEMPORARY TABLE — теряется ON COMMIT
+│   ├── table_partitioning.py      # PARTITION BY RANGE/LIST/HASH — отбрасывается целиком
+│   ├── connect_by_nocycle.py      # CONNECT BY NOCYCLE / ORDER SIBLINGS BY
+│   ├── context_object.py          # CREATE CONTEXT — application context
+│   ├── insert_all.py              # INSERT ALL / INSERT FIRST — многотабличная вставка
+│   ├── json_table.py              # JSON_TABLE(...) — нет в PostgreSQL 16 и старше
+│   ├── external_table.py          # CREATE TABLE ... ORGANIZATION EXTERNAL
+│   ├── sql_macro.py               # SQL_MACRO — конвертируется в обычную функцию
+│   ├── invisible_column.py        # столбец INVISIBLE теряет своё скрытие
+│   ├── collection_type.py         # CREATE TYPE ... TABLE OF / VARRAY OF
+│   ├── cross_apply.py             # CROSS APPLY / OUTER APPLY
+│   ├── oracle_text.py             # Oracle Text — INDEXTYPE / CONTAINS / CATSEARCH / MATCHES
+│   ├── recursive_with.py          # рекурсивная WITH без RECURSIVE
+│   ├── invisible_index.py         # INVISIBLE-индекс
+│   ├── read_only_table.py         # CREATE TABLE ... READ ONLY
+│   ├── materialized_view_log.py   # CREATE MATERIALIZED VIEW LOG
+│   ├── identity_column.py         # GENERATED ... AS IDENTITY (...) — баг двойных скобок
+│   ├── rowid_type.py              # ROWID/UROWID как тип столбца — конвертируется в oid
+│   ├── sequence_cycle.py          # CREATE SEQUENCE ... CYCLE — секция отбрасывается
+│   ├── default_on_null.py         # DEFAULT ... ON NULL — копируется verbatim, syntax error
+│   ├── public_synonym.py          # CREATE [PUBLIC] SYNONYM — теряет схему целевого объекта
+│   ├── virtual_column.py          # GENERATED ALWAYS AS (...) VIRTUAL — теряет защиту ORA-54016
+│   ├── nested_subprogram.py       # локальная вложенная процедура/функция — портится при экспорте
 │   ├── conditional_compilation.py # $IF/$ELSIF/$ELSE/$END — копируются verbatim
-│   ├── package_state.py         # пакетная переменная — сломанная эмуляция через set_config
-│   ├── index_organized_table.py # ORGANIZATION INDEX (IOT) — отбрасывается
-│   ├── match_recognize.py      # MATCH_RECOGNIZE — сопоставление с шаблоном, аналога в PG нет
+│   ├── package_state.py           # пакетная переменная — сломанная эмуляция через set_config
+│   ├── index_organized_table.py   # ORGANIZATION INDEX (IOT) — отбрасывается
+│   ├── match_recognize.py         # MATCH_RECOGNIZE — сопоставление с шаблоном, аналога в PG нет
 │   ├── connect_by_pseudocolumn.py # CONNECT_BY_ROOT/ISLEAF/ISCYCLE — переносятся без конвертации
-│   ├── keep_dense_rank.py      # KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) — модификатор агрегата
-│   ├── multiset_operator.py    # CAST(MULTISET(...)), MULTISET UNION, MEMBER OF, SUBMULTISET OF
-│   ├── sample_clause.py        # SAMPLE (n) — в PG это TABLESAMPLE, ora2pg не конвертирует
-│   ├── accessible_by.py        # ACCESSIBLE BY — копируется в заголовок сгенерированной функции
-│   ├── local_time_zone.py      # TIMESTAMP WITH LOCAL TIME ZONE — становится простым timestamp
-│   ├── temporal_validity.py    # PERIOD FOR — превращается в обрубок `period FOR`
-│   ├── bitmap_index.py         # CREATE BITMAP INDEX — становится USING gin без класса операторов
-│   └── object_table.py         # CREATE TABLE ... OF <тип> — OF становится именем столбца
+│   ├── keep_dense_rank.py         # KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) — модификатор агрегата
+│   ├── multiset_operator.py       # CAST(MULTISET(...)), MULTISET UNION, MEMBER OF, SUBMULTISET OF
+│   ├── sample_clause.py           # SAMPLE (n) — в PG это TABLESAMPLE, ora2pg не конвертирует
+│   ├── accessible_by.py           # ACCESSIBLE BY — копируется в заголовок сгенерированной функции
+│   ├── local_time_zone.py         # TIMESTAMP WITH LOCAL TIME ZONE — становится простым timestamp
+│   ├── temporal_validity.py       # PERIOD FOR — превращается в обрубок `period FOR`
+│   ├── bitmap_index.py            # CREATE BITMAP INDEX — становится USING gin без класса операторов
+│   ├── object_table.py            # CREATE TABLE ... OF <тип> — OF становится именем столбца
+│   ├── ignore_nulls.py            # IGNORE/RESPECT NULLS — такого синтаксиса в PostgreSQL 16 нет
+│   ├── nlssort.py                 # NLSSORT — становится COLLATE с несуществующим именем
+│   ├── long_raw_type.py           # LONG RAW — отображается в text вместо документированного bytea
+│   ├── anydata_type.py            # SYS.ANYDATA — имя типа копируется, схемы SYS нет
+│   ├── system_trigger.py          # триггеры ON DATABASE/SCHEMA — выводятся как табличные
+│   ├── trigger_follows.py         # FOLLOWS/PRECEDES — попадает внутрь тела функции триггера
+│   ├── table_collection.py        # TABLE(...) — разворот коллекции, копируется как есть
+│   ├── cursor_expression.py       # CURSOR(SELECT ...) — копируется как есть, аналога нет
+│   ├── for_update_wait.py         # FOR UPDATE ... WAIT n — есть только NOWAIT/SKIP LOCKED
+│   ├── rownum_dml.py              # ROWNUM в UPDATE/DELETE — превращается в недопустимый LIMIT
+│   ├── to_date_rr.py              # формат RR в TO_DATE — молча даёт 1 год до нашей эры
+│   ├── authid_clause.py           # AUTHID — процедура молча пропадает целиком
+│   ├── pragma_exception_init.py   # PRAGMA EXCEPTION_INIT — обработчик получает чужой SQLSTATE
+│   ├── subtype_range.py           # SUBTYPE ... RANGE — переносится в CREATE DOMAIN дословно
+│   ├── alt_quote_literal.py       # q'[...]' — альтернативные кавычки, копируются как есть
+│   ├── goto_statement.py          # GOTO — в PL/pgSQL такого оператора нет
+│   ├── cursor_rowtype.py          # <курсор>%ROWTYPE — PL/pgSQL допускает только таблицу/представление
+│   ├── wm_concat.py               # WM_CONCAT — копируется как есть, в отличие от LISTAGG
+│   ├── read_only_view.py          # WITH READ ONLY — выбрасывается, представление становится обновляемым
+│   └── sdo_geometry.py            # SDO_GEOMETRY — тип PostGIS без CREATE EXTENSION
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── i18n.py                     # язык вывода (--lang/--set-lang): резолюция, английские
 │                               # строки UI и переводы объяснений детекторов

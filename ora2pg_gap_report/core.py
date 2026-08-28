@@ -48,6 +48,26 @@ from .detectors.model_clause import find_model_clauses
 from .detectors.multiset_operator import find_multiset_operators
 from .detectors.nested_subprogram import find_nested_subprograms
 from .detectors.object_table import find_object_tables
+from .detectors.ignore_nulls import find_ignore_nulls
+from .detectors.nlssort import find_nlssort
+from .detectors.long_raw_type import find_long_raw_columns
+from .detectors.anydata_type import find_anydata_columns
+from .detectors.system_trigger import find_system_triggers
+from .detectors.trigger_follows import find_trigger_follows
+from .detectors.table_collection import find_table_collection_operator
+from .detectors.cursor_expression import find_cursor_expressions
+from .detectors.for_update_wait import find_for_update_wait
+from .detectors.rownum_dml import find_rownum_dml
+from .detectors.to_date_rr import find_to_date_rr
+from .detectors.authid_clause import find_authid_clauses
+from .detectors.pragma_exception_init import find_pragma_exception_init
+from .detectors.subtype_range import find_subtype_ranges
+from .detectors.alt_quote_literal import find_alt_quote_literals
+from .detectors.goto_statement import find_goto_statements
+from .detectors.cursor_rowtype import find_cursor_rowtype
+from .detectors.wm_concat import find_wm_concat
+from .detectors.read_only_view import find_read_only_views
+from .detectors.sdo_geometry import find_sdo_geometry_columns
 from .detectors.object_type import find_object_types
 from .detectors.oracle_text import find_oracle_text_usage
 from .detectors.package_state import find_package_state
@@ -115,6 +135,26 @@ _DETECTORS = (
     find_temporal_validity,
     find_bitmap_indexes,
     find_object_tables,
+    find_ignore_nulls,
+    find_nlssort,
+    find_long_raw_columns,
+    find_anydata_columns,
+    find_system_triggers,
+    find_trigger_follows,
+    find_table_collection_operator,
+    find_cursor_expressions,
+    find_for_update_wait,
+    find_rownum_dml,
+    find_to_date_rr,
+    find_authid_clauses,
+    find_pragma_exception_init,
+    find_subtype_ranges,
+    find_alt_quote_literals,
+    find_goto_statements,
+    find_cursor_rowtype,
+    find_wm_concat,
+    find_read_only_views,
+    find_sdo_geometry_columns,
 )
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")

@@ -86,8 +86,28 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 045 | `temporal_validity` | `not_verifiable` | Превращается в обрубок `period FOR`; именованная форма PERIOD FOR не переживает конвертацию. |
 | 046 | `bitmap_index` | `not_verifiable` | Переписывается в CREATE INDEX ... USING gin; ключевое слово BITMAP не переживает конвертацию. |
 | 047 | `object_table` | `not_verifiable` | `OF <тип>` становится столбцом по имени `of`; форма объектной таблицы не переживает конвертацию. |
+| 048 | `ignore_nulls` | `verbatim` | IGNORE/RESPECT NULLS копируется в вывод без изменений. |
+| 049 | `nlssort` | `not_verifiable` | Переписывается в оговорку COLLATE; сам вызов NLSSORT не переживает конвертацию. |
+| 050 | `long_raw_type` | `not_verifiable` | Переписывается в `text`; ключевое слово LONG RAW не переживает конвертацию. |
+| 051 | `anydata_type` | `verbatim` | Имя типа SYS.ANYDATA переносится в вывод без изменений. |
+| 052 | `system_trigger` | `verbatim` | Область ON DATABASE/SCHEMA переживает конвертацию (в нижнем регистре) в сгенерированном CREATE TRIGGER. |
+| 053 | `trigger_follows` | `not_verifiable` | Оговорка переживает конвертацию, но попадает в тело *функции* триггера, а не в заголовок CREATE TRIGGER, который читает этот детектор — дословно в файле и при этом не находится повторно. |
+| 054 | `table_collection` | `verbatim` | Оператор TABLE(...) копируется в вывод без изменений. |
+| 055 | `cursor_expression` | `verbatim` | CURSOR(SELECT ...) копируется в вывод без изменений. |
+| 056 | `for_update_wait` | `verbatim` | Оговорка WAIT n копируется в вывод без изменений. |
+| 057 | `rownum_dml` | `not_verifiable` | Переписывается в LIMIT n; ключевое слово ROWNUM не переживает конвертацию. |
+| 058 | `to_date_rr` | `verbatim` | Формат RR остаётся на месте внутри TO_DATE. |
+| 059 | `authid_clause` | `not_verifiable` | Процедура выбрасывается целиком, поэтому в выводе не остаётся вообще ничего, что можно было бы найти повторно. |
+| 060 | `pragma_exception_init` | `not_verifiable` | Сам PRAGMA выброшен; в обработчике остаётся только подставленный SQLSTATE. |
+| 061 | `subtype_range` | `not_verifiable` | Становится CREATE DOMAIN; ключевое слово SUBTYPE не переживает конвертацию. |
+| 062 | `alt_quote_literal` | `verbatim` | Литерал q'...' копируется в вывод без изменений. |
+| 063 | `goto_statement` | `verbatim` | GOTO и метка копируются в вывод без изменений. |
+| 064 | `cursor_rowtype` | `not_verifiable` | %ROWTYPE переживает конвертацию, но `CURSOR c IS` становится `c CURSOR FOR`, и имя курсора для этого детектора больше не разрешается. |
+| 065 | `wm_concat` | `verbatim` | Вызов WM_CONCAT копируется в вывод без изменений (в отличие от LISTAGG). |
+| 066 | `read_only_view` | `not_verifiable` | Оговорка WITH READ ONLY выбрасывается безусловно. |
+| 067 | `sdo_geometry` | `not_verifiable` | Переписывается в тип PostGIS `geometry`; имя SDO_GEOMETRY не переживает конвертацию. |
 
-Итого среди самих 47 gap'ов: 20 `verbatim`, 26 `not_verifiable`
+Итого среди самих 67 gap'ов: 30 `verbatim`, 36 `not_verifiable`
 (включая `autonomous_tx`, но по другой причине — см. выше), 1
 `generated_only` (`connect_by`).
 

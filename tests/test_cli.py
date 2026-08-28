@@ -42,6 +42,7 @@ def test_scan_source_runs_all_detectors_on_logger():
         "conditional_compilation",
         "nested_subprogram",
         "package_state",
+        "pragma_exception_init",
     }
     # autonomous_tx + dbms_utl_calls (verified in their own tests) +
     # bulk_collect: logger.pkb genuinely declares a local associative array
@@ -60,7 +61,13 @@ def test_scan_source_runs_all_detectors_on_logger():
     # moment package_state.py's grammar covered CONSTANT (see
     # docs/research/gap-036-package-state.md's addendum) -- this file was
     # already in the corpus the whole time, just silently under-counted.
-    assert len(findings) == 8 + 17 + 1 + 229 + 5 + 25
+    # pragma_exception_init: one real declaration at line 299,
+    # 'pragma exception_init(invalid_userenv_parm, -2003)', paired with a
+    # WHEN handler further down -- exactly the shape GAP-060 is about, so
+    # after conversion that handler would catch a SQLSTATE PostgreSQL never
+    # raises. Found by running the new detector over the corpus, not
+    # constructed for the test.
+    assert len(findings) == 8 + 17 + 1 + 229 + 5 + 25 + 1
 
 
 def test_scan_source_sorts_high_severity_first():

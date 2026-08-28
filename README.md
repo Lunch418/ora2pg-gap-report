@@ -21,7 +21,7 @@ Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
             ora2pg-gap-report
                     │
                     ▼
-   47 confirmed types of ora2pg migration gaps
+   67 confirmed types of ora2pg migration gaps
    ┌────────────────────────────────────────────────────────┐
    │ HIGH    GAP-006  database_link    — @dblink not in PG  │
    │ HIGH    GAP-023  oracle_text      — CONTAINS()/...     │
@@ -115,6 +115,26 @@ empirically against real PL/SQL code
 | `temporal_validity` | `PERIOD FOR` (Temporal Validity) is mangled into a truncated `period FOR` fragment — breaks the whole `CREATE TABLE`, not just the feature |
 | `bitmap_index` | `CREATE BITMAP INDEX` becomes `USING gin`, which PostgreSQL refuses on an ordinary scalar column (no default operator class) — the index isn't created at all |
 | `object_table` | `CREATE TABLE ... OF <type>` — `OF` ends up as a *column name* and the constraints are lost. With the type present the load succeeds silently, leaving a structurally wrong table |
+| `ignore_nulls` | `IGNORE NULLS` / `RESPECT NULLS` on analytic functions is copied verbatim; PostgreSQL 16 has no such syntax at all, so the query fails to parse |
+| `nlssort` | `NLSSORT` becomes a `COLLATE` clause carrying the Oracle language name across — PostgreSQL has no collation by that name, so the query fails at run time |
+| `long_raw_type` | `LONG RAW` is mapped to `text` even though ora2pg's own documented default is `LONG RAW:bytea` — binary data then cannot be loaded at all |
+| `anydata_type` | `SYS.ANYDATA` / `ANYDATASET` / `ANYTYPE` is copied through as a type name; PostgreSQL has neither the type nor a `SYS` schema |
+| `system_trigger` | A trigger `ON DATABASE`/`ON SCHEMA` is emitted as an ordinary table trigger on a table literally named `database`/`schema`, keeping the Oracle event keyword |
+| `trigger_follows` | `FOLLOWS`/`PRECEDES` leaks *inside* the generated trigger function's body — the trigger loads cleanly and then breaks every write to the table |
+| `table_collection` | The `TABLE(...)` collection-unnesting operator is copied verbatim; PostgreSQL has no such operator |
+| `cursor_expression` | `CURSOR(SELECT ...)` is copied verbatim; PostgreSQL has no cursor expressions |
+| `for_update_wait` | `FOR UPDATE ... WAIT n` is copied verbatim; PostgreSQL offers only `NOWAIT` and `SKIP LOCKED` there |
+| `rownum_dml` | `ROWNUM` in an `UPDATE`/`DELETE` is rewritten to `LIMIT n`, which PostgreSQL does not accept on DML (in a subquery it converts correctly and is not flagged) |
+| `to_date_rr` | An `RR` format model inside `TO_DATE` is left in place; PostgreSQL silently returns year 1 BC instead of raising anything — wrong data, no error |
+| `authid_clause` | `AUTHID CURRENT_USER`/`DEFINER` makes ora2pg drop the entire routine — no output, no error, not even a DEBUG log line |
+| `pragma_exception_init` | `PRAGMA EXCEPTION_INIT` handlers all collapse onto `SQLSTATE '50001'`, which PostgreSQL never raises — the handler becomes dead code and the error escapes |
+| `subtype_range` | `SUBTYPE ... RANGE lo .. hi` is carried into `CREATE DOMAIN` verbatim, and PostgreSQL's `CREATE DOMAIN` has no `RANGE` clause |
+| `alt_quote_literal` | Oracle's `q'[...]'` alternative quoting is copied verbatim; PostgreSQL parses `q` as an identifier and the rest of the statement derails |
+| `goto_statement` | `GOTO` is copied verbatim; PL/pgSQL has no `GOTO` at all |
+| `cursor_rowtype` | `<cursor>%ROWTYPE` is copied verbatim; PL/pgSQL allows `%ROWTYPE` only against a table or view (plain `<table>%ROWTYPE` converts fine and is not flagged) |
+| `wm_concat` | `WM_CONCAT` is copied verbatim — unlike `LISTAGG`, which ora2pg does rewrite to `string_agg` |
+| `read_only_view` | `WITH READ ONLY` is dropped; the resulting PostgreSQL view is auto-updatable, so writes Oracle rejected now silently succeed |
+| `sdo_geometry` | `SDO_GEOMETRY` becomes the PostGIS `geometry` type with no `CREATE EXTENSION postgis` emitted — the DDL fails to load on a stock server |
 
 Plus `ora2pg_wrapper.py` — runs `ora2pg` per object type against exported DDL
 and parses `--estimate_cost`, and `oracle_connector.py`/`oracle_export.py` —
@@ -123,7 +143,7 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 47 registered gaps (`gap_registry.py`), 43 are `high` and 4 are
+Of the 67 registered gaps (`gap_registry.py`), 62 are `high` and 5 are
 `medium` (`context_object`, `invisible_index`, `virtual_column`,
 `index_organized_table`) — `severity` is a `GapEntry` field now,
 cross-checked by `scripts/doctor.py` against the literal a detector's own
@@ -300,7 +320,7 @@ the `[tui]` extra installed prints a plain install hint, not a traceback.
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 47 — a single
+finding was confirmed against (currently 25.0/16 for all 67 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -429,7 +449,7 @@ the same way for every detector:
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 47 —
+Which mode applies to which detector, and why, for all 67 —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't

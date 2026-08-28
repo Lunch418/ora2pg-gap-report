@@ -10,7 +10,7 @@ something's unimplemented, but because the question itself, "is this
 still in the output," is a tautology for them: the construct is
 guaranteed to never appear in the output on any migration, regardless of
 whether someone fixed it by hand or not. `verification.py`'s docstring
-explains this in detail; this is a table for each of the 47 gaps, so
+explains this in detail; this is a table for each of the 67 gaps, so
 nobody has to read the code just to answer "can this specific one be
 verified."
 
@@ -87,8 +87,28 @@ verified."
 | 045 | `temporal_validity` | `not_verifiable` | Mangled into a bare `period FOR`; the named PERIOD FOR shape never survives. |
 | 046 | `bitmap_index` | `not_verifiable` | Rewritten to CREATE INDEX ... USING gin; the BITMAP keyword never survives. |
 | 047 | `object_table` | `not_verifiable` | `OF <type>` becomes a column named `of`; the object-table shape never survives. |
+| 048 | `ignore_nulls` | `verbatim` | IGNORE/RESPECT NULLS is copied into the output unchanged. |
+| 049 | `nlssort` | `not_verifiable` | Rewritten into a COLLATE clause; the NLSSORT call itself never survives. |
+| 050 | `long_raw_type` | `not_verifiable` | Rewritten to `text`; the LONG RAW keyword never survives. |
+| 051 | `anydata_type` | `verbatim` | The SYS.ANYDATA type name is carried into the output unchanged. |
+| 052 | `system_trigger` | `verbatim` | The ON DATABASE/SCHEMA scope survives (lowercased) in the generated CREATE TRIGGER. |
+| 053 | `trigger_follows` | `not_verifiable` | The clause does survive, but into the trigger *function's body* rather than the CREATE TRIGGER header this detector reads -- verbatim in the file, still not re-detectable. |
+| 054 | `table_collection` | `verbatim` | The TABLE(...) operator is copied into the output unchanged. |
+| 055 | `cursor_expression` | `verbatim` | CURSOR(SELECT ...) is copied into the output unchanged. |
+| 056 | `for_update_wait` | `verbatim` | The WAIT n clause is copied into the output unchanged. |
+| 057 | `rownum_dml` | `not_verifiable` | Rewritten to LIMIT n; the ROWNUM keyword never survives. |
+| 058 | `to_date_rr` | `verbatim` | The RR format model is left in place inside TO_DATE. |
+| 059 | `authid_clause` | `not_verifiable` | The whole routine is dropped, so nothing at all reaches the output to re-detect. |
+| 060 | `pragma_exception_init` | `not_verifiable` | The pragma is dropped; only a placeholder SQLSTATE remains in the handler. |
+| 061 | `subtype_range` | `not_verifiable` | Becomes CREATE DOMAIN; the SUBTYPE keyword never survives. |
+| 062 | `alt_quote_literal` | `verbatim` | The q'...' literal is copied into the output unchanged. |
+| 063 | `goto_statement` | `verbatim` | GOTO and its label are copied into the output unchanged. |
+| 064 | `cursor_rowtype` | `not_verifiable` | %ROWTYPE survives, but `CURSOR c IS` becomes `c CURSOR FOR`, so the cursor name no longer resolves for this detector. |
+| 065 | `wm_concat` | `verbatim` | The WM_CONCAT call is copied into the output unchanged (unlike LISTAGG). |
+| 066 | `read_only_view` | `not_verifiable` | The WITH READ ONLY clause is dropped unconditionally. |
+| 067 | `sdo_geometry` | `not_verifiable` | Rewritten to the PostGIS `geometry` type; the SDO_GEOMETRY name never survives. |
 
-Totals among the 47 gaps themselves: 20 `verbatim`, 26 `not_verifiable`
+Totals among the 67 gaps themselves: 30 `verbatim`, 36 `not_verifiable`
 (including `autonomous_tx`, but for a different reason, see above), 1
 `generated_only` (`connect_by`).
 

@@ -120,7 +120,7 @@ _REMEDIATION_HINT = {
     "cursor_expression": "Заменить на соединение с агрегацией дочерних строк (array_agg/json_agg) либо на отдельную функцию, возвращающую refcursor",
     "for_update_wait": "Убрать WAIT n и выставить таймаут на уровне сессии: SET LOCAL lock_timeout = 'n s' перед SELECT ... FOR UPDATE",
     "rownum_dml": "Переписать через подзапрос по первичному ключу — DELETE FROM t WHERE id IN (SELECT id FROM t WHERE ... ORDER BY ... LIMIT n)",
-    "to_date_rr": "Заменить RR на YY либо, надёжнее, на явный YYYY с приведением входных данных — PostgreSQL кода RR не знает и молча выдаёт 0001 год до нашей эры",
+    "to_date_rr": "Заменить RR на явный четырёхзначный YYYY с приведением входных данных — PostgreSQL кода RR не знает и молча выдаёт 0001 год до нашей эры, а YY не эквивалент: его порог 69/70 против 49/50 у Oracle RR",
     "authid_clause": "Убрать оговорку из исходника перед конвертацией (иначе объект пропадёт целиком) и дописать в готовую функцию SECURITY DEFINER или SECURITY INVOKER",
     "pragma_exception_init": "Сопоставить каждый номер ORA с настоящим кодом PostgreSQL и заменить подставленный '50001' на него (например unique_violation вместо -1)",
     "subtype_range": "Заменить RANGE lo .. hi на проверку: CREATE DOMAIN ... CHECK (VALUE BETWEEN lo AND hi)",

@@ -57,3 +57,17 @@ def test_real_oracle_sample_schema_order_entry_insert_is_flagged():
     findings = find_to_date_rr(source)
     assert len(findings) == 1
     assert findings[0].line == 2
+
+
+def test_the_message_does_not_recommend_yy_as_a_drop_in_replacement():
+    # Guard against a factual regression in user-facing advice. RR and YY
+    # pivot at different points -- Oracle's RR at 49/50, PostgreSQL's YY
+    # at 69/70 (verified on PostgreSQL 16, see the gap's research doc) --
+    # so they disagree by a century for two-digit years 50-69. An earlier
+    # draft of this message claimed PostgreSQL "applies the same rule",
+    # which would have sent users from a loud bug to a silent one.
+    from ora2pg_gap_report.detectors.to_date_rr import _MESSAGE
+
+    assert "YYYY" in _MESSAGE
+    assert "00-69" in _MESSAGE and "70-99" in _MESSAGE
+    assert "то же правило" not in _MESSAGE

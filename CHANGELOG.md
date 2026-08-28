@@ -7,6 +7,120 @@ The project follows [SemVer](https://semver.org/) in a simplified form
 until it reaches 1.0.0: minor version bumps for new detectors/features,
 patch for fixes to existing ones.
 
+## [0.9.0] - 2026-08-28
+
+### Added
+- 20 new confirmed gaps, **GAP-048..067** — the registry goes from 47 to
+  67. Found and confirmed the same way as every gap before them: a minimal
+  Oracle example, a real `ora2pg 25.0` run, and the generated output
+  loaded into a live PostgreSQL 16 server. Each one's research doc under
+  `docs/research/` carries the actual output of both commands, not a
+  paraphrase.
+
+  Fail when the generated DDL/query is loaded (`deployment`):
+  - `ignore_nulls` (GAP-048) — `IGNORE NULLS`/`RESPECT NULLS` on analytic
+    functions, copied verbatim; PostgreSQL 16 has no such syntax at all.
+  - `nlssort` (GAP-049) — rewritten to `COLLATE "GERMAN"`, a collation
+    name PostgreSQL does not have.
+  - `anydata_type` (GAP-051) — `SYS.ANYDATA`/`ANYDATASET`/`ANYTYPE`
+    carried through as a type name; no such type, and no `SYS` schema.
+  - `system_trigger` (GAP-052) — a trigger `ON DATABASE`/`ON SCHEMA`
+    emitted as an ordinary table trigger on a table literally named
+    `database`/`schema`, Oracle event keyword intact.
+  - `table_collection` (GAP-054) — the `TABLE(...)` collection-unnesting
+    operator, copied verbatim.
+  - `cursor_expression` (GAP-055) — `CURSOR(SELECT ...)`, copied verbatim.
+  - `for_update_wait` (GAP-056) — `FOR UPDATE ... WAIT n`; PostgreSQL has
+    only `NOWAIT` and `SKIP LOCKED` there.
+  - `rownum_dml` (GAP-057) — `ROWNUM` in an `UPDATE`/`DELETE` rewritten to
+    a `LIMIT` clause, which PostgreSQL does not accept on DML. Deliberately
+    *not* flagged inside a subquery: that shape converts correctly and was
+    verified to run.
+  - `subtype_range` (GAP-061) — `SUBTYPE ... RANGE lo .. hi` carried into
+    `CREATE DOMAIN` verbatim.
+  - `sdo_geometry` (GAP-067, the batch's only `medium`) — mapped onto the
+    PostGIS `geometry` type without the `CREATE EXTENSION postgis` line it
+    needs.
+
+  Load cleanly, then fail on first execution (`runtime`):
+  - `long_raw_type` (GAP-050) — `LONG RAW` mapped to `text`, so binary
+    content cannot be loaded at all.
+  - `trigger_follows` (GAP-053) — `FOLLOWS`/`PRECEDES` leaks *inside* the
+    generated trigger function's body, breaking every write to the table.
+  - `pragma_exception_init` (GAP-060) — every handler collapses onto
+    `SQLSTATE '50001'`, which PostgreSQL never raises.
+  - `alt_quote_literal` (GAP-062) — Oracle's `q'[...]'` quoting, verbatim.
+  - `goto_statement` (GAP-063) — `GOTO`; PL/pgSQL has none.
+  - `cursor_rowtype` (GAP-064) — `<cursor>%ROWTYPE`; PL/pgSQL allows
+    `%ROWTYPE` only against a table or view.
+  - `wm_concat` (GAP-065) — copied verbatim, unlike `LISTAGG`.
+
+  Never raise anything at all (`semantic`):
+  - `to_date_rr` (GAP-058) — an `RR` format model inside `TO_DATE` is left
+    in place and PostgreSQL silently returns year 1 BC.
+  - `read_only_view` (GAP-066) — `WITH READ ONLY` dropped; the resulting
+    view is auto-updatable, so writes Oracle rejected now silently succeed.
+
+  Never reaches the output at all (`conversion`):
+  - `authid_clause` (GAP-059) — a routine carrying `AUTHID CURRENT_USER`
+    or `AUTHID DEFINER` is dropped by ora2pg in its entirety: no output, no
+    error, not even a DEBUG log line. Confirmed with a control run of the
+    same procedure without the clause, which converts normally.
+
+- `plsql_lex.mask_comments_only()` — a third masked view alongside
+  `mask_strings_and_comments()` and `mask_dynamic_sql_visible()`, produced
+  by the same tokenizer and under the same length/newline-preserving
+  contract. GAP-058 and GAP-062 are both *about* the string literal itself
+  (an `RR` format model, a `q'...'` literal), which the two existing views
+  blank out, while scanning raw source would also match commented-out code.
+
+### Changed
+- `failure_stage`'s `conversion` value is no longer unused. It had been
+  defined since the taxonomy was introduced and skipped twice, and
+  GAP-059 earns it for the opposite reason earlier candidates were
+  rejected: there is no log line at all to key off.
+  `docs/failure-stage-notes.md` records that rather than leaving its
+  earlier "`conversion` was never needed" conclusion standing.
+- `VERIFICATION_MODE` totals across the registry are now 30 `verbatim`,
+  36 `not_verifiable`, 1 `generated_only`. Each of the 20 new entries was
+  classified from what was actually observed surviving into ora2pg's
+  output, not assumed — `trigger_follows`, for instance, is
+  `not_verifiable` precisely *because* the clause survives into a part of
+  the file its own detector deliberately does not read.
+
+### Fixed
+- GAP-058's remediation advice said `RR` could be replaced with `YY`
+  because "PostgreSQL applies the same rule". It does not: PostgreSQL's
+  `YY` pivots at 69/70, Oracle's `RR` at 49/50, so the two disagree by
+  exactly a century for two-digit years 50-69 — birth dates and most
+  mid-20th-century data. Following that advice would have traded a loud
+  failure (year 1 BC on every row) for a silent one on a subset of rows.
+  Corrected in the detector message, both remediation hints, the English
+  translation and the research doc, with the measured pivot points; a
+  guard test keeps the wording from coming back.
+
+### Documentation
+- `docs/research/AUDIT.md` gains the full second-wave record: the 12
+  candidates tested and **rejected** (`(+)` outer joins, `ORDER SIBLINGS
+  BY`, `SYS_GUID`, `NUMTODSINTERVAL`/`NUMTOYMINTERVAL`, `SELECT UNIQUE`,
+  `SYS_REFCURSOR`, `NOCOPY`, plain `LONG`, `INTERVAL YEAR TO MONTH`,
+  `ENABLE ROW MOVEMENT`, `ROW ARCHIVAL`, sequence `SCALE`/`ORDER` — all
+  convert correctly), plus the two that are real gaps already covered by
+  GAP-003 and GAP-021.
+- Corpus re-run over utPLSQL, alexandria-plsql-utils, db-sample-schemas
+  and Logger — 766 files, 229,787 lines, 0 crashes. 12 of the 20 new
+  detectors fired; every finding was checked against the source by hand
+  and is a genuine construct, and nine regression tests are built on those
+  real shapes rather than synthetic ones. The eight detectors that did not
+  fire are listed explicitly, so the corpus is not presented as
+  confirming all twenty.
+- A separate pass verified the *remediation advice itself*: every snippet
+  the 20 new gaps recommend was executed against a real PostgreSQL 16 and
+  the result recorded. That pass is what caught the `RR`/`YY` error above.
+  Only GAP-067's `CREATE EXTENSION postgis` is unverified on the bench
+  (PostGIS is not installed there), and AUDIT.md says so rather than
+  implying otherwise.
+
 ## [0.8.0] - 2026-08-25
 
 ### Added

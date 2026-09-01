@@ -45,6 +45,25 @@ from .detectors.match_recognize import find_match_recognize
 from .detectors.materialized_view_log import find_materialized_view_logs
 from .detectors.merge_delete_clause import find_merge_delete_clauses
 from .detectors.model_clause import find_model_clauses
+from .detectors.mssql_bracket_identifier import find_mssql_bracket_identifiers
+from .detectors.mssql_charindex import find_mssql_charindex
+from .detectors.mssql_collation import find_mssql_collations
+from .detectors.mssql_computed_column import find_mssql_computed_columns
+from .detectors.mssql_datediff import find_mssql_datediff
+from .detectors.mssql_filtered_index import find_mssql_filtered_indexes
+from .detectors.mssql_foreign_key import find_mssql_foreign_keys
+from .detectors.mssql_identity_column import find_mssql_identity_columns
+from .detectors.mssql_if_statement import find_mssql_if_statements
+from .detectors.mssql_iif import find_mssql_iif
+from .detectors.mssql_newid_default import find_mssql_newid_defaults
+from .detectors.mssql_output_clause import find_mssql_output_clause
+from .detectors.mssql_parameterless_procedure import find_mssql_parameterless_procedures
+from .detectors.mssql_raiserror import find_mssql_raiserror
+from .detectors.mssql_rowversion import find_mssql_rowversion_columns
+from .detectors.mssql_scope_identity import find_mssql_scope_identity
+from .detectors.mssql_top_clause import find_mssql_top_clause
+from .detectors.mssql_try_catch import find_mssql_try_catch
+from .detectors.mssql_update_set import find_mssql_update_set
 from .detectors.mysql_auto_increment_start import find_mysql_auto_increment_start
 from .detectors.mysql_collate import find_mysql_collations
 from .detectors.mysql_date_format import find_mysql_date_format
@@ -209,9 +228,34 @@ _MYSQL_DETECTORS = (
     find_mysql_collations,
     find_mysql_set_columns,
 )
+# MSSQL detectors -- the T-SQL/SQL Server source dialect (ora2pg -M),
+# added on exactly the same footing as the MySQL set above and kept just
+# as separate, for the same structural reason.
+_MSSQL_DETECTORS = (
+    find_mssql_bracket_identifiers,
+    find_mssql_charindex,
+    find_mssql_collations,
+    find_mssql_computed_columns,
+    find_mssql_datediff,
+    find_mssql_filtered_indexes,
+    find_mssql_foreign_keys,
+    find_mssql_identity_columns,
+    find_mssql_if_statements,
+    find_mssql_iif,
+    find_mssql_newid_defaults,
+    find_mssql_output_clause,
+    find_mssql_parameterless_procedures,
+    find_mssql_raiserror,
+    find_mssql_rowversion_columns,
+    find_mssql_scope_identity,
+    find_mssql_top_clause,
+    find_mssql_try_catch,
+    find_mssql_update_set,
+)
 _DETECTORS_BY_DIALECT = {
     "oracle": _ORACLE_DETECTORS,
     "mysql": _MYSQL_DETECTORS,
+    "mssql": _MSSQL_DETECTORS,
 }
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")

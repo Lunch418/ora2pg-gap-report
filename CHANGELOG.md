@@ -98,6 +98,53 @@ patch for fixes to existing ones.
   - `mysql_set_type` (GAP-086, `medium`) — `SET(...)` becomes plain `text`;
     the schema works and existing data survives, but nothing validates
     future writes.
+- T-SQL / SQL Server as a third source dialect (`--dialect mssql`, the
+  source side of `ora2pg -M`), plus **19 confirmed gaps, GAP-087..105** --
+  the registry goes from 86 to 105. Same machinery as the MySQL dialect: a
+  new `mssql_lex.py` lexer (bracket-quoted identifiers, nested block
+  comments, doubled-quote-only string escaping, `@variable`/`#temp`
+  names), its own `_MSSQL_DETECTORS` tuple in `core.py`, and `mssql` added
+  to `--dialect`'s choices. Every gap confirmed the same way as the other
+  two dialects: a minimal example, a real `ora2pg 25.0 -M` run, the
+  generated PostgreSQL loaded onto a live PostgreSQL 16 server -- and for
+  the silent ones, a query actually run against real data.
+
+  Two findings shape this whole batch. `mssql_bracket_identifier`
+  (GAP-087) alone takes down essentially any real script: on the
+  file-based path ora2pg never strips T-SQL's brackets, so
+  `CREATE TABLE [dbo].[Orders] ( [Id] [int] ... )` comes out as
+  `CREATE TABLE "[dbo]"."[orders]" ( "[id]" [INT] ... )` and fails to load
+  -- and SSMS brackets every identifier by default. The same table without
+  brackets converts correctly; ora2pg's own source shows why, the
+  bracket-stripping exists only inside its live-connection subroutines.
+  And `mssql_update_set` (GAP-089) mangles *every* UPDATE in every
+  procedure, mistaking the statement's SET for T-SQL's variable-assignment
+  SET and emitting `UPDATE t col := val`.
+
+  Fail at schema load (`deployment`): `mssql_bracket_identifier` (087),
+  `mssql_newid_default` (088, `uuid_generate_v4()` with no
+  `CREATE EXTENSION "uuid-ossp"`).
+
+  Fail on the first real call (`runtime`): `mssql_update_set` (089),
+  `mssql_identity_column` (090, IDENTITY dropped entirely -- verified: an
+  ordinary insert then fails on NOT NULL), `mssql_parameterless_procedure`
+  (091, an unparseable empty `DECLARE ;`, isolated by A/B against the same
+  procedure with a parameter), `mssql_if_statement` (092, no `END IF` with
+  a block, no `THEN` without one), `mssql_raiserror` (093),
+  `mssql_try_catch` (094), `mssql_top_clause` (095),
+  `mssql_scope_identity` (096), `mssql_output_clause` (097), `mssql_iif`
+  (098), `mssql_datediff` (099, while DATEADD/DATEPART beside it convert
+  fine) and `mssql_charindex` (100 -- translated into `position()`, but
+  with the quotes doubled, which is not valid SQL).
+
+  Never raise an error at all (`semantic`): `mssql_filtered_index` (101,
+  dropped although PostgreSQL has the same syntax), `mssql_foreign_key`
+  (102, dropped exactly as on the MySQL side), `mssql_collation` (103,
+  every string column becomes case-insensitive citext -- verified on live
+  data that a `_CS_` column then matches a differently-cased value),
+  `mssql_computed_column` (104, typed citext whatever the expression
+  computes) and `mssql_rowversion` (105, becomes a bytea that never
+  self-updates, so optimistic locking silently stops detecting conflicts).
 
 ## [0.9.0] - 2026-08-28
 

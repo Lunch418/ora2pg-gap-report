@@ -134,7 +134,7 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--dialect",
-        choices=("oracle", "mysql"),
+        choices=("oracle", "mysql", "mssql"),
         default="oracle",
         help=i18n.t(lang, "help_dialect"),
     )

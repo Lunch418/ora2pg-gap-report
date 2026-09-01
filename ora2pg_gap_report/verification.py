@@ -170,6 +170,29 @@ VERIFICATION_MODE: dict[str, str] = {
     "mysql_declare_handler": NOT_VERIFIABLE,  # dropped entirely, replaced by blank lines
     "mysql_collate": NOT_VERIFIABLE,  # the COLLATE/CHARACTER SET clause is dropped from the column definition
     "mysql_set_type": NOT_VERIFIABLE,  # rewritten to plain `text`; the SET(...) spelling never survives
+    # MSSQL dialect detectors -- like the MySQL ones above, --verify
+    # doesn't accept --dialect mssql yet, so none of these are reachable
+    # through it today; classified here because doctor.py requires an
+    # entry per detector and the classification is true regardless.
+    "mssql_bracket_identifier": VERBATIM,  # the brackets survive into the generated identifier, which is exactly the problem
+    "mssql_newid_default": NOT_VERIFIABLE,  # rewritten to uuid_generate_v4(); the NEWID() spelling never survives
+    "mssql_update_set": NOT_VERIFIABLE,  # the SET keyword is deleted by the conversion, so the source shape is gone
+    "mssql_identity_column": NOT_VERIFIABLE,  # IDENTITY is dropped entirely; nothing of it reaches the output
+    "mssql_parameterless_procedure": NOT_VERIFIABLE,  # the finding is about the generated DECLARE block, not a surviving source token
+    "mssql_if_statement": VERBATIM,  # the IF survives (mis-closed or without THEN), so re-detection is meaningful
+    "mssql_raiserror": VERBATIM,  # RAISERROR/THROW are copied unchanged
+    "mssql_try_catch": VERBATIM,  # the whole TRY/CATCH construct is copied unchanged
+    "mssql_top_clause": VERBATIM,  # TOP n is copied unchanged
+    "mssql_scope_identity": VERBATIM,  # the call is copied unchanged
+    "mssql_output_clause": VERBATIM,  # the OUTPUT clause is copied unchanged
+    "mssql_iif": VERBATIM,  # the IIF call is copied unchanged
+    "mssql_datediff": VERBATIM,  # the DATEDIFF call is copied unchanged
+    "mssql_charindex": NOT_VERIFIABLE,  # rewritten into position(); the CHARINDEX name never survives
+    "mssql_filtered_index": NOT_VERIFIABLE,  # the whole CREATE INDEX statement is dropped
+    "mssql_foreign_key": NOT_VERIFIABLE,  # dropped entirely -- no FOREIGN KEY reaches the output at all
+    "mssql_collation": NOT_VERIFIABLE,  # the COLLATE clause is dropped and the column becomes citext
+    "mssql_computed_column": NOT_VERIFIABLE,  # rewritten into a trigger; the `AS (expr)` column syntax never survives
+    "mssql_rowversion": NOT_VERIFIABLE,  # rewritten to bytea; the ROWVERSION name never survives
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists
     # for verify to compare against.

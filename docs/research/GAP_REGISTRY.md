@@ -1,7 +1,8 @@
 # Реестр подтверждённых gap'ов
 
-Каждая строка — конкретная конструкция source-диалекта (Oracle или,
-начиная с GAP-068, MySQL/MariaDB через `ora2pg -m` — см. `gap_registry.py`,
+Каждая строка — конкретная конструкция source-диалекта (Oracle,
+MySQL/MariaDB через `ora2pg -m` начиная с GAP-068, либо
+T-SQL/SQL Server через `ora2pg -M` начиная с GAP-087 — см. `gap_registry.py`,
 поле `GapEntry.dialect`), для которой эмпирически подтверждено (не
 предположено), что `ora2pg` конвертирует её некорректно или пропускает без
 предупреждения. См. «Методология» в основном
@@ -107,6 +108,30 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-084 | `DECLARE ... HANDLER` выбрасывается — обработка ошибок пропадает | `mysql_declare_handler` | high | confirmed | 25.0 | 16 | [gap-084](gap-084-mysql-declare-handler.md) |
 | GAP-085 | `COLLATE`/`CHARACTER SET` выбрасывается — сравнение строк меняет смысл | `mysql_collate` | high | confirmed | 25.0 | 16 | [gap-085](gap-085-mysql-collate.md) |
 | GAP-086 | `SET(...)` становится `text` — проверка допустимых значений теряется | `mysql_set_type` | medium | confirmed | 25.0 | 16 | [gap-086](gap-086-mysql-set-type.md) |
+
+### MSSQL / T-SQL (`ora2pg -M`, `dialect="mssql"`)
+
+| ID | Конструкция | Детектор | Severity | Статус | ora2pg | PostgreSQL | Документ |
+|---|---|---|---|---|---|---|---|
+| GAP-087 | идентификаторы в `[скобках]` не снимаются — ломается любой скрипт из SSMS | `mssql_bracket_identifier` | high | confirmed | 25.0 | 16 | [gap-087](gap-087-mssql-bracket-identifier.md) |
+| GAP-088 | `NEWID()` → `uuid_generate_v4()` без `CREATE EXTENSION "uuid-ossp"` | `mssql_newid_default` | high | confirmed | 25.0 | 16 | [gap-088](gap-088-mssql-newid-default.md) |
+| GAP-089 | `UPDATE ... SET` превращается в присваивание `:=` | `mssql_update_set` | high | confirmed | 25.0 | 16 | [gap-089](gap-089-mssql-update-set.md) |
+| GAP-090 | `IDENTITY(1,1)` пропадает целиком — вставка падает на NOT NULL | `mssql_identity_column` | high | confirmed | 25.0 | 16 | [gap-090](gap-090-mssql-identity-column.md) |
+| GAP-091 | процедура без параметров получает неразбираемый пустой `DECLARE` | `mssql_parameterless_procedure` | high | confirmed | 25.0 | 16 | [gap-091](gap-091-mssql-parameterless-procedure.md) |
+| GAP-092 | `IF` не дописывается до `THEN ... END IF` | `mssql_if_statement` | high | confirmed | 25.0 | 16 | [gap-092](gap-092-mssql-if-statement.md) |
+| GAP-093 | `RAISERROR`/`THROW` копируются как есть | `mssql_raiserror` | high | confirmed | 25.0 | 16 | [gap-093](gap-093-mssql-raiserror.md) |
+| GAP-094 | `BEGIN TRY`/`BEGIN CATCH` копируются как есть | `mssql_try_catch` | high | confirmed | 25.0 | 16 | [gap-094](gap-094-mssql-try-catch.md) |
+| GAP-095 | `SELECT TOP n` копируется как есть | `mssql_top_clause` | high | confirmed | 25.0 | 16 | [gap-095](gap-095-mssql-top-clause.md) |
+| GAP-096 | `SCOPE_IDENTITY()`/`@@IDENTITY` копируются как есть | `mssql_scope_identity` | high | confirmed | 25.0 | 16 | [gap-096](gap-096-mssql-scope-identity.md) |
+| GAP-097 | `OUTPUT INSERTED.*` копируется как есть | `mssql_output_clause` | high | confirmed | 25.0 | 16 | [gap-097](gap-097-mssql-output-clause.md) |
+| GAP-098 | `IIF()` копируется как есть | `mssql_iif` | high | confirmed | 25.0 | 16 | [gap-098](gap-098-mssql-iif.md) |
+| GAP-099 | `DATEDIFF()` копируется как есть (`DATEADD`/`DATEPART` — нет) | `mssql_datediff` | high | confirmed | 25.0 | 16 | [gap-099](gap-099-mssql-datediff.md) |
+| GAP-100 | `CHARINDEX()` → `position()` с удвоенными кавычками | `mssql_charindex` | high | confirmed | 25.0 | 16 | [gap-100](gap-100-mssql-charindex.md) |
+| GAP-101 | фильтрованный индекс (`CREATE INDEX ... WHERE`) выбрасывается | `mssql_filtered_index` | high | confirmed | 25.0 | 16 | [gap-101](gap-101-mssql-filtered-index.md) |
+| GAP-102 | `FOREIGN KEY` выбрасывается целиком | `mssql_foreign_key` | high | confirmed | 25.0 | 16 | [gap-102](gap-102-mssql-foreign-key.md) |
+| GAP-103 | `COLLATE` выбрасывается, всё становится регистронезависимым `citext` | `mssql_collation` | high | confirmed | 25.0 | 16 | [gap-103](gap-103-mssql-collation.md) |
+| GAP-104 | вычисляемый столбец получает тип `citext` независимо от выражения | `mssql_computed_column` | high | confirmed | 25.0 | 16 | [gap-104](gap-104-mssql-computed-column.md) |
+| GAP-105 | `ROWVERSION` → `bytea`, перестаёт обновляться — блокировка ломается | `mssql_rowversion` | high | confirmed | 25.0 | 16 | [gap-105](gap-105-mssql-rowversion.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

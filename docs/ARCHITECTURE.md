@@ -14,11 +14,16 @@ FUNCTION`, …), which is exactly how `ora2pg_wrapper.py` works, not
 through `SHOW_REPORT`. This is a hard requirement for the target
 audience: closed networks, air-gapped environments, the public sector.
 
-There are 68 detectors right now (the full table is in README.md,
-"Detectors"; 67 of them are tied to a registered GAP-NNN, `dbms_utl_calls`
-isn't, see README.md, "Why almost everything is high"), and almost all of
-them work the same way: they analyze the Oracle source directly and don't
-need `ora2pg` installed, plain Python, no external dependencies. There's
+There are 106 detectors right now (the full table is in README.md,
+"Detectors"; 105 of them are tied to a registered GAP-NNN,
+`dbms_utl_calls` isn't, see README.md, "Why almost everything is high"),
+split across three source dialects: 67 Oracle, 19 MySQL/MariaDB
+(`ora2pg -m`) and 19 T-SQL/SQL Server (`ora2pg -M`). Each dialect has its
+own lexer (`plsql_lex.py`, `mysql_lex.py`, `mssql_lex.py`) and its own
+detector tuple in `core.py`, kept structurally separate so a file scanned
+under the wrong `--dialect` cannot trigger another dialect's detectors.
+Almost all of them work the same way: they analyze the source directly and
+don't need `ora2pg` installed, plain Python, no external dependencies. There's
 exactly one exception, `connect_by`: it's built differently, it lints
 *generated* ora2pg code rather than the source (ora2pg handles CONNECT BY
 reasonably well on its own, the value here isn't detection but checking
@@ -127,7 +132,29 @@ ora2pg_gap_report/
 │   ├── mysql_zero_date.py         # '0000-00-00' -- silently rewritten to a real 1970-01-01
 │   ├── mysql_declare_handler.py   # DECLARE ... HANDLER -- dropped, error handling disappears
 │   ├── mysql_collate.py           # COLLATE/CHARACTER SET -- dropped, comparisons change meaning
-│   └── mysql_set_type.py          # SET(...) -- becomes plain text, validation lost
+│   ├── mysql_set_type.py          # SET(...) -- becomes plain text, validation lost
+│   │                             # -- MSSQL / T-SQL dialect (ora2pg -M; see mssql_lex.py) --
+│   ├── mssql_bracket_identifier.py    # [dbo].[Orders] -- brackets kept in the name, breaks everything
+│   ├── mssql_newid_default.py         # NEWID() -- uuid_generate_v4() without CREATE EXTENSION
+│   ├── mssql_update_set.py            # UPDATE ... SET -- SET destroyed, '=' becomes ':='
+│   ├── mssql_identity_column.py       # IDENTITY(1,1) -- dropped entirely, no serial, no sequence
+│   ├── mssql_parameterless_procedure.py  # a no-parameter procedure gets an unparseable empty DECLARE
+│   ├── mssql_if_statement.py          # IF -- no END IF with a block, no THEN without one
+│   ├── mssql_raiserror.py             # RAISERROR/THROW -- copied verbatim
+│   ├── mssql_try_catch.py             # BEGIN TRY/CATCH -- copied verbatim
+│   ├── mssql_top_clause.py            # SELECT TOP n -- copied verbatim, no TOP in PostgreSQL
+│   ├── mssql_scope_identity.py        # SCOPE_IDENTITY()/@@IDENTITY -- copied verbatim
+│   ├── mssql_output_clause.py         # OUTPUT INSERTED.* -- copied verbatim, RETURNING is the equivalent
+│   ├── mssql_iif.py                   # IIF() -- copied verbatim
+│   ├── mssql_datediff.py              # DATEDIFF() -- copied verbatim (DATEADD/DATEPART convert fine)
+│   ├── mssql_charindex.py             # CHARINDEX() -- translated, but with doubled quotes
+│   ├── mssql_filtered_index.py        # CREATE INDEX ... WHERE -- dropped, though PostgreSQL has it
+│   ├── mssql_foreign_key.py           # FOREIGN KEY -- dropped entirely, integrity silently gone
+│   ├── mssql_collation.py             # COLLATE -- dropped, everything becomes case-insensitive citext
+│   ├── mssql_computed_column.py       # a computed column is typed citext whatever it computes
+│   └── mssql_rowversion.py            # ROWVERSION -> bytea, stops self-updating, locking breaks
+├── mssql_lex.py                 # T-SQL-dialect lexical helpers (bracket identifiers, nested
+│                               #  block comments -- the mssql_* detectors' shared base)
 ├── mysql_lex.py                 # MySQL/MariaDB-dialect lexical helpers (mask_strings_and_comments,
 │                               #  enclosing_object_name_index -- the mysql_* detectors' shared base)
 ├── ora2pg_wrapper.py            # runs ora2pg per object type, parses --estimate_cost

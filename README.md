@@ -7,32 +7,36 @@
 [![Python](https://img.shields.io/pypi/pyversions/ora2pg-gap-report)](https://pypi.org/project/ora2pg-gap-report/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-A tool for assessing an Oracle → PostgreSQL Pro (Standard/Certified) migration
-**before** it starts — and, since GAP-068, MySQL/MariaDB → PostgreSQL too
-(`--dialect mysql`, the source side of `ora2pg -m`).
+A tool for assessing a migration to PostgreSQL Pro (Standard/Certified)
+**before** it starts. Three source dialects, all through `ora2pg`:
+Oracle, MySQL/MariaDB (`--dialect mysql`, the source side of `ora2pg -m`)
+and T-SQL/SQL Server (`--dialect mssql`, the source side of `ora2pg -M`).
 
 ```sh
 pip install ora2pg-gap-report
 ora2pg-gap-report path/to/oracle_schema_dump/
 ora2pg-gap-report --dialect mysql path/to/mysqldump.sql
+ora2pg-gap-report --dialect mssql path/to/ssms_script.sql
 ```
 
 ```
 Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
 MySQL/MariaDB dump (TABLE / PROCEDURE / TRIGGER / VIEW)
+T-SQL script from SSMS (TABLE / PROCEDURE / INDEX / ...)
                     │
                     ▼
             ora2pg-gap-report
                     │
                     ▼
-   86 confirmed types of ora2pg migration gaps
-   ┌─────────────────────────────────────────────────────────────┐
-   │ HIGH    GAP-006  database_link    — @dblink not in PG       │
-   │ HIGH    GAP-023  oracle_text      — CONTAINS()/...          │
-   │ MEDIUM  GAP-025  invisible_index  — loses invisibility      │
-   │ HIGH    GAP-073  mysql_key_index  — mysqldump's KEY breaks  │
-   │ HIGH    GAP-082  mysql_foreign_key — FK dropped, no error   │
-   └─────────────────────────────────────────────────────────────┘
+   105 confirmed types of ora2pg migration gaps
+   ┌──────────────────────────────────────────────────────────────────┐
+   │ HIGH    GAP-006  database_link          — @dblink not in PG      │
+   │ MEDIUM  GAP-025  invisible_index        — loses invisibility     │
+   │ HIGH    GAP-073  mysql_key_index        — mysqldump's KEY breaks │
+   │ HIGH    GAP-082  mysql_foreign_key      — FK dropped, no error   │
+   │ HIGH    GAP-087  mssql_bracket_identifier — [dbo].[T] breaks all │
+   │ HIGH    GAP-089  mssql_update_set       — every UPDATE mangled   │
+   └──────────────────────────────────────────────────────────────────┘
 ```
 
 ![ora2pg-gap-report — scanning real PL/SQL code in the terminal](docs/demo.gif)
@@ -168,6 +172,31 @@ table is Oracle-only.
 | `mysql_collate` | `COLLATE`/`CHARACTER SET` on a column — dropped. MySQL's usual `*_ci` rules are case-insensitive, PostgreSQL's default is not, so queries silently start returning different rows |
 | `mysql_set_type` | `SET(...)` — becomes plain `text`. The only `medium` of the MySQL batch: the schema works and existing data survives, but nothing validates future writes |
 
+And these nineteen are the T-SQL/SQL Server dialect (`--dialect mssql`,
+`ora2pg -M`).
+
+| Detector | What it catches |
+|---|---|
+| `mssql_bracket_identifier` | `[dbo].[Orders]`, `[Id]`, `[int]` — the brackets SSMS emits for every name are never stripped on the file-based path; they end up inside the generated identifier and inside type names, and the DDL fails to load. The widest-reaching gap of the batch |
+| `mssql_newid_default` | `NEWID()` — mapped onto `uuid_generate_v4()` with no `CREATE EXTENSION "uuid-ossp"` emitted, so `CREATE TABLE` fails to load |
+| `mssql_update_set` | `UPDATE ... SET` — mistaken for T-SQL's variable-assignment `SET`: the keyword is deleted and `=` becomes `:=`, breaking every UPDATE in every procedure |
+| `mssql_identity_column` | `IDENTITY(1,1)` — dropped entirely (no serial, no sequence), so the first ordinary insert fails on NOT NULL |
+| `mssql_parameterless_procedure` | A procedure with no parameters gets an unparseable empty `DECLARE ;` block — verified by A/B against the same procedure with a parameter, which comes out clean |
+| `mssql_if_statement` | `IF` — with a `BEGIN/END` block it gets `THEN` but never `END IF`; without one it gets no `THEN` at all |
+| `mssql_raiserror` | `RAISERROR`/`THROW` — copied verbatim; PL/pgSQL has neither |
+| `mssql_try_catch` | `BEGIN TRY`/`BEGIN CATCH` — copied verbatim, `END TRY`/`END CATCH` included |
+| `mssql_top_clause` | `SELECT TOP n` — copied verbatim; PostgreSQL has no TOP |
+| `mssql_scope_identity` | `SCOPE_IDENTITY()`/`@@IDENTITY`/`IDENT_CURRENT()` — copied verbatim |
+| `mssql_output_clause` | `OUTPUT INSERTED.*` — copied verbatim; `RETURNING` is the equivalent, and not an exact one |
+| `mssql_iif` | `IIF()` — copied verbatim, while the neighbouring CHARINDEX in the same statement does get translated |
+| `mssql_datediff` | `DATEDIFF()` — copied verbatim, though `DATEADD` and `DATEPART` beside it convert correctly |
+| `mssql_charindex` | `CHARINDEX()` — translated into `position()`, but with the quotes doubled: `position(''abc'' in x)`, which is not valid SQL |
+| `mssql_filtered_index` | `CREATE INDEX ... WHERE` — dropped entirely, even though PostgreSQL has partial indexes with the same syntax (an `INCLUDE` index beside it converts fine) |
+| `mssql_foreign_key` | `FOREIGN KEY` — dropped entirely, exactly as on the MySQL side; no error at any stage |
+| `mssql_collation` | `COLLATE` — dropped, every string column becomes case-insensitive `citext`; for a `_CS_` source collation that inverts comparison behaviour, verified on live data |
+| `mssql_computed_column` | A computed column (`AS (expr) PERSISTED`) is typed `citext` whatever the expression computes, so a numeric result is stored as text |
+| `mssql_rowversion` | `ROWVERSION` → `bytea`, which never self-updates, so optimistic-locking checks silently stop detecting conflicts |
+
 Plus `ora2pg_wrapper.py` — runs `ora2pg` per object type against exported DDL
 and parses `--estimate_cost`, and `oracle_connector.py`/`oracle_export.py` —
 a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
@@ -175,15 +204,16 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 86 registered gaps (`gap_registry.py`) — 67 from the Oracle source
-dialect, 19 from the MySQL/MariaDB one (`dialect="mysql"`, `ora2pg -m`; see
-"Source dialects" below) — 80 are `high` and 6 are `medium` (`context_object`,
+Of the 105 registered gaps (`gap_registry.py`) — 67 from the Oracle source
+dialect, 19 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 19 from
+T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); see "Source dialects"
+below — 99 are `high` and 6 are `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
-on the Oracle side, `mysql_set_type` on the MySQL side) — `severity` is a
-`GapEntry` field now, cross-checked by `scripts/doctor.py` against the
-literal a detector's own source actually uses, not just a count taken on
-faith. Separately, there's one more detector on top of those 86,
-`dbms_utl_calls` — a
+on the Oracle side, `mysql_set_type` on the MySQL side; the MSSQL batch has
+no `medium` at all) — `severity` is a `GapEntry` field now, cross-checked by
+`scripts/doctor.py` against the literal a detector's own source actually
+uses, not just a count taken on faith. Separately, there's one more detector
+on top of those 105, `dbms_utl_calls` — a
 classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
 no single reproducible minimal example — that's a deliberately broad
 category), also `medium`. `low` is a valid value in the
@@ -373,28 +403,29 @@ of the document's text.
 ### Source dialects (`--dialect`)
 
 `ora2pg` isn't Oracle-only: `-m`/`--mysql` and `-M`/`--mssql` point it at a
-MySQL/MariaDB or SQL Server source dump instead, still targeting
-PostgreSQL. This project's own scan defaults to Oracle source
-(`--dialect oracle`); pass `--dialect mysql` to scan a MySQL/MariaDB
-schema/procedure dump with the MySQL-specific detectors instead
-(19 of them, GAP-068 through GAP-086 — see the MySQL rows in the detector
-table above; every one confirmed the same way as every Oracle gap: a
-minimal example, a real `ora2pg -m` run, the generated PostgreSQL loaded
-onto a real PostgreSQL 16 server, and for the silent ones a query actually
-run against real data):
+MySQL/MariaDB or SQL Server source instead, still targeting PostgreSQL.
+Both were confirmed to work file-based (`-i <file>`, no live source
+database needed), so this project scans all three:
 
 ```sh
-ora2pg-gap-report --dialect mysql schema.sql
+ora2pg-gap-report schema/                        # Oracle (the default)
+ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086
+ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105
 ```
 
-The two dialects' detectors are structurally separate (`core.py`'s
-`_ORACLE_DETECTORS`/`_MYSQL_DETECTORS` tuples) — an Oracle file scanned as
-`mysql` or a MySQL file scanned as `oracle` cannot trigger the wrong
-dialect's detectors, by construction, not by keyword luck. `--dialect
-mysql` only applies to a plain scan: `--verify`, `--fix`, and `--tui`
-don't support it yet and refuse the combination explicitly rather than
-silently scanning with the wrong (or no) detectors. MSSQL support
-(`ora2pg -M`) doesn't exist yet — no detector, no `--dialect mssql` choice.
+Every non-Oracle gap was confirmed exactly the way the Oracle ones were: a
+minimal example, a real `ora2pg -m`/`-M` run, the generated PostgreSQL
+loaded onto a real PostgreSQL 16 server — and for the ones that never
+raise an error, a query actually run against real data to show what
+changes.
+
+The three dialects' detectors are structurally separate (`core.py`'s
+`_ORACLE_DETECTORS`/`_MYSQL_DETECTORS`/`_MSSQL_DETECTORS` tuples), so a
+file scanned under the wrong `--dialect` cannot trigger another dialect's
+detectors — by construction, not by keyword luck. `--dialect` only applies
+to a plain scan: `--verify`, `--fix` and `--tui` don't support the
+non-Oracle dialects yet and refuse the combination explicitly rather than
+silently scanning with the wrong (or no) detectors.
 
 ### Output language
 

@@ -69,16 +69,20 @@ class GapEntry:
     # must have one set.
     failure_stage: str | None = None
     # Which source language ora2pg was pointed at to produce the finding
-    # -- "oracle" (default, unset for every existing entry so far, so this
-    # field is a pure addition, not a migration) or "mysql" (ora2pg -m,
-    # confirmed to work file-based via -i exactly like Oracle mode: no
-    # live MySQL connection needed to reproduce a gap). One registry, one
-    # numbering sequence, one CLI, one set of report formats -- the
-    # dialect is a fact about a gap, the same kind of fact severity or
-    # failure_stage already is, not a reason to fork the project into
-    # separate per-dialect tools. See docs/research/AUDIT.md's MySQL
-    # section for why file-based -m research reuses the exact same
-    # probe.sh harness Oracle gaps were confirmed with.
+    # -- "oracle" (the default, so this field stayed a pure addition when
+    # it was introduced, not a migration), "mysql" (ora2pg -m) or
+    # "mssql" (ora2pg -M). Both non-Oracle dialects were confirmed to
+    # work file-based via -i exactly like Oracle mode -- no live
+    # MySQL/SQL Server connection is needed to reproduce any gap here.
+    # One registry, one numbering sequence, one CLI, one set of report
+    # formats: the dialect is a fact about a gap, the same kind of fact
+    # severity or failure_stage already is, not a reason to fork the
+    # project into separate per-dialect tools. Note the sequence is
+    # deliberately continuous across dialects rather than prefixed
+    # per-dialect -- scripts/doctor.py anchors on a plain \\d{3} in
+    # several places, and research_doc_path() builds
+    # gap-{number}-{slug}.md, so continuing the numbering costs nothing
+    # while a GAP-MY-/GAP-MS- scheme would have touched all of it.
     dialect: str = "oracle"
 
 
@@ -478,6 +482,187 @@ GapEntry(
         severity="medium",
         failure_stage="semantic",
         dialect="mysql",
+    ),
+    # MSSQL (T-SQL / SQL Server) batch, ora2pg -M. Two findings shape
+    # this whole set. First, the file-based path (-M -i <file>) never
+    # strips T-SQL's bracket-quoted identifiers, which SSMS emits for
+    # every name, so GAP-087 alone takes down essentially any real
+    # script before the rest even get a chance to matter. Second, a
+    # plain UPDATE ... SET (GAP-089) and a parameterless procedure
+    # (GAP-091) are both mis-converted, and neither is an exotic
+    # construct -- which is why this dialect's confirmed set skews so
+    # heavily toward "every routine in the file" rather than "one rare
+    # feature".
+    GapEntry(
+        "087",
+        "mssql_bracket_identifier",
+        "mssql-bracket-identifier",
+        ("test_mssql_bracket_identifier.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "088",
+        "mssql_newid_default",
+        "mssql-newid-default",
+        ("test_mssql_newid_default.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "089",
+        "mssql_update_set",
+        "mssql-update-set",
+        ("test_mssql_update_set.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "090",
+        "mssql_identity_column",
+        "mssql-identity-column",
+        ("test_mssql_identity_column.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "091",
+        "mssql_parameterless_procedure",
+        "mssql-parameterless-procedure",
+        ("test_mssql_parameterless_procedure.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "092",
+        "mssql_if_statement",
+        "mssql-if-statement",
+        ("test_mssql_if_statement.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "093",
+        "mssql_raiserror",
+        "mssql-raiserror",
+        ("test_mssql_raiserror.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "094",
+        "mssql_try_catch",
+        "mssql-try-catch",
+        ("test_mssql_try_catch.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "095",
+        "mssql_top_clause",
+        "mssql-top-clause",
+        ("test_mssql_top_clause.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "096",
+        "mssql_scope_identity",
+        "mssql-scope-identity",
+        ("test_mssql_scope_identity.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "097",
+        "mssql_output_clause",
+        "mssql-output-clause",
+        ("test_mssql_output_clause.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "098",
+        "mssql_iif",
+        "mssql-iif",
+        ("test_mssql_iif.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "099",
+        "mssql_datediff",
+        "mssql-datediff",
+        ("test_mssql_datediff.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "100",
+        "mssql_charindex",
+        "mssql-charindex",
+        ("test_mssql_charindex.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "101",
+        "mssql_filtered_index",
+        "mssql-filtered-index",
+        ("test_mssql_filtered_index.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "102",
+        "mssql_foreign_key",
+        "mssql-foreign-key",
+        ("test_mssql_foreign_key.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "103",
+        "mssql_collation",
+        "mssql-collation",
+        ("test_mssql_collation.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "104",
+        "mssql_computed_column",
+        "mssql-computed-column",
+        ("test_mssql_computed_column.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="mssql",
+    ),
+    GapEntry(
+        "105",
+        "mssql_rowversion",
+        "mssql-rowversion",
+        ("test_mssql_rowversion.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="mssql",
     ),
 )
 

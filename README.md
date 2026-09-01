@@ -7,26 +7,32 @@
 [![Python](https://img.shields.io/pypi/pyversions/ora2pg-gap-report)](https://pypi.org/project/ora2pg-gap-report/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-A tool for assessing an Oracle → PostgreSQL Pro (Standard/Certified) migration **before** it starts.
+A tool for assessing an Oracle → PostgreSQL Pro (Standard/Certified) migration
+**before** it starts — and, since GAP-068, MySQL/MariaDB → PostgreSQL too
+(`--dialect mysql`, the source side of `ora2pg -m`).
 
 ```sh
 pip install ora2pg-gap-report
 ora2pg-gap-report path/to/oracle_schema_dump/
+ora2pg-gap-report --dialect mysql path/to/mysqldump.sql
 ```
 
 ```
 Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
+MySQL/MariaDB dump (TABLE / PROCEDURE / TRIGGER / VIEW)
                     │
                     ▼
             ora2pg-gap-report
                     │
                     ▼
-   67 confirmed types of ora2pg migration gaps
-   ┌────────────────────────────────────────────────────────┐
-   │ HIGH    GAP-006  database_link    — @dblink not in PG  │
-   │ HIGH    GAP-023  oracle_text      — CONTAINS()/...     │
-   │ MEDIUM  GAP-025  invisible_index  — loses invisibility │
-   └────────────────────────────────────────────────────────┘
+   86 confirmed types of ora2pg migration gaps
+   ┌─────────────────────────────────────────────────────────────┐
+   │ HIGH    GAP-006  database_link    — @dblink not in PG       │
+   │ HIGH    GAP-023  oracle_text      — CONTAINS()/...          │
+   │ MEDIUM  GAP-025  invisible_index  — loses invisibility      │
+   │ HIGH    GAP-073  mysql_key_index  — mysqldump's KEY breaks  │
+   │ HIGH    GAP-082  mysql_foreign_key — FK dropped, no error   │
+   └─────────────────────────────────────────────────────────────┘
 ```
 
 ![ora2pg-gap-report — scanning real PL/SQL code in the terminal](docs/demo.gif)
@@ -147,6 +153,20 @@ table is Oracle-only.
 | `mysql_on_duplicate_key_update` | `INSERT ... ON DUPLICATE KEY UPDATE` — copied verbatim into the function/procedure body; PostgreSQL's `INSERT` has no such clause, fails on first call |
 | `mysql_signal` | `SIGNAL`/`RESIGNAL` — copied verbatim; neither exists in PL/pgSQL, fails on first call |
 | `mysql_fulltext_index` | `FULLTEXT KEY`/`FULLTEXT INDEX` inside `CREATE TABLE`'s column list — not recognized as an index at all; the bare keywords are left where a column definition was expected, and `CREATE TABLE` fails to load |
+| `mysql_key_index` | `KEY <name> (<cols>)` — mysqldump's own default spelling for a secondary index. Left as a `key <NAME>` stub where a column was expected, so `CREATE TABLE` fails to load. The `INDEX` synonym and `UNIQUE KEY` both convert fine |
+| `mysql_spatial_index` | `SPATIAL KEY`/`SPATIAL INDEX` — same shape as FULLTEXT, but restored as a GiST index over a PostGIS type |
+| `mysql_limit_comma` | `LIMIT offset, count` — copied verbatim; PostgreSQL rejects the comma form outright (`LIMIT #,# syntax is not supported`) |
+| `mysql_replace_into` | `REPLACE INTO` — copied verbatim; no PostgreSQL equivalent, and `ON CONFLICT DO UPDATE` is not a literal substitute (REPLACE deletes, so delete-side cascades fire) |
+| `mysql_insert_ignore` | `INSERT IGNORE` — copied verbatim; `ON CONFLICT DO NOTHING` is narrower than what IGNORE actually suppresses |
+| `mysql_prepare_from` | `PREPARE <name> FROM <string>` — PostgreSQL spells its own PREPARE differently (`AS <query>`, not a string variable); PL/pgSQL's `EXECUTE` is the real equivalent |
+| `mysql_last_insert_id` | `LAST_INSERT_ID()` — copied verbatim; no such function in PostgreSQL |
+| `mysql_auto_increment_start` | `AUTO_INCREMENT=<n>` table option — the column becomes `serial` correctly but the starting value is lost, so the sequence restarts at 1 and the first insert after a data migration collides on the primary key |
+| `mysql_date_format` | `DATE_FORMAT(...)` — emitted as a bare row constructor with the `to_char` name missing and `%d` untranslated. Nothing errors at any stage; the query just silently returns a tuple instead of a formatted string |
+| `mysql_foreign_key` | `FOREIGN KEY` — dropped entirely (both the named-CONSTRAINT and bare forms), and ora2pg has no foreign-key export type at all. No error ever: referential integrity and cascades just cease to exist |
+| `mysql_zero_date` | `'0000-00-00'` — MySQL's "not set" marker is silently rewritten to a real `'1970-01-01'`, so unfilled-date queries stop matching and reports start showing 1970 as an event |
+| `mysql_declare_handler` | `DECLARE ... HANDLER` — dropped with no `EXCEPTION` block in its place, so a routine's whole error-handling policy disappears: what MySQL swallowed now aborts the caller's transaction |
+| `mysql_collate` | `COLLATE`/`CHARACTER SET` on a column — dropped. MySQL's usual `*_ci` rules are case-insensitive, PostgreSQL's default is not, so queries silently start returning different rows |
+| `mysql_set_type` | `SET(...)` — becomes plain `text`. The only `medium` of the MySQL batch: the schema works and existing data survives, but nothing validates future writes |
 
 Plus `ora2pg_wrapper.py` — runs `ora2pg` per object type against exported DDL
 and parses `--estimate_cost`, and `oracle_connector.py`/`oracle_export.py` —
@@ -155,14 +175,15 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 72 registered gaps (`gap_registry.py`) — 67 from the Oracle source
-dialect, 5 from the MySQL/MariaDB one (`dialect="mysql"`, `ora2pg -m`; see
-"Source dialects" below) — 67 are `high` and 5 are `medium` (all 5 medium
-ones are Oracle: `context_object`, `invisible_index`, `virtual_column`,
-`index_organized_table`, `sdo_geometry`) — `severity` is a `GapEntry` field
-now, cross-checked by `scripts/doctor.py` against the literal a detector's
-own source actually uses, not just a count taken on faith. Separately,
-there's one more detector on top of those 72, `dbms_utl_calls` — a
+Of the 86 registered gaps (`gap_registry.py`) — 67 from the Oracle source
+dialect, 19 from the MySQL/MariaDB one (`dialect="mysql"`, `ora2pg -m`; see
+"Source dialects" below) — 80 are `high` and 6 are `medium` (`context_object`,
+`invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
+on the Oracle side, `mysql_set_type` on the MySQL side) — `severity` is a
+`GapEntry` field now, cross-checked by `scripts/doctor.py` against the
+literal a detector's own source actually uses, not just a count taken on
+faith. Separately, there's one more detector on top of those 86,
+`dbms_utl_calls` — a
 classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
 no single reproducible minimal example — that's a deliberately broad
 category), also `medium`. `low` is a valid value in the
@@ -356,11 +377,11 @@ MySQL/MariaDB or SQL Server source dump instead, still targeting
 PostgreSQL. This project's own scan defaults to Oracle source
 (`--dialect oracle`); pass `--dialect mysql` to scan a MySQL/MariaDB
 schema/procedure dump with the MySQL-specific detectors instead
-(`mysql_enum_type`, `mysql_on_update_current_timestamp`,
-`mysql_on_duplicate_key_update`, `mysql_signal`, `mysql_fulltext_index` —
-GAP-068 through GAP-072, confirmed the same way as every Oracle gap: a
+(19 of them, GAP-068 through GAP-086 — see the MySQL rows in the detector
+table above; every one confirmed the same way as every Oracle gap: a
 minimal example, a real `ora2pg -m` run, the generated PostgreSQL loaded
-onto a real PostgreSQL 16 server):
+onto a real PostgreSQL 16 server, and for the silent ones a query actually
+run against real data):
 
 ```sh
 ora2pg-gap-report --dialect mysql schema.sql

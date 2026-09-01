@@ -45,11 +45,25 @@ from .detectors.match_recognize import find_match_recognize
 from .detectors.materialized_view_log import find_materialized_view_logs
 from .detectors.merge_delete_clause import find_merge_delete_clauses
 from .detectors.model_clause import find_model_clauses
+from .detectors.mysql_auto_increment_start import find_mysql_auto_increment_start
+from .detectors.mysql_collate import find_mysql_collations
+from .detectors.mysql_date_format import find_mysql_date_format
+from .detectors.mysql_declare_handler import find_mysql_declare_handlers
 from .detectors.mysql_enum_type import find_mysql_enum_columns
+from .detectors.mysql_foreign_key import find_mysql_foreign_keys
 from .detectors.mysql_fulltext_index import find_mysql_fulltext_indexes
+from .detectors.mysql_insert_ignore import find_mysql_insert_ignore
+from .detectors.mysql_key_index import find_mysql_key_indexes
+from .detectors.mysql_last_insert_id import find_mysql_last_insert_id
+from .detectors.mysql_limit_comma import find_mysql_limit_comma
 from .detectors.mysql_on_duplicate_key_update import find_mysql_on_duplicate_key_update
 from .detectors.mysql_on_update_current_timestamp import find_mysql_on_update_current_timestamp
+from .detectors.mysql_prepare_from import find_mysql_prepare_from
+from .detectors.mysql_replace_into import find_mysql_replace_into
+from .detectors.mysql_set_type import find_mysql_set_columns
 from .detectors.mysql_signal import find_mysql_signal_statements
+from .detectors.mysql_spatial_index import find_mysql_spatial_indexes
+from .detectors.mysql_zero_date import find_mysql_zero_dates
 from .detectors.multiset_operator import find_multiset_operators
 from .detectors.nested_subprogram import find_nested_subprograms
 from .detectors.object_table import find_object_tables
@@ -180,6 +194,20 @@ _MYSQL_DETECTORS = (
     find_mysql_on_duplicate_key_update,
     find_mysql_signal_statements,
     find_mysql_fulltext_indexes,
+    find_mysql_key_indexes,
+    find_mysql_spatial_indexes,
+    find_mysql_limit_comma,
+    find_mysql_replace_into,
+    find_mysql_insert_ignore,
+    find_mysql_prepare_from,
+    find_mysql_last_insert_id,
+    find_mysql_auto_increment_start,
+    find_mysql_date_format,
+    find_mysql_foreign_keys,
+    find_mysql_zero_dates,
+    find_mysql_declare_handlers,
+    find_mysql_collations,
+    find_mysql_set_columns,
 )
 _DETECTORS_BY_DIALECT = {
     "oracle": _ORACLE_DETECTORS,

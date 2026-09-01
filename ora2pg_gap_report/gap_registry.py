@@ -338,6 +338,147 @@ GapEntry(
         failure_stage="deployment",
         dialect="mysql",
     ),
+    # Second MySQL batch. Two things this batch made visible that the
+    # first one didn't: ora2pg's MySQL side breaks on constructs that are
+    # not exotic at all (a bare KEY index clause is what mysqldump emits
+    # by default for every secondary index), and several of its failures
+    # never raise an error at any stage -- hence the first cluster of
+    # failure_stage="semantic" gaps in this registry (081..086).
+    GapEntry(
+        "073",
+        "mysql_key_index",
+        "mysql-key-index",
+        ("test_mysql_key_index.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "074",
+        "mysql_spatial_index",
+        "mysql-spatial-index",
+        ("test_mysql_spatial_index.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "075",
+        "mysql_limit_comma",
+        "mysql-limit-comma",
+        ("test_mysql_limit_comma.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "076",
+        "mysql_replace_into",
+        "mysql-replace-into",
+        ("test_mysql_replace_into.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "077",
+        "mysql_insert_ignore",
+        "mysql-insert-ignore",
+        ("test_mysql_insert_ignore.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "078",
+        "mysql_prepare_from",
+        "mysql-prepare-from",
+        ("test_mysql_prepare_from.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "079",
+        "mysql_last_insert_id",
+        "mysql-last-insert-id",
+        ("test_mysql_last_insert_id.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mysql",
+    ),
+    # auto_increment_start is "runtime" rather than "semantic" on purpose:
+    # nothing errors while the schema loads, but the very first INSERT
+    # after the data is migrated fails on the primary key -- a real
+    # error at a specific moment, not a silent divergence.
+    GapEntry(
+        "080",
+        "mysql_auto_increment_start",
+        "mysql-auto-increment-start",
+        ("test_mysql_auto_increment_start.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "081",
+        "mysql_date_format",
+        "mysql-date-format",
+        ("test_mysql_date_format.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "082",
+        "mysql_foreign_key",
+        "mysql-foreign-key",
+        ("test_mysql_foreign_key.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "083",
+        "mysql_zero_date",
+        "mysql-zero-date",
+        ("test_mysql_zero_date.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "084",
+        "mysql_declare_handler",
+        "mysql-declare-handler",
+        ("test_mysql_declare_handler.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "085",
+        "mysql_collate",
+        "mysql-collate",
+        ("test_mysql_collate.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="mysql",
+    ),
+    # mysql_set_type: the one medium of this batch. Unlike ENUM
+    # (GAP-068), which breaks the schema load outright, SET converts into
+    # a working text column, existing values survive verbatim, and
+    # nothing ever returns a wrong answer -- what's lost is validation of
+    # future writes, which is a CHECK constraint away.
+    GapEntry(
+        "086",
+        "mysql_set_type",
+        "mysql-set-type",
+        ("test_mysql_set_type.py",),
+        severity="medium",
+        failure_stage="semantic",
+        dialect="mysql",
+    ),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

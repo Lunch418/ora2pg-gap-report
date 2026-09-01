@@ -113,7 +113,21 @@ ora2pg_gap_report/
 │   ├── mysql_on_update_current_timestamp.py  # ON UPDATE CURRENT_TIMESTAMP -- copied into DEFAULT verbatim
 │   ├── mysql_on_duplicate_key_update.py      # ON DUPLICATE KEY UPDATE -- no PostgreSQL equivalent, copied verbatim
 │   ├── mysql_signal.py            # SIGNAL/RESIGNAL -- no such statement in PL/pgSQL
-│   └── mysql_fulltext_index.py    # FULLTEXT KEY/INDEX -- dropped, keywords misparsed as a column
+│   ├── mysql_fulltext_index.py    # FULLTEXT KEY/INDEX -- dropped, keywords misparsed as a column
+│   ├── mysql_key_index.py         # KEY <name> (<cols>) -- mysqldump's own spelling, breaks CREATE TABLE
+│   ├── mysql_spatial_index.py     # SPATIAL KEY/INDEX -- dropped, keywords misparsed as a column
+│   ├── mysql_limit_comma.py       # LIMIT n, m -- PostgreSQL rejects the comma form outright
+│   ├── mysql_replace_into.py      # REPLACE INTO -- copied verbatim, no PostgreSQL equivalent
+│   ├── mysql_insert_ignore.py     # INSERT IGNORE -- copied verbatim, no such INSERT syntax
+│   ├── mysql_prepare_from.py      # PREPARE ... FROM -- PostgreSQL spells its PREPARE differently
+│   ├── mysql_last_insert_id.py    # LAST_INSERT_ID() -- no such function in PostgreSQL
+│   ├── mysql_auto_increment_start.py  # AUTO_INCREMENT=<n> -- sequence start lost, PK collides
+│   ├── mysql_date_format.py       # DATE_FORMAT(...) -- becomes a row constructor, silently wrong
+│   ├── mysql_foreign_key.py       # FOREIGN KEY -- dropped entirely, integrity silently gone
+│   ├── mysql_zero_date.py         # '0000-00-00' -- silently rewritten to a real 1970-01-01
+│   ├── mysql_declare_handler.py   # DECLARE ... HANDLER -- dropped, error handling disappears
+│   ├── mysql_collate.py           # COLLATE/CHARACTER SET -- dropped, comparisons change meaning
+│   └── mysql_set_type.py          # SET(...) -- becomes plain text, validation lost
 ├── mysql_lex.py                 # MySQL/MariaDB-dialect lexical helpers (mask_strings_and_comments,
 │                               #  enclosing_object_name_index -- the mysql_* detectors' shared base)
 ├── ora2pg_wrapper.py            # runs ora2pg per object type, parses --estimate_cost

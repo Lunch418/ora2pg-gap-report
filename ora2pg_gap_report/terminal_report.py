@@ -135,6 +135,20 @@ _REMEDIATION_HINT = {
     "mysql_on_duplicate_key_update": "Переписать на INSERT ... ON CONFLICT (<уникальный_ключ>) DO UPDATE SET ...",
     "mysql_signal": "Переписать на RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>', MESSAGE = '<текст>'",
     "mysql_fulltext_index": "Восстановить вручную: CREATE INDEX ... USING gin (to_tsvector('...', ...)) после CREATE TABLE, столбцы видны в исходном FULLTEXT KEY (...)",
+    "mysql_key_index": "Переписать в CREATE INDEX <имя> ON <таблица> (<столбцы>) после CREATE TABLE — синоним INDEX ora2pg переносит корректно, ломается только написание KEY",
+    "mysql_spatial_index": "Восстановить как CREATE INDEX ... USING gist (<столбец>) поверх PostGIS-типа и отдельно проверить сам тип столбца",
+    "mysql_limit_comma": "Переписать на LIMIT <количество> OFFSET <смещение> — порядок аргументов обратный, механическая замена запятой даст другую страницу",
+    "mysql_replace_into": "Переписать на INSERT ... ON CONFLICT DO UPDATE, сверив разницу: REPLACE удаляет строку и потому запускает ON DELETE-каскады",
+    "mysql_insert_ignore": "Переписать на INSERT ... ON CONFLICT DO NOTHING, проверив, какие именно ошибки глушились — IGNORE шире",
+    "mysql_prepare_from": "Переписать на EXECUTE <строка> USING ... в PL/pgSQL — PostgreSQL-овский PREPARE ... AS здесь не подходит",
+    "mysql_last_insert_id": "Переписать на INSERT ... RETURNING <столбец> INTO <переменная>; lastval() относится к последней последовательности вообще, а не к таблице",
+    "mysql_auto_increment_start": "После загрузки данных выставить счётчик: SELECT setval(pg_get_serial_sequence('<таблица>','<столбец>'), (SELECT max(<столбец>) FROM <таблица>))",
+    "mysql_date_format": "Переписать на to_char(<дата>, 'YYYY-MM-DD HH24:MI:SS') и сверить каждый спецификатор — ошибки не будет, вернётся молча не то",
+    "mysql_foreign_key": "Восстановить вручную: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... REFERENCES ... после загрузки всех таблиц",
+    "mysql_zero_date": "Переносить '0000-00-00' в NULL, а не в подставленную ora2pg дату 1970-01-01; проверить заодно сами данные, а не только DEFAULT",
+    "mysql_declare_handler": "Восстановить обработку ошибок блоком BEGIN ... EXCEPTION WHEN ... END; для NOT FOUND — через проверку FOUND, а не EXCEPTION",
+    "mysql_collate": "Вернуть правило сравнения явно: COLLATE с ICU-правилом, тип citext или lower() с обеих сторон сравнения",
+    "mysql_set_type": "Добавить CHECK-ограничение на допустимые значения (или вынести в отдельную таблицу связей) — ora2pg оставляет просто text без проверки",
 }
 
 

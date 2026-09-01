@@ -93,6 +93,20 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-070 | `INSERT ... ON DUPLICATE KEY UPDATE` — копируется как есть, аналога нет | `mysql_on_duplicate_key_update` | high | confirmed | 25.0 | 16 | [gap-070](gap-070-mysql-on-duplicate-key-update.md) |
 | GAP-071 | `SIGNAL`/`RESIGNAL` — копируется как есть, такого оператора в PL/pgSQL нет | `mysql_signal` | high | confirmed | 25.0 | 16 | [gap-071](gap-071-mysql-signal.md) |
 | GAP-072 | `FULLTEXT KEY`/`FULLTEXT INDEX` — теряется целиком, ломает CREATE TABLE | `mysql_fulltext_index` | high | confirmed | 25.0 | 16 | [gap-072](gap-072-mysql-fulltext-index.md) |
+| GAP-073 | `KEY <имя> (<столбцы>)` — написание mysqldump, ломает CREATE TABLE | `mysql_key_index` | high | confirmed | 25.0 | 16 | [gap-073](gap-073-mysql-key-index.md) |
+| GAP-074 | `SPATIAL KEY`/`SPATIAL INDEX` — теряется целиком, ломает CREATE TABLE | `mysql_spatial_index` | high | confirmed | 25.0 | 16 | [gap-074](gap-074-mysql-spatial-index.md) |
+| GAP-075 | `LIMIT <смещение>, <количество>` — PostgreSQL такую форму не принимает | `mysql_limit_comma` | high | confirmed | 25.0 | 16 | [gap-075](gap-075-mysql-limit-comma.md) |
+| GAP-076 | `REPLACE INTO` — копируется как есть, аналога нет | `mysql_replace_into` | high | confirmed | 25.0 | 16 | [gap-076](gap-076-mysql-replace-into.md) |
+| GAP-077 | `INSERT IGNORE` — копируется как есть, такого синтаксиса нет | `mysql_insert_ignore` | high | confirmed | 25.0 | 16 | [gap-077](gap-077-mysql-insert-ignore.md) |
+| GAP-078 | `PREPARE <имя> FROM` — у PostgreSQL другой синтаксис PREPARE | `mysql_prepare_from` | high | confirmed | 25.0 | 16 | [gap-078](gap-078-mysql-prepare-from.md) |
+| GAP-079 | `LAST_INSERT_ID()` — такой функции в PostgreSQL нет | `mysql_last_insert_id` | high | confirmed | 25.0 | 16 | [gap-079](gap-079-mysql-last-insert-id.md) |
+| GAP-080 | `AUTO_INCREMENT=<n>` — старт счётчика теряется, первая вставка падает | `mysql_auto_increment_start` | high | confirmed | 25.0 | 16 | [gap-080](gap-080-mysql-auto-increment-start.md) |
+| GAP-081 | `DATE_FORMAT(...)` — молча возвращает кортеж вместо строки | `mysql_date_format` | high | confirmed | 25.0 | 16 | [gap-081](gap-081-mysql-date-format.md) |
+| GAP-082 | `FOREIGN KEY` выбрасывается целиком — ссылочной целостности нет | `mysql_foreign_key` | high | confirmed | 25.0 | 16 | [gap-082](gap-082-mysql-foreign-key.md) |
+| GAP-083 | `'0000-00-00'` молча превращается в настоящую дату `'1970-01-01'` | `mysql_zero_date` | high | confirmed | 25.0 | 16 | [gap-083](gap-083-mysql-zero-date.md) |
+| GAP-084 | `DECLARE ... HANDLER` выбрасывается — обработка ошибок пропадает | `mysql_declare_handler` | high | confirmed | 25.0 | 16 | [gap-084](gap-084-mysql-declare-handler.md) |
+| GAP-085 | `COLLATE`/`CHARACTER SET` выбрасывается — сравнение строк меняет смысл | `mysql_collate` | high | confirmed | 25.0 | 16 | [gap-085](gap-085-mysql-collate.md) |
+| GAP-086 | `SET(...)` становится `text` — проверка допустимых значений теряется | `mysql_set_type` | medium | confirmed | 25.0 | 16 | [gap-086](gap-086-mysql-set-type.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

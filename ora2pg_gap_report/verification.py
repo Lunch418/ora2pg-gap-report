@@ -156,6 +156,20 @@ VERIFICATION_MODE: dict[str, str] = {
     "mysql_on_duplicate_key_update": VERBATIM,  # the whole ON DUPLICATE KEY UPDATE clause is copied unchanged into the function body
     "mysql_signal": VERBATIM,  # SIGNAL/RESIGNAL is copied unchanged (only the SET keyword before MESSAGE_TEXT is lost)
     "mysql_fulltext_index": VERBATIM,  # 'FULLTEXT KEY'/'FULLTEXT INDEX' is left sitting in the output, case-folded but keyword-intact
+    "mysql_key_index": VERBATIM,  # the bare 'key <NAME>' stub survives in the output where a column was expected
+    "mysql_spatial_index": VERBATIM,  # same shape as fulltext: 'spatial KEY' left in the column list
+    "mysql_limit_comma": VERBATIM,  # `LIMIT n, m` copied straight into the function body
+    "mysql_replace_into": VERBATIM,  # REPLACE INTO copied unchanged into the function body
+    "mysql_insert_ignore": VERBATIM,  # INSERT IGNORE copied unchanged into the function body
+    "mysql_prepare_from": VERBATIM,  # `PREPARE <name> FROM` copied unchanged (only the @var becomes a plain variable)
+    "mysql_last_insert_id": VERBATIM,  # the LAST_INSERT_ID() call is copied unchanged
+    "mysql_auto_increment_start": NOT_VERIFIABLE,  # a table option that is dropped; AUTO_INCREMENT=<n> is never in the output by construction
+    "mysql_date_format": NOT_VERIFIABLE,  # rewritten into a row constructor; the DATE_FORMAT name never survives
+    "mysql_foreign_key": NOT_VERIFIABLE,  # dropped entirely -- no FOREIGN KEY reaches the output at all
+    "mysql_zero_date": NOT_VERIFIABLE,  # silently rewritten to '1970-01-01'; the zero-date literal never survives
+    "mysql_declare_handler": NOT_VERIFIABLE,  # dropped entirely, replaced by blank lines
+    "mysql_collate": NOT_VERIFIABLE,  # the COLLATE/CHARACTER SET clause is dropped from the column definition
+    "mysql_set_type": NOT_VERIFIABLE,  # rewritten to plain `text`; the SET(...) spelling never survives
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists
     # for verify to compare against.

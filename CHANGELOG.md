@@ -48,6 +48,56 @@ patch for fixes to existing ones.
     recognized as an index at all; the bare keywords are left sitting
     where a column definition was expected, and `CREATE TABLE` fails
     to load.
+- 14 more confirmed MySQL/MariaDB gaps, **GAP-073..086** — the registry goes
+  from 72 to 86 (19 MySQL gaps in total). Same bar as every gap before them:
+  a minimal example, a real `ora2pg 25.0 -m` run, the generated PostgreSQL
+  loaded onto a live PostgreSQL 16 server — and, for the ones that never
+  raise an error, a query actually run against real data to show what
+  changes. Two things this batch made visible: ora2pg's MySQL side breaks on
+  constructs that aren't exotic at all, and several of its failures are
+  completely silent, which is why this batch introduces the registry's first
+  `failure_stage="semantic"` entries.
+
+  Fail when the schema is loaded (`deployment`):
+  - `mysql_key_index` (GAP-073) — `KEY <name> (<cols>)`, which is what
+    mysqldump emits by default for every secondary index, is left as a
+    `key <NAME>` stub where a column definition was expected. The widest-
+    reaching gap of the batch. The `INDEX` synonym and `UNIQUE KEY` both
+    convert correctly and are deliberately not flagged.
+  - `mysql_spatial_index` (GAP-074) — `SPATIAL KEY`/`SPATIAL INDEX`, same
+    shape, different fix (a GiST index over a PostGIS type).
+
+  Fail on the first real call (`runtime`):
+  - `mysql_limit_comma` (GAP-075) — `LIMIT offset, count`; PostgreSQL
+    rejects the comma form outright. Note the argument order is reversed.
+  - `mysql_replace_into` (GAP-076) — `REPLACE INTO`, copied verbatim.
+  - `mysql_insert_ignore` (GAP-077) — `INSERT IGNORE`, copied verbatim.
+  - `mysql_prepare_from` (GAP-078) — `PREPARE <name> FROM <string>`;
+    PostgreSQL's own PREPARE takes `AS <query>`, not a string variable.
+  - `mysql_last_insert_id` (GAP-079) — `LAST_INSERT_ID()`, no such
+    function in PostgreSQL.
+  - `mysql_auto_increment_start` (GAP-080) — the `AUTO_INCREMENT=<n>`
+    table option is dropped, so the sequence restarts at 1 and the first
+    insert after a data migration collides on the primary key.
+
+  Never raise an error at all (`semantic`):
+  - `mysql_date_format` (GAP-081) — `DATE_FORMAT(...)` comes out as a bare
+    row constructor with the `to_char` name missing and `%d` untranslated;
+    the query silently returns a tuple instead of a formatted string.
+  - `mysql_foreign_key` (GAP-082) — foreign keys are dropped entirely, and
+    ora2pg has no foreign-key export type at all; referential integrity and
+    cascades just cease to exist.
+  - `mysql_zero_date` (GAP-083) — `'0000-00-00'`, MySQL's "not set" marker,
+    is silently rewritten to a real `'1970-01-01'`.
+  - `mysql_declare_handler` (GAP-084) — `DECLARE ... HANDLER` is dropped
+    with no `EXCEPTION` block in its place, so what MySQL swallowed now
+    aborts the caller's transaction.
+  - `mysql_collate` (GAP-085) — per-column `COLLATE`/`CHARACTER SET` is
+    dropped; MySQL's usual case-insensitive rules become PostgreSQL's
+    case-sensitive default, and queries silently return different rows.
+  - `mysql_set_type` (GAP-086, `medium`) — `SET(...)` becomes plain `text`;
+    the schema works and existing data survives, but nothing validates
+    future writes.
 
 ## [0.9.0] - 2026-08-28
 

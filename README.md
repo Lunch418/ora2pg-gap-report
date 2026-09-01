@@ -136,6 +136,18 @@ empirically against real PL/SQL code
 | `read_only_view` | `WITH READ ONLY` is dropped; the resulting PostgreSQL view is auto-updatable, so writes Oracle rejected now silently succeed |
 | `sdo_geometry` | `SDO_GEOMETRY` becomes the PostGIS `geometry` type with no `CREATE EXTENSION postgis` emitted — the DDL fails to load on a stock server |
 
+The five below are the MySQL/MariaDB dialect (`--dialect mysql`, `ora2pg
+-m` — see "Source dialects" further down); every other detector in this
+table is Oracle-only.
+
+| Detector | What it catches |
+|---|---|
+| `mysql_enum_type` | `ENUM(...)` — ora2pg synthesizes a named PostgreSQL type for it but never emits the `CREATE TYPE ... AS ENUM (...)` that type needs; `CREATE TABLE` fails to load |
+| `mysql_on_update_current_timestamp` | `DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` — the `ON UPDATE ...` fragment is copied verbatim into `DEFAULT`, which PostgreSQL's `DEFAULT` has no syntax for at all |
+| `mysql_on_duplicate_key_update` | `INSERT ... ON DUPLICATE KEY UPDATE` — copied verbatim into the function/procedure body; PostgreSQL's `INSERT` has no such clause, fails on first call |
+| `mysql_signal` | `SIGNAL`/`RESIGNAL` — copied verbatim; neither exists in PL/pgSQL, fails on first call |
+| `mysql_fulltext_index` | `FULLTEXT KEY`/`FULLTEXT INDEX` inside `CREATE TABLE`'s column list — not recognized as an index at all; the bare keywords are left where a column definition was expected, and `CREATE TABLE` fails to load |
+
 Plus `ora2pg_wrapper.py` — runs `ora2pg` per object type against exported DDL
 and parses `--estimate_cost`, and `oracle_connector.py`/`oracle_export.py` —
 a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
@@ -143,15 +155,17 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 67 registered gaps (`gap_registry.py`), 62 are `high` and 5 are
-`medium` (`context_object`, `invisible_index`, `virtual_column`,
-`index_organized_table`) — `severity` is a `GapEntry` field now,
-cross-checked by `scripts/doctor.py` against the literal a detector's own
-source actually uses, not just a count taken on faith. Separately, there's
-a 48th detector,
-`dbms_utl_calls` — a classifier for `DBMS_*`/`UTL_*` calls, not tied to a
-specific GAP-NNN (it has no single reproducible minimal example — that's a
-deliberately broad category), also `medium`. `low` is a valid value in the
+Of the 72 registered gaps (`gap_registry.py`) — 67 from the Oracle source
+dialect, 5 from the MySQL/MariaDB one (`dialect="mysql"`, `ora2pg -m`; see
+"Source dialects" below) — 67 are `high` and 5 are `medium` (all 5 medium
+ones are Oracle: `context_object`, `invisible_index`, `virtual_column`,
+`index_organized_table`, `sdo_geometry`) — `severity` is a `GapEntry` field
+now, cross-checked by `scripts/doctor.py` against the literal a detector's
+own source actually uses, not just a count taken on faith. Separately,
+there's one more detector on top of those 72, `dbms_utl_calls` — a
+classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
+no single reproducible minimal example — that's a deliberately broad
+category), also `medium`. `low` is a valid value in the
 registry (`--severity low`, with an hour range in `effort_estimator.py`), but
 hasn't been assigned to any detector yet — honestly, not because the
 criterion wasn't thought through, but because none of the confirmed cases
@@ -334,6 +348,32 @@ part of the pip package (the package is `ora2pg_gap_report/` only). When run
 from a package installed via `pip install`, rather than from a repo
 checkout, `--explain` shows a direct link to the document on GitHub instead
 of the document's text.
+
+### Source dialects (`--dialect`)
+
+`ora2pg` isn't Oracle-only: `-m`/`--mysql` and `-M`/`--mssql` point it at a
+MySQL/MariaDB or SQL Server source dump instead, still targeting
+PostgreSQL. This project's own scan defaults to Oracle source
+(`--dialect oracle`); pass `--dialect mysql` to scan a MySQL/MariaDB
+schema/procedure dump with the MySQL-specific detectors instead
+(`mysql_enum_type`, `mysql_on_update_current_timestamp`,
+`mysql_on_duplicate_key_update`, `mysql_signal`, `mysql_fulltext_index` —
+GAP-068 through GAP-072, confirmed the same way as every Oracle gap: a
+minimal example, a real `ora2pg -m` run, the generated PostgreSQL loaded
+onto a real PostgreSQL 16 server):
+
+```sh
+ora2pg-gap-report --dialect mysql schema.sql
+```
+
+The two dialects' detectors are structurally separate (`core.py`'s
+`_ORACLE_DETECTORS`/`_MYSQL_DETECTORS` tuples) — an Oracle file scanned as
+`mysql` or a MySQL file scanned as `oracle` cannot trigger the wrong
+dialect's detectors, by construction, not by keyword luck. `--dialect
+mysql` only applies to a plain scan: `--verify`, `--fix`, and `--tui`
+don't support it yet and refuse the combination explicitly rather than
+silently scanning with the wrong (or no) detectors. MSSQL support
+(`ora2pg -M`) doesn't exist yet — no detector, no `--dialect mssql` choice.
 
 ### Output language
 

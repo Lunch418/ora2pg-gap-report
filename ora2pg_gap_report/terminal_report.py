@@ -130,6 +130,11 @@ _REMEDIATION_HINT = {
     "wm_concat": "Заменить на string_agg(col, ',' ORDER BY col) — порядок стоит задать явно, WM_CONCAT его не гарантировал",
     "read_only_view": "Вернуть запрет записи явно: REVOKE INSERT, UPDATE, DELETE ON <view> либо триггер INSTEAD OF, возбуждающий исключение",
     "sdo_geometry": "Добавить CREATE EXTENSION postgis перед загрузкой схемы (ora2pg её не выводит) и отдельно проверить перенос самих значений",
+    "mysql_enum_type": "Вставить недостающий CREATE TYPE <таблица>_<столбец>_t AS ENUM (...) перед CREATE TABLE — значения уже видны в исходном ENUM(...)",
+    "mysql_on_update_current_timestamp": "Перенести на триггер BEFORE UPDATE, выставляющий NEW.<столбец> = now()",
+    "mysql_on_duplicate_key_update": "Переписать на INSERT ... ON CONFLICT (<уникальный_ключ>) DO UPDATE SET ...",
+    "mysql_signal": "Переписать на RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>', MESSAGE = '<текст>'",
+    "mysql_fulltext_index": "Восстановить вручную: CREATE INDEX ... USING gin (to_tsvector('...', ...)) после CREATE TABLE, столбцы видны в исходном FULLTEXT KEY (...)",
 }
 
 

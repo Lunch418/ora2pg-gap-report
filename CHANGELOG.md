@@ -7,6 +7,48 @@ The project follows [SemVer](https://semver.org/) in a simplified form
 until it reaches 1.0.0: minor version bumps for new detectors/features,
 patch for fixes to existing ones.
 
+## [Unreleased]
+
+### Added
+- MySQL/MariaDB as a second source dialect, alongside Oracle. `ora2pg`
+  already supports MySQL/MariaDB as a source via `-m`/`--mysql` (confirmed
+  file-based, `ora2pg -m -i <file>`, no live MySQL connection needed —
+  exactly like Oracle mode's `-t <TYPE> -i <file>`), so this isn't a new
+  tool, just a second dialect on the existing detector/registry/CLI
+  machinery: a `dialect` field on `GapEntry` (default `"oracle"`, a pure
+  addition — every existing entry is unaffected), `core.py`'s detectors
+  split into `_ORACLE_DETECTORS`/`_MYSQL_DETECTORS` (structurally
+  separate, so a file scanned under the wrong dialect cannot trigger the
+  other dialect's detectors), a new `mysql_lex.py` lexer mirroring
+  `plsql_lex.py`'s masking/attribution contract for MySQL's own lexical
+  rules (backtick-quoted identifiers, `#`/`--` comments, backslash string
+  escaping), and a `--dialect {oracle,mysql}` CLI flag (default `oracle`,
+  every existing invocation unaffected). `--verify`/`--fix`/`--tui` don't
+  support `--dialect mysql` yet and refuse the combination explicitly.
+- 5 confirmed MySQL/MariaDB gaps, **GAP-068..072** — the registry goes
+  from 67 to 72. Found and confirmed the same way as every Oracle gap:
+  a minimal MySQL example, a real `ora2pg 25.0 -m` run, the generated
+  PostgreSQL loaded into a live PostgreSQL 16 server.
+  - `mysql_enum_type` (GAP-068, deployment) — `ENUM(...)` — ora2pg
+    synthesizes a named PostgreSQL enum type but never emits the
+    `CREATE TYPE ... AS ENUM (...)` it needs; `CREATE TABLE` fails to
+    load with `type "..." does not exist`.
+  - `mysql_on_update_current_timestamp` (GAP-069, deployment) —
+    `DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` — the
+    `ON UPDATE ...` fragment is copied verbatim into `DEFAULT`, which
+    PostgreSQL's `DEFAULT` has no syntax for at all.
+  - `mysql_on_duplicate_key_update` (GAP-070, runtime) —
+    `INSERT ... ON DUPLICATE KEY UPDATE` — copied verbatim into the
+    function/procedure body; loads cleanly (`check_function_bodies =
+    false`), fails on the first real call.
+  - `mysql_signal` (GAP-071, runtime) — `SIGNAL`/`RESIGNAL` — copied
+    verbatim; neither exists in PL/pgSQL, fails on the first real call.
+  - `mysql_fulltext_index` (GAP-072, deployment) — `FULLTEXT KEY`/
+    `FULLTEXT INDEX` inside `CREATE TABLE`'s column list — not
+    recognized as an index at all; the bare keywords are left sitting
+    where a column definition was expected, and `CREATE TABLE` fails
+    to load.
+
 ## [0.9.0] - 2026-08-28
 
 ### Added

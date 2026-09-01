@@ -226,16 +226,17 @@ def test_scan_loop_registration_parity_is_clean_on_the_real_repository_state():
 
 def test_scan_loop_registration_parity_flags_a_detector_missing_from_detectors_tuple(monkeypatch):
     # A module that exists on disk, is fully registered everywhere else,
-    # and has passing tests, but was never added to cli.py's _DETECTORS --
-    # it would silently never actually run during a real scan_source()
-    # call, and nothing else in this project's test suite catches that in
-    # general (see check_scan_loop_registration_parity()'s own docstring).
+    # and has passing tests, but was never added to any dialect's own
+    # detector tuple in core.py -- it would silently never actually run
+    # during a real scan_source() call, and nothing else in this
+    # project's test suite catches that in general (see
+    # check_scan_loop_registration_parity()'s own docstring).
     monkeypatch.setattr(doctor, "_detector_names_on_disk", lambda: {"autonomous_tx", "brand_new_detector"})
     monkeypatch.setattr(doctor, "detector_names", lambda: ("autonomous_tx",))
     problems = doctor.check_scan_loop_registration_parity()
     assert len(problems) == 1
     assert "brand_new_detector" in problems[0]
-    assert "не добавлен в _DETECTORS" in problems[0]
+    assert "не добавлен ни в один диалект" in problems[0]
 
 
 def test_scan_loop_registration_parity_flags_a_stale_entry_for_a_removed_detector(monkeypatch):

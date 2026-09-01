@@ -245,17 +245,19 @@ def test_every_detector_registered_in_cli_has_a_remediation_hint():
     from ora2pg_gap_report import core
     from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT
 
-    for detector_fn in core._DETECTORS:
+    for detector_fn in core._ORACLE_DETECTORS + core._MYSQL_DETECTORS:
         result = detector_fn("")  # empty source: no findings, just need the shape
         assert result == []
     # core.detector_names() derives each name from its function's own
-    # __module__ -- the actual, current contents of _DETECTORS, not a
-    # second hand-typed set that can silently drift from it (a real
-    # regression this test previously had: its old hardcoded set was 9
-    # detectors behind core._DETECTORS by the time this was caught).
-    registered_names = set(core.detector_names()) | {
+    # __module__ -- the actual, current contents of every dialect's own
+    # tuple, not a second hand-typed set that can silently drift from it
+    # (a real regression this test previously had: its old hardcoded set
+    # was 9 detectors behind core._DETECTORS by the time this was
+    # caught). dialect=None pulls every registered detector across every
+    # dialect -- see detector_names()'s own docstring.
+    registered_names = set(core.detector_names(dialect=None)) | {
         "connect_by"
-    }  # opt-in via --check-connect-by, not in core._DETECTORS
+    }  # opt-in via --check-connect-by, not in any dialect's own tuple
     assert registered_names <= set(_REMEDIATION_HINT.keys())
 
 

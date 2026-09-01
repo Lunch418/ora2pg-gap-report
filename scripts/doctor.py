@@ -321,27 +321,33 @@ def check_verification_mode_parity() -> list[str]:
 def check_scan_loop_registration_parity() -> list[str]:
     """Every detector on disk (other than connect_by, deliberately opt-in
     via --check-connect-by rather than part of the main scan loop) must
-    actually be in core.py's _DETECTORS -- a detector module that exists,
-    is registered in gap_registry.py/verification.py/i18n.py, and has
-    passing tests, but was never added to _DETECTORS would still never
-    actually run during a real scan_source() call. Nothing else in this
-    project's own test suite catches that specific failure mode in
-    general (a positive test calls find_xxx(source) directly, bypassing
-    _DETECTORS entirely; a real-corpus test like test_scan_source_runs_
-    all_detectors_on_logger only catches it for whichever detectors that
-    one fixture happens to trigger)."""
+    actually be in one of core.py's per-dialect detector tuples
+    (_ORACLE_DETECTORS, _MYSQL_DETECTORS, ...) -- a detector module that
+    exists, is registered in gap_registry.py/verification.py/i18n.py, and
+    has passing tests, but was never added to its dialect's tuple would
+    still never actually run during a real scan_source() call. Nothing
+    else in this project's own test suite catches that specific failure
+    mode in general (a positive test calls find_xxx(source) directly,
+    bypassing the scan loop entirely; a real-corpus test like
+    test_scan_source_runs_all_detectors_on_logger only catches it for
+    whichever detectors that one fixture happens to trigger).
+
+    detector_names() with no dialect argument returns the union across
+    every dialect's own tuple (see its own docstring), so this check
+    covers a MySQL detector left out of _MYSQL_DETECTORS exactly the same
+    way it always covered an Oracle one left out of _ORACLE_DETECTORS."""
     on_disk = _detector_names_on_disk() - {"connect_by"}
     in_scan_loop = set(detector_names())
     problems = []
     for name in sorted(on_disk - in_scan_loop):
         problems.append(
-            f"core.py: детектор '{name}' есть на диске, но не добавлен в _DETECTORS "
-            "-- никогда не выполняется при обычном сканировании"
+            f"core.py: детектор '{name}' есть на диске, но не добавлен ни в один "
+            "диалект -- никогда не выполняется при обычном сканировании"
         )
     for name in sorted(in_scan_loop - on_disk):
         problems.append(
-            f"core.py: _DETECTORS упоминает '{name}', но такого файла нет в "
-            "ora2pg_gap_report/detectors/"
+            f"core.py: детектор '{name}' зарегистрирован в одном из диалектов, но "
+            "такого файла нет в ora2pg_gap_report/detectors/"
         )
     return problems
 
@@ -478,7 +484,7 @@ def main() -> int:
             "версии в GAP_REGISTRY.md совпадают с gap_registry.py, у каждого детектора "
             "есть английский перевод в i18n.py, у каждого детектора есть запись в "
             "verification.py, каждый детектор с диска реально зарегистрирован в "
-            "core._DETECTORS, у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
+            "своём диалекте в core.py, у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
             "задан валидный failure_stage, у каждого gap'а severity в реестре совпадает "
             "с тем, что реально использует исходник детектора, и ни в одном английском "
             "переводе нет слов, склеенных на стыке строковых литералов."

@@ -133,6 +133,12 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
         help=i18n.t(lang, "help_ora2pg_bin"),
     )
     parser.add_argument(
+        "--dialect",
+        choices=("oracle", "mysql"),
+        default="oracle",
+        help=i18n.t(lang, "help_dialect"),
+    )
+    parser.add_argument(
         "--severity",
         choices=("high", "medium", "low"),
         default=None,
@@ -497,6 +503,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.object,
                 args.format,
                 args.output,
+                args.dialect != "oracle",
             )
         )
         if conflicting:
@@ -538,6 +545,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.output,
                 args.severity,
                 args.object,
+                args.dialect != "oracle",
             )
         )
         if conflicting:
@@ -546,9 +554,23 @@ def main(argv: list[str] | None = None) -> int:
         return _handle_explain(args.explain, Console(), err_console, lang)
 
     if args.verify:
+        if args.dialect != "oracle":
+            # --verify re-scans ora2pg's *generated PostgreSQL* output with
+            # the same detectors that fired pre-migration (verification.py's
+            # VERBATIM/NOT_VERIFIABLE split), which isn't wired up for any
+            # MySQL detector yet -- silently scanning with dialect="oracle"
+            # anyway would report "not detected" for every MySQL finding, an
+            # incorrect signal rather than an honest error.
+            err_console.print(i18n.t(lang, "dialect_verify_unsupported_error"))
+            return 2
         return _handle_verify(args, err_console, lang)
 
     if args.fix:
+        if args.dialect != "oracle":
+            # autofix.py's fixers are Oracle-specific; same reasoning as
+            # --verify above.
+            err_console.print(i18n.t(lang, "dialect_fix_unsupported_error"))
+            return 2
         return _handle_fix(args, Console(), err_console, lang)
 
     if args.write:
@@ -599,7 +621,8 @@ def main(argv: list[str] | None = None) -> int:
             continue
         objects_scanned += count_objects(source)
         all_findings.extend(
-            dataclasses.replace(f, source_file=str(path)) for f in scan_source(source)
+            dataclasses.replace(f, source_file=str(path))
+            for f in scan_source(source, dialect=args.dialect)
         )
 
         if args.check_connect_by:

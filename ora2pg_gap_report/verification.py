@@ -144,6 +144,18 @@ VERIFICATION_MODE: dict[str, str] = {
     "cursor_rowtype": NOT_VERIFIABLE,  # %ROWTYPE survives but `CURSOR c IS` becomes `c CURSOR FOR`, so the cursor name no longer resolves
     "read_only_view": NOT_VERIFIABLE,  # the WITH READ ONLY clause is dropped unconditionally
     "sdo_geometry": NOT_VERIFIABLE,  # rewritten to PostGIS `geometry`; the SDO_GEOMETRY name never survives
+    # MySQL dialect detectors -- note --verify itself doesn't accept
+    # --dialect mysql yet (see cli.py), so none of these are actually
+    # reachable through --verify today. Still classified here because
+    # doctor.py's check_verification_mode_parity requires an entry for
+    # every detector on disk regardless, and the classification itself
+    # (what does ora2pg's *generated PostgreSQL* output actually contain)
+    # is true independent of whether --verify can exercise it yet.
+    "mysql_enum_type": NOT_VERIFIABLE,  # rewritten to a synthesized <table>_<column>_t type reference; ENUM(...) itself never survives
+    "mysql_on_update_current_timestamp": VERBATIM,  # ON UPDATE CURRENT_TIMESTAMP is copied straight into the generated DEFAULT
+    "mysql_on_duplicate_key_update": VERBATIM,  # the whole ON DUPLICATE KEY UPDATE clause is copied unchanged into the function body
+    "mysql_signal": VERBATIM,  # SIGNAL/RESIGNAL is copied unchanged (only the SET keyword before MESSAGE_TEXT is lost)
+    "mysql_fulltext_index": VERBATIM,  # 'FULLTEXT KEY'/'FULLTEXT INDEX' is left sitting in the output, case-folded but keyword-intact
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists
     # for verify to compare against.

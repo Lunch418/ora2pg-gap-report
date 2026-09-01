@@ -68,6 +68,18 @@ class GapEntry:
     # FAILURE_STAGES, and every gap not in FAILURE_STAGE_EXEMPT_DETECTORS
     # must have one set.
     failure_stage: str | None = None
+    # Which source language ora2pg was pointed at to produce the finding
+    # -- "oracle" (default, unset for every existing entry so far, so this
+    # field is a pure addition, not a migration) or "mysql" (ora2pg -m,
+    # confirmed to work file-based via -i exactly like Oracle mode: no
+    # live MySQL connection needed to reproduce a gap). One registry, one
+    # numbering sequence, one CLI, one set of report formats -- the
+    # dialect is a fact about a gap, the same kind of fact severity or
+    # failure_stage already is, not a reason to fork the project into
+    # separate per-dialect tools. See docs/research/AUDIT.md's MySQL
+    # section for why file-based -m research reuses the exact same
+    # probe.sh harness Oracle gaps were confirmed with.
+    dialect: str = "oracle"
 
 
 # "conversion": only visible in ora2pg's own conversion run/log (a debug
@@ -272,6 +284,59 @@ GapEntry(
     # rest of the batch where the construct has to be rewritten.
     GapEntry(
         "067", "sdo_geometry", "sdo-geometry", ("test_sdo_geometry.py",), severity="medium", failure_stage="deployment"
+    ),
+    # First MySQL-dialect batch (ora2pg -m), same numbering sequence as
+    # every Oracle gap above it -- see GapEntry.dialect's own comment for
+    # why this project uses one registry/one sequence rather than
+    # forking numbering per source language. All five reproduced against
+    # the exact same ora2pg 25.0 + PostgreSQL 16 pair as the Oracle
+    # batch, confirmed file-based via `ora2pg -m -i <file>` (no live
+    # MySQL connection needed, exactly like Oracle mode's `-t <TYPE> -i
+    # <file>`).
+    GapEntry(
+        "068",
+        "mysql_enum_type",
+        "mysql-enum-type",
+        ("test_mysql_enum_type.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "069",
+        "mysql_on_update_current_timestamp",
+        "mysql-on-update-current-timestamp",
+        ("test_mysql_on_update_current_timestamp.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "070",
+        "mysql_on_duplicate_key_update",
+        "mysql-on-duplicate-key-update",
+        ("test_mysql_on_duplicate_key_update.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "071",
+        "mysql_signal",
+        "mysql-signal",
+        ("test_mysql_signal.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="mysql",
+    ),
+    GapEntry(
+        "072",
+        "mysql_fulltext_index",
+        "mysql-fulltext-index",
+        ("test_mysql_fulltext_index.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mysql",
     ),
 )
 

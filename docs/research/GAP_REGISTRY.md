@@ -1,8 +1,10 @@
 # Реестр подтверждённых gap'ов
 
-Каждая строка — конкретная Oracle-конструкция, для которой эмпирически
-подтверждено (не предположено), что `ora2pg` конвертирует её некорректно
-или пропускает без предупреждения. См. «Методология» в основном
+Каждая строка — конкретная конструкция source-диалекта (Oracle или,
+начиная с GAP-068, MySQL/MariaDB через `ora2pg -m` — см. `gap_registry.py`,
+поле `GapEntry.dialect`), для которой эмпирически подтверждено (не
+предположено), что `ora2pg` конвертирует её некорректно или пропускает без
+предупреждения. См. «Методология» в основном
 [README](../../README.md) — детектор появляется только после того, как
 гипотеза прошла этот цикл; отклонённые гипотезы в реестр не попадают —
 они задокументированы отдельно, в `step0-show-report-baseline.md`
@@ -81,6 +83,16 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-065 | `WM_CONCAT` копируется как есть, в отличие от `LISTAGG` | `wm_concat` | high | confirmed | 25.0 | 16 | [gap-065](gap-065-wm-concat.md) |
 | GAP-066 | `WITH READ ONLY` выбрасывается — представление становится обновляемым | `read_only_view` | high | confirmed | 25.0 | 16 | [gap-066](gap-066-read-only-view.md) |
 | GAP-067 | `SDO_GEOMETRY` — тип PostGIS без `CREATE EXTENSION postgis` | `sdo_geometry` | medium | confirmed | 25.0 | 16 | [gap-067](gap-067-sdo-geometry.md) |
+
+### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
+
+| ID | Конструкция | Детектор | Severity | Статус | ora2pg | PostgreSQL | Документ |
+|---|---|---|---|---|---|---|---|
+| GAP-068 | `ENUM(...)` — ссылка на несуществующий синтезированный тип | `mysql_enum_type` | high | confirmed | 25.0 | 16 | [gap-068](gap-068-mysql-enum-type.md) |
+| GAP-069 | `DEFAULT ... ON UPDATE CURRENT_TIMESTAMP` — недопустимый синтаксис внутри DEFAULT | `mysql_on_update_current_timestamp` | high | confirmed | 25.0 | 16 | [gap-069](gap-069-mysql-on-update-current-timestamp.md) |
+| GAP-070 | `INSERT ... ON DUPLICATE KEY UPDATE` — копируется как есть, аналога нет | `mysql_on_duplicate_key_update` | high | confirmed | 25.0 | 16 | [gap-070](gap-070-mysql-on-duplicate-key-update.md) |
+| GAP-071 | `SIGNAL`/`RESIGNAL` — копируется как есть, такого оператора в PL/pgSQL нет | `mysql_signal` | high | confirmed | 25.0 | 16 | [gap-071](gap-071-mysql-signal.md) |
+| GAP-072 | `FULLTEXT KEY`/`FULLTEXT INDEX` — теряется целиком, ломает CREATE TABLE | `mysql_fulltext_index` | high | confirmed | 25.0 | 16 | [gap-072](gap-072-mysql-fulltext-index.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

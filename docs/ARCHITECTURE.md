@@ -107,7 +107,15 @@ ora2pg_gap_report/
 │   ├── cursor_rowtype.py          # <cursor>%ROWTYPE -- PL/pgSQL allows only table/view
 │   ├── wm_concat.py               # WM_CONCAT -- copied verbatim, unlike LISTAGG
 │   ├── read_only_view.py          # WITH READ ONLY -- dropped, view becomes auto-updatable
-│   └── sdo_geometry.py            # SDO_GEOMETRY -- PostGIS type without CREATE EXTENSION
+│   ├── sdo_geometry.py            # SDO_GEOMETRY -- PostGIS type without CREATE EXTENSION
+│   │                             # -- MySQL/MariaDB dialect (ora2pg -m; see mysql_lex.py) --
+│   ├── mysql_enum_type.py         # ENUM(...) -- CREATE TYPE for the synthesized type is missing
+│   ├── mysql_on_update_current_timestamp.py  # ON UPDATE CURRENT_TIMESTAMP -- copied into DEFAULT verbatim
+│   ├── mysql_on_duplicate_key_update.py      # ON DUPLICATE KEY UPDATE -- no PostgreSQL equivalent, copied verbatim
+│   ├── mysql_signal.py            # SIGNAL/RESIGNAL -- no such statement in PL/pgSQL
+│   └── mysql_fulltext_index.py    # FULLTEXT KEY/INDEX -- dropped, keywords misparsed as a column
+├── mysql_lex.py                 # MySQL/MariaDB-dialect lexical helpers (mask_strings_and_comments,
+│                               #  enclosing_object_name_index -- the mysql_* detectors' shared base)
 ├── ora2pg_wrapper.py            # runs ora2pg per object type, parses --estimate_cost
 ├── i18n.py                     # output language (--lang/--set-lang): resolution, English
 │                               # UI strings, and translations of detector explanations

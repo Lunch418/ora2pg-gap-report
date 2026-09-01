@@ -45,6 +45,11 @@ from .detectors.match_recognize import find_match_recognize
 from .detectors.materialized_view_log import find_materialized_view_logs
 from .detectors.merge_delete_clause import find_merge_delete_clauses
 from .detectors.model_clause import find_model_clauses
+from .detectors.mysql_enum_type import find_mysql_enum_columns
+from .detectors.mysql_fulltext_index import find_mysql_fulltext_indexes
+from .detectors.mysql_on_duplicate_key_update import find_mysql_on_duplicate_key_update
+from .detectors.mysql_on_update_current_timestamp import find_mysql_on_update_current_timestamp
+from .detectors.mysql_signal import find_mysql_signal_statements
 from .detectors.multiset_operator import find_multiset_operators
 from .detectors.nested_subprogram import find_nested_subprograms
 from .detectors.object_table import find_object_tables
@@ -87,7 +92,7 @@ from .models import Finding
 from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError, run_estimate_cost
 from .plsql_lex import enclosing_object_name_index, mask_strings_and_comments
 
-_DETECTORS = (
+_ORACLE_DETECTORS = (
     find_autonomous_transactions,
     find_compound_triggers,
     find_dbms_utl_calls,
@@ -156,33 +161,75 @@ _DETECTORS = (
     find_read_only_views,
     find_sdo_geometry_columns,
 )
+# MySQL detectors -- a source-language dialect, run against a MySQL/MariaDB
+# schema/procedure dump rather than an Oracle one. Deliberately a SEPARATE
+# tuple from _ORACLE_DETECTORS, not one merged list: an Oracle detector
+# searches for keywords (PRAGMA, AUTHID, q'...', %ROWTYPE, PACKAGE BODY)
+# that cannot appear in genuine MySQL source and vice versa, so false
+# positives from cross-running them are unlikely in practice -- but
+# "unlikely" is not the bar this project holds itself to (see every
+# detector's own guard tests against false positives). Keeping the two
+# lists separate makes that guarantee structural: a MySQL file scanned
+# with dialect="oracle" and an Oracle file scanned with dialect="mysql"
+# each only ever see detectors that could not possibly fire on them,
+# rather than relying on every future detector's own keyword choice to
+# keep staying dialect-exclusive by accident.
+_MYSQL_DETECTORS = (
+    find_mysql_enum_columns,
+    find_mysql_on_update_current_timestamp,
+    find_mysql_on_duplicate_key_update,
+    find_mysql_signal_statements,
+    find_mysql_fulltext_indexes,
+)
+_DETECTORS_BY_DIALECT = {
+    "oracle": _ORACLE_DETECTORS,
+    "mysql": _MYSQL_DETECTORS,
+}
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")
 
 
-def detector_names() -> tuple[str, ...]:
-    """The Finding.detector string each function in _DETECTORS actually
-    emits -- derived from each function's own module (every detector
-    lives in ora2pg_gap_report/detectors/<name>.py and is named after
-    it), not a second, separately-typed-out list. A detector added to
-    _DETECTORS without updating some other hand-maintained "list of
-    detector names" is exactly the class of drift this project's own
-    registries (gap_registry.py, verification.py's VERIFICATION_MODE)
+def detector_names(dialect: str | None = None) -> tuple[str, ...]:
+    """The Finding.detector string each function in _DETECTORS_BY_DIALECT
+    actually emits -- derived from each function's own module (every
+    detector lives in ora2pg_gap_report/detectors/<name>.py and is named
+    after it), not a second, separately-typed-out list. A detector added
+    to its dialect's tuple without updating some other hand-maintained
+    "list of detector names" is exactly the class of drift this project's
+    own registries (gap_registry.py, verification.py's VERIFICATION_MODE)
     already go out of their way to avoid -- this is that same
     single-source-of-truth reasoning applied to the scan loop itself, for
     callers (scripts/doctor.py, tests) that need to know what actually
     runs without calling every detector against fabricated content just
-    to read a name back off its own Finding output."""
-    return tuple(detector.__module__.rsplit(".", 1)[-1] for detector in _DETECTORS)
+    to read a name back off its own Finding output.
+
+    `dialect=None` (the default) returns every detector registered under
+    any dialect -- what scripts/doctor.py's scan-loop-registration-parity
+    check needs, since a MySQL detector that exists on disk but was never
+    added to _MYSQL_DETECTORS must still be caught, not silently excluded
+    just because the check itself doesn't ask for a specific dialect.
+    Pass a specific dialect to get only that one's own detectors."""
+    detectors = (
+        _DETECTORS_BY_DIALECT[dialect]
+        if dialect is not None
+        else tuple(d for tup in _DETECTORS_BY_DIALECT.values() for d in tup)
+    )
+    return tuple(detector.__module__.rsplit(".", 1)[-1] for detector in detectors)
 
 
 def _sort_findings(findings: list[Finding]) -> None:
     findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.object_name, f.line))
 
 
-def scan_source(source: str) -> list[Finding]:
+def scan_source(source: str, dialect: str = "oracle") -> list[Finding]:
+    """Run every detector registered for `dialect` against `source`.
+    Defaults to "oracle" -- every call site in this codebase before
+    MySQL support existed calls this with just `source`, and all of them
+    must keep behaving exactly as before with zero code changes on their
+    end. See _MYSQL_DETECTORS' own comment for why dialects use separate
+    detector tuples rather than one merged list filtered at call time."""
     findings: list[Finding] = []
-    for detector in _DETECTORS:
+    for detector in _DETECTORS_BY_DIALECT[dialect]:
         findings.extend(detector(source))
     _sort_findings(findings)
     return findings

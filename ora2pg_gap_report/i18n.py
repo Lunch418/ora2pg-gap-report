@@ -533,6 +533,26 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "Путь к исполняемому файлу ora2pg (по умолчанию ищется в PATH)",
         "en": "Path to the ora2pg executable (default: looked up on PATH)",
     },
+    "help_dialect": {
+        "ru": "Диалект исходного кода: oracle (по умолчанию) или mysql (для дампов MySQL/"
+        "MariaDB, source-side для ora2pg -m). Работает только для обычного сканирования — "
+        "не сочетается с --tui, --explain, --verify, --fix.",
+        "en": "Source dialect: oracle (default) or mysql (for MySQL/MariaDB dumps, the "
+        "source side of ora2pg -m). Only applies to a plain scan -- cannot be combined "
+        "with --tui, --explain, --verify, --fix.",
+    },
+    "dialect_verify_unsupported_error": {
+        "ru": "--verify пока поддерживает только --dialect oracle: пере-сканирование "
+        "сгенерированного вывода по MySQL-детекторам ещё не реализовано.",
+        "en": "--verify only supports --dialect oracle for now: re-scanning generated "
+        "output with MySQL detectors isn't implemented yet.",
+    },
+    "dialect_fix_unsupported_error": {
+        "ru": "--fix пока поддерживает только --dialect oracle: автофиксов для MySQL-"
+        "находок ещё нет.",
+        "en": "--fix only supports --dialect oracle for now: there are no autofixes for "
+        "MySQL findings yet.",
+    },
     "help_severity": {
         "ru": "Показать только находки с этим уровнем серьёзности",
         "en": "Show only findings at this severity level",
@@ -1735,6 +1755,21 @@ EXPLANATION_EN: dict[str, str] = {
     'SDO_GEOMETRY — пространственный тип Oracle Spatial. ora2pg конвертирует его в geometry(GEOMETRY) — то есть в тип расширения PostGIS, — но саму строку CREATE EXTENSION postgis в вывод не добавляет (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/gap-067-sdo-geometry.md). На чистой PostgreSQL без предварительно установленного PostGIS DDL падает на загрузке с \'type "geometry" does not exist\'. Само по себе отображение выбрано верно, поэтому severity здесь medium, а не high: чинится это одной строкой CREATE EXTENSION postgis перед загрузкой схемы. Заметить стоит другое — в том же прогоне для SYS_GUID() ora2pg строку CREATE EXTENSION "uuid-ossp" выводит сам, так что рассчитывать на автоматическое подключение нужного расширения нельзя. Отдельно проверьте перенос самих значений: модель координат и семантика SDO_GEOMETRY и PostGIS совпадают не полностью.': (
         'SDO_GEOMETRY — the Oracle Spatial geometry type. ora2pg converts it into geometry(GEOMETRY) — that is, into a PostGIS extension type — but does not add the CREATE EXTENSION postgis line itself to the output (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-067-sdo-geometry.md). On a clean PostgreSQL without PostGIS installed beforehand, the DDL fails at load time with \'type "geometry" does not exist\'. The mapping itself is the right choice, which is why the severity here is medium rather than high: it is fixed by one CREATE EXTENSION postgis line before loading the schema. What is worth noticing is something else — in the same run ora2pg does emit CREATE EXTENSION "uuid-ossp" by itself for SYS_GUID(), so the needed extension being wired up automatically is not something to count on. Check the migration of the values themselves separately as well: the coordinate model and semantics of SDO_GEOMETRY and PostGIS do not fully coincide.'
     ),
+    'ENUM(...) — столбец с перечислимым типом MySQL/MariaDB. ora2pg (-m) синтезирует под него именованный PostgreSQL-тип <таблица>_<столбец>_t и подставляет это имя в определение столбца, но сам оператор CREATE TYPE ... AS ENUM (...), которым этот тип должен быть объявлен, в вывод не попадает — подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 (docs/research/gap-068-mysql-enum-type.md). CREATE TABLE падает немедленно, при загрузке схемы: \'type "<таблица>_<столбец>_t" does not exist\'. Значения перечисления при этом никуда не теряются — они видны прямо в исходном ENUM(...), — так что руками нужно лишь вставить недостающий CREATE TYPE перед CREATE TABLE.': (
+        'ENUM(...) -- a MySQL/MariaDB enumerated-type column. ora2pg (-m) synthesizes a named PostgreSQL type <table>_<column>_t for it and substitutes that name into the column definition, but the CREATE TYPE ... AS ENUM (...) statement that type itself needs never makes it into the output (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-068-mysql-enum-type.md). CREATE TABLE fails immediately, at schema load time: \'type "<table>_<column>_t" does not exist\'. The enum values themselves are never lost -- they are right there in the source ENUM(...) -- so all that\'s needed by hand is inserting the missing CREATE TYPE before CREATE TABLE.'
+    ),
+    'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP — MySQL/MariaDB-специфичное авто-обновление столбца на каждый UPDATE строки, часть самого DEFAULT. ora2pg (-m) копирует \'ON UPDATE CURRENT_TIMESTAMP\' в вывод дословно, прямо внутри DEFAULT — подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 (docs/research/gap-069-mysql-on-update-current-timestamp.md). В PostgreSQL у DEFAULT нет такого синтаксиса вообще, и CREATE TABLE падает немедленно, при загрузке схемы: \'syntax error at or near "ON"\'. Переносится на триггер BEFORE UPDATE, выставляющий NEW.<столбец> = now() (или на GENERATED ALWAYS, если версия PostgreSQL это позволяет для конкретного случая).': (
+        'DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP -- MySQL/MariaDB\'s own auto-update-on-every-UPDATE clause, part of DEFAULT itself. ora2pg (-m) copies \'ON UPDATE CURRENT_TIMESTAMP\' into the output verbatim, right inside DEFAULT (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-069-mysql-on-update-current-timestamp.md). PostgreSQL\'s DEFAULT has no such syntax at all, and CREATE TABLE fails immediately, at schema load time: \'syntax error at or near "ON"\'. Move it to a BEFORE UPDATE trigger that sets NEW.<column> = now() (or to GENERATED ALWAYS, if the PostgreSQL version in use allows it for this specific case).'
+    ),
+    'INSERT ... ON DUPLICATE KEY UPDATE — MySQL/MariaDB-специфичный upsert: обновить существующую строку, если вставка конфликтует с уникальным ключом/PRIMARY KEY, иначе вставить новую. ora2pg (-m) копирует весь оператор ON DUPLICATE KEY UPDATE в тело процедуры/функции дословно, без какого-либо преобразования — подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 (docs/research/gap-070-mysql-on-duplicate-key-update.md). Такого синтаксиса у INSERT в PostgreSQL нет вообще. CREATE PROCEDURE/FUNCTION при этом проходит без ошибок — ora2pg выставляет в своём выводе check_function_bodies = false, поэтому тело не разбирается на загрузке, — и падение происходит при первом же реальном вызове: \'syntax error at or near "DUPLICATE"\'. Переписывается на INSERT ... ON CONFLICT (<уникальный_ключ>) DO UPDATE SET ....': (
+        'INSERT ... ON DUPLICATE KEY UPDATE -- MySQL/MariaDB\'s own upsert: update the existing row if the insert conflicts with a unique key/PRIMARY KEY, otherwise insert a new one. ora2pg (-m) copies the whole ON DUPLICATE KEY UPDATE clause into the procedure/function body verbatim, with no rewriting at all (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-070-mysql-on-duplicate-key-update.md). PostgreSQL\'s INSERT has no such syntax at all. CREATE PROCEDURE/FUNCTION nevertheless succeeds without errors -- ora2pg sets check_function_bodies = false in its output, so the body is not parsed at load time -- and the failure happens on the very first real call: \'syntax error at or near "DUPLICATE"\'. Rewrite it as INSERT ... ON CONFLICT (<unique key>) DO UPDATE SET ....'
+    ),
+    'SIGNAL/RESIGNAL — MySQL/MariaDB-специфичные операторы возбуждения и повторного возбуждения условия (аналог RAISE в PL/pgSQL). ora2pg (-m) копирует SIGNAL/RESIGNAL в тело процедуры/функции дословно (теряя по пути ключевое слово SET перед MESSAGE_TEXT) — подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 (docs/research/gap-071-mysql-signal.md). Ни SIGNAL, ни RESIGNAL в PL/pgSQL не существуют вообще. CREATE PROCEDURE/FUNCTION при этом проходит без ошибок — ora2pg выставляет в своём выводе check_function_bodies = false, поэтому тело не разбирается на загрузке, — и падение происходит при первом же реальном вызове: \'syntax error at or near "SIGNAL"\' (или "RESIGNAL"). Переписывается на RAISE EXCEPTION ... USING ERRCODE = \'<sqlstate>\', MESSAGE = \'<текст>\'.': (
+        'SIGNAL/RESIGNAL -- MySQL/MariaDB\'s own statements for raising and re-raising a condition (the counterpart of RAISE in PL/pgSQL). ora2pg (-m) copies SIGNAL/RESIGNAL into the procedure/function body verbatim (losing the SET keyword before MESSAGE_TEXT along the way) -- confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-071-mysql-signal.md. Neither SIGNAL nor RESIGNAL exists in PL/pgSQL at all. CREATE PROCEDURE/FUNCTION nevertheless succeeds without errors -- ora2pg sets check_function_bodies = false in its output, so the body is not parsed at load time -- and the failure happens on the very first real call: \'syntax error at or near "SIGNAL"\' (or "RESIGNAL"). Rewrite it as RAISE EXCEPTION ... USING ERRCODE = \'<sqlstate>\', MESSAGE = \'<text>\'.'
+    ),
+    'FULLTEXT KEY/INDEX — полнотекстовый индекс MySQL/MariaDB, объявленный прямо в списке столбцов CREATE TABLE. ora2pg (-m) не распознаёт эту конструкцию как индекс: имя индекса и список столбцов теряются, а сами слова \'FULLTEXT KEY\'/\'FULLTEXT INDEX\' остаются в выводе на месте, где ожидалось очередное определение столбца — подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 (docs/research/gap-072-mysql-fulltext-index.md). CREATE TABLE падает немедленно, при загрузке схемы: \'type "key" does not exist\' (PostgreSQL читает \'fulltext\' как имя нового столбца, а \'KEY\'/\'INDEX\' — как имя несуществующего типа для него). Восстанавливается вручную: столбцы полнотекстового индекса видны в исходном FULLTEXT KEY (...), переносятся на CREATE INDEX ... USING gin (to_tsvector(\'...\', ...)) после CREATE TABLE.': (
+        'FULLTEXT KEY/INDEX -- a MySQL/MariaDB full-text index declared right inside CREATE TABLE\'s column list. ora2pg (-m) doesn\'t recognize this construct as an index at all: the index name and its column list are lost, and the bare words \'FULLTEXT KEY\'/\'FULLTEXT INDEX\' are left sitting in the output where the next column definition was expected (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-072-mysql-fulltext-index.md). CREATE TABLE fails immediately, at schema load time: \'type "key" does not exist\' (PostgreSQL reads \'fulltext\' as the name of a new column and \'KEY\'/\'INDEX\' as the name of a type for it that doesn\'t exist). Rebuild it by hand: the full-text index\'s columns are visible in the source FULLTEXT KEY (...), moved onto a CREATE INDEX ... USING gin (to_tsvector(\'...\', ...)) after CREATE TABLE.'
+    ),
 }
 
 
@@ -1882,6 +1917,16 @@ REMEDIATION_HINT_EN: dict[str, str] = {
     "<view>, or an INSTEAD OF trigger that raises an exception",
     "sdo_geometry": "Add CREATE EXTENSION postgis before loading the schema (ora2pg does not "
     "emit it) and check the value migration itself separately",
+    "mysql_enum_type": "Insert the missing CREATE TYPE <table>_<column>_t AS ENUM (...) before "
+    "CREATE TABLE -- the values are already visible in the source ENUM(...)",
+    "mysql_on_update_current_timestamp": "Move it to a BEFORE UPDATE trigger that sets "
+    "NEW.<column> = now()",
+    "mysql_on_duplicate_key_update": "Rewrite as INSERT ... ON CONFLICT (<unique key>) DO "
+    "UPDATE SET ...",
+    "mysql_signal": "Rewrite as RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>', MESSAGE = "
+    "'<text>'",
+    "mysql_fulltext_index": "Rebuild it by hand: CREATE INDEX ... USING gin (to_tsvector('...', "
+    "...)) after CREATE TABLE -- the columns are visible in the source FULLTEXT KEY (...)",
 }
 
 

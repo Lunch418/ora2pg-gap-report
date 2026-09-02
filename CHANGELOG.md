@@ -264,13 +264,13 @@ release; see "Known and deferred" at the end.
   thousand-finding snapshot meant a thousand rebuilds of the same table.
 
 ### Changed
-- CI runs on `windows-latest` and `macos-latest` in addition to Linux.
-  Reporting only, not gating, until both platforms are known green: the
-  platform-specific surface here (path handling, atomic renames, the
-  uppercase-extension match that exists for Windows tooling) had never
-  actually been executed on either OS before.
+- CI runs on `windows-latest` and `macos-latest` in addition to Linux, and
+  all three gate. The platform-specific surface here (path handling,
+  atomic renames, subprocess decoding, the uppercase-extension match that
+  exists for Windows tooling) had never actually been executed on either
+  OS before.
 
-  It found a real one on its first run: `ora2pg_wrapper.py` ran `ora2pg`
+  It found a real bug on its first run: `ora2pg_wrapper.py` ran `ora2pg`
   with `subprocess.run(..., text=True)` and no explicit encoding, so on
   Windows its output was decoded as cp1252 — turning any non-ASCII byte
   in ora2pg's own output (and this project embeds `stderr` in its error

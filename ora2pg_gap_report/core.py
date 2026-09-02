@@ -12,6 +12,7 @@ module) so nothing about its public surface or its main()'s internal call
 sites changes."""
 
 import dataclasses
+from functools import lru_cache
 from pathlib import Path
 
 from . import i18n
@@ -299,6 +300,25 @@ def detector_names(dialect: str | None = None) -> tuple[str, ...]:
     return tuple(detector.__module__.rsplit(".", 1)[-1] for detector in detectors)
 
 
+@lru_cache(maxsize=1)
+def _dialect_by_detector() -> dict[str, str]:
+    """{detector name: dialect}, built once from _DETECTORS_BY_DIALECT.
+
+    Still derived from the registry rather than hand-written, so it can't
+    drift -- but built once instead of re-derived per lookup.
+    dialect_of_detector() used to rebuild every dialect's full name tuple
+    (a fresh __module__.rsplit() per detector) on each call, and
+    baseline_dialects() calls it once per record in the snapshot: a
+    thousand-finding baseline meant a thousand rebuilds of the same
+    ~106-entry table. Cached with maxsize=1 because it takes no arguments
+    and the registry is fixed at import time."""
+    return {
+        name: dialect
+        for dialect in _DETECTORS_BY_DIALECT
+        for name in detector_names(dialect)
+    }
+
+
 def dialect_of_detector(detector: str) -> str | None:
     """Which dialect a detector belongs to -- None if the name isn't a
     detector this build registers at all.
@@ -313,10 +333,7 @@ def dialect_of_detector(detector: str) -> str | None:
     correctly, and their schema_version never had to change (see
     baseline.py's SCHEMA_VERSION and its deliberately narrow
     _REQUIRED_FINDING_FIELDS)."""
-    for dialect in _DETECTORS_BY_DIALECT:
-        if detector in detector_names(dialect):
-            return dialect
-    return None
+    return _dialect_by_detector().get(detector)
 
 
 def baseline_dialects(baseline: list[dict]) -> tuple[frozenset[str], tuple[str, ...]]:

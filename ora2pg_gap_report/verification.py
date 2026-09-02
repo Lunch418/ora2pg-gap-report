@@ -209,6 +209,17 @@ class DetectorVerification:
     status: str  # "still_present" | "not_detected" | "not_verifiable"
 
 
+@dataclasses.dataclass(frozen=True)
+class NewInOutput:
+    """A detector that fired on ora2pg's generated output but isn't in the
+    baseline at all -- i.e. the construct wasn't in the Oracle source and
+    the *conversion itself* introduced it."""
+
+    detector: str
+    gap_number: str | None
+    count: int
+
+
 def verify_against_baseline(
     baseline: list[dict], post_migration_findings: list[Finding]
 ) -> list[DetectorVerification]:
@@ -257,3 +268,41 @@ def verify_against_baseline(
             )
         )
     return results
+
+
+def new_in_output(
+    baseline: list[dict], post_migration_findings: list[Finding]
+) -> list[NewInOutput]:
+    """Detectors that fired on the generated output but appear nowhere in
+    `baseline` -- one entry per detector, same granularity as
+    verify_against_baseline() and for the same reason.
+
+    verify_against_baseline() answers "what happened to what we already
+    knew about", and by construction can only iterate the baseline's own
+    detectors. That leaves the opposite question unanswered: ora2pg can
+    *introduce* a problem construct that was never in the Oracle source
+    (a rewrite that emits something a detector flags), and a check whose
+    whole premise is "did the conversion break anything" has no business
+    silently discarding exactly that. Reported as its own section rather
+    than folded into the results table: these have no baseline count to
+    compare against, so "still present"/"not detected" is meaningless for
+    them -- the only honest statement is "this is in the output and wasn't
+    in the source"."""
+    baseline_detectors = {rec["detector"] for rec in baseline}
+
+    counts: dict[str, int] = {}
+    for f in post_migration_findings:
+        if f.detector not in baseline_detectors:
+            counts[f.detector] = counts.get(f.detector, 0) + 1
+
+    entries = []
+    for detector in sorted(counts):
+        gap = gap_by_detector(detector)
+        entries.append(
+            NewInOutput(
+                detector=detector,
+                gap_number=gap.number if gap is not None else None,
+                count=counts[detector],
+            )
+        )
+    return entries

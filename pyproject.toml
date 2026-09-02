@@ -1,5 +1,9 @@
 [build-system]
-requires = ["setuptools>=68"]
+# >=78.1.1, not >=68: several PYSEC advisories affect the 68.x line
+# (PYSEC-2025-49 among them, fixed in 78.1.1). Build-time only -- nothing
+# here ships to an installed environment -- but the floor costs one line
+# and there is no reason to build with a known-vulnerable version.
+requires = ["setuptools>=78.1.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -23,7 +27,14 @@ requires-python = ">=3.10"
 # вывода CLI (ora2pg_gap_report/terminal_report.py, cli.py). Сама
 # детекторная библиотека (models.py, detectors/, report_generator.py)
 # от неё не зависит и её не импортирует.
-dependencies = ["rich>=13"]
+# Upper bound for the same reason ruff carries one (see [tool.ruff.lint]'s
+# own comment): this tool promises reproducible output and ships as an
+# offline bundle, so a major bump arriving silently on someone's next
+# `pip install` is a real risk, not a hypothetical. rich's major versions
+# have changed table/panel rendering before, and the terminal report is
+# a documented artifact here. Tested against 13.x-15.x; raise the ceiling
+# deliberately, after checking the report still renders the same.
+dependencies = ["rich>=13,<16"]
 
 [project.optional-dependencies]
 # Только для oracle_connector.py / oracle_export.py (живая выгрузка DDL из
@@ -33,8 +44,12 @@ oracle = ["oracledb>=2.0"]
 # флагов командной строки. Обычный CLI (весь остальной пакет) от этого не
 # зависит и без этого extra продолжает работать как раньше — установка
 # `textual` требуется только тем, кто явно хочет интерактивный режим.
-tui = ["textual>=1.0"]
-dev = ["pytest>=7.0", "pytest-asyncio>=0.24", "ruff>=0.6,<0.17", "jsonschema>=4.0", "textual>=1.0", "mypy>=1.10"]
+# Ceiling for the same reason rich has one, and more urgently: Textual
+# has a track record of breaking widget/CSS APIs across majors, and
+# this app pins per-widget CSS widths and DataTable behaviour that a
+# major bump has broken before. Tested against 1.x-8.x.
+tui = ["textual>=1.0,<9"]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.24", "ruff>=0.6,<0.17", "jsonschema>=4.0", "textual>=1.0,<9", "mypy>=1.10"]
 
 [project.urls]
 Homepage = "https://github.com/Lunch418/ora2pg-gap-report"

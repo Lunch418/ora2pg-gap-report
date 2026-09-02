@@ -59,7 +59,7 @@ from .core import _sort_findings as sort_findings
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_metadata
 from .models import Finding
-from .verification import DetectorVerification, verify_against_baseline
+from .verification import DetectorVerification, NewInOutput, new_in_output, verify_against_baseline
 
 # Dracula's own published accent colors (draculatheme.com/contribute)
 # for error/warning/success -- not the plain named "red"/"yellow"/"green"
@@ -73,6 +73,12 @@ _VERIFY_STATUS_STYLE = {
     "still_present": "bold #FF5555",
     "not_detected": "bold #50FA7B",
     "not_verifiable": "dim",
+    # Not one of DetectorVerification's three statuses: rows for detectors
+    # the baseline never had (the conversion introduced the construct),
+    # shown in the same table because they answer the same user question
+    # -- "what is wrong with the generated output" -- and a second table
+    # on this screen would push the first one off a short terminal.
+    "new_in_output": "bold #F1FA8C",
 }
 
 # Each language's own name, not translated cross-wise (same convention as
@@ -513,9 +519,11 @@ class ScanScreen(Screen):
                 )
 
         results = verify_against_baseline(baseline, post_migration_findings)
+        introduced = new_in_output(baseline, post_migration_findings)
         scanned_label = ", ".join(str(p) for p in paths)
         self.app.call_from_thread(
-            self.app.push_screen, VerifyResultsScreen(results, warnings, scanned_label, lang)
+            self.app.push_screen,
+            VerifyResultsScreen(results, warnings, scanned_label, lang, introduced),
         )
 
 
@@ -780,13 +788,19 @@ class VerifyResultsScreen(Screen):
     """
 
     def __init__(
-        self, results: list[DetectorVerification], warnings: list[str], scanned_path: str, lang: str = "ru"
+        self,
+        results: list[DetectorVerification],
+        warnings: list[str],
+        scanned_path: str,
+        lang: str = "ru",
+        new_in_output: list[NewInOutput] | None = None,
     ) -> None:
         super().__init__()
         self.results = results
         self.warnings = warnings
         self.scanned_path = scanned_path
         self.lang = lang
+        self.new_in_output = new_in_output or []
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -840,6 +854,17 @@ class VerifyResultsScreen(Screen):
                 Text(str(r.baseline_count)),
                 Text(str(r.post_migration_count) if r.status != "not_verifiable" else "—"),
                 Text(r.status.upper(), style=_VERIFY_STATUS_STYLE.get(r.status, "")),
+            )
+        for e in self.new_in_output:
+            # "Before" is "—", not 0: the detector isn't in the baseline
+            # at all, which is a different statement from "the baseline
+            # says it found none of these".
+            table.add_row(
+                Text(e.detector),
+                Text(f"GAP-{e.gap_number}" if e.gap_number else "—"),
+                Text("—"),
+                Text(str(e.count)),
+                Text("NEW_IN_OUTPUT", style=_VERIFY_STATUS_STYLE["new_in_output"]),
             )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

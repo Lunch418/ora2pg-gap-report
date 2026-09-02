@@ -7,7 +7,15 @@ The project follows [SemVer](https://semver.org/) in a simplified form
 until it reaches 1.0.0: minor version bumps for new detectors/features,
 patch for fixes to existing ones.
 
-## [Unreleased]
+## [0.10.0] - 2026-09-02
+
+An external audit of `795d24d` reported five critical and a number of
+high-severity defects. Every one listed under "Fixed" below was
+reproduced first, then fixed, then re-reproduced against the fix — the
+same standard the gaps themselves are held to. The audit's larger
+refactors (a declarative detector factory, merging the three lexers,
+merging the five metadata registries) are deliberately **not** in this
+release; see "Known and deferred" at the end.
 
 ### Added
 - `--verify`, `--fix` and `--tui` now work across all three source
@@ -181,6 +189,110 @@ patch for fixes to existing ones.
   `mssql_computed_column` (104, typed citext whatever the expression
   computes) and `mssql_rowversion` (105, becomes a bytea that never
   self-updates, so optimistic locking silently stops detecting conflicts).
+
+- **`--verify` reports what the conversion *introduced*.** It previously
+  iterated only the baseline's own detectors, so a construct that wasn't
+  in the Oracle source and appeared in ora2pg's output was silently
+  dropped — the one thing a "did the conversion break anything" check
+  most needs to say. Those now come back as their own section (a
+  `new_in_output` key in `--format json`, a panel in the terminal report,
+  their own rows in the TUI), kept separate from the results table
+  because they have no before/after to compare against.
+
+- **Exit code `3` for internal errors.** An unhandled exception used to
+  exit `1` — the same code `--fail-on` uses for "gate failed" — so in CI
+  a crashed analyzer was indistinguishable from a gate that had honestly
+  done its job and found problems. The four codes are now documented in
+  the README and distinct: `0` clean, `1` gate failed, `2` bad usage or
+  unscannable input, `3` internal error.
+
+### Fixed
+- **`--fix`'s dry-run diff was unusable with `git apply`/`patch`.** Rich's
+  `Console.print()` wraps to the terminal width — a fixed 80 columns when
+  stdout isn't a tty, which is exactly the `--fix > out.patch` case the
+  mode exists for — and a wrapped `---`/`+++` header or hunk line is a
+  corrupt diff that `git apply` rejects outright. A path long enough to
+  wrap its own header was all it took. The diff now bypasses Rich's layout
+  entirely, and every status line moved to stderr, so stdout in `--fix`
+  mode carries diff bytes and nothing else, however many files were clean.
+
+- **A baseline could disagree with itself over how a path was spelled.**
+  `group_key()` hashed `source_file` exactly as it arrived in `argv`, so
+  `tool pkg.sql --save b.json` followed by `tool "$PWD/pkg.sql" --baseline
+  b.json` reported one identical, untouched finding as both NEW and
+  RESOLVED. The path is resolved and taken relative to the working
+  directory before hashing now, which also absorbs `./`, a trailing
+  slash and `..` segments. **`schema_version` goes to 2**: a snapshot
+  written by an older version fails to load with a clear message rather
+  than silently producing wrong NEW/RESOLVED counts under the new
+  formula. Re-run `--save` to write a current one.
+
+- **Scanning was quadratic in file size.** `line_at()` counted newlines
+  from the start of the file on every call, once per finding — O(n²) over
+  a scan. Precomputed newline offsets plus `bisect`, cached the same way
+  the masking passes already were: 5,720 lookups on a 1.6 MB file went
+  from ~5.6s to 0.067s. All three lexers carried the identical line.
+
+- **Two T-SQL detectors fired on ordinary, correct SQL.** `\bIF\s+`
+  matched every `DROP TABLE IF EXISTS` in an idempotent SSMS script, and
+  `IDENTITY` without a right-hand word boundary matched a column named
+  `IDENTITY_FLAG`. Both are `high` severity, so both landed at the top of
+  the report. `IF EXISTS`/`IF NOT EXISTS` is now excluded — with the
+  documented trade-off that a genuine `IF EXISTS(...) BEGIN ... END`
+  conditional stops being flagged too, since no regex can tell the two
+  apart, and silence is the better failure mode than flooding every
+  idempotent script.
+
+- **One crashing detector no longer costs the whole run.** `scan_source()`
+  gained opt-in per-detector isolation, so a detector that raises loses
+  only its own findings for that file — every other detector's results for
+  it, and every other file, still come back, with the failing detector
+  named on stderr. Files are isolated the same way one level up. The TUI
+  got the same treatment: an exception in its worker thread used to take
+  down the whole Textual app rather than showing a warning.
+
+- **File writes are atomic and create their parent directory.** A baseline
+  snapshot, a report, and — most importantly — the user's own SQL under
+  `--fix --write` all went straight to the destination path, so a crash or
+  a full disk partway through left a truncated file where a valid one had
+  been. They now write to a temp file in the same directory and rename it
+  into place. `--save reports/base.json` into a directory that doesn't
+  exist yet works instead of failing with a bare `[Errno 2]`.
+
+- `dialect_of_detector()` rebuilt every dialect's full detector-name tuple
+  on each call, and `--verify` calls it once per baseline record; a
+  thousand-finding snapshot meant a thousand rebuilds of the same table.
+
+### Changed
+- CI runs on `windows-latest` and `macos-latest` in addition to Linux.
+  Reporting only, not gating, until someone has triaged what they turn up:
+  the platform-specific surface here (path handling, atomic renames, the
+  uppercase-extension match that exists for Windows tooling) had never
+  actually been executed on either OS before.
+- `rich` and `textual` gained upper version bounds, with the reasoning
+  written down, same as `ruff` already had — this tool promises
+  reproducible output and ships as an offline bundle, so a silent major
+  bump on someone's next `pip install` is a real risk. The build-time
+  `setuptools` floor moves past the PYSEC-affected 68.x line.
+
+### Known and deferred
+Reported by the same audit, deliberately not attempted here — each is a
+large refactor whose risk isn't worth taking in the same release as the
+fixes above, without review:
+- 83 of the detectors are one 15-line template repeated; they could be a
+  declarative table plus a factory.
+- The three lexers share most of their code and could be common
+  primitives behind a per-dialect protocol.
+- The five gap-metadata registries could be one `GapEntry`.
+- The lexer's block matching is recursive rather than an explicit stack.
+  The exit-code and isolation fix above covers the crash symptom either
+  way, but the recursion is still unbounded.
+
+Separately, and not from the audit: `scan_source()` over the whole
+pipeline still scales somewhat worse than linearly on very large inputs
+(a 50× file took ~69× the time after the `line_at()` fix, down from
+~230×). `line_at()` was the quadratic term the audit identified and it is
+gone; whatever remains is elsewhere and hasn't been profiled yet.
 
 ## [0.9.0] - 2026-08-28
 

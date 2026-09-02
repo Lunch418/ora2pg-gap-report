@@ -7,11 +7,13 @@ without the baseline file ever having to record one.
 
 import pytest
 
+from ora2pg_gap_report import core
 from ora2pg_gap_report.core import (
     DIALECTS,
     baseline_dialects,
     detector_names,
     dialect_of_detector,
+    scan_source,
 )
 
 
@@ -76,6 +78,44 @@ def test_a_hand_merged_baseline_reports_every_dialect_it_mixes():
     dialects, unknown = baseline_dialects(_baseline("bulk_collect", "mysql_signal"))
     assert dialects == {"oracle", "mysql"}
     assert unknown == ()
+
+
+# --- scan_source()'s opt-in per-detector isolation -------------------------
+
+
+def _with_a_crashing_detector(monkeypatch):
+    def boom(source):
+        raise RecursionError("simulated")
+
+    boom.__module__ = "ora2pg_gap_report.detectors.pretend_detector"
+    monkeypatch.setitem(
+        core._DETECTORS_BY_DIALECT, "oracle", (*core._DETECTORS_BY_DIALECT["oracle"], boom)
+    )
+
+
+def test_without_an_errors_list_a_detector_exception_still_propagates(monkeypatch):
+    # The original contract, unchanged: every call site that predates the
+    # `errors` parameter must behave exactly as it always did.
+    _with_a_crashing_detector(monkeypatch)
+    with pytest.raises(RecursionError):
+        scan_source("SELECT 1;\n")
+
+
+def test_with_an_errors_list_the_crashing_detector_is_isolated(monkeypatch):
+    _with_a_crashing_detector(monkeypatch)
+    errors: list[tuple[str, Exception]] = []
+    findings = scan_source("SELECT * FROM t CROSS APPLY (SELECT 1) x;\n", errors=errors)
+
+    # Every other detector still ran and its findings survived.
+    assert any(f.detector == "cross_apply" for f in findings)
+    assert [name for name, _ in errors] == ["pretend_detector"]
+    assert isinstance(errors[0][1], RecursionError)
+
+
+def test_a_clean_scan_leaves_the_errors_list_empty():
+    errors: list[tuple[str, Exception]] = []
+    scan_source("SELECT 1;\n", errors=errors)
+    assert errors == []
 
 
 def test_detectors_this_build_does_not_have_are_reported_not_dropped():

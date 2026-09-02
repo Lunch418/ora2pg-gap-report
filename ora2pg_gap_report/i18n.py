@@ -281,6 +281,34 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "[yellow]Пропущен (не читается: {exc}):[/yellow] {path}",
         "en": "[yellow]Skipped (unreadable: {exc}):[/yellow] {path}",
     },
+    "scan_internal_error": {
+        "ru": "[red]Внутренняя ошибка при сканировании {path}: {exc_type}: {exc}[/red] — "
+        "этот файл пропущен, сканирование остальных продолжено",
+        "en": "[red]Internal error scanning {path}: {exc_type}: {exc}[/red] — "
+        "this file was skipped, scanning the rest continued",
+    },
+    "scan_detector_errors": {
+        "ru": "[red]Ошибка в детекторе(ах) {names} при сканировании {path}: "
+        "{exc_type}: {exc}[/red] — находки этих детекторов для файла пропущены, "
+        "остальные детекторы и остальные файлы обработаны как обычно",
+        "en": "[red]Detector(s) {names} failed scanning {path}: {exc_type}: "
+        "{exc}[/red] — their findings for this file were skipped, every other "
+        "detector and every other file were still processed normally",
+    },
+    "internal_error_summary": {
+        "ru": "[red]Один или несколько файлов не удалось просканировать из-за внутренней "
+        "ошибки (см. выше) — отчёт по остальным файлам всё равно построен, но неполон.[/red]",
+        "en": "[red]One or more files couldn't be scanned due to an internal error (see "
+        "above) — the report for the rest was still produced, but is incomplete.[/red]",
+    },
+    "unexpected_internal_error": {
+        "ru": "[red]Непредвиденная внутренняя ошибка: {exc_type}: {exc}[/red] — это баг "
+        "инструмента, а не найденная проблема миграции. Пожалуйста, сообщите о нём: "
+        "https://github.com/Lunch418/ora2pg-gap-report/issues",
+        "en": "[red]Unexpected internal error: {exc_type}: {exc}[/red] — this is a bug in "
+        "the tool itself, not a migration finding. Please report it: "
+        "https://github.com/Lunch418/ora2pg-gap-report/issues",
+    },
     "connect_by_not_found": {
         "ru": "{path}: содержит CONNECT BY, но ora2pg не найден — проверка пропущена",
         "en": "{path}: contains CONNECT BY, but ora2pg wasn't found — check skipped",
@@ -749,6 +777,22 @@ _UI: dict[str, dict[str, str]] = {
     "tui_warning_could_not_read": {
         "ru": "Не удалось прочитать {path}: {exc}",
         "en": "Could not read {path}: {exc}",
+    },
+    "tui_warning_detector_error": {
+        "ru": "Ошибка в детекторе(ах) {names} на файле {path}: {exc_type}: {exc} — "
+        "их находки для этого файла пропущены",
+        "en": "Detector(s) {names} failed on {path}: {exc_type}: {exc} — "
+        "their findings for this file were skipped",
+    },
+    "tui_warning_scan_error": {
+        "ru": "Внутренняя ошибка при сканировании {path}: {exc_type}: {exc} — файл пропущен",
+        "en": "Internal error scanning {path}: {exc_type}: {exc} — file skipped",
+    },
+    "tui_worker_crashed": {
+        "ru": "Внутренняя ошибка: {exc_type}: {exc}. Это баг инструмента — сообщите о нём: "
+        "https://github.com/Lunch418/ora2pg-gap-report/issues",
+        "en": "Internal error: {exc_type}: {exc}. This is a bug in the tool — please report it: "
+        "https://github.com/Lunch418/ora2pg-gap-report/issues",
     },
     "tui_warning_no_files_under": {
         "ru": "Файлы .sql/.pks/.pkb не найдены в {dir}",

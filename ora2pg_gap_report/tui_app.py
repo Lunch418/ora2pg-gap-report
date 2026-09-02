@@ -140,11 +140,47 @@ def scan_paths(
         except OSError as exc:
             warnings.append(i18n.t(lang, "tui_warning_could_not_read", path=file_path, exc=exc))
             continue
-        objects_scanned += count_objects(source)
-        findings.extend(
-            dataclasses.replace(f, source_file=str(file_path))
-            for f in scan_source(source, dialect=dialect)
-        )
+        # Same two-level isolation as cli.py's own scan loop, for the same
+        # reason plus one that only applies here: an exception escaping a
+        # @work(thread=True) worker doesn't just lose the scan, it takes
+        # the whole Textual app down with it. A warning in the list the
+        # caller already renders is a far better outcome than a dead UI.
+        detector_errors: list[tuple[str, Exception]] = []
+        try:
+            objects_scanned += count_objects(source)
+            file_findings = [
+                dataclasses.replace(f, source_file=str(file_path))
+                for f in scan_source(source, dialect=dialect, errors=detector_errors)
+            ]
+        except Exception as exc:
+            warnings.append(
+                i18n.t(
+                    lang,
+                    "tui_warning_scan_error",
+                    path=file_path,
+                    exc_type=type(exc).__name__,
+                    exc=exc,
+                )
+            )
+            continue
+
+        if detector_errors:
+            first_name, first_exc = detector_errors[0]
+            names = ", ".join(name for name, _ in detector_errors[:3])
+            if len(detector_errors) > 3:
+                names += f" (+{len(detector_errors) - 3})"
+            warnings.append(
+                i18n.t(
+                    lang,
+                    "tui_warning_detector_error",
+                    names=names,
+                    path=file_path,
+                    exc_type=type(first_exc).__name__,
+                    exc=first_exc,
+                )
+            )
+
+        findings.extend(file_findings)
         if check_connect_by:
             connect_by_findings, warning = _connect_by_check(file_path, source, ora2pg_bin, lang)
             findings.extend(connect_by_findings)
@@ -331,6 +367,30 @@ class ScanScreen(Screen):
         baseline_path: str | None,
         dialect: str = "oracle",
     ) -> None:
+        # An exception escaping a @work(thread=True) worker doesn't just
+        # lose the scan -- it tears down the whole Textual app, dropping
+        # the user back to a bare terminal with a traceback. scan_paths()
+        # already isolates per file and per detector; this is the outer
+        # boundary for everything else in the worker (baseline loading,
+        # translation, screen construction). Deliberately broad, same
+        # trade-off cli.py's main() documents.
+        try:
+            self._run_scan_impl(paths, severity, lang, check_connect_by, baseline_path, dialect)
+        except Exception as exc:
+            self.app.call_from_thread(
+                self._show_status_error,
+                i18n.t(lang, "tui_worker_crashed", exc_type=type(exc).__name__, exc=exc),
+            )
+
+    def _run_scan_impl(
+        self,
+        paths: list[Path],
+        severity: str,
+        lang: str,
+        check_connect_by: bool,
+        baseline_path: str | None,
+        dialect: str = "oracle",
+    ) -> None:
         all_findings, objects_scanned, warnings = scan_paths(
             paths, check_connect_by=check_connect_by, lang=lang, dialect=dialect
         )
@@ -363,6 +423,18 @@ class ScanScreen(Screen):
 
     @work(thread=True)
     def _run_verify(
+        self, paths: list[Path], baseline_path: Path, lang: str, dialect: str = "oracle"
+    ) -> None:
+        # Same outer boundary as _run_scan above -- see its comment.
+        try:
+            self._run_verify_impl(paths, baseline_path, lang, dialect)
+        except Exception as exc:
+            self.app.call_from_thread(
+                self._show_status_error,
+                i18n.t(lang, "tui_worker_crashed", exc_type=type(exc).__name__, exc=exc),
+            )
+
+    def _run_verify_impl(
         self, paths: list[Path], baseline_path: Path, lang: str, dialect: str = "oracle"
     ) -> None:
         try:
@@ -419,10 +491,26 @@ class ScanScreen(Screen):
             except OSError as exc:
                 warnings.append(i18n.t(lang, "tui_warning_could_not_read", path=file_path, exc=exc))
                 continue
+            detector_errors: list[tuple[str, Exception]] = []
             post_migration_findings.extend(
                 dataclasses.replace(f, source_file=str(file_path))
-                for f in scan_source(source, dialect=baseline_dialect)
+                for f in scan_source(source, dialect=baseline_dialect, errors=detector_errors)
             )
+            if detector_errors:
+                first_name, first_exc = detector_errors[0]
+                names = ", ".join(name for name, _ in detector_errors[:3])
+                if len(detector_errors) > 3:
+                    names += f" (+{len(detector_errors) - 3})"
+                warnings.append(
+                    i18n.t(
+                        lang,
+                        "tui_warning_detector_error",
+                        names=names,
+                        path=file_path,
+                        exc_type=type(first_exc).__name__,
+                        exc=first_exc,
+                    )
+                )
 
         results = verify_against_baseline(baseline, post_migration_findings)
         scanned_label = ", ".join(str(p) for p in paths)

@@ -32,7 +32,7 @@ from . import i18n
 from .gap_registry import gap_metadata
 from .models import Finding
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Deliberately narrower than schemas/baseline.schema.json's full required
 # list: just the two fields this module and verification.py actually
@@ -49,12 +49,42 @@ class BaselineLoadError(Exception):
     """A --baseline file couldn't be read or isn't in the expected shape."""
 
 
+def _normalized_source_file(source_file: str) -> str:
+    """The form of `source_file` that group_key() actually hashes -- not
+    the literal argv spelling, which is unstable in exactly the way a
+    --save/--baseline pair needs to agree: 'pkg.sql' and '$PWD/pkg.sql'
+    are the same file scanned the same session, but resolve() them both
+    and take the result relative to the current directory and they
+    collapse to the identical string 'pkg.sql', same as a redundant
+    './', a trailing slash, or a '..' segment would. as_posix() keeps the
+    separator consistent within whichever OS this actually runs on
+    (pathlib already picks WindowsPath vs PosixPath per-platform) -- it
+    does not make a baseline saved on Windows and verified on Linux
+    agree, which would need the path's original OS recorded alongside
+    it, not just a different string form. Falling back to the resolved
+    absolute path for anything outside the cwd keeps every case
+    unambiguous without needing a schema field to record what root it
+    was relative to -- the common workflow this exists for (re-scan the
+    same checkout from the same place you saved the baseline from,
+    whether that's a developer's shell or a CI job) already shares a cwd
+    between the two runs, which is all this normalization needs to
+    agree."""
+    resolved = Path(source_file).resolve()
+    try:
+        return resolved.relative_to(Path.cwd()).as_posix()
+    except ValueError:
+        return resolved.as_posix()
+
+
 def group_key(f: Finding) -> str:
     """Identifies findings as "the same kind of thing" across scans:
     same detector, same file, same object, same flagged fragment. Not
     unique per finding -- see the module docstring for why that's
-    intentional."""
-    base = "\x1f".join((f.detector, f.source_file, f.object_name, f.snippet))
+    intentional. `source_file` is normalized before hashing (see
+    _normalized_source_file) so two scans of the same file from the same
+    place agree regardless of how the path was spelled on the command
+    line."""
+    base = "\x1f".join((f.detector, _normalized_source_file(f.source_file), f.object_name, f.snippet))
     return hashlib.sha1(base.encode()).hexdigest()[:12]
 
 

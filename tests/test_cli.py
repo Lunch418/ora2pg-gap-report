@@ -664,7 +664,7 @@ def test_main_save_writes_a_baseline_snapshot(tmp_path):
     )
     assert exit_code == 0
     saved = json.loads(baseline_path.read_text())
-    assert saved["schema_version"] == 1
+    assert saved["schema_version"] == 2
     assert len(saved["findings"]) > 0
     assert all("group_key" in rec for rec in saved["findings"])
 
@@ -1362,7 +1362,7 @@ def test_fix_write_actually_rewrites_the_file(tmp_path, capsys):
     assert exit_code == 0
     assert "((" not in generated.read_text()
     assert "IDENTITY (START WITH 1 INCREMENT BY 1)" in generated.read_text()
-    assert "записано" in captured.out
+    assert "записано" in captured.err
 
 
 def test_fix_reports_clean_when_nothing_to_fix(tmp_path, capsys):
@@ -1372,7 +1372,39 @@ def test_fix_reports_clean_when_nothing_to_fix(tmp_path, capsys):
     exit_code = main(["--fix", str(generated)])
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "исправлений не найдено" in captured.out
+    assert "исправлений не найдено" in captured.err
+
+
+def test_fix_dry_run_diff_is_not_wrapped_and_is_git_apply_clean(tmp_path, capsys):
+    # Regression guard for A-01: Console.print() wraps text to the terminal
+    # width (or a fixed 80 columns off a real tty), which corrupts a
+    # unified diff -- a long path alone is enough to wrap its own "---"/
+    # "+++" header line in two. stdout must carry nothing but the diff
+    # difflib itself would produce, byte for byte, so `--fix > out.patch`
+    # is always a valid patch regardless of how deep the scanned path is.
+    long_dir = tmp_path / ("this_is_a_very_long_directory_name_" * 3)
+    long_dir.mkdir()
+    generated = long_dir / "generated.sql"
+    generated.write_text(_GENERATED_IDENTITY_BUG)
+
+    exit_code = main(["--fix", str(generated)])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+
+    import difflib
+
+    fixed = generated.read_text().replace("((START WITH 1 INCREMENT BY 1))", "(START WITH 1 INCREMENT BY 1)")
+    expected_diff = "".join(
+        difflib.unified_diff(
+            _GENERATED_IDENTITY_BUG.splitlines(keepends=True),
+            fixed.splitlines(keepends=True),
+            fromfile=str(generated),
+            tofile=str(generated),
+        )
+    )
+    assert captured.out == expected_diff
+    for line in captured.out.splitlines():
+        assert len(line) < 200, f"diff line unexpectedly wrapped: {line!r}"
 
 
 def test_write_without_fix_is_rejected(tmp_path, capsys):
@@ -1400,7 +1432,7 @@ def test_fix_combined_with_verify_is_rejected(tmp_path, capsys):
     generated = tmp_path / "generated.sql"
     generated.write_text(_GENERATED_IDENTITY_BUG)
     baseline_path = tmp_path / "baseline.json"
-    baseline_path.write_text('{"schema_version": 1, "findings": [], "complete": true}')
+    baseline_path.write_text('{"schema_version": 2, "findings": [], "complete": true}')
 
     exit_code = main(["--verify", "--fix", "--baseline", str(baseline_path), str(generated)])
     captured = capsys.readouterr()
@@ -1434,3 +1466,110 @@ def test_fix_requires_at_least_one_path(capsys):
     exit_code = main(["--fix"])
     capsys.readouterr()
     assert exit_code == 2
+
+
+# --- A-05 regression: a detector crash on one file must not take down the
+# whole scan, and must exit with a code distinct from --fail-on's 1. ---
+
+
+def test_a_detector_crash_on_one_file_does_not_take_down_the_whole_scan(tmp_path, monkeypatch, capsys):
+    original = core._DETECTORS_BY_DIALECT["oracle"]
+
+    def flaky(source):
+        if "CRASH_HERE" in source:
+            raise RecursionError("simulated: unbounded recursion")
+        return []
+
+    monkeypatch.setitem(core._DETECTORS_BY_DIALECT, "oracle", (*original, flaky))
+
+    bad = tmp_path / "bad.sql"
+    bad.write_text("-- CRASH_HERE\nSELECT * FROM t CROSS APPLY (SELECT 1) x;\n")
+    good = tmp_path / "good.sql"
+    good.write_text("SELECT * FROM u CROSS APPLY (SELECT 2) y;\n")
+
+    exit_code = main([str(bad), str(good), "--format", "json"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 3
+    assert "bad.sql" in captured.err
+    assert "RecursionError" in captured.err
+
+    findings = json.loads(captured.out)
+    # The other file scanned normally...
+    assert any(f["source_file"] == str(good) for f in findings)
+    # ...and so did every *other* detector on the file that crashed: what
+    # was lost is the crashed detector's own findings, not the file's.
+    assert any(f["source_file"] == str(bad) and f["detector"] == "cross_apply" for f in findings)
+
+
+def test_the_crashed_detector_is_named_not_just_counted(tmp_path, monkeypatch, capsys):
+    # "Which detector is broken" is the one thing a bug report needs.
+    original = core._DETECTORS_BY_DIALECT["oracle"]
+
+    def boom(source):
+        raise RecursionError("simulated")
+
+    boom.__module__ = "ora2pg_gap_report.detectors.pretend_detector"
+    monkeypatch.setitem(core._DETECTORS_BY_DIALECT, "oracle", (*original, boom))
+
+    source = tmp_path / "x.sql"
+    source.write_text("SELECT 1;\n")
+
+    assert main([str(source)]) == 3
+    assert "pretend_detector" in capsys.readouterr().err
+
+
+def test_internal_error_exit_code_is_distinct_from_fail_on_gate_failed(tmp_path, monkeypatch, capsys):
+    # The exact collision A-05 is about: an unhandled exception's default
+    # exit code (1) used to be indistinguishable from --fail-on's "gate
+    # failed" (also 1). It must win over --fail-on's own exit code too.
+    original = core._DETECTORS_BY_DIALECT["oracle"]
+
+    def boom(source):
+        raise RecursionError("simulated")
+
+    monkeypatch.setitem(core._DETECTORS_BY_DIALECT, "oracle", (*original, boom))
+
+    source = tmp_path / "x.sql"
+    source.write_text("READ ONLY;\n")  # also trips read_only_table, so --fail-on has something to fail on
+
+    exit_code = main([str(source), "--fail-on", "high"])
+    assert exit_code == 3
+
+
+def test_a_crash_blocks_save_the_same_way_a_skipped_file_does(tmp_path, monkeypatch, capsys):
+    original = core._DETECTORS_BY_DIALECT["oracle"]
+
+    def boom(source):
+        raise RecursionError("simulated")
+
+    monkeypatch.setitem(core._DETECTORS_BY_DIALECT, "oracle", (*original, boom))
+
+    source = tmp_path / "x.sql"
+    source.write_text("SELECT 1;\n")
+    baseline_path = tmp_path / "baseline.json"
+
+    exit_code = main([str(source), "--save", str(baseline_path)])
+    assert exit_code == 3
+    assert not baseline_path.exists()
+
+
+def test_an_unexpected_crash_outside_the_scan_loop_is_still_caught_at_the_top_level(
+    tmp_path, monkeypatch, capsys
+):
+    # The outer main() boundary: a bug anywhere in _main() other than the
+    # per-file scan loop (which isolates its own exceptions already) must
+    # still come back as a clean exit 3, not a raw traceback with the
+    # default exit code 1.
+    def boom(paths):
+        raise ValueError("simulated: bug outside the scan loop")
+
+    monkeypatch.setattr(cli, "_expand_paths", boom)
+
+    source = tmp_path / "x.sql"
+    source.write_text("SELECT 1;\n")
+
+    exit_code = main([str(source)])
+    captured = capsys.readouterr()
+    assert exit_code == 3
+    assert "ValueError" in captured.err

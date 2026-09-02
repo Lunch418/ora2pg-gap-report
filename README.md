@@ -508,6 +508,20 @@ ora2pg-gap-report path/to/schema_dump/ --fail-on high
 echo $?   # 1 if at least one high finding turned up
 ```
 
+Exit codes, all distinct on purpose so a CI job can tell a real result from
+a broken run:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | The scan finished and the gate (if any) passed |
+| `1` | `--fail-on` gate failed — findings at or above the threshold |
+| `2` | Bad usage, or some input couldn't be scanned (missing/unreadable file, empty directory, broken baseline) |
+| `3` | Internal error — a bug in this tool, not a migration finding. The scan continues past a crashing detector and still reports everything else, but the run is incomplete and `--save` is skipped |
+
+Code `3` matters most in CI: an analyzer that crashed used to exit `1`,
+indistinguishable from a gate that had honestly done its job and found
+problems.
+
 A real-world output example against an open-source package —
 [`docs/examples/logger-autonomous_tx-report.md`](docs/examples/logger-autonomous_tx-report.md).
 A full CI recipe — gating a PR, running alongside `ora2pg` itself, and

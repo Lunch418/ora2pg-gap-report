@@ -9,8 +9,17 @@ from ..mssql_lex import (
 )
 
 # Any T-SQL IF: both shapes below are broken, differently, so the
-# detector deliberately doesn't try to tell them apart.
-_PATTERN_RE = re.compile(r"\bIF\s+", re.IGNORECASE)
+# detector deliberately doesn't try to tell them apart. The negative
+# lookahead excludes IF EXISTS/IF NOT EXISTS -- not the conditional this
+# detector is about, but the idempotent-DDL idiom `DROP TABLE IF EXISTS
+# ...` (also PROCEDURE/VIEW/INDEX), which is neither broken by ora2pg nor
+# a statement at all, and without it every DROP ... IF EXISTS line in an
+# ordinary idempotent SSMS script was reported as a high-severity finding.
+# Trade-off: a genuine `IF EXISTS(...) BEGIN ... END` conditional (which
+# ora2pg mishandles exactly like any other IF) stops being flagged too --
+# there is no regex-only way to tell the two apart, and silence here is
+# the safer failure mode than flooding every idempotent script with noise.
+_PATTERN_RE = re.compile(r"\bIF\b(?!\s+(?:NOT\s+)?EXISTS\b)\s+", re.IGNORECASE)
 
 _MESSAGE = (
     "IF — условный оператор T-SQL. ora2pg (-M) не доводит перевод до "

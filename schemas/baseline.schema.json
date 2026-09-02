@@ -8,8 +8,8 @@
   "required": ["schema_version", "findings"],
   "properties": {
     "schema_version": {
-      "const": 1,
-      "description": "Must match baseline.SCHEMA_VERSION exactly -- load_baseline() rejects any other value rather than risk silently diffing against a baseline computed by an incompatible grouping formula."
+      "const": 2,
+      "description": "Must match baseline.SCHEMA_VERSION exactly -- load_baseline() rejects any other value rather than risk silently diffing against a baseline computed by an incompatible grouping formula. Bumped to 2 when group_key started hashing a normalized (cwd-relative, POSIX-separator) form of source_file instead of the literal argv spelling, so a version-1 baseline can't silently produce wrong NEW/RESOLVED counts under the new formula -- it fails to load instead."
     },
     "findings": {
       "type": "array",
@@ -25,7 +25,7 @@
       "properties": {
         "group_key": {
           "type": "string",
-          "description": "sha1(detector + source_file + object_name + snippet), truncated to 12 hex chars. Identifies findings as 'the same kind of thing' across scans for --baseline diffing -- NOT unique per finding: multiple genuinely distinct findings (e.g. the same DBMS_LOB call on two different lines of one package) share a group_key on purpose. See baseline.py's module docstring for why diffing is count-based per group rather than trying to match individual records."
+          "description": "sha1(detector + normalized(source_file) + object_name + snippet), truncated to 12 hex chars, where normalized(source_file) is the path resolved and made relative to the current directory (POSIX separators) so 'pkg.sql' and an equivalent absolute spelling of the same file hash identically -- see baseline.py's _normalized_source_file(). Identifies findings as 'the same kind of thing' across scans for --baseline diffing -- NOT unique per finding: multiple genuinely distinct findings (e.g. the same DBMS_LOB call on two different lines of one package) share a group_key on purpose. See baseline.py's module docstring for why diffing is count-based per group rather than trying to match individual records."
         },
         "detector": {
           "type": "string",

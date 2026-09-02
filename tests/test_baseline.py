@@ -38,6 +38,36 @@ def test_group_key_differs_for_different_objects():
     assert group_key(f1) != group_key(f2)
 
 
+# --- A-02 regression: group_key must not depend on how the path was spelled,
+# only on which file it names, when both scans share a working directory
+# (the --save/--baseline pair this exists for). ---
+
+
+def test_group_key_is_stable_between_relative_and_absolute_spelling(tmp_path, monkeypatch):
+    # The audit's own repro: `tool pkg.sql --save b.json` then
+    # `tool "$PWD/pkg.sql" --baseline b.json` used to report the identical
+    # finding as both NEW and RESOLVED instead of UNCHANGED.
+    monkeypatch.chdir(tmp_path)
+    relative = _finding(source_file="pkg.sql")
+    absolute = _finding(source_file=str(tmp_path / "pkg.sql"))
+    assert group_key(relative) == group_key(absolute)
+
+
+def test_group_key_is_stable_across_redundant_path_segments(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    plain = _finding(source_file="schema/pkg.sql")
+    noisy = _finding(source_file="./schema/../schema/pkg.sql")
+    assert group_key(plain) == group_key(noisy)
+
+
+def test_group_key_still_differs_for_genuinely_different_files(tmp_path, monkeypatch):
+    # The normalization must not go so far it stops distinguishing files.
+    monkeypatch.chdir(tmp_path)
+    a = _finding(source_file="a.sql")
+    b = _finding(source_file="b.sql")
+    assert group_key(a) != group_key(b)
+
+
 def test_save_and_load_round_trip(tmp_path):
     findings = [_finding(object_name="AUDIT_LOG"), _finding(object_name="CUSTOMERS", line=7)]
     path = tmp_path / "baseline.json"
@@ -53,7 +83,7 @@ def test_save_baseline_is_valid_json_with_schema_version(tmp_path):
     path = tmp_path / "baseline.json"
     save_baseline([_finding()], path)
     raw = json.loads(path.read_text())
-    assert raw["schema_version"] == 1
+    assert raw["schema_version"] == 2
     assert len(raw["findings"]) == 1
     assert raw["findings"][0]["group_key"]
     assert raw["findings"][0]["object_name"] == "AUDIT_LOG"
@@ -77,7 +107,7 @@ def test_load_baseline_tolerates_a_snapshot_saved_before_gap_metadata_existed(tm
     path.write_text(
         json.dumps(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "findings": [
                     {
                         "group_key": "abc123",
@@ -127,7 +157,7 @@ def test_load_baseline_wrong_shape_raises_baseline_load_error(tmp_path):
 
 def test_load_baseline_missing_group_key_raises_baseline_load_error(tmp_path):
     path = tmp_path / "no_group_key.json"
-    path.write_text(json.dumps({"schema_version": 1, "findings": [{"object_name": "X"}]}))
+    path.write_text(json.dumps({"schema_version": 2, "findings": [{"object_name": "X"}]}))
     with pytest.raises(BaselineLoadError):
         load_baseline(path)
 
@@ -139,7 +169,7 @@ def test_load_baseline_missing_detector_raises_baseline_load_error_not_keyerror(
     # KeyError from deep inside --verify instead of a clean, catchable
     # BaselineLoadError right here where the file is actually read.
     path = tmp_path / "no_detector.json"
-    path.write_text(json.dumps({"schema_version": 1, "findings": [{"group_key": "abc123"}]}))
+    path.write_text(json.dumps({"schema_version": 2, "findings": [{"group_key": "abc123"}]}))
     with pytest.raises(BaselineLoadError, match="detector"):
         load_baseline(path)
 

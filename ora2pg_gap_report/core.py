@@ -354,16 +354,35 @@ def _sort_findings(findings: list[Finding]) -> None:
     findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.object_name, f.line))
 
 
-def scan_source(source: str, dialect: str = "oracle") -> list[Finding]:
+def scan_source(
+    source: str,
+    dialect: str = "oracle",
+    *,
+    errors: list[tuple[str, Exception]] | None = None,
+) -> list[Finding]:
     """Run every detector registered for `dialect` against `source`.
     Defaults to "oracle" -- every call site in this codebase before
     MySQL support existed calls this with just `source`, and all of them
     must keep behaving exactly as before with zero code changes on their
     end. See _MYSQL_DETECTORS' own comment for why dialects use separate
-    detector tuples rather than one merged list filtered at call time."""
+    detector tuples rather than one merged list filtered at call time.
+
+    `errors` is opt-in isolation: pass a list and a detector that raises
+    is skipped -- its (module name, exception) lands in `errors` instead
+    of aborting the scan -- so one broken detector costs only its own
+    findings for this source, not every other detector's. Leave it None
+    (the default) to keep the original, simpler contract: a detector
+    exception propagates immediately, exactly as before this parameter
+    existed -- every call site before it did, and TUI scans and this
+    module's own tests still rely on that."""
     findings: list[Finding] = []
     for detector in _DETECTORS_BY_DIALECT[dialect]:
-        findings.extend(detector(source))
+        try:
+            findings.extend(detector(source))
+        except Exception as exc:
+            if errors is None:
+                raise
+            errors.append((detector.__module__.rsplit(".", 1)[-1], exc))
     _sort_findings(findings)
     return findings
 

@@ -13,7 +13,11 @@ _TABLE_RE = re.compile(
     qualified_name_pattern(r"CREATE\s+TABLE"),
     re.IGNORECASE,
 )
-_PATTERN_RE = re.compile(r"\bIDENTITY\s*(?:\(\s*\d+\s*,\s*\d+\s*\))?", re.IGNORECASE)
+# \b after IDENTITY (not just before) so a column name that merely starts
+# with the word -- IDENTITY_FLAG, say -- doesn't match: the original
+# pattern had no right-side boundary, so "IDENTITY_FLAG bit" matched
+# "IDENTITY" as if the column itself had the property.
+_PATTERN_RE = re.compile(r"\bIDENTITY\b\s*(?:\(\s*\d+\s*,\s*\d+\s*\))?", re.IGNORECASE)
 
 _MESSAGE = (
     "IDENTITY(<начало>, <шаг>) — автоинкрементный столбец SQL Server. "

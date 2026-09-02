@@ -30,3 +30,10 @@ def test_a_plain_integer_column_is_not_flagged():
 def test_a_bare_ctas_is_not_flagged():
     # No column-definition list at all.
     assert find_mssql_identity_columns('CREATE TABLE t AS SELECT * FROM other;\n') == []
+
+
+def test_a_column_name_merely_starting_with_identity_is_not_flagged():
+    # A-04: the original pattern had no right-side word boundary, so a
+    # column literally named IDENTITY_FLAG matched "IDENTITY" as if the
+    # column itself carried the property.
+    assert find_mssql_identity_columns("CREATE TABLE dbo.T (IDENTITY_FLAG bit);\n") == []

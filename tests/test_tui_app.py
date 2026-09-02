@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 from textual.widgets import Button, DataTable, Select
 
+from ora2pg_gap_report import core
 from ora2pg_gap_report.baseline import load_baseline, save_baseline
 from ora2pg_gap_report.tui_app import (
     GapReportApp,
@@ -252,6 +253,27 @@ def test_scan_paths_dedupes_the_same_file_reached_twice():
     combined, _, warnings = scan_paths([a, a])
     assert warnings == []
     assert len(combined) == len(findings_once)
+
+
+def test_scan_paths_reports_a_crashing_detector_as_a_warning_not_a_traceback(monkeypatch, tmp_path):
+    # In the TUI an exception escaping the worker thread doesn't just lose
+    # the scan -- it kills the whole app. It has to come back as a warning
+    # the results screen can render, with the other detectors' findings
+    # for the same file intact.
+    def boom(source):
+        raise RecursionError("simulated")
+
+    boom.__module__ = "ora2pg_gap_report.detectors.pretend_detector"
+    monkeypatch.setitem(
+        core._DETECTORS_BY_DIALECT, "oracle", (*core._DETECTORS_BY_DIALECT["oracle"], boom)
+    )
+
+    source = tmp_path / "x.sql"
+    source.write_text("SELECT * FROM t CROSS APPLY (SELECT 1) x;\n")
+
+    findings, _, warnings = scan_paths([source])
+    assert any("pretend_detector" in w for w in warnings)
+    assert any(f.detector == "cross_apply" for f in findings)
 
 
 @pytest.mark.asyncio

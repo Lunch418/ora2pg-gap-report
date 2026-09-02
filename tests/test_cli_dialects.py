@@ -111,7 +111,7 @@ def test_verify_rejects_a_baseline_mixing_dialects(tmp_path, capsys):
     baseline.write_text(
         json.dumps(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "findings": [
                     {"group_key": "a", "detector": "mysql_signal"},
                     {"group_key": "b", "detector": "bulk_collect"},
@@ -132,7 +132,7 @@ def test_verify_rejects_a_baseline_naming_detectors_this_build_lacks(tmp_path, c
     baseline.write_text(
         json.dumps(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "findings": [{"group_key": "a", "detector": "detector_from_the_future"}],
             }
         )

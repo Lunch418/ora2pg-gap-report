@@ -83,7 +83,7 @@ def test_report_schema_rejects_an_unknown_severity(report_schema):
 
 def test_baseline_schema_rejects_a_mismatched_schema_version(baseline_schema):
     with pytest.raises(jsonschema.ValidationError):
-        jsonschema.validate({"schema_version": 2, "findings": []}, baseline_schema)
+        jsonschema.validate({"schema_version": 1, "findings": []}, baseline_schema)
 
 
 def test_report_and_baseline_schemas_share_identical_finding_field_definitions(

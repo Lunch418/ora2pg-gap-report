@@ -488,7 +488,14 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
             fixed, applied = fixer(fixed)
             count += applied
         if count == 0:
-            out_console.print(i18n.t(lang, "fix_summary_clean", path=escape(str(path))))
+            # stderr, not out_console: in dry-run mode stdout is reserved
+            # for diff bytes only (see below), and this status line has
+            # nothing to do with any file's diff -- keeping it off stdout
+            # unconditionally, in every mode, means `--fix ... > out.patch`
+            # produces exactly a concatenation of unified diffs and
+            # nothing else, regardless of how many of the scanned files
+            # turned out clean.
+            err_console.print(i18n.t(lang, "fix_summary_clean", path=escape(str(path))))
             continue
         total_fixes += count
 
@@ -501,24 +508,60 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
                 )
                 had_error = True
                 continue
-            out_console.print(i18n.t(lang, "fix_summary_written", path=escape(str(path)), count=count))
+            err_console.print(i18n.t(lang, "fix_summary_written", path=escape(str(path)), count=count))
         else:
-            out_console.print(i18n.t(lang, "fix_diff_header", path=escape(str(path)), count=count))
+            err_console.print(i18n.t(lang, "fix_diff_header", path=escape(str(path)), count=count))
             diff = difflib.unified_diff(
                 source.splitlines(keepends=True),
                 fixed.splitlines(keepends=True),
                 fromfile=str(path),
                 tofile=str(path),
             )
-            out_console.print("".join(diff), markup=False, highlight=False)
+            # Deliberately NOT out_console.print(): Console wraps text to
+            # the terminal width (or a fixed 80 columns when output isn't
+            # a real tty, i.e. exactly the --fix > file.patch case this
+            # exists for), inserting hard newlines mid-line. A unified
+            # diff has no tolerance for that -- a wrapped "---"/"+++"
+            # header or a wrapped hunk line is corrupt, and `git apply`/
+            # `patch` reject it outright (confirmed: a long source path
+            # wraps its own header line in two). Writing straight to the
+            # console's underlying file bypasses Rich's layout engine
+            # entirely for this one piece of output, which is exactly
+            # what a diff needs: byte-for-byte, unwrapped.
+            out_console.file.write("".join(diff))
 
     if total_fixes and not args.write:
-        out_console.print(i18n.t(lang, "fix_summary_dry_run_hint"))
+        # stderr, same reasoning as the status lines above: this hint is
+        # not part of the diff, so it must not land in `--fix ... > out.patch`.
+        err_console.print(i18n.t(lang, "fix_summary_dry_run_hint"))
 
     return 2 if had_error else 0
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Thin wrapper around _main(): the one place an exception _main()
+    doesn't already isolate (a bug outside the per-file scan loop --
+    argument handling, --verify/--fix/--explain, rendering, baseline I/O)
+    gets caught here instead of surfacing as a raw traceback with exit
+    code 1, indistinguishable from --fail-on's "gate failed". Deliberately
+    broad `except Exception`, unlike the rest of this codebase (see
+    oracle_export.py's own comment on the same trade-off) -- this is the
+    literal top-level boundary, there is nothing narrower left to catch.
+    SystemExit/KeyboardInterrupt are BaseException, not Exception, so
+    argparse's own --help/bad-argument exits and Ctrl-C still work
+    exactly as before."""
+    try:
+        return _main(argv)
+    except Exception as exc:
+        err_console = Console(stderr=True)
+        lang = i18n.resolve_language(None, interactive=False)
+        err_console.print(
+            i18n.t(lang, "unexpected_internal_error", exc_type=type(exc).__name__, exc=escape(str(exc)))
+        )
+        return 3
+
+
+def _main(argv: list[str] | None = None) -> int:
     raw_argv = argv if argv is not None else sys.argv[1:]
     help_lang = i18n.resolve_language(_peek_lang_for_help(raw_argv), interactive=False)
     args = _build_arg_parser(help_lang).parse_args(argv)
@@ -656,6 +699,7 @@ def main(argv: list[str] | None = None) -> int:
     all_findings: list[Finding] = []
     objects_scanned = 0
     had_error = False
+    had_internal_error = False
 
     paths_to_scan, empty_dirs = _expand_paths(args.paths)
     for empty_dir in empty_dirs:
@@ -675,11 +719,63 @@ def main(argv: list[str] | None = None) -> int:
             )
             had_error = True
             continue
-        objects_scanned += count_objects(source)
-        all_findings.extend(
-            dataclasses.replace(f, source_file=str(path))
-            for f in scan_source(source, dialect=args.dialect)
-        )
+        # Two nested levels of isolation, both deliberately broad `except
+        # Exception` unlike the rest of this codebase (see
+        # oracle_export.py's own comment on the same trade-off). A
+        # detector bug used to take the whole run down with it, and an
+        # unhandled exception's default exit code (1) is indistinguishable
+        # from --fail-on's "gate failed" -- so a crashed analyzer looked
+        # exactly like a gate that had honestly done its job.
+        detector_errors: list[tuple[str, Exception]] = []
+        try:
+            objects_scanned += count_objects(source)
+            file_findings = [
+                dataclasses.replace(f, source_file=str(path))
+                for f in scan_source(source, dialect=args.dialect, errors=detector_errors)
+            ]
+        except Exception as exc:
+            # Outer level: something outside any single detector failed
+            # (count_objects(), or the scan orchestration itself). Rarer
+            # than a detector bug, and the blast radius is this one file.
+            err_console.print(
+                i18n.t(
+                    lang,
+                    "scan_internal_error",
+                    path=escape(str(path)),
+                    exc_type=type(exc).__name__,
+                    exc=escape(str(exc)),
+                )
+            )
+            had_internal_error = True
+            continue
+
+        if detector_errors:
+            # Inner level: scan_source() isolated each detector, so what's
+            # lost is only the crashed detectors' own findings for this
+            # file -- every other detector's results for it are in
+            # `file_findings` below and still get reported. Named, not
+            # counted anonymously: "which detector is broken" is the one
+            # thing a bug report needs. The first exception is shown in
+            # full since a single root cause (a recursion limit hit inside
+            # shared masking, say) typically trips several detectors at
+            # once with the identical error.
+            had_internal_error = True
+            first_name, first_exc = detector_errors[0]
+            names = ", ".join(name for name, _ in detector_errors[:3])
+            if len(detector_errors) > 3:
+                names += f" (+{len(detector_errors) - 3})"
+            err_console.print(
+                i18n.t(
+                    lang,
+                    "scan_detector_errors",
+                    names=escape(names),
+                    path=escape(str(path)),
+                    exc_type=type(first_exc).__name__,
+                    exc=escape(str(first_exc)),
+                )
+            )
+
+        all_findings.extend(file_findings)
 
         if args.check_connect_by:
             findings, warning = _connect_by_check(path, source, args.ora2pg_bin, lang)
@@ -710,14 +806,15 @@ def main(argv: list[str] | None = None) -> int:
     # baseline snapshot is meant as ground truth for the schema, and a CI
     # gate silently muted by an unrelated display filter would be a much
     # worse surprise than a gate that's a little noisier than expected.
-    if args.save and had_error:
+    if args.save and (had_error or had_internal_error):
         # A snapshot missing some of what was asked to be scanned (a
-        # not-found file, an empty directory, an unreadable file) isn't
-        # "ground truth for the schema" -- it's ground truth for whatever
-        # scanning actually completed, silently. The next --baseline diff
-        # against it would report the skipped files' findings as NEW the
-        # moment the actual problem (why they were skipped) gets fixed,
-        # not as what they really are: never captured in the first place.
+        # not-found file, an empty directory, an unreadable file, or now a
+        # file a detector crashed on) isn't "ground truth for the schema"
+        # -- it's ground truth for whatever scanning actually completed,
+        # silently. The next --baseline diff against it would report the
+        # skipped files' findings as NEW the moment the actual problem (why
+        # they were skipped) gets fixed, not as what they really are:
+        # never captured in the first place.
         err_console.print(i18n.t(lang, "save_baseline_skipped_partial_scan", path=escape(str(args.save))))
     elif args.save:
         try:
@@ -781,6 +878,14 @@ def main(argv: list[str] | None = None) -> int:
     # or redirected as-is).
     if baseline_diff is not None:
         render_baseline_diff(baseline_diff, console=err_console, lang=lang)
+
+    if had_internal_error:
+        # Takes priority over both codes below: a detector crash is a bug
+        # in the tool, not a scan result, and must stay distinguishable
+        # from "gate failed" (1) or "some input was skipped" (2) in CI --
+        # exactly the collision A-05 is about.
+        err_console.print(i18n.t(lang, "internal_error_summary"))
+        return 3
 
     if had_error:
         return 2

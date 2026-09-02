@@ -47,7 +47,14 @@ from textual.widgets import (
 
 from . import i18n
 from .baseline import BaselineDiff, BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
-from .core import _connect_by_check, _expand_paths, count_objects, scan_source
+from .core import (
+    DIALECTS,
+    _connect_by_check,
+    _expand_paths,
+    baseline_dialects,
+    count_objects,
+    scan_source,
+)
 from .core import _sort_findings as sort_findings
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_metadata
@@ -75,6 +82,14 @@ _VERIFY_STATUS_STYLE = {
 _LANG_OPTIONS = [("English", "en"), ("Русский", "ru")]
 
 
+def _dialect_options() -> list[tuple[str, str]]:
+    # Source-dialect names are fixed technical vocabulary, exactly like
+    # the severity levels below -- shown as-is in both languages rather
+    # than translated, and read straight from core.DIALECTS so a new
+    # dialect appears in the picker without touching this module.
+    return [(d, d) for d in DIALECTS]
+
+
 def _severity_options(lang: str) -> list[tuple[str, str]]:
     # "high"/"medium"/"low" are deliberately not translated -- fixed
     # technical vocabulary everywhere else in this project (--severity's
@@ -93,6 +108,7 @@ def scan_paths(
     check_connect_by: bool = False,
     ora2pg_bin: str = "ora2pg",
     lang: str = "ru",
+    dialect: str = "oracle",
 ) -> tuple[list[Finding], int, list[str]]:
     """One or more files/directories in, findings out -- the same read ->
     scan_source() -> stamp source_file -> count_objects() sequence cli.py's
@@ -126,7 +142,8 @@ def scan_paths(
             continue
         objects_scanned += count_objects(source)
         findings.extend(
-            dataclasses.replace(f, source_file=str(file_path)) for f in scan_source(source)
+            dataclasses.replace(f, source_file=str(file_path))
+            for f in scan_source(source, dialect=dialect)
         )
         if check_connect_by:
             connect_by_findings, warning = _connect_by_check(file_path, source, ora2pg_bin, lang)
@@ -138,12 +155,14 @@ def scan_paths(
     return findings, objects_scanned, warnings
 
 
-def scan_path(path: Path, lang: str = "ru") -> tuple[list[Finding], int, list[str]]:
+def scan_path(
+    path: Path, lang: str = "ru", dialect: str = "oracle"
+) -> tuple[list[Finding], int, list[str]]:
     """One file or one directory in, findings out -- a thin single-path
     convenience wrapper around scan_paths(), kept as its own name because
     most callers (including the majority of this module's own tests) only
     ever have one path in hand."""
-    return scan_paths([path], lang=lang)
+    return scan_paths([path], lang=lang, dialect=dialect)
 
 
 class ScanScreen(Screen):
@@ -155,7 +174,16 @@ class ScanScreen(Screen):
     #tree-label { padding: 1 2 0 2; color: $text-muted; text-style: italic; }
     DirectoryTree { height: 1fr; margin: 1 2; border: round $panel-lighten-1; padding: 1; }
     #controls { height: auto; padding: 1 2; }
-    #controls Select { width: 26; margin-right: 2; }
+    /* Per-select widths, not one shared 26: three pickers plus the Scan
+       button have to fit an 80-column terminal (the narrowest this app
+       targets, and what App.run_test() gives the TUI tests). Each is
+       sized to its own longest label -- "All severities" at 14 for
+       severity, "Русский" at 7 for language, "oracle" at 6 for dialect
+       -- rather than every one paying for the widest. */
+    #controls Select { margin-right: 2; }
+    #dialect-select { width: 12; }
+    #severity-select { width: 20; }
+    #lang-select { width: 13; }
     #controls Button { margin-top: 0; }
     #multi-select-controls { height: auto; padding: 0 2; }
     #multi-select-controls Button { margin-right: 2; }
@@ -178,6 +206,7 @@ class ScanScreen(Screen):
         yield Label(i18n.t(self.lang, "tui_tree_label"), id="tree-label")
         yield DirectoryTree(str(self._start_path), id="tree")
         with Horizontal(id="controls"):
+            yield Select(_dialect_options(), value="oracle", id="dialect-select", allow_blank=False)
             yield Select(_severity_options(self.lang), value="all", id="severity-select", allow_blank=False)
             yield Select(_LANG_OPTIONS, value=self.lang, id="lang-select", allow_blank=False)
             yield Button(i18n.t(self.lang, "tui_scan_btn"), id="scan-btn", variant="primary")
@@ -260,6 +289,7 @@ class ScanScreen(Screen):
         # unreachable here.
         severity = cast(str, self.query_one("#severity-select", Select).value)
         lang = cast(str, self.query_one("#lang-select", Select).value)
+        dialect = cast(str, self.query_one("#dialect-select", Select).value)
         check_connect_by = self.query_one("#connect-by-checkbox", Checkbox).value
         verify_mode = self.query_one("#verify-checkbox", Checkbox).value
         baseline_value = self.query_one("#baseline-input", Input).value.strip()
@@ -267,6 +297,13 @@ class ScanScreen(Screen):
 
         if verify_mode and baseline_path is None:
             self._show_status_error(i18n.t(lang, "tui_error_verify_needs_baseline"))
+            return
+        if check_connect_by and dialect != "oracle":
+            # Same Oracle-only restriction cli.py enforces for
+            # --check-connect-by: the check runs ora2pg in Oracle mode and
+            # looks for Oracle-only syntax, so on another dialect it is a
+            # no-op dressed up as a check.
+            self._show_status_error(i18n.t(lang, "connect_by_oracle_only", dialect=dialect))
             return
         if verify_mode and check_connect_by:
             # Same conflict cli.py's own --verify rejects (see
@@ -279,10 +316,10 @@ class ScanScreen(Screen):
         if verify_mode:
             assert baseline_path is not None  # ruled out by the check above
             self.query_one("#status", Static).update(i18n.t(lang, "tui_status_verifying"))
-            self._run_verify(paths, Path(baseline_path), lang)
+            self._run_verify(paths, Path(baseline_path), lang, dialect)
         else:
             self.query_one("#status", Static).update(i18n.t(lang, "tui_status_scanning"))
-            self._run_scan(paths, severity, lang, check_connect_by, baseline_path)
+            self._run_scan(paths, severity, lang, check_connect_by, baseline_path, dialect)
 
     @work(thread=True)
     def _run_scan(
@@ -292,9 +329,10 @@ class ScanScreen(Screen):
         lang: str,
         check_connect_by: bool,
         baseline_path: str | None,
+        dialect: str = "oracle",
     ) -> None:
         all_findings, objects_scanned, warnings = scan_paths(
-            paths, check_connect_by=check_connect_by, lang=lang
+            paths, check_connect_by=check_connect_by, lang=lang, dialect=dialect
         )
         if lang == "en":
             all_findings = [
@@ -324,12 +362,44 @@ class ScanScreen(Screen):
         )
 
     @work(thread=True)
-    def _run_verify(self, paths: list[Path], baseline_path: Path, lang: str) -> None:
+    def _run_verify(
+        self, paths: list[Path], baseline_path: Path, lang: str, dialect: str = "oracle"
+    ) -> None:
         try:
             baseline = load_baseline(baseline_path, lang=lang)
         except BaselineLoadError as exc:
             self.app.call_from_thread(
                 self._show_status_error, i18n.t(lang, "tui_error_couldnt_load_baseline", exc=exc)
+            )
+            return
+
+        # Which dialect to re-scan with comes from the baseline, not from
+        # the picker -- same rule (and same three failure cases) as
+        # cli.py's _handle_verify, so the two modes can't disagree about
+        # what a given snapshot means.
+        found_dialects, unknown_detectors = baseline_dialects(baseline)
+        if unknown_detectors:
+            self.app.call_from_thread(
+                self._show_status_error,
+                i18n.t(lang, "verify_unknown_detectors", detectors=", ".join(unknown_detectors)),
+            )
+            return
+        if len(found_dialects) > 1:
+            self.app.call_from_thread(
+                self._show_status_error,
+                i18n.t(lang, "verify_mixed_dialects", dialects=", ".join(sorted(found_dialects))),
+            )
+            return
+        baseline_dialect = next(iter(found_dialects), dialect)
+        if dialect != "oracle" and dialect != baseline_dialect:
+            self.app.call_from_thread(
+                self._show_status_error,
+                i18n.t(
+                    lang,
+                    "verify_dialect_mismatch",
+                    requested=dialect,
+                    baseline_dialect=baseline_dialect,
+                ),
             )
             return
 
@@ -350,7 +420,8 @@ class ScanScreen(Screen):
                 warnings.append(i18n.t(lang, "tui_warning_could_not_read", path=file_path, exc=exc))
                 continue
             post_migration_findings.extend(
-                dataclasses.replace(f, source_file=str(file_path)) for f in scan_source(source)
+                dataclasses.replace(f, source_file=str(file_path))
+                for f in scan_source(source, dialect=baseline_dialect)
             )
 
         results = verify_against_baseline(baseline, post_migration_findings)

@@ -63,15 +63,15 @@ empirically against real PL/SQL code
 
 | | |
 |---|---|
-| **Static analysis** | Looks for patterns in the source Oracle code, no `ora2pg` install required (except `connect_by`, see below) |
+| **Static analysis** | Looks for patterns in the source code (Oracle, MySQL/MariaDB or T-SQL), no `ora2pg` install required (except `connect_by`, see below) |
 | **Reproducible** | Every finding is confirmed by a real `ora2pg` + PostgreSQL run, not by reading the docs |
 | **6 output formats** | terminal, markdown, json, csv, `sarif`, `html` — the same set of findings every time |
 | **CI gate** | `--fail-on` + SARIF for GitHub/GitLab code scanning |
 | **Works offline** | Self-contained bundle for closed networks (`scripts/build_offline_bundle.py`), see below |
 | **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED between runs |
-| **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code (not a functional check, see below) |
+| **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code; takes its dialect from the baseline (not a functional check, see below) |
 | **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags |
-| **Autofix** | `--fix`/`--write` — one known-safe mechanical fix for `ora2pg`'s generated code (GAP-028's identity-column double parens), see below |
+| **Autofix** | `--fix`/`--write` — three known-safe mechanical fixes for `ora2pg`'s generated code, picked by `--dialect`, see below |
 
 ## Detectors
 
@@ -422,10 +422,33 @@ changes.
 The three dialects' detectors are structurally separate (`core.py`'s
 `_ORACLE_DETECTORS`/`_MYSQL_DETECTORS`/`_MSSQL_DETECTORS` tuples), so a
 file scanned under the wrong `--dialect` cannot trigger another dialect's
-detectors — by construction, not by keyword luck. `--dialect` only applies
-to a plain scan: `--verify`, `--fix` and `--tui` don't support the
-non-Oracle dialects yet and refuse the combination explicitly rather than
-silently scanning with the wrong (or no) detectors.
+detectors — by construction, not by keyword luck.
+
+`--verify`, `--fix` and `--tui` all work across the three dialects too:
+
+- **`--verify` needs no `--dialect` at all.** Which detectors re-scan the
+  generated output is worked out from the baseline itself — every detector
+  belongs to exactly one dialect, so the names already in the snapshot
+  determine it. That also means baselines written before dialects existed
+  keep verifying unchanged, with no schema bump. Passing `--dialect`
+  anyway is allowed but cross-checked: a snapshot taken with one dialect
+  and verified with another's detectors would report "not detected" for
+  every finding, which is a tautology rather than a check, so the pair is
+  rejected instead. A snapshot mixing dialects, or naming detectors this
+  build doesn't have, is rejected for the same reason — verifying against
+  part of a baseline would produce a confident number computed from
+  incomplete input.
+- **`--fix` runs the mechanical fixes registered for `--dialect`.** MySQL
+  deliberately has none (see below), and says so instead of reporting
+  every file as "nothing to fix", which would read as "your output is
+  fine".
+- **`--tui`** has a dialect picker beside the severity and language ones,
+  and applies the same rules — including taking the dialect from the
+  baseline in verify mode.
+
+`--check-connect-by` stays Oracle-only and now says so: `CONNECT BY` is
+Oracle syntax and the check runs `ora2pg` in Oracle mode, so on another
+dialect's file it could only ever find nothing.
 
 ### Output language
 
@@ -557,17 +580,26 @@ supports only `--format terminal` (default) and `--format json`.
 Everything above only flags and explains — this project is a detector, not
 a parser, and rewriting DDL about to be deployed is a much riskier thing to
 get wrong than a missed or extra flag (see `docs/ARCHITECTURE.md`). `--fix`
-is a narrow, deliberate exception: exactly one correction, for the one gap
-where the "buggy" shape is never what a correct migration would produce and
-the fix is a pure, unambiguous text transformation — GAP-028's identity
-columns. `ora2pg` wraps the sequence options in an extra, redundant pair of
-parens (`GENERATED ALWAYS AS IDENTITY ((START WITH 1 INCREMENT BY 1))`),
-which fails to load into PostgreSQL at all. `--fix` strips exactly that
-outer pair, nothing else:
+is a narrow, deliberate exception: only corrections where the "buggy" shape
+is never what a correct migration would produce and the fix is a pure,
+unambiguous text transformation. Three qualify so far, and which of them
+run is decided by `--dialect`:
+
+| Dialect | Fix | What it undoes |
+|---|---|---|
+| `oracle` | GAP-028 | `ora2pg` wraps an identity column's sequence options in an extra, redundant pair of parens (`GENERATED ALWAYS AS IDENTITY ((START WITH 1))`), which won't load. Strips exactly that outer pair |
+| `mssql` | GAP-100 | `CHARINDEX` is translated to the right function but with the quotes doubled — `position(''abc'' in x)`, which is not valid SQL. Removes the doubling, touching nothing else |
+| `mssql` | GAP-091 | A parameterless procedure gets an empty, unparseable `DECLARE ;` block. Deletes it — which is exactly what `ora2pg` itself emits for the same procedure when it takes a parameter |
+| `mysql` | — | None, deliberately: every confirmed MySQL gap needs either a design decision (what to replace the construct with) or data the generated file no longer carries |
+
+All three were verified the same way the gaps themselves were: the broken
+output failing to load into a real PostgreSQL 16, and the fixed output
+loading and running.
 
 ```sh
 ora2pg-gap-report --fix generated_postgresql/          # prints a diff, changes nothing
 ora2pg-gap-report --fix --write generated_postgresql/  # actually rewrites the files
+ora2pg-gap-report --fix --dialect mssql --write out/   # the T-SQL fixes
 ```
 
 Like `--verify`, it reads its paths as `ora2pg`'s *generated* PostgreSQL

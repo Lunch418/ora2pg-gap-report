@@ -543,17 +543,45 @@ _UI: dict[str, dict[str, str]] = {
         "ora2pg -M). Only applies to a plain scan -- cannot be combined with --tui, "
         "--explain, --verify, --fix.",
     },
-    "dialect_verify_unsupported_error": {
-        "ru": "--verify пока поддерживает только --dialect oracle: пере-сканирование "
-        "сгенерированного вывода по MySQL-детекторам ещё не реализовано.",
-        "en": "--verify only supports --dialect oracle for now: re-scanning generated "
-        "output with MySQL detectors isn't implemented yet.",
+    "verify_unknown_detectors": {
+        "ru": "В baseline есть детекторы, которых нет в этой сборке: {detectors}. "
+        "Снапшот, похоже, сделан другой версией инструмента — обновите её или "
+        "пересоздайте baseline; сверять по части находок было бы враньём.",
+        "en": "The baseline contains detectors this build does not have: {detectors}. "
+        "The snapshot looks like it came from a different version -- update it or "
+        "re-create the baseline; verifying against part of it would be misleading.",
     },
-    "dialect_fix_unsupported_error": {
-        "ru": "--fix пока поддерживает только --dialect oracle: автофиксов для MySQL-"
-        "находок ещё нет.",
-        "en": "--fix only supports --dialect oracle for now: there are no autofixes for "
-        "MySQL findings yet.",
+    "verify_mixed_dialects": {
+        "ru": "В baseline смешаны находки нескольких диалектов ({dialects}). Один прогон "
+        "сканирует один диалект, так что такой снапшот собран вручную — разделите его "
+        "и сверяйте каждый диалект отдельно.",
+        "en": "The baseline mixes findings from several dialects ({dialects}). One scan "
+        "covers one dialect, so this snapshot was assembled by hand -- split it and "
+        "verify each dialect separately.",
+    },
+    "verify_dialect_mismatch": {
+        "ru": "Запрошен --dialect {requested}, а baseline сделан для диалекта "
+        "{baseline_dialect}. Сверка чужими детекторами показала бы «не найдено» по всем "
+        "находкам — это была бы не проверка, а тавтология.",
+        "en": "--dialect {requested} was requested, but the baseline was taken with "
+        "{baseline_dialect}. Verifying with another dialect's detectors would report "
+        "\"not detected\" for every finding -- a tautology, not a check.",
+    },
+    "connect_by_oracle_only": {
+        "ru": "--check-connect-by работает только с --dialect oracle (сейчас {dialect}): "
+        "CONNECT BY — конструкция Oracle, и сама проверка запускает ora2pg в "
+        "Oracle-режиме. На файле другого диалекта она не нашла бы ничего никогда.",
+        "en": "--check-connect-by only works with --dialect oracle (got {dialect}): "
+        "CONNECT BY is Oracle-only syntax, and the check itself runs ora2pg in Oracle "
+        "mode. On another dialect's file it could never find anything.",
+    },
+    "fix_no_fixers_for_dialect": {
+        "ru": "Для диалекта {dialect} механических автофиксов нет. Это не пробел в "
+        "реализации: у его подтверждённых gap'ов правка требует решения (какой именно "
+        "конструкцией заменить) либо данных, которых в сгенерированном файле уже нет.",
+        "en": "There are no mechanical autofixes for the {dialect} dialect. That is not a "
+        "gap in the implementation: fixing its confirmed gaps needs a decision (what to "
+        "replace the construct with) or data the generated file no longer carries.",
     },
     "help_severity": {
         "ru": "Показать только находки с этим уровнем серьёзности",

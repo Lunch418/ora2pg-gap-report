@@ -13,10 +13,12 @@ from rich.panel import Panel
 from rich.text import Text
 
 from . import i18n
-from .autofix import fix_identity_double_parens
+from .autofix import FIXERS_BY_DIALECT
 from .baseline import BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
 from .core import (
+    DIALECTS,
     _SEVERITY_ORDER,
+    baseline_dialects,
     _connect_by_check,
     _expand_paths,
     _sort_findings,
@@ -134,7 +136,7 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--dialect",
-        choices=("oracle", "mysql", "mssql"),
+        choices=DIALECTS,
         default="oracle",
         help=i18n.t(lang, "help_dialect"),
     )
@@ -299,7 +301,16 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
     `args.baseline` (a --save snapshot from before the migration) at
     detector granularity. See verification.py's module docstring for why
     finding-level matching (file/object/snippet) doesn't survive the
-    Oracle-to-PostgreSQL boundary."""
+    Oracle-to-PostgreSQL boundary.
+
+    Which dialect's detectors to re-scan the output with is taken from
+    the baseline itself, not from --dialect: the snapshot's detector
+    names already determine it (core.baseline_dialects), so a snapshot
+    is verified with the same detectors that produced it even when the
+    flag is left off, and a snapshot written before dialects existed
+    still verifies unchanged. An explicit --dialect is honoured but
+    cross-checked, so a mismatched pair errors instead of quietly
+    reporting "not detected" for every finding."""
     # args.explain isn't checked here: main() dispatches --explain first
     # and returns before ever reaching this function, so by the time
     # we're here args.explain is always None. The --explain branch above
@@ -328,6 +339,36 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
         err_console.print(f"[red]{escape(str(exc))}[/red]")
         return 2
 
+    found_dialects, unknown_detectors = baseline_dialects(baseline)
+    if unknown_detectors:
+        # Names this build has no detector for at all -- a snapshot from a
+        # newer version, or one whose detector was renamed. Verifying
+        # anyway would report a confident result computed from only part
+        # of the baseline.
+        err_console.print(
+            i18n.t(lang, "verify_unknown_detectors", detectors=escape(", ".join(unknown_detectors)))
+        )
+        return 2
+    if len(found_dialects) > 1:
+        err_console.print(
+            i18n.t(lang, "verify_mixed_dialects", dialects=escape(", ".join(sorted(found_dialects))))
+        )
+        return 2
+    # An empty snapshot carries no dialect to infer; fall back to whatever
+    # --dialect says (its own default is "oracle"), which changes nothing
+    # either way -- there are no baseline findings to compare against.
+    baseline_dialect = next(iter(found_dialects), args.dialect)
+    if args.dialect != "oracle" and args.dialect != baseline_dialect:
+        err_console.print(
+            i18n.t(
+                lang,
+                "verify_dialect_mismatch",
+                requested=args.dialect,
+                baseline_dialect=baseline_dialect,
+            )
+        )
+        return 2
+
     paths_to_scan, empty_dirs = _expand_paths(args.paths)
     had_error = False
     for empty_dir in empty_dirs:
@@ -349,7 +390,8 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
             had_error = True
             continue
         post_migration_findings.extend(
-            dataclasses.replace(f, source_file=str(path)) for f in scan_source(source)
+            dataclasses.replace(f, source_file=str(path))
+            for f in scan_source(source, dialect=baseline_dialect)
         )
 
     results = verify_against_baseline(baseline, post_migration_findings)
@@ -384,7 +426,14 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
     like --verify's inputs as ora2pg's *generated* PostgreSQL output, not
     Oracle source (see autofix.py's module docstring for why). Dry-run by
     default -- prints a unified diff and touches nothing on disk; --write is
-    required to actually persist the fix."""
+    required to actually persist the fix.
+
+    Which fixes run is decided by --dialect, since the bugs they undo are
+    specific to the source ora2pg was converting from. A dialect with no
+    mechanical fixes at all (MySQL, deliberately -- see
+    autofix.FIXERS_BY_DIALECT) says so and exits cleanly rather than
+    reporting every file as "nothing to fix", which would read as "your
+    output is fine"."""
     conflicting = any(
         (
             args.fail_on,
@@ -402,6 +451,11 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
         return 2
     if not args.paths:
         err_console.print(i18n.t(lang, "no_paths_error"))
+        return 2
+
+    fixers = FIXERS_BY_DIALECT[args.dialect]
+    if not fixers:
+        err_console.print(i18n.t(lang, "fix_no_fixers_for_dialect", dialect=args.dialect))
         return 2
 
     paths_to_scan, empty_dirs = _expand_paths(args.paths)
@@ -425,7 +479,14 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
             had_error = True
             continue
 
-        fixed, count = fix_identity_double_parens(source)
+        # Every fixer for this dialect, chained: each takes the previous
+        # one's output, so a file carrying two different mechanical bugs
+        # comes out with both undone in a single pass and a single diff.
+        fixed = source
+        count = 0
+        for fixer in fixers:
+            fixed, applied = fixer(fixed)
+            count += applied
         if count == 0:
             out_console.print(i18n.t(lang, "fix_summary_clean", path=escape(str(path))))
             continue
@@ -554,23 +615,9 @@ def main(argv: list[str] | None = None) -> int:
         return _handle_explain(args.explain, Console(), err_console, lang)
 
     if args.verify:
-        if args.dialect != "oracle":
-            # --verify re-scans ora2pg's *generated PostgreSQL* output with
-            # the same detectors that fired pre-migration (verification.py's
-            # VERBATIM/NOT_VERIFIABLE split), which isn't wired up for any
-            # MySQL detector yet -- silently scanning with dialect="oracle"
-            # anyway would report "not detected" for every MySQL finding, an
-            # incorrect signal rather than an honest error.
-            err_console.print(i18n.t(lang, "dialect_verify_unsupported_error"))
-            return 2
         return _handle_verify(args, err_console, lang)
 
     if args.fix:
-        if args.dialect != "oracle":
-            # autofix.py's fixers are Oracle-specific; same reasoning as
-            # --verify above.
-            err_console.print(i18n.t(lang, "dialect_fix_unsupported_error"))
-            return 2
         return _handle_fix(args, Console(), err_console, lang)
 
     if args.write:
@@ -582,6 +629,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.paths:
         err_console.print(i18n.t(lang, "no_paths_error"))
+        return 2
+
+    if args.check_connect_by and args.dialect != "oracle":
+        # CONNECT BY is Oracle-only syntax, and the check itself runs
+        # ora2pg in Oracle mode (core._connect_by_check -> run_estimate_cost,
+        # no -m/-M). On a MySQL/MSSQL file it could only ever find nothing --
+        # accepting the flag anyway would be a silent no-op dressed up as a
+        # performed check.
+        err_console.print(i18n.t(lang, "connect_by_oracle_only", dialect=args.dialect))
         return 2
 
     # --save writes this run's findings, --baseline reads a *previous*

@@ -597,3 +597,80 @@ def test_tui_app_does_not_import_from_cli():
     source = inspect.getsource(tui_app_module)
     assert "from .cli import" not in source
     assert "from ora2pg_gap_report.cli import" not in source
+
+
+# --- dialect picker -------------------------------------------------------
+
+_MYSQL_TUI_SOURCE = """CREATE PROCEDURE bump(IN p_id INT)
+BEGIN
+  INSERT INTO counters (id, hits) VALUES (p_id, 1)
+    ON DUPLICATE KEY UPDATE hits = hits + 1;
+END;
+"""
+
+
+@pytest.mark.asyncio
+async def test_the_dialect_picker_offers_every_registered_dialect():
+    from ora2pg_gap_report.core import DIALECTS
+
+    app = GapReportApp(start_path=SAMPLES)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        select = app.screen.query_one("#dialect-select")
+        assert tuple(value for _, value in select._options) == DIALECTS
+        assert select.value == "oracle", "oracle stays the default, as on the CLI"
+
+
+@pytest.mark.asyncio
+async def test_scanning_with_the_mysql_dialect_runs_mysql_detectors(tmp_path):
+    source = tmp_path / "schema.sql"
+    source.write_text(_MYSQL_TUI_SOURCE)
+
+    app = GapReportApp(start_path=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        scan_screen = app.screen
+        assert isinstance(scan_screen, ScanScreen)
+        scan_screen.selected_path = source
+        scan_screen.query_one("#dialect-select").value = "mysql"
+        await pilot.click("#scan-btn")
+        await _wait_until(pilot, lambda: isinstance(app.screen, ResultsScreen))
+
+        results = app.screen
+        assert isinstance(results, ResultsScreen)
+        assert {f.detector for f in results.findings} == {"mysql_on_duplicate_key_update"}
+
+
+@pytest.mark.asyncio
+async def test_the_same_file_under_the_oracle_dialect_finds_nothing(tmp_path):
+    # The structural separation of the per-dialect detector tuples, seen
+    # from the UI: picking the wrong dialect cannot surface another
+    # dialect's findings.
+    source = tmp_path / "schema.sql"
+    source.write_text(_MYSQL_TUI_SOURCE)
+
+    app = GapReportApp(start_path=tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        app.screen.selected_path = source
+        await pilot.click("#scan-btn")
+        await _wait_until(pilot, lambda: isinstance(app.screen, ResultsScreen))
+        assert app.screen.findings == []
+
+
+@pytest.mark.asyncio
+async def test_connect_by_checkbox_is_rejected_for_a_non_oracle_dialect(tmp_path):
+    source = tmp_path / "schema.sql"
+    source.write_text(_MYSQL_TUI_SOURCE)
+
+    app = GapReportApp(start_path=tmp_path, lang="en")
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        scan_screen = app.screen
+        scan_screen.selected_path = source
+        scan_screen.query_one("#dialect-select").value = "mysql"
+        scan_screen.query_one("#connect-by-checkbox").value = True
+        await pilot.click("#scan-btn")
+        await pilot.pause()
+        assert isinstance(app.screen, ScanScreen), "must stay put, not scan"
+        assert "oracle" in str(app.screen.query_one("#status").content)

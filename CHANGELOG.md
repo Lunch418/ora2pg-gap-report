@@ -10,6 +10,43 @@ patch for fixes to existing ones.
 ## [Unreleased]
 
 ### Added
+- `--verify`, `--fix` and `--tui` now work across all three source
+  dialects, closing the last place where MySQL and T-SQL were second-class
+  compared to Oracle.
+  - **`--verify` infers the dialect from the baseline** rather than taking
+    a flag: every detector belongs to exactly one dialect, so the names
+    already in a `--save` snapshot determine which detectors should
+    re-scan the generated output. That needed no baseline schema change,
+    so snapshots written before dialects existed keep verifying unchanged.
+    An explicit `--dialect` is still accepted but cross-checked -- a
+    snapshot taken with one dialect and verified with another's detectors
+    would report "not detected" for every finding, a tautology rather than
+    a check. A snapshot that mixes dialects, or that names detectors this
+    build doesn't have, is rejected for the same reason instead of
+    producing a confident number from partial input.
+  - **`--fix` picks its fixes by `--dialect`**, and gains two mechanical
+    T-SQL ones, both validated the way the gaps themselves are (broken
+    output failing to load into a real PostgreSQL 16; fixed output loading
+    and running): `position(''abc'' in x)` -> `position('abc' in x)`
+    (GAP-100, ora2pg translates CHARINDEX to the right function but
+    doubles the quotes) and deleting the empty, unparseable `DECLARE ;`
+    block a parameterless procedure gets (GAP-091 -- the fix is exactly
+    what ora2pg itself emits for the same procedure when it takes a
+    parameter). MySQL deliberately gets none, and says so rather than
+    reporting every file as "nothing to fix": each of its confirmed gaps
+    needs either a design decision or data the generated file no longer
+    carries.
+  - **`--tui` gains a dialect picker** beside the severity and language
+    ones, and follows the same rules -- including taking the dialect from
+    the baseline in verify mode, so the two modes cannot disagree about
+    what a snapshot means.
+- `--check-connect-by` is now rejected for non-Oracle dialects instead of
+  silently doing nothing: `CONNECT BY` is Oracle syntax and the check runs
+  `ora2pg` in Oracle mode, so on another dialect's file it could never
+  find anything.
+- `core.DIALECTS` is derived from the detector registry rather than typed
+  out again, so the CLI's `--dialect` choices, the TUI picker and the
+  autofix registry all stay in step by construction.
 - MySQL/MariaDB as a second source dialect, alongside Oracle. `ora2pg`
   already supports MySQL/MariaDB as a source via `-m`/`--mysql` (confirmed
   file-based, `ora2pg -m -i <file>`, no live MySQL connection needed —
@@ -23,8 +60,7 @@ patch for fixes to existing ones.
   `plsql_lex.py`'s masking/attribution contract for MySQL's own lexical
   rules (backtick-quoted identifiers, `#`/`--` comments, backslash string
   escaping), and a `--dialect {oracle,mysql}` CLI flag (default `oracle`,
-  every existing invocation unaffected). `--verify`/`--fix`/`--tui` don't
-  support `--dialect mysql` yet and refuse the combination explicitly.
+  every existing invocation unaffected).
 - 5 confirmed MySQL/MariaDB gaps, **GAP-068..072** — the registry goes
   from 67 to 72. Found and confirmed the same way as every Oracle gap:
   a minimal MySQL example, a real `ora2pg 25.0 -m` run, the generated

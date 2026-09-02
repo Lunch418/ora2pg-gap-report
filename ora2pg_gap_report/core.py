@@ -257,6 +257,16 @@ _DETECTORS_BY_DIALECT = {
     "mysql": _MYSQL_DETECTORS,
     "mssql": _MSSQL_DETECTORS,
 }
+
+# The single source of truth for "which dialects exist", derived from the
+# detector registry above rather than typed out again -- cli.py's
+# --dialect choices, tui_app.py's dialect picker and autofix.py's
+# per-dialect fixer registry all read it, so adding a fourth dialect is
+# one dict entry, not a hunt for every place a literal tuple was
+# duplicated. "oracle" is deliberately first: it is the default
+# everywhere, and several callers present these in order.
+DIALECTS: tuple[str, ...] = tuple(_DETECTORS_BY_DIALECT)
+
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")
 
@@ -287,6 +297,57 @@ def detector_names(dialect: str | None = None) -> tuple[str, ...]:
         else tuple(d for tup in _DETECTORS_BY_DIALECT.values() for d in tup)
     )
     return tuple(detector.__module__.rsplit(".", 1)[-1] for detector in detectors)
+
+
+def dialect_of_detector(detector: str) -> str | None:
+    """Which dialect a detector belongs to -- None if the name isn't a
+    detector this build registers at all.
+
+    Derived from _DETECTORS_BY_DIALECT, so it cannot drift the way a
+    hand-written {detector: dialect} map would. This is what lets
+    --verify work out which dialect a --save snapshot was taken with
+    *without* the baseline file having to record it: every detector
+    belongs to exactly one dialect, so the detector names already in the
+    snapshot determine it. That matters for backward compatibility --
+    baselines written before dialects existed at all still verify
+    correctly, and their schema_version never had to change (see
+    baseline.py's SCHEMA_VERSION and its deliberately narrow
+    _REQUIRED_FINDING_FIELDS)."""
+    for dialect in _DETECTORS_BY_DIALECT:
+        if detector in detector_names(dialect):
+            return dialect
+    return None
+
+
+def baseline_dialects(baseline: list[dict]) -> tuple[frozenset[str], tuple[str, ...]]:
+    """`(dialects the snapshot's detectors belong to, detector names that
+    belong to none of them)`, for deciding which dialect --verify should
+    re-scan the generated output with.
+
+    Normally the first element holds exactly one dialect: a scan runs one
+    dialect's detectors, so a snapshot it wrote can only contain that
+    dialect's names. An empty set means an empty snapshot (nothing was
+    found pre-migration), and more than one means the file was assembled
+    from several scans by hand -- neither is something this module can
+    silently pick a dialect for, so both are handed back to the caller to
+    report rather than guessed at.
+
+    The second element catches the other realistic drift: a snapshot
+    written by a *newer* build that has detectors this one doesn't, or by
+    an older one whose detector was since renamed. Those names carry no
+    dialect here, and quietly dropping them would let --verify report a
+    confident result computed from a subset of the baseline."""
+    dialects: set[str] = set()
+    unknown: list[str] = []
+    for rec in baseline:
+        detector = rec["detector"]
+        dialect = dialect_of_detector(detector)
+        if dialect is None:
+            if detector not in unknown:
+                unknown.append(detector)
+        else:
+            dialects.add(dialect)
+    return frozenset(dialects), tuple(sorted(unknown))
 
 
 def _sort_findings(findings: list[Finding]) -> None:

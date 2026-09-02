@@ -85,6 +85,17 @@ def run_estimate_cost(
                 ],
                 capture_output=True,
                 text=True,
+                # Explicit, not the locale default: text=True alone decodes
+                # with locale.getpreferredencoding(), which is cp1252 on a
+                # default Windows install. ora2pg's own output is UTF-8 and
+                # routinely non-ASCII, and result.stderr gets embedded in
+                # the error messages below -- so the locale default turns a
+                # readable ora2pg failure into a UnicodeDecodeError from
+                # inside subprocess. errors="replace" for the same reason
+                # the scanned files are read that way: a mis-encoded byte
+                # somewhere in a diagnostic is not a reason to fail.
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout,
             )
         except OSError as exc:

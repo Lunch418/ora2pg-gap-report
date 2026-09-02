@@ -14,7 +14,7 @@ from ora2pg_gap_report.atomic_write import write_text_atomic
 def test_it_writes_the_file(tmp_path):
     target = tmp_path / "out.txt"
     write_text_atomic(target, "hello\n")
-    assert target.read_text() == "hello\n"
+    assert target.read_text(encoding="utf-8") == "hello\n"
 
 
 def test_it_creates_missing_parent_directories(tmp_path):
@@ -22,21 +22,21 @@ def test_it_creates_missing_parent_directories(tmp_path):
     # used to fail with a bare [Errno 2].
     target = tmp_path / "reports" / "nested" / "baseline.json"
     write_text_atomic(target, "{}\n")
-    assert target.read_text() == "{}\n"
+    assert target.read_text(encoding="utf-8") == "{}\n"
 
 
 def test_it_overwrites_an_existing_file(tmp_path):
     target = tmp_path / "out.txt"
-    target.write_text("old content that is longer\n")
+    target.write_text("old content that is longer\n", encoding="utf-8")
     write_text_atomic(target, "new\n")
-    assert target.read_text() == "new\n"
+    assert target.read_text(encoding="utf-8") == "new\n"
 
 
 def test_a_failed_write_leaves_the_previous_file_untouched(tmp_path, monkeypatch):
     # The whole point: a crash partway through must not destroy what was
     # already there.
     target = tmp_path / "out.txt"
-    target.write_text("the original\n")
+    target.write_text("the original\n", encoding="utf-8")
 
     def exploding_replace(src, dst):
         raise OSError("simulated: disk full")
@@ -45,12 +45,12 @@ def test_a_failed_write_leaves_the_previous_file_untouched(tmp_path, monkeypatch
     with pytest.raises(OSError):
         write_text_atomic(target, "the replacement\n")
 
-    assert target.read_text() == "the original\n"
+    assert target.read_text(encoding="utf-8") == "the original\n"
 
 
 def test_a_failed_write_leaves_no_temp_file_behind(tmp_path, monkeypatch):
     target = tmp_path / "out.txt"
-    target.write_text("the original\n")
+    target.write_text("the original\n", encoding="utf-8")
 
     def exploding_replace(src, dst):
         raise OSError("simulated: disk full")
@@ -83,7 +83,7 @@ def test_a_write_error_surfaces_as_oserror_not_something_exotic(tmp_path):
     # Callers catch OSError specifically (cli.py's --output/--save/--fix
     # handlers all do), so the exception type is part of the contract.
     blocker = tmp_path / "not-a-directory"
-    blocker.write_text("")
+    blocker.write_text("", encoding="utf-8")
     with pytest.raises(OSError):
         write_text_atomic(blocker / "out.txt", "x\n")
 

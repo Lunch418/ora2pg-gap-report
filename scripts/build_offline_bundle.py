@@ -147,9 +147,9 @@ def main(argv: list[str] | None = None) -> int:
     print("+ " + " ".join(cmd), file=sys.stderr)
     subprocess.check_call(cmd, cwd=REPO_ROOT)
 
-    (staging / "install.sh").write_text(_INSTALL_SH)
+    (staging / "install.sh").write_text(_INSTALL_SH, encoding="utf-8")
     (staging / "install.sh").chmod(0o755)
-    (staging / "install.py").write_text(_INSTALL_PY)
+    (staging / "install.py").write_text(_INSTALL_PY, encoding="utf-8")
     (staging / "install.py").chmod(0o755)
     extras_hint = " " + " ".join(extras) if extras else ""
     (staging / "README.txt").write_text(
@@ -160,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
         f"    (или: python3 install.py{extras_hint})\n\n"
         "Ничего не обращается в сеть — pip ставит только из wheels/ рядом с "
         "этим файлом (--no-index --find-links).\n"
-    )
+    , encoding="utf-8")
 
     archive_path = args.out / "ora2pg-gap-report-offline.tar.gz"
     with tarfile.open(archive_path, "w:gz") as tar:

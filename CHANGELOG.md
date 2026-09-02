@@ -265,10 +265,20 @@ release; see "Known and deferred" at the end.
 
 ### Changed
 - CI runs on `windows-latest` and `macos-latest` in addition to Linux.
-  Reporting only, not gating, until someone has triaged what they turn up:
-  the platform-specific surface here (path handling, atomic renames, the
+  Reporting only, not gating, until both platforms are known green: the
+  platform-specific surface here (path handling, atomic renames, the
   uppercase-extension match that exists for Windows tooling) had never
   actually been executed on either OS before.
+
+  It found a real one on its first run: `ora2pg_wrapper.py` ran `ora2pg`
+  with `subprocess.run(..., text=True)` and no explicit encoding, so on
+  Windows its output was decoded as cp1252 — turning any non-ASCII byte
+  in ora2pg's own output (and this project embeds `stderr` in its error
+  messages) into a `UnicodeDecodeError` from inside `subprocess`. Fixed,
+  along with ~80 test/script file reads and writes with the same latent
+  problem. `EncodingWarning` is now an error in the test suite, with CI
+  arming it via `PYTHONWARNDEFAULTENCODING`, so nothing can reintroduce
+  an implicit-locale-encoding read where UTF-8 was meant.
 - `rich` and `textual` gained upper version bounds, with the reasoning
   written down, same as `ruff` already had — this tool promises
   reproducible output and ships as an offline bundle, so a silent major

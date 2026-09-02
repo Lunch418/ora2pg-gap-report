@@ -6,7 +6,7 @@ SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 
 
 def test_detects_compound_trigger_in_apress_sample():
-    source = (SAMPLES / "compound_trigger_apress.sql").read_text()
+    source = (SAMPLES / "compound_trigger_apress.sql").read_text(encoding="utf-8")
     findings = find_compound_triggers(source)
 
     assert {f.object_name for f in findings} == {"TR_CONSTRUCTORS_CTI"}
@@ -20,7 +20,7 @@ def test_dlee_sample_flags_only_the_compound_trigger_not_the_plain_ones():
     # of the same logic later in the file, plus an anonymous PL/SQL block —
     # a good real-world test that trigger boundaries aren't confused by
     # any of that.
-    source = (SAMPLES / "compound_trigger_dlee.sql").read_text()
+    source = (SAMPLES / "compound_trigger_dlee.sql").read_text(encoding="utf-8")
     findings = find_compound_triggers(source)
 
     assert len(findings) == 1

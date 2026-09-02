@@ -36,14 +36,14 @@ def test_falls_back_to_semicolon_splitting_when_no_slash_separators():
 
 
 def test_real_logger_pkb_is_a_single_statement():
-    text = (SAMPLES / "logger.pkb").read_text()
+    text = (SAMPLES / "logger.pkb").read_text(encoding="utf-8")
     stmts = verify.split_sql_statements(text)
     assert len(stmts) == 1
     assert stmts[0].lower().startswith("create or replace package body logger")
 
 
 def test_real_compound_trigger_apress_is_a_single_statement():
-    text = (SAMPLES / "compound_trigger_apress.sql").read_text()
+    text = (SAMPLES / "compound_trigger_apress.sql").read_text(encoding="utf-8")
     stmts = verify.split_sql_statements(text)
     assert len(stmts) == 1
     assert "compound trigger" in stmts[0].lower()
@@ -55,7 +55,7 @@ def test_real_dlee_file_captures_the_compound_trigger_targeting_mfe_customers():
     # end) the one COMPOUND TRIGGER our detector actually cares about —
     # real-world messiness the splitter has to get right, not a clean
     # synthetic case.
-    text = (SAMPLES / "compound_trigger_dlee.sql").read_text()
+    text = (SAMPLES / "compound_trigger_dlee.sql").read_text(encoding="utf-8")
     stmts = verify.split_sql_statements(text)
 
     compound_chunks = [s for s in stmts if "compound trigger" in s.lower()]
@@ -109,7 +109,7 @@ def test_trailing_comment_only_chunk_is_not_treated_as_a_statement():
 
 
 def test_real_dlee_file_has_no_trailing_comment_only_statement():
-    text = (SAMPLES / "compound_trigger_dlee.sql").read_text()
+    text = (SAMPLES / "compound_trigger_dlee.sql").read_text(encoding="utf-8")
     stmts = verify.split_sql_statements(text)
     assert "Supplement to the fifth edition" not in stmts[-1]
 

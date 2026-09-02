@@ -19,7 +19,7 @@ EXPECTED_OBJECTS = {
 
 
 def test_detects_all_known_occurrences_in_logger_pkb():
-    source = (SAMPLES / "logger.pkb").read_text()
+    source = (SAMPLES / "logger.pkb").read_text(encoding="utf-8")
     findings = find_autonomous_transactions(source)
 
     assert {f.object_name for f in findings} == EXPECTED_OBJECTS
@@ -27,7 +27,7 @@ def test_detects_all_known_occurrences_in_logger_pkb():
 
 
 def test_finding_shape():
-    source = (SAMPLES / "logger.pkb").read_text()
+    source = (SAMPLES / "logger.pkb").read_text(encoding="utf-8")
     findings = find_autonomous_transactions(source)
     finding = next(f for f in findings if f.object_name == "LOGGER.PURGE_ALL")
 
@@ -40,7 +40,7 @@ def test_finding_shape():
 
 def test_no_false_positives_on_packages_without_the_pragma():
     for filename in ("sql_util_pkg.pkb", "file_util_pkg.pkb"):
-        source = (SAMPLES / filename).read_text()
+        source = (SAMPLES / filename).read_text(encoding="utf-8")
         assert find_autonomous_transactions(source) == []
 
 

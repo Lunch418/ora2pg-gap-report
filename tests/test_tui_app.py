@@ -66,7 +66,7 @@ def test_scan_path_on_a_directory_recurses():
 
 
 def test_scan_path_on_a_directory_with_no_matching_files_warns(tmp_path):
-    (tmp_path / "readme.txt").write_text("not DDL")
+    (tmp_path / "readme.txt").write_text("not DDL", encoding="utf-8")
     findings, objects_scanned, warnings = scan_path(tmp_path)
     assert findings == []
     assert objects_scanned == 0
@@ -269,7 +269,7 @@ def test_scan_paths_reports_a_crashing_detector_as_a_warning_not_a_traceback(mon
     )
 
     source = tmp_path / "x.sql"
-    source.write_text("SELECT * FROM t CROSS APPLY (SELECT 1) x;\n")
+    source.write_text("SELECT * FROM t CROSS APPLY (SELECT 1) x;\n", encoding="utf-8")
 
     findings, _, warnings = scan_paths([source])
     assert any("pretend_detector" in w for w in warnings)
@@ -646,7 +646,7 @@ async def test_the_dialect_picker_offers_every_registered_dialect():
 @pytest.mark.asyncio
 async def test_scanning_with_the_mysql_dialect_runs_mysql_detectors(tmp_path):
     source = tmp_path / "schema.sql"
-    source.write_text(_MYSQL_TUI_SOURCE)
+    source.write_text(_MYSQL_TUI_SOURCE, encoding="utf-8")
 
     app = GapReportApp(start_path=tmp_path)
     async with app.run_test() as pilot:
@@ -669,7 +669,7 @@ async def test_the_same_file_under_the_oracle_dialect_finds_nothing(tmp_path):
     # from the UI: picking the wrong dialect cannot surface another
     # dialect's findings.
     source = tmp_path / "schema.sql"
-    source.write_text(_MYSQL_TUI_SOURCE)
+    source.write_text(_MYSQL_TUI_SOURCE, encoding="utf-8")
 
     app = GapReportApp(start_path=tmp_path)
     async with app.run_test() as pilot:
@@ -683,7 +683,7 @@ async def test_the_same_file_under_the_oracle_dialect_finds_nothing(tmp_path):
 @pytest.mark.asyncio
 async def test_connect_by_checkbox_is_rejected_for_a_non_oracle_dialect(tmp_path):
     source = tmp_path / "schema.sql"
-    source.write_text(_MYSQL_TUI_SOURCE)
+    source.write_text(_MYSQL_TUI_SOURCE, encoding="utf-8")
 
     app = GapReportApp(start_path=tmp_path, lang="en")
     async with app.run_test() as pilot:

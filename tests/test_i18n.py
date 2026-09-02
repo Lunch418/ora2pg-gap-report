@@ -7,6 +7,7 @@ checkout, not a synthetic fixture)."""
 
 import glob
 import importlib
+from pathlib import Path
 
 import pytest
 
@@ -99,7 +100,10 @@ def test_t_raises_for_an_unregistered_key():
 def _detector_message_constants():
     items = []
     for f in sorted(glob.glob("ora2pg_gap_report/detectors/*.py")):
-        name = f.split("/")[-1][:-3]
+        # Path(f).stem, not f.split("/"): glob returns the platform's own
+        # separator, so splitting on "/" leaves "detectors\foo" as the
+        # "module name" on Windows and import_module then fails.
+        name = Path(f).stem
         if name == "__init__":
             continue
         module = importlib.import_module(f"ora2pg_gap_report.detectors.{name}")

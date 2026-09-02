@@ -6,7 +6,7 @@ SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 
 
 def test_flags_unsupported_utl_file_and_dbms_lob_calls_in_file_util_pkg():
-    source = (SAMPLES / "file_util_pkg.pkb").read_text()
+    source = (SAMPLES / "file_util_pkg.pkb").read_text(encoding="utf-8")
     findings = find_dbms_utl_calls(source)
     names = {f.object_name for f in findings}
 
@@ -37,7 +37,7 @@ def test_flags_unsupported_utl_file_and_dbms_lob_calls_in_file_util_pkg():
 
 
 def test_flags_unsupported_dbms_lob_calls_in_sql_util_pkg_and_ignores_commented_ones():
-    source = (SAMPLES / "sql_util_pkg.pkb").read_text()
+    source = (SAMPLES / "sql_util_pkg.pkb").read_text(encoding="utf-8")
     findings = find_dbms_utl_calls(source)
     names = {f.object_name for f in findings}
 
@@ -59,7 +59,7 @@ def test_flags_unsupported_dbms_lob_calls_in_sql_util_pkg_and_ignores_commented_
 
 
 def test_dbms_output_and_dbms_lob_targeted_conversions_are_not_flagged_in_logger():
-    source = (SAMPLES / "logger.pkb").read_text()
+    source = (SAMPLES / "logger.pkb").read_text(encoding="utf-8")
     findings = find_dbms_utl_calls(source)
     names = {f.object_name for f in findings}
 

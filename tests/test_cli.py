@@ -32,7 +32,7 @@ def test_resolve_format_defaults_to_markdown_when_writing_to_a_file_even_on_a_tt
 
 
 def test_scan_source_runs_all_detectors_on_logger():
-    source = (SAMPLES / "logger.pkb").read_text()
+    source = (SAMPLES / "logger.pkb").read_text(encoding="utf-8")
     findings = scan_source(source)
     detectors_seen = {f.detector for f in findings}
     assert detectors_seen == {
@@ -71,7 +71,7 @@ def test_scan_source_runs_all_detectors_on_logger():
 
 
 def test_scan_source_sorts_high_severity_first():
-    source = (SAMPLES / "logger.pkb").read_text()
+    source = (SAMPLES / "logger.pkb").read_text(encoding="utf-8")
     findings = scan_source(source)
     severities = [f.severity for f in findings]
     assert severities == sorted(severities, key=lambda s: {"high": 0, "medium": 1, "low": 2}[s])
@@ -124,7 +124,7 @@ def test_main_end_to_end_json_to_file(tmp_path):
         ]
     )
     assert exit_code == 0
-    data = json.loads(output_path.read_text())
+    data = json.loads(output_path.read_text(encoding="utf-8"))
     assert isinstance(data, list)
     object_names = {item["object_name"] for item in data}
     assert "TR_CONSTRUCTORS_CTI" in object_names
@@ -163,7 +163,7 @@ def test_main_end_to_end_sarif_to_file(tmp_path):
         ]
     )
     assert exit_code == 0
-    doc = json.loads(output_path.read_text())
+    doc = json.loads(output_path.read_text(encoding="utf-8"))
     assert doc["version"] == "2.1.0"
     object_names = {
         r["message"]["text"] for r in doc["runs"][0]["results"]
@@ -212,7 +212,11 @@ def test_main_reports_missing_file_with_brackets_in_path_without_crashing(
     exit_code = main([str(bracket_path)])
     captured = capsys.readouterr()
     assert exit_code == 2
-    assert "notes[/archive].sql" in captured.err
+    # str(bracket_path), not the literal "notes[/archive].sql": "/" is a
+    # separator on Windows too, so the same Path renders with a backslash
+    # there and a hardcoded POSIX spelling never matches. What matters for
+    # this test is the brackets surviving Rich, not the separator.
+    assert str(bracket_path) in captured.err
 
 
 def test_main_reports_unreadable_file_as_error_not_traceback(tmp_path, capsys, monkeypatch):
@@ -220,7 +224,7 @@ def test_main_reports_unreadable_file_as_error_not_traceback(tmp_path, capsys, m
     # rather than chmod(0o000): chmod is a no-op against a root process
     # (as this sandbox runs), so it wouldn't actually reproduce the failure.
     unreadable = tmp_path / "secret.pkb"
-    unreadable.write_text("create or replace package body x as end x; /")
+    unreadable.write_text("create or replace package body x as end x; /", encoding="utf-8")
     original_read_text = Path.read_text
 
     def boom(self, *args, **kwargs):
@@ -249,7 +253,7 @@ def test_main_stamps_source_file_on_every_finding(tmp_path):
         ]
     )
     assert exit_code == 0
-    data = json.loads(output_path.read_text())
+    data = json.loads(output_path.read_text(encoding="utf-8"))
     by_object = {item["object_name"]: item["source_file"] for item in data}
     assert by_object["LOGGER.PURGE_ALL"].endswith("logger.pkb")
     assert by_object["TR_CONSTRUCTORS_CTI"].endswith("compound_trigger_apress.sql")
@@ -267,7 +271,7 @@ def test_check_connect_by_is_off_by_default_even_when_source_has_connect_by(monk
 
 
 def test_check_connect_by_reports_the_level_bug_via_mocked_ora2pg(monkeypatch, capsys):
-    fixture_output = (FIXTURES / "ora2pg_generated_connect_by_hierarchy.sql").read_text()
+    fixture_output = (FIXTURES / "ora2pg_generated_connect_by_hierarchy.sql").read_text(encoding="utf-8")
     monkeypatch.setattr(core, "run_estimate_cost", lambda *a, **k: fixture_output)
 
     exit_code = main(
@@ -347,7 +351,7 @@ def test_main_merges_and_resorts_findings_across_multiple_files(tmp_path):
         end aaa_pkg;
         /
         """
-    )
+    , encoding="utf-8")
     file_b = tmp_path / "b_high.pkb"
     file_b.write_text(
         """
@@ -360,14 +364,14 @@ def test_main_merges_and_resorts_findings_across_multiple_files(tmp_path):
         end bbb_pkg;
         /
         """
-    )
+    , encoding="utf-8")
 
     output_path = tmp_path / "report.json"
     exit_code = main(
         [str(file_a), str(file_b), "--format", "json", "--output", str(output_path)]
     )
     assert exit_code == 0
-    data = json.loads(output_path.read_text())
+    data = json.loads(output_path.read_text(encoding="utf-8"))
     assert data[0]["severity"] == "high"
     assert data[0]["object_name"] == "BBB_PKG.BAR"
     assert data[-1]["severity"] == "medium"
@@ -415,7 +419,7 @@ def test_main_format_terminal_reports_write_failure_without_a_traceback(tmp_path
     # regular file*, not just a missing directory -- a missing directory
     # is created now rather than being an error (see atomic_write.py).
     blocker = tmp_path / "not-a-directory"
-    blocker.write_text("")
+    blocker.write_text("", encoding="utf-8")
     exit_code = main(
         [
             str(SAMPLES / "compound_trigger_apress.sql"),
@@ -477,14 +481,14 @@ def test_severity_and_object_filters_combine():
 
 
 def test_count_objects_counts_top_level_objects_not_nested_routines():
-    source = (SAMPLES / "logger.pkb").read_text()
+    source = (SAMPLES / "logger.pkb").read_text(encoding="utf-8")
     # LOGGER is one PACKAGE BODY, however many procedures/functions it
     # declares inside — the package itself is the migration unit.
     assert cli.count_objects(source) == 1
 
 
 def test_count_objects_counts_multiple_triggers_separately():
-    source = (SAMPLES / "compound_trigger_dlee.sql").read_text()
+    source = (SAMPLES / "compound_trigger_dlee.sql").read_text(encoding="utf-8")
     assert cli.count_objects(source) > 1
 
 
@@ -547,10 +551,10 @@ def test_version_flag_prints_the_installed_version_and_exits_cleanly(capsys):
 def test_expand_paths_recursively_finds_ddl_files_in_a_directory(tmp_path):
     nested = tmp_path / "schema" / "packages"
     nested.mkdir(parents=True)
-    (tmp_path / "top.sql").write_text("create table t (id number);\n")
-    (nested / "logger.pkb").write_text("create table t (id number);\n")
-    (nested / "logger.pks").write_text("create table t (id number);\n")
-    (nested / "readme.txt").write_text("not ddl\n")
+    (tmp_path / "top.sql").write_text("create table t (id number);\n", encoding="utf-8")
+    (nested / "logger.pkb").write_text("create table t (id number);\n", encoding="utf-8")
+    (nested / "logger.pks").write_text("create table t (id number);\n", encoding="utf-8")
+    (nested / "readme.txt").write_text("not ddl\n", encoding="utf-8")
 
     found, empty_dirs = _expand_paths([tmp_path])
 
@@ -560,7 +564,7 @@ def test_expand_paths_recursively_finds_ddl_files_in_a_directory(tmp_path):
 
 def test_expand_paths_leaves_plain_files_and_missing_paths_untouched(tmp_path):
     real_file = tmp_path / "a.pkb"
-    real_file.write_text("create table t (id number);\n")
+    real_file.write_text("create table t (id number);\n", encoding="utf-8")
     missing = tmp_path / "does_not_exist.sql"
 
     found, empty_dirs = _expand_paths([real_file, missing])
@@ -576,7 +580,7 @@ def test_expand_paths_matches_uppercase_extensions_too():
     tmp_path_dir = Path(__file__).resolve().parent / "fixtures" / "_uppercase_ext_probe"
     tmp_path_dir.mkdir(exist_ok=True)
     try:
-        (tmp_path_dir / "LOGGER.PKB").write_text("create table t (id number);\n")
+        (tmp_path_dir / "LOGGER.PKB").write_text("create table t (id number);\n", encoding="utf-8")
         found, empty_dirs = _expand_paths([tmp_path_dir])
         assert empty_dirs == []
         assert [p.name for p in found] == ["LOGGER.PKB"]
@@ -591,7 +595,7 @@ def test_expand_paths_deduplicates_a_file_reachable_both_directly_and_via_a_dire
     nested = tmp_path / "schema"
     nested.mkdir()
     dup_file = nested / "logger.pkb"
-    dup_file.write_text("create table t (id number);\n")
+    dup_file.write_text("create table t (id number);\n", encoding="utf-8")
 
     found, empty_dirs = _expand_paths([nested, dup_file])
 
@@ -602,7 +606,7 @@ def test_expand_paths_deduplicates_a_file_reachable_both_directly_and_via_a_dire
 def test_expand_paths_deduplicates_the_same_directory_listed_twice(tmp_path):
     nested = tmp_path / "schema"
     nested.mkdir()
-    (nested / "logger.pkb").write_text("create table t (id number);\n")
+    (nested / "logger.pkb").write_text("create table t (id number);\n", encoding="utf-8")
 
     found, empty_dirs = _expand_paths([nested, nested])
 
@@ -614,15 +618,15 @@ def test_main_does_not_double_count_a_file_reachable_two_ways(tmp_path):
     schema_dir = tmp_path / "schema"
     schema_dir.mkdir()
     dup_path = schema_dir / "a.pkb"
-    dup_path.write_text((SAMPLES / "logger.pkb").read_text(), encoding="utf-8")
+    dup_path.write_text((SAMPLES / "logger.pkb").read_text(encoding="utf-8"), encoding="utf-8")
 
     once_path = tmp_path / "once.json"
     main([str(dup_path), "--format", "json", "--output", str(once_path)])
-    once = json.loads(once_path.read_text())
+    once = json.loads(once_path.read_text(encoding="utf-8"))
 
     twice_path = tmp_path / "twice.json"
     main([str(schema_dir), str(dup_path), "--format", "json", "--output", str(twice_path)])
-    twice = json.loads(twice_path.read_text())
+    twice = json.loads(twice_path.read_text(encoding="utf-8"))
 
     assert len(twice) == len(once)
     assert len(once) > 0
@@ -631,7 +635,7 @@ def test_main_does_not_double_count_a_file_reachable_two_ways(tmp_path):
 def test_expand_paths_reports_a_directory_with_no_matching_files(tmp_path):
     empty = tmp_path / "no_ddl_here"
     empty.mkdir()
-    (empty / "readme.txt").write_text("not ddl\n")
+    (empty / "readme.txt").write_text("not ddl\n", encoding="utf-8")
 
     found, empty_dirs = _expand_paths([empty])
 
@@ -641,12 +645,12 @@ def test_expand_paths_reports_a_directory_with_no_matching_files(tmp_path):
 
 def test_main_scans_a_directory_end_to_end(tmp_path):
     (tmp_path / "a.pkb").write_text(
-        (SAMPLES / "logger.pkb").read_text(), encoding="utf-8"
+        (SAMPLES / "logger.pkb").read_text(encoding="utf-8"), encoding="utf-8"
     )
     output_path = tmp_path / "report.json"
     exit_code = main([str(tmp_path), "--format", "json", "--output", str(output_path)])
     assert exit_code == 0
-    findings = json.loads(output_path.read_text())
+    findings = json.loads(output_path.read_text(encoding="utf-8"))
     assert len(findings) > 0
     assert findings[0]["source_file"].endswith("a.pkb")
 
@@ -667,7 +671,7 @@ def test_main_save_writes_a_baseline_snapshot(tmp_path):
         [str(SAMPLES / "logger.pkb"), "--format", "json", "--save", str(baseline_path)]
     )
     assert exit_code == 0
-    saved = json.loads(baseline_path.read_text())
+    saved = json.loads(baseline_path.read_text(encoding="utf-8"))
     assert saved["schema_version"] == 2
     assert len(saved["findings"]) > 0
     assert all("group_key" in rec for rec in saved["findings"])
@@ -692,8 +696,8 @@ def test_main_save_captures_all_findings_regardless_of_display_filters(tmp_path)
         ]
     )
     assert exit_code == 0
-    unfiltered_count = len(json.loads(unfiltered_path.read_text()))
-    saved_count = len(json.loads(baseline_path.read_text())["findings"])
+    unfiltered_count = len(json.loads(unfiltered_path.read_text(encoding="utf-8")))
+    saved_count = len(json.loads(baseline_path.read_text(encoding="utf-8"))["findings"])
     assert saved_count == unfiltered_count
 
 
@@ -847,7 +851,7 @@ def test_main_fail_on_ignores_an_unrelated_severity_display_filter():
 
 def test_main_fail_on_passes_when_no_qualifying_findings_exist(tmp_path):
     empty_source = tmp_path / "empty.sql"
-    empty_source.write_text("create table t (id number);\n")
+    empty_source.write_text("create table t (id number);\n", encoding="utf-8")
     exit_code = main([str(empty_source), "--format", "json", "--fail-on", "high"])
     assert exit_code == 0
 
@@ -1119,7 +1123,7 @@ $$ LANGUAGE plpgsql;
 
 def _save_cross_apply_baseline(tmp_path) -> Path:
     oracle_file = tmp_path / "oracle_schema.sql"
-    oracle_file.write_text(_ORACLE_CROSS_APPLY_SOURCE)
+    oracle_file.write_text(_ORACLE_CROSS_APPLY_SOURCE, encoding="utf-8")
     baseline_path = tmp_path / "baseline.json"
     # --output here is just to keep this helper's own report off stdout --
     # callers frequently assert on captured.out for the *next* main()
@@ -1135,7 +1139,7 @@ def _save_cross_apply_baseline(tmp_path) -> Path:
 def test_verify_reports_still_present_when_the_pattern_survives_in_generated_code(tmp_path, capsys):
     baseline_path = _save_cross_apply_baseline(tmp_path)
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_STILL_BROKEN)
+    generated.write_text(_GENERATED_STILL_BROKEN, encoding="utf-8")
 
     exit_code = main(["--verify", "--baseline", str(baseline_path), str(generated)])
     captured = capsys.readouterr()
@@ -1148,7 +1152,7 @@ def test_verify_reports_still_present_when_the_pattern_survives_in_generated_cod
 def test_verify_reports_not_detected_when_the_pattern_is_gone_from_generated_code(tmp_path, capsys):
     baseline_path = _save_cross_apply_baseline(tmp_path)
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_FIXED)
+    generated.write_text(_GENERATED_FIXED, encoding="utf-8")
 
     exit_code = main(["--verify", "--baseline", str(baseline_path), str(generated)])
     captured = capsys.readouterr()
@@ -1160,7 +1164,7 @@ def test_verify_reports_not_detected_when_the_pattern_is_gone_from_generated_cod
 def test_verify_json_output(tmp_path, capsys):
     baseline_path = _save_cross_apply_baseline(tmp_path)
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_STILL_BROKEN)
+    generated.write_text(_GENERATED_STILL_BROKEN, encoding="utf-8")
 
     exit_code = main(
         ["--verify", "--baseline", str(baseline_path), "--format", "json", str(generated)]
@@ -1178,7 +1182,7 @@ def test_verify_reports_not_verifiable_for_a_dropped_construct_detector(tmp_path
     oracle_file = tmp_path / "oracle_schema.sql"
     oracle_file.write_text(
         "CREATE TABLE audit_log (log_id NUMBER, message VARCHAR2(200)) READ ONLY;\n"
-    )
+    , encoding="utf-8")
     baseline_path = tmp_path / "baseline.json"
     scan_report_path = tmp_path / "_discard_scan_report.json"
     assert main(
@@ -1190,7 +1194,7 @@ def test_verify_reports_not_verifiable_for_a_dropped_construct_detector(tmp_path
     # migration's output, so its presence/absence in the generated file
     # proves nothing either way.
     generated = tmp_path / "generated.sql"
-    generated.write_text("CREATE TABLE audit_log (log_id bigint, message varchar(200));\n")
+    generated.write_text("CREATE TABLE audit_log (log_id bigint, message varchar(200));\n", encoding="utf-8")
 
     exit_code = main(["--verify", "--baseline", str(baseline_path), str(generated)])
     captured = capsys.readouterr()
@@ -1200,7 +1204,7 @@ def test_verify_reports_not_verifiable_for_a_dropped_construct_detector(tmp_path
 
 def test_verify_requires_baseline(tmp_path, capsys):
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_STILL_BROKEN)
+    generated.write_text(_GENERATED_STILL_BROKEN, encoding="utf-8")
     exit_code = main(["--verify", str(generated)])
     captured = capsys.readouterr()
     assert exit_code == 2
@@ -1210,7 +1214,7 @@ def test_verify_requires_baseline(tmp_path, capsys):
 def test_verify_rejects_conflicting_flags(tmp_path, capsys):
     baseline_path = _save_cross_apply_baseline(tmp_path)
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_STILL_BROKEN)
+    generated.write_text(_GENERATED_STILL_BROKEN, encoding="utf-8")
 
     exit_code = main(
         ["--verify", "--baseline", str(baseline_path), "--fail-on", "high", str(generated)]
@@ -1223,7 +1227,7 @@ def test_verify_rejects_conflicting_flags(tmp_path, capsys):
 def test_verify_rejects_unsupported_format(tmp_path, capsys):
     baseline_path = _save_cross_apply_baseline(tmp_path)
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_STILL_BROKEN)
+    generated.write_text(_GENERATED_STILL_BROKEN, encoding="utf-8")
 
     exit_code = main(
         ["--verify", "--baseline", str(baseline_path), "--format", "html", str(generated)]
@@ -1236,7 +1240,7 @@ def test_verify_rejects_unsupported_format(tmp_path, capsys):
 def test_verify_can_write_to_a_file(tmp_path):
     baseline_path = _save_cross_apply_baseline(tmp_path)
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_STILL_BROKEN)
+    generated.write_text(_GENERATED_STILL_BROKEN, encoding="utf-8")
     output_path = tmp_path / "verification.json"
 
     exit_code = main(
@@ -1252,14 +1256,14 @@ def test_verify_can_write_to_a_file(tmp_path):
         ]
     )
     assert exit_code == 0
-    data = json.loads(output_path.read_text())
+    data = json.loads(output_path.read_text(encoding="utf-8"))
     assert data["results"][0]["status"] == "still_present"
 
 
 def test_verify_english_output(tmp_path, capsys):
     baseline_path = _save_cross_apply_baseline(tmp_path)
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_STILL_BROKEN)
+    generated.write_text(_GENERATED_STILL_BROKEN, encoding="utf-8")
 
     exit_code = main(
         ["--verify", "--baseline", str(baseline_path), "--lang", "en", str(generated)]
@@ -1347,31 +1351,31 @@ _GENERATED_IDENTITY_BUG = (
 
 def test_fix_dry_run_prints_a_diff_and_does_not_touch_the_file(tmp_path, capsys):
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_IDENTITY_BUG)
+    generated.write_text(_GENERATED_IDENTITY_BUG, encoding="utf-8")
 
     exit_code = main(["--fix", str(generated)])
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "-    id integer GENERATED ALWAYS AS IDENTITY ((START WITH 1 INCREMENT BY 1))" in captured.out
     assert "+    id integer GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1)" in captured.out
-    assert generated.read_text() == _GENERATED_IDENTITY_BUG
+    assert generated.read_text(encoding="utf-8") == _GENERATED_IDENTITY_BUG
 
 
 def test_fix_write_actually_rewrites_the_file(tmp_path, capsys):
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_IDENTITY_BUG)
+    generated.write_text(_GENERATED_IDENTITY_BUG, encoding="utf-8")
 
     exit_code = main(["--fix", "--write", str(generated)])
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "((" not in generated.read_text()
-    assert "IDENTITY (START WITH 1 INCREMENT BY 1)" in generated.read_text()
+    assert "((" not in generated.read_text(encoding="utf-8")
+    assert "IDENTITY (START WITH 1 INCREMENT BY 1)" in generated.read_text(encoding="utf-8")
     assert "записано" in captured.err
 
 
 def test_fix_reports_clean_when_nothing_to_fix(tmp_path, capsys):
     generated = tmp_path / "generated.sql"
-    generated.write_text("CREATE TABLE foo (id integer, name text);\n")
+    generated.write_text("CREATE TABLE foo (id integer, name text);\n", encoding="utf-8")
 
     exit_code = main(["--fix", str(generated)])
     captured = capsys.readouterr()
@@ -1389,7 +1393,7 @@ def test_fix_dry_run_diff_is_not_wrapped_and_is_git_apply_clean(tmp_path, capsys
     long_dir = tmp_path / ("this_is_a_very_long_directory_name_" * 3)
     long_dir.mkdir()
     generated = long_dir / "generated.sql"
-    generated.write_text(_GENERATED_IDENTITY_BUG)
+    generated.write_text(_GENERATED_IDENTITY_BUG, encoding="utf-8")
 
     exit_code = main(["--fix", str(generated)])
     captured = capsys.readouterr()
@@ -1397,7 +1401,7 @@ def test_fix_dry_run_diff_is_not_wrapped_and_is_git_apply_clean(tmp_path, capsys
 
     import difflib
 
-    fixed = generated.read_text().replace("((START WITH 1 INCREMENT BY 1))", "(START WITH 1 INCREMENT BY 1)")
+    fixed = generated.read_text(encoding="utf-8").replace("((START WITH 1 INCREMENT BY 1))", "(START WITH 1 INCREMENT BY 1)")
     expected_diff = "".join(
         difflib.unified_diff(
             _GENERATED_IDENTITY_BUG.splitlines(keepends=True),
@@ -1407,24 +1411,30 @@ def test_fix_dry_run_diff_is_not_wrapped_and_is_git_apply_clean(tmp_path, capsys
         )
     )
     assert captured.out == expected_diff
-    for line in captured.out.splitlines():
-        assert len(line) < 200, f"diff line unexpectedly wrapped: {line!r}"
+    # The specific corruption, spelled out: the `---` header carries the
+    # full path and is the first thing Rich used to fold in two. It has to
+    # survive as one line, however long the path is -- so the check is
+    # "this exact line is present intact", not a length threshold (a
+    # threshold just re-fails on any runner whose temp directory is long,
+    # which is most of them).
+    assert f"--- {generated}" in captured.out.splitlines()
+    assert f"+++ {generated}" in captured.out.splitlines()
 
 
 def test_write_without_fix_is_rejected(tmp_path, capsys):
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_IDENTITY_BUG)
+    generated.write_text(_GENERATED_IDENTITY_BUG, encoding="utf-8")
 
     exit_code = main(["--write", str(generated)])
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "--fix" in captured.err
-    assert generated.read_text() == _GENERATED_IDENTITY_BUG
+    assert generated.read_text(encoding="utf-8") == _GENERATED_IDENTITY_BUG
 
 
 def test_fix_rejects_conflicting_flags(tmp_path, capsys):
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_IDENTITY_BUG)
+    generated.write_text(_GENERATED_IDENTITY_BUG, encoding="utf-8")
 
     exit_code = main(["--fix", "--fail-on", "high", str(generated)])
     captured = capsys.readouterr()
@@ -1434,9 +1444,9 @@ def test_fix_rejects_conflicting_flags(tmp_path, capsys):
 
 def test_fix_combined_with_verify_is_rejected(tmp_path, capsys):
     generated = tmp_path / "generated.sql"
-    generated.write_text(_GENERATED_IDENTITY_BUG)
+    generated.write_text(_GENERATED_IDENTITY_BUG, encoding="utf-8")
     baseline_path = tmp_path / "baseline.json"
-    baseline_path.write_text('{"schema_version": 2, "findings": [], "complete": true}')
+    baseline_path.write_text('{"schema_version": 2, "findings": [], "complete": true}', encoding="utf-8")
 
     exit_code = main(["--verify", "--fix", "--baseline", str(baseline_path), str(generated)])
     captured = capsys.readouterr()
@@ -1487,9 +1497,9 @@ def test_a_detector_crash_on_one_file_does_not_take_down_the_whole_scan(tmp_path
     monkeypatch.setitem(core._DETECTORS_BY_DIALECT, "oracle", (*original, flaky))
 
     bad = tmp_path / "bad.sql"
-    bad.write_text("-- CRASH_HERE\nSELECT * FROM t CROSS APPLY (SELECT 1) x;\n")
+    bad.write_text("-- CRASH_HERE\nSELECT * FROM t CROSS APPLY (SELECT 1) x;\n", encoding="utf-8")
     good = tmp_path / "good.sql"
-    good.write_text("SELECT * FROM u CROSS APPLY (SELECT 2) y;\n")
+    good.write_text("SELECT * FROM u CROSS APPLY (SELECT 2) y;\n", encoding="utf-8")
 
     exit_code = main([str(bad), str(good), "--format", "json"])
     captured = capsys.readouterr()
@@ -1517,7 +1527,7 @@ def test_the_crashed_detector_is_named_not_just_counted(tmp_path, monkeypatch, c
     monkeypatch.setitem(core._DETECTORS_BY_DIALECT, "oracle", (*original, boom))
 
     source = tmp_path / "x.sql"
-    source.write_text("SELECT 1;\n")
+    source.write_text("SELECT 1;\n", encoding="utf-8")
 
     assert main([str(source)]) == 3
     assert "pretend_detector" in capsys.readouterr().err
@@ -1535,7 +1545,7 @@ def test_internal_error_exit_code_is_distinct_from_fail_on_gate_failed(tmp_path,
     monkeypatch.setitem(core._DETECTORS_BY_DIALECT, "oracle", (*original, boom))
 
     source = tmp_path / "x.sql"
-    source.write_text("READ ONLY;\n")  # also trips read_only_table, so --fail-on has something to fail on
+    source.write_text("READ ONLY;\n", encoding="utf-8")  # also trips read_only_table, so --fail-on has something to fail on
 
     exit_code = main([str(source), "--fail-on", "high"])
     assert exit_code == 3
@@ -1550,7 +1560,7 @@ def test_a_crash_blocks_save_the_same_way_a_skipped_file_does(tmp_path, monkeypa
     monkeypatch.setitem(core._DETECTORS_BY_DIALECT, "oracle", (*original, boom))
 
     source = tmp_path / "x.sql"
-    source.write_text("SELECT 1;\n")
+    source.write_text("SELECT 1;\n", encoding="utf-8")
     baseline_path = tmp_path / "baseline.json"
 
     exit_code = main([str(source), "--save", str(baseline_path)])
@@ -1571,7 +1581,7 @@ def test_an_unexpected_crash_outside_the_scan_loop_is_still_caught_at_the_top_le
     monkeypatch.setattr(cli, "_expand_paths", boom)
 
     source = tmp_path / "x.sql"
-    source.write_text("SELECT 1;\n")
+    source.write_text("SELECT 1;\n", encoding="utf-8")
 
     exit_code = main([str(source)])
     captured = capsys.readouterr()

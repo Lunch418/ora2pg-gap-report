@@ -65,6 +65,21 @@ ora2pg-gap-export = "ora2pg_gap_report.oracle_export:main"
 [tool.setuptools.packages.find]
 include = ["ora2pg_gap_report*"]
 
+[tool.pytest.ini_options]
+# EncodingWarning as an error. Python only emits that warning when
+# PYTHONWARNDEFAULTENCODING=1 is set before the interpreter starts (the
+# tests workflow sets it, and `PYTHONWARNDEFAULTENCODING=1 pytest` does
+# the same locally) -- it fires for every file opened without an explicit
+# `encoding=`, which is exactly the bug that failed a dozen tests the
+# first time this suite ever ran on Windows: the locale default there is
+# cp1252, and it cannot decode this project's own UTF-8 output. Linux and
+# macOS default to UTF-8, so nothing catches it on a developer's machine.
+# Making it an error here means the CI run that does arm it fails loudly
+# instead of printing a warning nobody reads.
+filterwarnings = [
+    "error::EncodingWarning",
+]
+
 [tool.ruff.lint]
 # Explicit selection, not ruff's own implicit default -- that default has
 # changed between minor versions (0.15's true default was E+F, ~59 rules;

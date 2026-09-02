@@ -99,8 +99,8 @@ def test_export_schema_writes_one_file_per_object(tmp_path):
     written = oracle_connector.export_schema(conn, "hr", output_dir)
 
     assert {p.name for p in written} == {"logger.pkb.sql", "trg_audit.trg.sql"}
-    assert (output_dir / "logger.pkb.sql").read_text() == "CREATE OR REPLACE PACKAGE BODY logger ..."
-    assert (output_dir / "trg_audit.trg.sql").read_text() == "CREATE OR REPLACE TRIGGER trg_audit ..."
+    assert (output_dir / "logger.pkb.sql").read_text(encoding="utf-8") == "CREATE OR REPLACE PACKAGE BODY logger ..."
+    assert (output_dir / "trg_audit.trg.sql").read_text(encoding="utf-8") == "CREATE OR REPLACE TRIGGER trg_audit ..."
 
 
 def test_export_schema_skips_objects_with_no_ddl(tmp_path):

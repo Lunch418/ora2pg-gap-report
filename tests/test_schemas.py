@@ -13,7 +13,7 @@ SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 
 
 def _load_schema(name: str) -> dict:
-    return json.loads((SCHEMAS_DIR / name).read_text())
+    return json.loads((SCHEMAS_DIR / name).read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="module")
@@ -35,7 +35,7 @@ def test_baseline_schema_itself_is_valid_json_schema(baseline_schema):
 
 
 def test_real_json_report_validates_against_report_schema(report_schema):
-    findings = scan_source((SAMPLES / "logger.pkb").read_text())
+    findings = scan_source((SAMPLES / "logger.pkb").read_text(encoding="utf-8"))
     assert findings, "expected at least one finding to make this a meaningful check"
     report = json.loads(to_json(findings))
     jsonschema.validate(report, report_schema)
@@ -46,18 +46,18 @@ def test_empty_json_report_validates_against_report_schema(report_schema):
 
 
 def test_real_baseline_snapshot_validates_against_baseline_schema(tmp_path, baseline_schema):
-    findings = scan_source((SAMPLES / "logger.pkb").read_text())
+    findings = scan_source((SAMPLES / "logger.pkb").read_text(encoding="utf-8"))
     path = tmp_path / "baseline.json"
     save_baseline(findings, path)
 
-    snapshot = json.loads(path.read_text())
+    snapshot = json.loads(path.read_text(encoding="utf-8"))
     jsonschema.validate(snapshot, baseline_schema)
 
 
 def test_empty_baseline_snapshot_validates_against_baseline_schema(tmp_path, baseline_schema):
     path = tmp_path / "empty_baseline.json"
     save_baseline([], path)
-    snapshot = json.loads(path.read_text())
+    snapshot = json.loads(path.read_text(encoding="utf-8"))
     jsonschema.validate(snapshot, baseline_schema)
 
 

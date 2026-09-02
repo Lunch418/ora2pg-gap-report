@@ -22,7 +22,7 @@ _SCHEMA_PATH = Path(__file__).resolve().parent / "fixtures" / "sarif-2.1.0.schem
 
 @pytest.fixture(scope="module")
 def sarif_schema() -> dict:
-    return json.loads(_SCHEMA_PATH.read_text())
+    return json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
 
 
 def test_empty_findings_produce_valid_sarif(sarif_schema):
@@ -33,7 +33,7 @@ def test_empty_findings_produce_valid_sarif(sarif_schema):
 
 
 def test_real_scan_produces_valid_sarif(sarif_schema):
-    findings = scan_source((SAMPLES / "logger.pkb").read_text())
+    findings = scan_source((SAMPLES / "logger.pkb").read_text(encoding="utf-8"))
     assert findings, "expected at least one finding to make this a meaningful check"
     doc = json.loads(to_sarif(findings, tool_version="1.2.3"))
     jsonschema.validate(doc, sarif_schema)
@@ -221,7 +221,7 @@ def test_multiple_messages_from_one_detector_get_separate_rules(sarif_schema):
     # for grouping SARIF rules by detector alone: that would attach
     # whichever message came first to a rule shared by both results,
     # misdescribing the other one.
-    source = (SAMPLES / "compound_trigger_apress.sql").read_text()
+    source = (SAMPLES / "compound_trigger_apress.sql").read_text(encoding="utf-8")
     findings = [f for f in scan_source(source) if f.detector == "bulk_collect"]
     assert len({f.message for f in findings}) >= 2, "fixture must still exercise >=2 distinct messages"
 

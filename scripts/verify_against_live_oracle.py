@@ -103,7 +103,7 @@ def split_sql_statements(text: str) -> list[str]:
 
 
 def run_sql_file(conn: oracledb.Connection, path: Path, label: str) -> None:
-    statements = split_sql_statements(path.read_text())
+    statements = split_sql_statements(path.read_text(encoding="utf-8"))
     with conn.cursor() as cursor:
         for i, stmt in enumerate(statements, 1):
             try:
@@ -126,12 +126,13 @@ def try_live_show_report(dsn: str, user: str, password: str) -> None:
             f"ORACLE_DSN\tdbi:Oracle:host={host};service_name={service};port={port}\n"
             f"ORACLE_USER\t{user}\n"
             f"ORACLE_PWD\t{password}\n"
-        )
+        , encoding="utf-8")
         try:
             result = subprocess.run(
                 ["ora2pg", "-c", str(conf_path), "-t", "SHOW_REPORT"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 timeout=180,
             )
         except Exception as exc:  # noqa: BLE001
@@ -192,7 +193,7 @@ def main() -> int:
 
         print("\nПрогоняю детекторы по живьём выгруженному DDL ...")
         for path in written:
-            for f in scan_source(path.read_text()):
+            for f in scan_source(path.read_text(encoding="utf-8")):
                 actual_counts[f.detector] = actual_counts.get(f.detector, 0) + 1
 
     print("\n=== Итог ===")

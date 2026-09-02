@@ -35,7 +35,11 @@ print("OK")
 
 def test_core_modules_import_without_rich_installed():
     result = subprocess.run(
-        [sys.executable, "-c", _GUARD_SCRIPT], capture_output=True, text=True, timeout=30
+        [sys.executable, "-c", _GUARD_SCRIPT],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "OK"

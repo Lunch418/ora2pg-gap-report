@@ -17,7 +17,7 @@ SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 def test_parse_function_costs_from_real_ora2pg_output():
     # Fixture captured from a real run:
     # ora2pg -t PACKAGE -i logger.pkb --estimate_cost
-    output = (FIXTURES / "ora2pg_estimate_cost_logger.txt").read_text()
+    output = (FIXTURES / "ora2pg_estimate_cost_logger.txt").read_text(encoding="utf-8")
     functions = parse_function_costs(output)
     by_name = {f.name: f for f in functions}
 
@@ -34,7 +34,7 @@ def test_parse_function_costs_confirms_pragma_missing_from_breakdown():
     # functions, even though logger.save_global_context has the pragma and
     # ora2pg visibly generates a dblink wrapper for it elsewhere in the
     # same run.
-    output = (FIXTURES / "ora2pg_estimate_cost_logger.txt").read_text()
+    output = (FIXTURES / "ora2pg_estimate_cost_logger.txt").read_text(encoding="utf-8")
     functions = parse_function_costs(output)
     by_name = {f.name: f for f in functions}
 
@@ -45,7 +45,7 @@ def test_parse_function_costs_confirms_pragma_missing_from_breakdown():
 
 
 def test_parse_totals_for_package_mode():
-    output = (FIXTURES / "ora2pg_estimate_cost_logger.txt").read_text()
+    output = (FIXTURES / "ora2pg_estimate_cost_logger.txt").read_text(encoding="utf-8")
     assert parse_totals(output) == [("logger", 225.1, 3.0)]
 
 
@@ -60,7 +60,7 @@ def test_parse_totals_returns_one_entry_per_package_in_a_multi_package_run():
 def test_parse_function_costs_and_totals_for_standalone_function_mode():
     # -t FUNCTION/-t PROCEDURE format differs from -t PACKAGE: no "total"
     # before "estimated cost", and the totals line has no package name.
-    output = (FIXTURES / "ora2pg_estimate_cost_standalone_function.sql").read_text()
+    output = (FIXTURES / "ora2pg_estimate_cost_standalone_function.sql").read_text(encoding="utf-8")
 
     functions = parse_function_costs(output)
     assert len(functions) == 1

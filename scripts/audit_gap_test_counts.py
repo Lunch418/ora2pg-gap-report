@@ -39,7 +39,7 @@ def count_tests(test_files: tuple[str, ...]) -> tuple[int, int]:
     total = 0
     guards = 0
     for fname in test_files:
-        text = (REPO_ROOT / "tests" / fname).read_text()
+        text = (REPO_ROOT / "tests" / fname).read_text(encoding="utf-8")
         parts = _TEST_DEF_RE.split(text)[1:]  # [name, body, name, body, ...]
         for i in range(0, len(parts), 2):
             total += 1

@@ -7,19 +7,19 @@ SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 
 
 def test_has_connect_by_true_on_the_connect_by_fixture():
-    source = (SAMPLES / "connect_by_hierarchy_pkg.sql").read_text()
+    source = (SAMPLES / "connect_by_hierarchy_pkg.sql").read_text(encoding="utf-8")
     assert has_connect_by(source) is True
 
 
 def test_has_connect_by_false_on_a_package_without_it():
-    source = (SAMPLES / "sql_util_pkg.pkb").read_text()
+    source = (SAMPLES / "sql_util_pkg.pkb").read_text(encoding="utf-8")
     assert has_connect_by(source) is False
 
 
 def test_finds_the_real_level_alias_bug_in_generated_output():
     # Fixture captured from a real run:
     # ora2pg -t PACKAGE -i connect_by_hierarchy_pkg.sql --estimate_cost
-    output = (FIXTURES / "ora2pg_generated_connect_by_hierarchy.sql").read_text()
+    output = (FIXTURES / "ora2pg_generated_connect_by_hierarchy.sql").read_text(encoding="utf-8")
     findings = find_connect_by_risks(output)
 
     assert len(findings) == 1
@@ -36,7 +36,7 @@ def test_finds_the_real_level_alias_bug_in_generated_output():
 def test_finds_the_bug_in_standalone_function_mode_output_too():
     # Fixture captured from a real run:
     # ora2pg -t FUNCTION -i standalone_func.sql --estimate_cost
-    output = (FIXTURES / "ora2pg_estimate_cost_standalone_function.sql").read_text()
+    output = (FIXTURES / "ora2pg_estimate_cost_standalone_function.sql").read_text(encoding="utf-8")
     findings = find_connect_by_risks(output)
 
     assert len(findings) == 1
@@ -44,7 +44,7 @@ def test_finds_the_bug_in_standalone_function_mode_output_too():
 
 
 def test_guess_object_type_package_body():
-    source = (SAMPLES / "connect_by_hierarchy_pkg.sql").read_text()
+    source = (SAMPLES / "connect_by_hierarchy_pkg.sql").read_text(encoding="utf-8")
     assert guess_object_type(source) == "PACKAGE"
 
 

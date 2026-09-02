@@ -82,7 +82,7 @@ def test_save_and_load_round_trip(tmp_path):
 def test_save_baseline_is_valid_json_with_schema_version(tmp_path):
     path = tmp_path / "baseline.json"
     save_baseline([_finding()], path)
-    raw = json.loads(path.read_text())
+    raw = json.loads(path.read_text(encoding="utf-8"))
     assert raw["schema_version"] == 2
     assert len(raw["findings"]) == 1
     assert raw["findings"][0]["group_key"]
@@ -92,7 +92,7 @@ def test_save_baseline_is_valid_json_with_schema_version(tmp_path):
 def test_save_baseline_includes_gap_number_and_failure_stage(tmp_path):
     path = tmp_path / "baseline.json"
     save_baseline([_finding()], path)  # read_only_table -- GAP-026, failure_stage="semantic"
-    raw = json.loads(path.read_text())
+    raw = json.loads(path.read_text(encoding="utf-8"))
     assert raw["findings"][0]["gap_number"] == "026"
     assert raw["findings"][0]["failure_stage"] == "semantic"
 
@@ -122,7 +122,7 @@ def test_load_baseline_tolerates_a_snapshot_saved_before_gap_metadata_existed(tm
                 ],
             }
         )
-    )
+    , encoding="utf-8")
     records = load_baseline(path)
     assert len(records) == 1
     assert records[0]["object_name"] == "AUDIT_LOG"
@@ -136,7 +136,7 @@ def test_load_baseline_missing_file_raises_baseline_load_error(tmp_path):
 
 def test_load_baseline_invalid_json_raises_baseline_load_error(tmp_path):
     path = tmp_path / "broken.json"
-    path.write_text("{not valid json")
+    path.write_text("{not valid json", encoding="utf-8")
     with pytest.raises(BaselineLoadError):
         load_baseline(path)
 
@@ -150,14 +150,14 @@ def test_load_baseline_non_utf8_raises_baseline_load_error(tmp_path):
 
 def test_load_baseline_wrong_shape_raises_baseline_load_error(tmp_path):
     path = tmp_path / "wrong.json"
-    path.write_text(json.dumps({"hello": "world"}))
+    path.write_text(json.dumps({"hello": "world"}), encoding="utf-8")
     with pytest.raises(BaselineLoadError):
         load_baseline(path)
 
 
 def test_load_baseline_missing_group_key_raises_baseline_load_error(tmp_path):
     path = tmp_path / "no_group_key.json"
-    path.write_text(json.dumps({"schema_version": 2, "findings": [{"object_name": "X"}]}))
+    path.write_text(json.dumps({"schema_version": 2, "findings": [{"object_name": "X"}]}), encoding="utf-8")
     with pytest.raises(BaselineLoadError):
         load_baseline(path)
 
@@ -169,28 +169,28 @@ def test_load_baseline_missing_detector_raises_baseline_load_error_not_keyerror(
     # KeyError from deep inside --verify instead of a clean, catchable
     # BaselineLoadError right here where the file is actually read.
     path = tmp_path / "no_detector.json"
-    path.write_text(json.dumps({"schema_version": 2, "findings": [{"group_key": "abc123"}]}))
+    path.write_text(json.dumps({"schema_version": 2, "findings": [{"group_key": "abc123"}]}), encoding="utf-8")
     with pytest.raises(BaselineLoadError, match="detector"):
         load_baseline(path)
 
 
 def test_load_baseline_rejects_a_mismatched_schema_version(tmp_path):
     path = tmp_path / "future.json"
-    path.write_text(json.dumps({"schema_version": 999, "findings": []}))
+    path.write_text(json.dumps({"schema_version": 999, "findings": []}), encoding="utf-8")
     with pytest.raises(BaselineLoadError):
         load_baseline(path)
 
 
 def test_load_baseline_error_messages_are_english_when_lang_is_en(tmp_path):
     path = tmp_path / "wrong.json"
-    path.write_text(json.dumps({"hello": "world"}))
+    path.write_text(json.dumps({"hello": "world"}), encoding="utf-8")
     with pytest.raises(BaselineLoadError, match="doesn't look like an ora2pg-gap-report baseline"):
         load_baseline(path, lang="en")
 
 
 def test_load_baseline_schema_mismatch_message_is_english_when_lang_is_en(tmp_path):
     path = tmp_path / "future.json"
-    path.write_text(json.dumps({"schema_version": 999, "findings": []}))
+    path.write_text(json.dumps({"schema_version": 999, "findings": []}), encoding="utf-8")
     with pytest.raises(BaselineLoadError, match="this version of the tool expects"):
         load_baseline(path, lang="en")
 

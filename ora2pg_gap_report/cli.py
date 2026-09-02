@@ -1,6 +1,7 @@
 import argparse
 import dataclasses
 import difflib
+import io
 import sys
 import time
 from collections.abc import Sequence
@@ -13,6 +14,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from . import i18n
+from .atomic_write import write_text_atomic
 from .autofix import FIXERS_BY_DIALECT
 from .baseline import BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
 from .core import (
@@ -31,7 +33,7 @@ from .models import Finding
 from .report_generator import to_csv, to_html, to_json, to_markdown, to_sarif, to_verification_json
 from .terminal_report import render as render_terminal
 from .terminal_report import render_baseline_diff, render_verification
-from .verification import verify_against_baseline
+from .verification import new_in_output, verify_against_baseline
 
 
 def _package_version() -> str:
@@ -204,6 +206,15 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
         help=i18n.t(lang, "help_write"),
     )
     return parser
+
+
+def _file_console(buffer: io.StringIO) -> Console:
+    """A Console for rendering a report that's headed for a file rather
+    than the screen. Writing into a buffer instead of the open file keeps
+    the eventual write atomic (see atomic_write.py), and it renders
+    identically either way: Rich picks its width from file.isatty(),
+    which is False for both a StringIO and a real file on disk."""
+    return Console(file=buffer)
 
 
 def _apply_filters(findings: list[Finding], severity: str | None, object_substring: str | None) -> list[Finding]:
@@ -395,19 +406,33 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
         )
 
     results = verify_against_baseline(baseline, post_migration_findings)
+    # The other direction of the same question: what the conversion
+    # *introduced* that was never in the Oracle source. verify_against_
+    # baseline() can only ever iterate the baseline's own detectors.
+    introduced = new_in_output(baseline, post_migration_findings)
 
     if verify_fmt == "json":
-        report = to_verification_json(results)
+        report = to_verification_json(results, introduced)
     else:
         report = None
 
     if args.output:
         try:
             if report is not None:
-                args.output.write_text(report, encoding="utf-8")
+                write_text_atomic(args.output, report)
             else:
-                with args.output.open("w", encoding="utf-8") as fh:
-                    render_verification(results, console=Console(file=fh), lang=lang)
+                # Rendered into memory first, then written in one atomic
+                # step -- a Console writing straight to the open file
+                # would leave a half-drawn report behind on any failure
+                # partway through, same as every other write path here.
+                buffer = io.StringIO()
+                render_verification(
+                    results,
+                    console=_file_console(buffer),
+                    lang=lang,
+                    new_in_output=introduced,
+                )
+                write_text_atomic(args.output, buffer.getvalue())
         except OSError as exc:
             err_console.print(
                 i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))
@@ -416,7 +441,7 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
     elif report is not None:
         print(report)
     else:
-        render_verification(results, lang=lang)
+        render_verification(results, lang=lang, new_in_output=introduced)
 
     return 2 if had_error else 0
 
@@ -501,7 +526,7 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
 
         if args.write:
             try:
-                path.write_text(fixed, encoding="utf-8")
+                write_text_atomic(path, fixed)
             except OSError as exc:
                 err_console.print(
                     i18n.t(lang, "fix_write_error", path=escape(str(path)), exc=escape(str(exc)))
@@ -839,14 +864,17 @@ def _main(argv: list[str] | None = None) -> int:
     if fmt == "terminal":
         if args.output:
             try:
-                with args.output.open("w", encoding="utf-8") as fh:
-                    render_terminal(
-                        display_findings,
-                        console=Console(file=fh),
-                        elapsed_seconds=elapsed_seconds,
-                        objects_scanned=objects_scanned,
-                        lang=lang,
-                    )
+                # In memory first, then one atomic write -- see the same
+                # pattern in _handle_verify() above.
+                buffer = io.StringIO()
+                render_terminal(
+                    display_findings,
+                    console=_file_console(buffer),
+                    elapsed_seconds=elapsed_seconds,
+                    objects_scanned=objects_scanned,
+                    lang=lang,
+                )
+                write_text_atomic(args.output, buffer.getvalue())
             except OSError as exc:
                 err_console.print(
                     i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))
@@ -863,7 +891,7 @@ def _main(argv: list[str] | None = None) -> int:
         report = _render(display_findings, fmt, lang=lang)
         if args.output:
             try:
-                args.output.write_text(report, encoding="utf-8")
+                write_text_atomic(args.output, report)
             except OSError as exc:
                 err_console.print(
                     i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))

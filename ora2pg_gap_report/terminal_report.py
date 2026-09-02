@@ -45,7 +45,7 @@ from .effort_estimator import (
 from .gap_registry import gap_metadata
 from .i18n import REMEDIATION_HINT_EN
 from .models import Finding
-from .verification import DetectorVerification
+from .verification import DetectorVerification, NewInOutput
 
 _SEVERITY_STYLE = {
     "high": "bold red",
@@ -480,8 +480,46 @@ _VERIFICATION_STATUS_STYLE = {
 }
 
 
+def _render_new_in_output(
+    entries: list[NewInOutput], console: Console, lang: str
+) -> None:
+    """The other half of --verify's question. The results table below can
+    only speak about detectors the baseline already knew about; this
+    section is for constructs that appear in ora2pg's output and were
+    never in the Oracle source -- introduced by the conversion itself.
+    Silent when there are none, so a clean run reads exactly as it did
+    before this section existed."""
+    if not entries:
+        return
+
+    table = Table(show_lines=True, expand=True)
+    table.add_column(i18n.t(lang, "verify_col_detector"), style="magenta", no_wrap=True, overflow="ellipsis")
+    table.add_column(i18n.t(lang, "verify_col_gap"), width=9)
+    table.add_column(i18n.t(lang, "verify_new_col_count"), justify="right", width=12)
+    for e in entries:
+        table.add_row(
+            Text(e.detector),
+            Text(f"GAP-{e.gap_number}" if e.gap_number else "—"),
+            Text(str(e.count), style="yellow"),
+        )
+
+    console.print()
+    console.print(
+        Panel(
+            table,
+            title=i18n.t(lang, "verify_new_panel_title"),
+            title_align="left",
+            border_style="yellow",
+        )
+    )
+    console.print(f"[dim]{i18n.t(lang, 'verify_new_footer_note')}[/dim]")
+
+
 def render_verification(
-    results: list[DetectorVerification], console: Console | None = None, lang: str = "ru"
+    results: list[DetectorVerification],
+    console: Console | None = None,
+    lang: str = "ru",
+    new_in_output: list[NewInOutput] | None = None,
 ) -> None:
     """Renders the --verify report: one row per detector present in the
     pre-migration baseline, comparing it against a scan of ora2pg's
@@ -518,7 +556,18 @@ def render_verification(
         i18n.t(lang, "verify_summary_not_verifiable"),
         Text(str(counts["not_verifiable"]), style=_VERIFICATION_STATUS_STYLE["not_verifiable"]),
     )
+    if new_in_output:
+        # Only when there is something to report: an always-present "0"
+        # row would imply the other four counts and this one are the same
+        # kind of number, and they aren't -- those four partition the
+        # baseline, this one counts detectors the baseline never had.
+        summary.add_row(
+            i18n.t(lang, "verify_summary_new_in_output"),
+            Text(str(len(new_in_output)), style="yellow"),
+        )
     console.print(Panel(summary, title=i18n.t(lang, "verify_panel_title"), title_align="left", border_style="cyan"))
+
+    _render_new_in_output(new_in_output or [], console, lang)
 
     if not results:
         return

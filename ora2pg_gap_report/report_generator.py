@@ -11,7 +11,7 @@ from . import i18n
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_by_detector, gap_metadata, research_doc_url
 from .models import Finding
-from .verification import DetectorVerification
+from .verification import DetectorVerification, NewInOutput
 
 SARIF_SCHEMA_URI = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
 _TOOL_INFORMATION_URI = "https://github.com/Lunch418/ora2pg-gap-report"
@@ -35,18 +35,29 @@ def to_json(findings: list[Finding]) -> str:
     return json.dumps([_enrich(f) for f in findings], ensure_ascii=False, indent=2)
 
 
-def to_verification_json(results: list[DetectorVerification]) -> str:
+def to_verification_json(
+    results: list[DetectorVerification], new_in_output: list[NewInOutput] | None = None
+) -> str:
     """--verify's machine-readable output. gap_number is a plain string
     or null (JSON has no distinct "GAP-NNN" type) -- callers that need
     the "GAP-" prefix add it themselves, same as everywhere else in this
     project's JSON output (e.g. Finding.detector has no GAP- prefix
-    either)."""
+    either).
+
+    `new_in_output` carries detectors that fired on the generated output
+    but were never in the baseline -- constructs the conversion itself
+    introduced. Always present as a key (empty list when there are none)
+    so a consumer can tell "checked, found nothing" from "this version
+    didn't check", which an absent key can't express."""
+    entries = new_in_output or []
     payload = {
         "baseline_detectors": len(results),
         "still_present": sum(1 for r in results if r.status == "still_present"),
         "not_detected": sum(1 for r in results if r.status == "not_detected"),
         "not_verifiable": sum(1 for r in results if r.status == "not_verifiable"),
+        "new_in_output_detectors": len(entries),
         "results": [asdict(r) for r in results],
+        "new_in_output": [asdict(e) for e in entries],
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 

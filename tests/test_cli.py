@@ -408,17 +408,21 @@ def test_main_format_terminal_can_be_written_to_a_file(monkeypatch, tmp_path):
     assert "\x1b[" not in text
 
 
-def test_main_format_terminal_reports_write_failure_without_a_traceback(capsys):
+def test_main_format_terminal_reports_write_failure_without_a_traceback(tmp_path, capsys):
     # Same graceful-failure contract as the markdown/json --output path:
     # this used to have no try/except at all and crashed with a raw
-    # traceback instead.
+    # traceback instead. The unwritable path is one *under an existing
+    # regular file*, not just a missing directory -- a missing directory
+    # is created now rather than being an error (see atomic_write.py).
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("")
     exit_code = main(
         [
             str(SAMPLES / "compound_trigger_apress.sql"),
             "--format",
             "terminal",
             "--output",
-            "/nonexistent-dir-xyz/out.txt",
+            str(blocker / "out.txt"),
         ]
     )
     captured = capsys.readouterr()

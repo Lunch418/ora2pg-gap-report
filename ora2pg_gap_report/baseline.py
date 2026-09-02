@@ -29,6 +29,7 @@ import json
 from pathlib import Path
 
 from . import i18n
+from .atomic_write import write_text_atomic
 from .gap_registry import gap_metadata
 from .models import Finding
 
@@ -101,7 +102,7 @@ def save_baseline(findings: list[Finding], path: Path) -> None:
             }
         )
     payload = {"schema_version": SCHEMA_VERSION, "findings": findings_payload}
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_text_atomic(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 
 
 def load_baseline(path: Path, lang: str = "ru") -> list[dict]:

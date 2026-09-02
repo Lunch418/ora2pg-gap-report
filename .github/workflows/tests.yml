@@ -28,11 +28,29 @@ jobs:
         run: python3 scripts/doctor.py
 
   pytest:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    # Non-Linux runners report but don't gate, for now. This project has
+    # real platform-specific surface -- path handling in baseline
+    # group_key()s, atomic renames, the .sql/.pks/.pkb suffix match that
+    # exists because Windows tooling emits uppercase extensions -- and
+    # none of it had ever actually been run on Windows or macOS before
+    # this matrix existed. Turning that on as a hard gate in the same
+    # change that introduces it would mean blocking every PR on failures
+    # nobody has triaged yet. The results are visible either way; flip
+    # continue-on-error off once both platforms are known green.
+    continue-on-error: ${{ matrix.os != 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          # One Python version each: the point is covering the OS, and
+          # the Python-version axis is already covered above.
+          - os: windows-latest
+            python-version: "3.11"
+          - os: macos-latest
+            python-version: "3.11"
     steps:
       - uses: actions/checkout@v4
 

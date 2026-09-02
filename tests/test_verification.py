@@ -10,6 +10,7 @@ from ora2pg_gap_report.models import Finding
 from ora2pg_gap_report.verification import (
     VERIFICATION_MODE,
     DetectorVerification,
+    new_in_output,
     verify_against_baseline,
 )
 
@@ -123,9 +124,10 @@ def test_results_cover_every_distinct_detector_in_the_baseline_sorted_by_name():
 
 def test_post_migration_findings_for_a_detector_not_in_the_baseline_are_ignored():
     # A detector that fires post-migration but was never in the baseline
-    # isn't a "verification" result at all -- it's a new, unrelated
-    # finding, out of scope for this comparison (the normal scan report
-    # already covers it).
+    # has no before/after to compare, so it can't be a row in this table:
+    # "still present"/"not detected" would both be nonsense for it. It is
+    # NOT dropped on the floor, though -- new_in_output() below reports
+    # exactly these, and --verify shows them as their own section.
     baseline = [_baseline_record("cross_apply")]
     post = [_finding("cross_apply"), _finding("pivot_clause")]
     results = verify_against_baseline(baseline, post)
@@ -141,3 +143,50 @@ def test_unknown_detector_defaults_to_not_verifiable():
     post = [_finding("some_third_party_detector")]
     results = verify_against_baseline(baseline, post)
     assert results[0].status == "not_verifiable"
+
+
+# --- new_in_output(): what the conversion introduced ------------------------
+
+
+def test_a_detector_absent_from_the_baseline_is_reported_as_new_in_output():
+    # The gap this closes: ora2pg can *introduce* a construct that was
+    # never in the Oracle source, and a check whose whole premise is "did
+    # the conversion break anything" used to discard exactly that.
+    baseline = [_baseline_record("cross_apply")]
+    post = [_finding("cross_apply"), _finding("database_link")]
+    entries = new_in_output(baseline, post)
+    assert [e.detector for e in entries] == ["database_link"]
+    assert entries[0].count == 1
+
+
+def test_new_in_output_counts_every_occurrence():
+    baseline = [_baseline_record("cross_apply")]
+    post = [_finding("database_link"), _finding("database_link"), _finding("database_link")]
+    assert new_in_output(baseline, post)[0].count == 3
+
+
+def test_a_detector_already_in_the_baseline_is_never_new_in_output():
+    # It has a before/after, so it belongs in the results table instead.
+    baseline = [_baseline_record("cross_apply")]
+    post = [_finding("cross_apply"), _finding("cross_apply")]
+    assert new_in_output(baseline, post) == []
+
+
+def test_new_in_output_carries_the_gap_number():
+    baseline = [_baseline_record("cross_apply")]
+    entries = new_in_output(baseline, [_finding("database_link")])
+    assert entries[0].gap_number == "006"
+
+
+def test_new_in_output_is_sorted_by_detector_name():
+    baseline: list[dict] = []
+    post = [_finding("pivot_clause"), _finding("database_link"), _finding("cross_apply")]
+    assert [e.detector for e in new_in_output(baseline, post)] == [
+        "cross_apply",
+        "database_link",
+        "pivot_clause",
+    ]
+
+
+def test_a_clean_output_reports_nothing_new():
+    assert new_in_output([_baseline_record("cross_apply")], []) == []

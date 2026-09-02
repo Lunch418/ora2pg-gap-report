@@ -384,6 +384,23 @@ _UI: dict[str, dict[str, str]] = {
     "verify_col_before": {"ru": "До миграции", "en": "Before"},
     "verify_col_after": {"ru": "После миграции", "en": "After"},
     "verify_col_status": {"ru": "Статус", "en": "Status"},
+    "verify_new_panel_title": {
+        "ru": "Появилось после миграции (не было в baseline)",
+        "en": "New in the generated output (not in the baseline)",
+    },
+    "verify_new_col_count": {"ru": "Находок", "en": "Findings"},
+    "verify_new_footer_note": {
+        "ru": "Эти детекторы сработали на сгенерированном выводе, но в baseline их нет: "
+        "конструкции не было в исходнике Oracle — её внесла сама конверсия. Сравнивать "
+        "«до/после» тут не с чем, поэтому колонки «До» нет.",
+        "en": "These detectors fired on the generated output but aren't in the baseline: "
+        "the construct wasn't in the Oracle source — the conversion itself introduced it. "
+        "There's no before/after to compare, which is why there's no \"Before\" column.",
+    },
+    "verify_summary_new_in_output": {
+        "ru": "Появилось после миграции",
+        "en": "New in output",
+    },
     "verify_footer_note": {
         "ru": "NOT_DETECTED означает «в проверенном коде паттерн не нашёлся», а не "
         "«проблема доказанно исправлена» — см. docs/ARCHITECTURE.md. NOT_VERIFIABLE — "

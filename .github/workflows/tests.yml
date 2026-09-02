@@ -29,16 +29,14 @@ jobs:
 
   pytest:
     runs-on: ${{ matrix.os }}
-    # Non-Linux runners report but don't gate, for now. This project has
-    # real platform-specific surface -- path handling in baseline
-    # group_key()s, atomic renames, the .sql/.pks/.pkb suffix match that
-    # exists because Windows tooling emits uppercase extensions -- and
-    # none of it had ever actually been run on Windows or macOS before
-    # this matrix existed. Turning that on as a hard gate in the same
-    # change that introduces it would mean blocking every PR on failures
-    # nobody has triaged yet. The results are visible either way; flip
-    # continue-on-error off once both platforms are known green.
-    continue-on-error: ${{ matrix.os != 'ubuntu-latest' }}
+    # Every OS gates. This matrix was added non-gating because none of the
+    # platform-specific surface here (path handling in baseline
+    # group_key()s, atomic renames, subprocess decoding, the
+    # .sql/.pks/.pkb suffix match that exists because Windows tooling
+    # emits uppercase extensions) had ever actually been executed off
+    # Linux. Its first run found 14 failures on Windows and 1 on macOS,
+    # one of them a real bug in the tool; with those fixed and all three
+    # platforms green, there is no reason to keep the results advisory.
     strategy:
       fail-fast: false
       matrix:

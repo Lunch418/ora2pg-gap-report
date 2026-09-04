@@ -228,11 +228,11 @@ def _apply_filters(findings: list[Finding], severity: str | None, object_substri
 
 def _render(findings: list[Finding], fmt: str, lang: str = "ru") -> str:
     if fmt == "json":
-        return to_json(findings)
+        return to_json(findings, lang=lang)
     if fmt == "csv":
-        return to_csv(findings)
+        return to_csv(findings, lang=lang)
     if fmt == "sarif":
-        return to_sarif(findings, tool_version=_package_version())
+        return to_sarif(findings, tool_version=_package_version(), lang=lang)
     if fmt == "html":
         return to_html(findings, lang=lang)
 
@@ -810,20 +810,6 @@ def _main(argv: list[str] | None = None) -> int:
 
     elapsed_seconds = time.perf_counter() - start_time
     _sort_findings(all_findings)
-
-    # Single point where a finding's message gets swapped for its English
-    # counterpart (a no-op when lang == "ru") -- every renderer downstream
-    # (terminal/markdown/json/csv/sarif/html) then sees a consistent
-    # language with no per-format translation logic of its own. Done before
-    # --save/--baseline/--fail-on/display filtering, all of which key off
-    # detector/source_file/object_name/snippet/severity, never message --
-    # see baseline.py's group_key() docstring -- so this has no effect on
-    # any of them.
-    if lang == "en":
-        all_findings = [
-            dataclasses.replace(f, message=i18n.translate_message(f.message, lang))
-            for f in all_findings
-        ]
 
     # --save/--baseline/--fail-on all act on the full, unfiltered scan
     # result (`all_findings`) rather than what --severity/--object narrow

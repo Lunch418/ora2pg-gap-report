@@ -13,25 +13,6 @@ _BITMAP_INDEX_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "CREATE BITMAP INDEX — битовый индекс Oracle, рассчитанный на столбцы "
-    "малой кардинальности (пол, статус, флаг) и на комбинирование "
-    "нескольких таких индексов побитовыми операциями. ora2pg заменяет его "
-    "на 'CREATE INDEX ... USING gin(...)' (подтверждено реальным прогоном "
-    "ora2pg 25.0 + PostgreSQL 16, docs/research/gap-046-bitmap-index.md). "
-    "Для обычного скалярного столбца это не работает: PostgreSQL падает "
-    "при загрузке с 'data type ... has no default operator class for "
-    "access method \"gin\"' — у gin по умолчанию нет класса операторов ни "
-    "для varchar, ни для чисел, он рассчитан на составные типы (массивы, "
-    "jsonb, tsvector). То есть индекс не просто станет другим по "
-    "характеристикам — его создание не пройдёт вообще. У PostgreSQL нет "
-    "битовых индексов как типа; на практике замена — обычный btree "
-    "(планировщик умеет комбинировать несколько btree через bitmap scan "
-    "самостоятельно, во время выполнения), либо gin с явным классом "
-    "операторов из расширения btree_gin, если комбинирование нужно на "
-    "уровне самого индекса."
-)
-
 
 def find_bitmap_indexes(source: str) -> list[Finding]:
     """Detect Oracle's CREATE BITMAP INDEX. ora2pg rewrites it to a GIN
@@ -55,7 +36,7 @@ def find_bitmap_indexes(source: str) -> list[Finding]:
                 object_name=re.sub(r"\s+", "", m.group(1)).upper(),
                 line=line_at(clean, m.start()),
                 snippet="CREATE BITMAP INDEX",
-                message=_MESSAGE,
+                message_id="bitmap_index",
             )
         )
 

@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 from textual.widgets import Button, DataTable, Select
 
-from ora2pg_gap_report import core
+from ora2pg_gap_report import core, messages
 from ora2pg_gap_report.baseline import load_baseline, save_baseline
 from ora2pg_gap_report.tui_app import (
     GapReportApp,
@@ -149,7 +149,10 @@ async def test_english_language_translates_finding_messages():
         results_screen = app.screen
         assert results_screen.findings
         # Russian message text shouldn't have survived translation.
-        assert not any(any("а" <= ch <= "я" or ch == "ё" for ch in f.message.lower()) for f in results_screen.findings)
+        # The findings carry ids; what must be English is what the screen
+        # actually renders from them.
+        rendered = [messages.text(f.message_id, results_screen.lang) for f in results_screen.findings]
+        assert not any(any("а" <= ch <= "я" or ch == "ё" for ch in t.lower()) for t in rendered)
         assert results_screen.lang == "en"
 
 
@@ -534,7 +537,7 @@ async def test_bracketed_content_does_not_crash_with_a_markup_error():
         object_name='PKG."my[table]"',
         line=1,
         snippet="x",
-        message="Found in arr[i][j] -- [not a style tag]",
+        message_id="bulk_collect.bulk_collect",
         source_file="/data/notes[/archive]/x.sql",
     )
 
@@ -557,8 +560,12 @@ async def test_bracketed_content_does_not_crash_with_a_markup_error():
         await pilot.pause()
 
         detail = str(results_screen.query_one("#detail").content)
+        # The brackets that can crash markup parsing come from scanned
+        # content -- a quoted Oracle identifier here. The explanation no
+        # longer can: it's registry-owned prose resolved from a
+        # message_id, not a string that passed through a scanned file.
         assert "my[table]" in detail
-        assert "arr[i][j]" in detail
+        assert messages.text("bulk_collect.bulk_collect")[:40] in detail
 
 
 @pytest.mark.asyncio

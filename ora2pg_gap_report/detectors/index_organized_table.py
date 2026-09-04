@@ -14,24 +14,6 @@ _TABLE_RE = re.compile(
 # the words. Same guard as read_only_table.py's own READ ONLY regex.
 _ORGANIZATION_INDEX_RE = re.compile(r'(?<!")\bORGANIZATION\s+INDEX\b(?!")', re.IGNORECASE)
 
-_MESSAGE = (
-    "CREATE TABLE ... ORGANIZATION INDEX — индекс-организованная таблица "
-    "(IOT): данные физически хранятся в структуре первичного ключа, а не "
-    "в отдельной куче со ссылками на неё из индекса. ora2pg отбрасывает "
-    "секцию ORGANIZATION INDEX целиком — таблица конвертируется как "
-    "обычная куча с отдельным индексом по первичному ключу (подтверждено "
-    "реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-037-index-organized-table.md). Не синтаксическая "
-    "ошибка и не потеря данных — ограничения целостности сохраняются, "
-    "таблица работает корректно. Теряется архитектурная характеристика "
-    "хранения: у PostgreSQL нет настоящих индекс-организованных таблиц "
-    "(обычный PRIMARY KEY всегда создаёт отдельный индекс над отдельной "
-    "кучей) — для производительность-чувствительных таблиц-кэшей, "
-    "изначально спроектированных как IOT именно ради этого свойства, "
-    "стоит перепроверить производительность на реальной нагрузке после "
-    "миграции."
-)
-
 
 def find_index_organized_tables(source: str) -> list[Finding]:
     """Detect Oracle's CREATE TABLE ... ORGANIZATION INDEX. ora2pg drops
@@ -68,7 +50,7 @@ def find_index_organized_tables(source: str) -> list[Finding]:
                 object_name=m.group(1).upper(),
                 line=line_at(clean, m.end() + org_match.start()),
                 snippet="ORGANIZATION INDEX",
-                message=_MESSAGE,
+                message_id="index_organized_table",
             )
         )
 

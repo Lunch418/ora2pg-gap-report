@@ -17,23 +17,6 @@ _CURSOR_DECL_RE = re.compile(rf"\bCURSOR\s+({IDENTIFIER})\b", re.IGNORECASE)
 # name is deliberately matched without a dot.
 _ROWTYPE_RE = re.compile(rf"(?<![.\w])({IDENTIFIER})\s*%\s*ROWTYPE", re.IGNORECASE)
 
-_MESSAGE = (
-    "<курсор>%ROWTYPE — объявление переменной по структуре курсора. "
-    "ora2pg копирует конструкцию в вывод как есть (подтверждено реальным "
-    "прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-064-cursor-rowtype.md). PL/pgSQL понимает "
-    "%ROWTYPE только от таблицы или представления, но не от курсора, "
-    "поэтому имя курсора трактуется как имя отношения и при первом же "
-    "вызове процедура падает с 'relation \"c\" does not exist'. Сама "
-    "загрузка проходит чисто: ora2pg выставляет в своём выводе "
-    "check_function_bodies = false, так что тело не разбирается на "
-    "CREATE PROCEDURE. Заменяется на RECORD — в PL/pgSQL переменная типа "
-    "RECORD принимает строку любого курсора, и FETCH в неё работает без "
-    "изменений. Обратите внимание: обычное <таблица>%ROWTYPE ora2pg "
-    "переносит корректно, и этот детектор его не помечает — только "
-    "%ROWTYPE от курсора, объявленного в том же файле."
-)
-
 
 def find_cursor_rowtype(source: str) -> list[Finding]:
     """Detect PL/SQL `<cursor>%ROWTYPE` declarations. PL/pgSQL supports
@@ -62,7 +45,7 @@ def find_cursor_rowtype(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=f"{m.group(1).lower()}%ROWTYPE",
-                message=_MESSAGE,
+                message_id="cursor_rowtype",
             )
         )
 

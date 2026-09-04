@@ -16,22 +16,6 @@ _INDEX_RE = re.compile(
 # so the literal text survives with its quotes intact.
 _INVISIBLE_RE = re.compile(r'(?<!")\bINVISIBLE\b(?!")(?!\s*[,)])', re.IGNORECASE)
 
-_MESSAGE = (
-    "Индекс INVISIBLE — Oracle не использует такой индекс в планах "
-    "выполнения по умолчанию (пока сессия явно не включит "
-    "OPTIMIZER_USE_INVISIBLE_INDEXES), но продолжает его поддерживать при "
-    "DML — типичный сценарий: добавить индекс невидимым, проверить "
-    "нагрузку, потом сделать VISIBLE. ora2pg отбрасывает модификатор "
-    "INVISIBLE целиком — индекс конвертируется как обычный, видимый "
-    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-025-invisible-index.md; в самом PostgreSQL нет "
-    "аналога INVISIBLE для индексов вообще). Не ошибка — CREATE INDEX "
-    "выполняется без проблем, но поведение меняется тихо: оптимизатор "
-    "PostgreSQL сразу начинает учитывать индекс, которого в Oracle-плане "
-    "по умолчанию не было бы — потенциально другой план выполнения там, "
-    "где это не ожидалось."
-)
-
 
 def find_invisible_indexes(source: str) -> list[Finding]:
     """Detect Oracle's INVISIBLE index modifier. ora2pg drops it entirely,
@@ -72,7 +56,7 @@ def find_invisible_indexes(source: str) -> list[Finding]:
                 object_name=m.group(1).upper(),
                 line=line_at(clean, m.end() + invisible_match.start()),
                 snippet="INVISIBLE",
-                message=_MESSAGE,
+                message_id="invisible_index",
             )
         )
 

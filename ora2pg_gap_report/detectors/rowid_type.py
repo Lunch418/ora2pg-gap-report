@@ -33,20 +33,6 @@ _ROWID_COLUMN_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "ROWID/UROWID как тип столбца — ora2pg конвертирует его в oid "
-    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-029-rowid-urowid.md). oid — это 4-байтовое целое "
-    "число для внутренних идентификаторов системных объектов PostgreSQL, "
-    "не имеющее ничего общего с форматом или семантикой Oracle ROWID. "
-    "CREATE TABLE проходит без ошибок, но реальное значение ROWID "
-    "(например 'AAAWJ0AABAAAKgaAAA') не проходит INSERT в такой столбец "
-    "('invalid input syntax for type oid') — тип-заменитель несовместим "
-    "с данными, которые должен хранить. Нужно вручную выбрать подходящий "
-    "тип (обычно text, если значение используется только как непрозрачный "
-    "идентификатор, без арифметики или сравнения диапазонов)."
-)
-
 
 def find_rowid_types(source: str) -> list[Finding]:
     """Detect Oracle's ROWID/UROWID used as a column's data type. ora2pg
@@ -86,7 +72,7 @@ def find_rowid_types(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, open_pos + 1 + col_match.start()),
                     snippet=re.sub(r"\s+", " ", col_match.group(0).strip()),
-                    message=_MESSAGE,
+                    message_id="rowid_type",
                 )
             )
 

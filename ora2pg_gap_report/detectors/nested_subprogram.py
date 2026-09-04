@@ -12,23 +12,6 @@ from ..plsql_lex import (
     mask_strings_and_comments,
 )
 
-_MESSAGE = (
-    "Локально объявленная процедура/функция внутри декларативной секции "
-    "другого блока (пакета, процедуры, функции). ora2pg не просто "
-    "копирует её как есть — вложенная процедура/функция 'утекает' наружу "
-    "как отдельный объект верхнего уровня, а содержащий её блок пропадает "
-    "из вывода вообще (подтверждено реальным прогоном ora2pg + "
-    "PostgreSQL 16, docs/research/gap-034-nested-subprogram.md). Хуже "
-    "того, тело вложенного объекта в выводе искажено — после его "
-    "собственного END к нему приклеивается executable-секция содержащего "
-    "блока как единый (синтаксически неверный) текст. CREATE PROCEDURE/"
-    "FUNCTION проходит без единой ошибки (ora2pg отключает "
-    "check_function_bodies в своём выводе), а падает только при первом "
-    "реальном вызове — 'syntax error at or near \"BEGIN\"' на этапе "
-    "компиляции тела. Нужно вручную вынести вложенную логику в отдельную "
-    "функцию/процедуру PostgreSQL верхнего уровня."
-)
-
 
 def _package_name_at(package_matches: list, position: int) -> str | None:
     name = None
@@ -134,7 +117,7 @@ def find_nested_subprograms(source: str) -> list[Finding]:
                     object_name=f"{outer_object_name}.{nested_name}",
                     line=line_at(clean, nested_start),
                     snippet=snippet,
-                    message=_MESSAGE,
+                    message_id="nested_subprogram",
                 )
             )
 

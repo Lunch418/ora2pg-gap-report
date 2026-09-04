@@ -40,30 +40,6 @@ _PACKAGE_VAR_RE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
-_MESSAGE = (
-    "Переменная, объявленная на верхнем уровне PACKAGE BODY (не внутри "
-    "конкретной процедуры/функции) — состояние на уровне сессии, общее "
-    "для всех процедур пакета. ora2pg заменяет чтение/запись такой "
-    "переменной на current_setting()/set_config() с пользовательским GUC-"
-    "параметром — идея разумная (третий аргумент set_config — false, что "
-    "соответствует времени жизни пакетной переменной в Oracle, вся "
-    "сессия), но реализация сломана в двух местах (подтверждено реальным "
-    "прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-036-package-state.md). Во-первых, set_config() "
-    "принимает text вторым аргументом, а ora2pg не добавляет явное "
-    "приведение типа для нетекстовых переменных — 'ERROR: function "
-    "set_config(unknown, bigint, boolean) does not exist' при любом "
-    "вызове записывающей процедуры, без исключений. Во-вторых, даже "
-    "после ручного добавления приведения типа: необъявленная числовая "
-    "пакетная переменная в Oracle по умолчанию NULL, а чтение ещё не "
-    "установленного пользовательского GUC-параметра в PostgreSQL "
-    "завершается ошибкой 'unrecognized configuration parameter', а не "
-    "NULL — проявляется, когда чтение происходит раньше первой записи в "
-    "той же сессии. Нужно вручную добавить приведение типа к set_config() "
-    "и missing_ok => true к current_setting(), либо спроектировать "
-    "состояние иначе (временная таблица, параметр приложения)."
-)
-
 
 def _scan_declare_section(
     clean: str, declare_text: str, offset: int, package_name: str
@@ -75,7 +51,7 @@ def _scan_declare_section(
             object_name=f"{package_name}.{var_match.group(1).upper()}",
             line=line_at(clean, offset + var_match.start()),
             snippet=re.sub(r"\s+", " ", var_match.group(0).strip()),
-            message=_MESSAGE,
+            message_id="package_state",
         )
         for var_match in _PACKAGE_VAR_RE.finditer(declare_text)
     ]

@@ -18,29 +18,6 @@ _BRACKETED_CREATE_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "Идентификаторы в квадратных скобках ([dbo].[Orders], [Id], [int]) "
-    "— штатный способ записи имён в T-SQL, и именно так их выводит SSMS "
-    "и Generate Scripts по умолчанию, то есть так выглядит практически "
-    "любой реальный скрипт. При файловом экспорте (-M -i <файл>) ora2pg "
-    "скобки не снимает: они остаются частью имени и потом ещё берутся в "
-    "двойные кавычки. Из CREATE TABLE [dbo].[Orders] ( [Id] [int] ... ) "
-    "получается CREATE TABLE \"[dbo]\".\"[orders]\" ( \"[id]\" [INT] ... ), "
-    "то есть таблица с именем [orders] в схеме [dbo] и столбец типа "
-    "[INT], которого не существует. Подтверждено реальным прогоном "
-    "ora2pg 25.0 + PostgreSQL 16 (docs/research/"
-    "gap-087-mssql-bracket-identifier.md): загрузка падает сразу — "
-    "'syntax error at or near \"[\"'. Та же таблица, записанная без "
-    "скобок, конвертируется корректно, так что дело именно в них. "
-    "Причина видна в исходниках ora2pg: снятие скобок "
-    "(s/[\\[\\]]+//g) есть в MSSQL.pm, но только в подпрограммах, "
-    "работающих с живым подключением (_column_info, _get_views, "
-    "_get_functions, _get_procedures, _column_attributes и другие) — "
-    "файловый путь через -i до них не доходит. Отсюда и обход: либо "
-    "экспортировать через живое подключение к SQL Server, либо снять "
-    "скобки в скрипте до конвертации."
-)
-
 
 def find_mssql_bracket_identifiers(source: str) -> list[Finding]:
     """Detect bracket-delimited identifiers on T-SQL CREATE statements.
@@ -59,7 +36,7 @@ def find_mssql_bracket_identifiers(source: str) -> list[Finding]:
                 object_name=normalize_name(m.group(2)).upper(),
                 line=line_at(clean, m.start()),
                 snippet=f"CREATE {m.group(1).upper()} {m.group(2)}",
-                message=_MESSAGE,
+                message_id="mssql_bracket_identifier",
             )
         )
 

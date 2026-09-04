@@ -14,25 +14,6 @@ from ..mysql_lex import (
 # legitimately contain the latter.
 _PREPARE_FROM_RE = re.compile(r"\bPREPARE\s+\w+\s+FROM\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "PREPARE <имя> FROM <строка> — подготовка динамического SQL в "
-    "хранимой процедуре MySQL/MariaDB (обычно в связке с EXECUTE и "
-    "DEALLOCATE PREPARE). ora2pg (-m) копирует конструкцию в тело "
-    "процедуры дословно, лишь заменяя пользовательскую переменную "
-    "@s на обычную (подтверждено реальным прогоном ora2pg 25.0 + "
-    "PostgreSQL 16, docs/research/gap-078-mysql-prepare-from.md). "
-    "Оператор PREPARE в PostgreSQL тоже есть, но синтаксис у него "
-    "другой — PREPARE <имя> AS <запрос>, — и запрос задаётся текстом "
-    "самого SQL, а не строковой переменной. Поэтому падение конкретное "
-    "и узнаваемое: 'syntax error at or near \"FROM\"'. Загрузка проходит "
-    "чисто (ora2pg выставляет в своём выводе check_function_bodies = "
-    "false), ошибка вылезает при первом вызове. Переписывается не на "
-    "PostgreSQL-овский PREPARE, а на EXECUTE <строка> внутри PL/pgSQL — "
-    "это штатный способ выполнить собранный в переменной SQL; параметры "
-    "передаются через USING, и это же снимает риск SQL-инъекции при "
-    "склейке строки."
-)
-
 
 def find_mysql_prepare_from(source: str) -> list[Finding]:
     """Detect MySQL/MariaDB's `PREPARE <name> FROM <string>`. PostgreSQL
@@ -53,7 +34,7 @@ def find_mysql_prepare_from(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet="PREPARE ... FROM",
-                message=_MESSAGE,
+                message_id="mysql_prepare_from",
             )
         )
 

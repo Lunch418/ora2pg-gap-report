@@ -11,20 +11,6 @@ from ..plsql_lex import (
 
 _JSON_TABLE_RE = re.compile(r"\bJSON_TABLE\s*\(", re.IGNORECASE)
 
-_MESSAGE = (
-    "JSON_TABLE(...) — табличная проекция JSON-документа в реляционные "
-    "строки/столбцы. ora2pg копирует вызов как есть (подтверждено "
-    "реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-017-json-table.md). На PostgreSQL 16 и старше "
-    "падает с синтаксической ошибкой прямо на COLUMNS — функции "
-    "JSON_TABLE в PostgreSQL нет вообще (появилась только в PostgreSQL 17, "
-    "и то с другим синтаксисом секции COLUMNS, не идентичным Oracle — не "
-    "проверялось эмпирически в этом исследовании, но использовать как "
-    "прямую замену без сверки нельзя). До PostgreSQL 17 нужен полностью "
-    "ручной переход на jsonb_to_recordset()/jsonb_array_elements() с "
-    "явным приведением типов."
-)
-
 
 def find_json_table_calls(source: str) -> list[Finding]:
     """Detect Oracle's JSON_TABLE(...) SQL/JSON function. ora2pg passes it
@@ -45,7 +31,7 @@ def find_json_table_calls(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet="JSON_TABLE(...)",
-                message=_MESSAGE,
+                message_id="json_table",
             )
         )
 

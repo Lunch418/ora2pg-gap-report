@@ -29,23 +29,6 @@ _INDEXTYPE_RE = re.compile(r"\bINDEXTYPE\s+IS\s+CTXSYS\.(CONTEXT|CTXCAT|CTXRULE)
 _TEXT_FUNCTION_RE = re.compile(r"\b(CONTAINS|CATSEARCH|MATCHES)\s*\(", re.IGNORECASE)
 _SCORE_COMPARISON_RE = re.compile(r"\s*(?:>=|<=|<>|!=|>|<|=)\s*(?:\d|:)")
 
-_MESSAGE = (
-    "Oracle Text — полнотекстовый поиск через домен-индекс "
-    "(CREATE INDEX ... INDEXTYPE IS CTXSYS.CONTEXT/CTXCAT/CTXRULE) и "
-    "функции CONTAINS()/CATSEARCH()/MATCHES(). ora2pg отбрасывает секцию "
-    "INDEXTYPE целиком — индекс создаётся как обычный B-tree по столбцу, "
-    "без единого предупреждения; вызовы CONTAINS()/CATSEARCH()/MATCHES() "
-    "копируются как есть (подтверждено реальным прогоном ora2pg + "
-    "PostgreSQL 16, docs/research/gap-023-oracle-text.md). Обычный B-tree "
-    "индекс не даёт полнотекстового поиска вообще — не синтаксическая "
-    "ошибка, а тихая потеря всей функциональности; вызовы "
-    "CONTAINS()/CATSEARCH()/MATCHES() падают при первом вызове: "
-    "'function contains(text, unknown) does not exist'. У PostgreSQL есть "
-    "архитектурный эквивалент — полнотекстовый поиск через "
-    "tsvector/tsquery и GIN-индекс (`to_tsvector`/`@@`), но это требует "
-    "ручного переписывания, не механической замены синтаксиса."
-)
-
 
 def find_oracle_text_usage(source: str) -> list[Finding]:
     """Detect Oracle Text: CREATE INDEX ... INDEXTYPE IS CTXSYS.* domain
@@ -93,7 +76,7 @@ def find_oracle_text_usage(source: str) -> list[Finding]:
                 object_name=m.group(1).upper(),
                 line=line_at(clean, m.end() + it_match.start()),
                 snippet=f"INDEXTYPE IS CTXSYS.{it_match.group(1).upper()}",
-                message=_MESSAGE,
+                message_id="oracle_text",
             )
         )
 
@@ -108,7 +91,7 @@ def find_oracle_text_usage(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(visible, m.start()),
                 snippet=f"{m.group(1).upper()}(...)",
-                message=_MESSAGE,
+                message_id="oracle_text",
             )
         )
 

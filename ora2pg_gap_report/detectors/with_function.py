@@ -14,21 +14,6 @@ from ..plsql_lex import (
 # Oracle SQL (the ordinary CTE form is always 'WITH name AS (...)').
 _WITH_FUNCTION_RE = re.compile(r"\bWITH\s+(FUNCTION|PROCEDURE)\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "WITH FUNCTION/PROCEDURE — встроенное определение функции внутри "
-    "собственного WITH-предложения запроса (Oracle 12c+). ora2pg не "
-    "просто копирует конструкцию как есть — он полностью разваливает "
-    "структуру: вложенная функция 'утекает' наружу как отдельная функция "
-    "верхнего уровня пакета, а тело содержащей её процедуры обрывается "
-    "буквально на 'BEGIN WITH;', теряя весь настоящий запрос "
-    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-010-with-function.md). Падает уже на этапе "
-    "компиляции тела функции при первом вызове (синтаксическая ошибка "
-    "'syntax error at end of input'), не просто на выполнении. "
-    "Единственный путь — вручную вынести логику в обычную функцию/"
-    "процедуру PostgreSQL."
-)
-
 
 def find_with_function_clauses(source: str) -> list[Finding]:
     """Detect Oracle's inline WITH FUNCTION/PROCEDURE clause. Confirmed to
@@ -47,7 +32,7 @@ def find_with_function_clauses(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=re.sub(r"\s+", " ", m.group(0)),
-                message=_MESSAGE,
+                message_id="with_function",
             )
         )
 

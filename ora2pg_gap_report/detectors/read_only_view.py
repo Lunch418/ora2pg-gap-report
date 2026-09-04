@@ -18,22 +18,6 @@ _CREATE_VIEW_RE = re.compile(
 )
 _WITH_READ_ONLY_RE = re.compile(r"\bWITH\s+READ\s+ONLY\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "CREATE VIEW ... WITH READ ONLY — представление, через которое Oracle "
-    "запрещает менять данные: INSERT/UPDATE/DELETE по нему падают с "
-    "ORA-42399. ora2pg просто выбрасывает оговорку из вывода "
-    "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-066-read-only-view.md). Ошибки не будет ни на "
-    "загрузке, ни потом: простое представление в PostgreSQL по умолчанию "
-    "автоматически обновляемое, поэтому INSERT через него молча проходит "
-    "и пишет строку в базовую таблицу — проверено, строка действительно "
-    "появляется. Защита, которая в Oracle была объявлена в самом "
-    "определении объекта, после миграции исчезает бесследно. "
-    "Восстанавливается либо правами (REVOKE INSERT, UPDATE, DELETE ON "
-    "<view> FROM ...), либо триггером INSTEAD OF, возбуждающим "
-    "исключение. Родственный gap про таблицы — GAP-026/read_only_table.py."
-)
-
 
 def find_read_only_views(source: str) -> list[Finding]:
     """Detect Oracle's CREATE VIEW ... WITH READ ONLY. ora2pg drops the
@@ -59,7 +43,7 @@ def find_read_only_views(source: str) -> list[Finding]:
                 object_name=m.group(1).upper(),
                 line=line_at(clean, clause.start()),
                 snippet="WITH READ ONLY",
-                message=_MESSAGE,
+                message_id="read_only_view",
             )
         )
 

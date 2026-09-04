@@ -21,21 +21,6 @@ from ..mssql_lex import (
 # the safer failure mode than flooding every idempotent script with noise.
 _PATTERN_RE = re.compile(r"\bIF\b(?!\s+(?:NOT\s+)?EXISTS\b)\s+", re.IGNORECASE)
 
-_MESSAGE = (
-    "IF — условный оператор T-SQL. ora2pg (-M) не доводит перевод до "
-    "конца ни в одной из двух его форм, причём ломается по-разному "
-    "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-092-mssql-if-statement.md). С блоком — IF @x < 0 "
-    "BEGIN ... END — слово THEN подставляется правильно, но закрывающее "
-    "END так и остаётся END вместо END IF, и разбор падает с \'syntax "
-    "error at or near \"END\"\'. Без блока — IF @x < 0 <оператор>; — не "
-    "подставляется и THEN, и падение другое: \'missing \"THEN\" at end "
-    "of SQL expression\'. Загрузка в обоих случаях проходит чисто "
-    "(check_function_bodies = false в выводе ora2pg), ошибка вылезает "
-    "при первом вызове. Переписывается в полную форму PL/pgSQL: IF "
-    "<условие> THEN <операторы>; END IF;"
-)
-
 
 def find_mssql_if_statements(source: str) -> list[Finding]:
     """Detect T-SQL IF statements. ora2pg -M mishandles both shapes:
@@ -55,7 +40,7 @@ def find_mssql_if_statements(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet="IF",
-                message=_MESSAGE,
+                message_id="mssql_if_statement",
             )
         )
 

@@ -21,17 +21,6 @@ _PIVOT_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "PIVOT/UNPIVOT — поворот строк в столбцы (и обратно) прямо в SQL. "
-    "ora2pg копирует конструкцию как есть (подтверждено реальным прогоном "
-    "ora2pg + PostgreSQL 16, docs/research/gap-008-pivot-unpivot.md) — в "
-    "PostgreSQL нет встроенного PIVOT/UNPIVOT вообще. CREATE "
-    "PROCEDURE/FUNCTION проходит без ошибки (ora2pg отключает "
-    "check_function_bodies в своём выводе), падает только при первом "
-    "реальном вызове. Переписывается вручную на условную агрегацию "
-    "(FILTER/CASE WHEN) или расширение tablefunc (crosstab())."
-)
-
 
 def find_pivot_clauses(source: str) -> list[Finding]:
     """Detect Oracle's PIVOT/UNPIVOT clause. No PostgreSQL syntax
@@ -50,7 +39,7 @@ def find_pivot_clauses(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=m.group(1).upper(),
-                message=_MESSAGE,
+                message_id="pivot_clause",
             )
         )
 

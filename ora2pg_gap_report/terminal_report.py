@@ -45,6 +45,7 @@ from .effort_estimator import (
 from .gap_registry import gap_metadata
 from .i18n import REMEDIATION_HINT_EN
 from .models import Finding
+from . import messages
 from .verification import DetectorVerification, NewInOutput
 
 _SEVERITY_STYLE = {
@@ -240,14 +241,14 @@ def render(
 
     explanation_counts: dict[tuple[str, str], int] = {}
     for f in findings:
-        key = (f.detector, f.message)
+        key = (f.detector, f.message_id)
         explanation_counts[key] = explanation_counts.get(key, 0) + 1
 
     console.print()
     console.print(f"[bold]{i18n.t(lang, 'explanations_title')}[/bold]")
-    for (detector, message), n in explanation_counts.items():
+    for (detector, message_id), n in explanation_counts.items():
         title = i18n.t(lang, "explanation_panel_title", detector=detector, n=n)
-        body: list[Text] = [Text(message)]
+        body: list[Text] = [Text(messages.text(message_id, lang))]
         gap_number, failure_stage = gap_metadata(detector)
         # None for a detector with no registered gap at all (e.g.
         # dbms_utl_calls, a classifier -- see gap_registry.py) -- omit the

@@ -46,7 +46,7 @@ def test_real_scan_produces_valid_sarif(sarif_schema):
     # finding and not one per detector -- a detector can have more than
     # one static message (see test_multiple_messages_from_one_detector_
     # gets_separate_rules), so grouping by detector alone would be wrong.
-    assert len(driver["rules"]) == len({(f.detector, f.message) for f in findings})
+    assert len(driver["rules"]) == len({(f.detector, f.message_id) for f in findings})
 
 
 def test_line_zero_sentinel_produces_valid_sarif_without_a_region(sarif_schema):
@@ -59,7 +59,7 @@ def test_line_zero_sentinel_produces_valid_sarif_without_a_region(sarif_schema):
         object_name="PKG.PROC",
         line=0,
         snippet="c.level",
-        message="msg",
+        message_id="connect_by",
         source_file="generated_output.sql",
     )
     doc = json.loads(to_sarif([finding]))
@@ -84,7 +84,7 @@ def test_artifact_location_uri_percent_encodes_a_space(sarif_schema):
         object_name="X",
         line=1,
         snippet="s",
-        message="m",
+        message_id="autonomous_tx",
         source_file="my folder/logger.pkb",
     )
     doc = json.loads(to_sarif([finding]))
@@ -105,7 +105,7 @@ def test_artifact_location_uri_does_not_let_a_windows_drive_letter_look_like_a_s
         object_name="X",
         line=1,
         snippet="s",
-        message="m",
+        message_id="autonomous_tx",
         source_file="C:\\Users\\me\\logger.pkb",
     )
     doc = json.loads(to_sarif([finding]))
@@ -125,7 +125,7 @@ def test_artifact_location_uri_leaves_a_plain_relative_path_unchanged():
         object_name="X",
         line=1,
         snippet="s",
-        message="m",
+        message_id="autonomous_tx",
         source_file="docs/research/samples/logger.pkb",
     )
     doc = json.loads(to_sarif([finding]))
@@ -135,9 +135,9 @@ def test_artifact_location_uri_leaves_a_plain_relative_path_unchanged():
 
 def test_severity_maps_to_the_expected_sarif_level():
     findings = [
-        Finding(detector="a", severity="high", object_name="X", line=1, snippet="s", message="m"),
-        Finding(detector="b", severity="medium", object_name="X", line=1, snippet="s", message="m"),
-        Finding(detector="c", severity="low", object_name="X", line=1, snippet="s", message="m"),
+        Finding(detector="a", severity="high", object_name="X", line=1, snippet="s", message_id="read_only_table"),
+        Finding(detector="b", severity="medium", object_name="X", line=1, snippet="s", message_id="read_only_table"),
+        Finding(detector="c", severity="low", object_name="X", line=1, snippet="s", message_id="read_only_table"),
     ]
     doc = json.loads(to_sarif(findings))
     results_by_detector = {f.detector: r for f, r in zip(findings, doc["runs"][0]["results"])}
@@ -153,7 +153,7 @@ def test_rule_help_uri_points_at_the_gap_research_doc_when_one_exists():
         object_name="AUDIT_LOG",
         line=4,
         snippet="READ ONLY",
-        message="msg",
+        message_id="read_only_table",
     )
     doc = json.loads(to_sarif([finding]))
     rule = doc["runs"][0]["tool"]["driver"]["rules"][0]
@@ -170,7 +170,7 @@ def test_rule_properties_carry_gap_number_and_failure_stage():
         object_name="AUDIT_LOG",
         line=4,
         snippet="READ ONLY",
-        message="msg",
+        message_id="read_only_table",
     )
     doc = json.loads(to_sarif([finding]))
     rule = doc["runs"][0]["tool"]["driver"]["rules"][0]
@@ -184,7 +184,7 @@ def test_rule_properties_omit_failure_stage_for_an_exempt_gap():
         object_name="LOGGER.PURGE_ALL",
         line=1,
         snippet="pragma autonomous_transaction;",
-        message="msg",
+        message_id="autonomous_tx",
     )
     doc = json.loads(to_sarif([finding]))
     rule = doc["runs"][0]["tool"]["driver"]["rules"][0]
@@ -202,7 +202,7 @@ def test_rule_has_no_help_uri_for_a_detector_outside_the_gap_registry():
         object_name="X",
         line=1,
         snippet="dbms_lob.something",
-        message="msg",
+        message_id="dbms_utl_calls",
     )
     doc = json.loads(to_sarif([finding]))
     rule = doc["runs"][0]["tool"]["driver"]["rules"][0]
@@ -211,25 +211,23 @@ def test_rule_has_no_help_uri_for_a_detector_outside_the_gap_registry():
 
 
 def test_multiple_messages_from_one_detector_get_separate_rules(sarif_schema):
-    # bulk_collect.py attaches one of three distinct static messages
-    # (_TYPE_DECL_MESSAGE / _BULK_COLLECT_MESSAGE / _FORALL_MESSAGE)
-    # depending on which sub-pattern matched, all under
-    # detector="bulk_collect" -- see terminal_report.py's own
-    # explanation_counts, which groups by (detector, message) for exactly
-    # this reason. compound_trigger_apress.sql triggers two of them (a
+    # bulk_collect emits one of three distinct messages depending on
+    # which sub-pattern matched, all under detector="bulk_collect" --
+    # see terminal_report.py's own explanation_counts, which groups by
+    # (detector, message_id) for exactly this reason. compound_trigger_apress.sql triggers two of them (a
     # TYPE...IS TABLE OF declaration and a FORALL), a real regression case
     # for grouping SARIF rules by detector alone: that would attach
     # whichever message came first to a rule shared by both results,
     # misdescribing the other one.
     source = (SAMPLES / "compound_trigger_apress.sql").read_text(encoding="utf-8")
     findings = [f for f in scan_source(source) if f.detector == "bulk_collect"]
-    assert len({f.message for f in findings}) >= 2, "fixture must still exercise >=2 distinct messages"
+    assert len({f.message_id for f in findings}) >= 2, "fixture must still exercise >=2 distinct messages"
 
     doc = json.loads(to_sarif(findings))
     jsonschema.validate(doc, sarif_schema)
 
     rules_by_id = {r["id"]: r for r in doc["runs"][0]["tool"]["driver"]["rules"]}
-    assert len(rules_by_id) == len({f.message for f in findings})
+    assert len(rules_by_id) == len({f.message_id for f in findings})
     for result in doc["runs"][0]["results"]:
         rule = rules_by_id[result["ruleId"]]
         assert rule["fullDescription"]["text"] == result["message"]["text"]
@@ -246,8 +244,7 @@ def test_short_description_does_not_truncate_mid_word_on_a_message_with_ellipsis
         object_name="X",
         line=1,
         snippet="s",
-        message="TYPE ... IS TABLE OF ... — a local collection type declaration.",
-    )
+        message_id="bulk_collect.bulk_collect"    )
     doc = json.loads(to_sarif([finding]))
     rule = doc["runs"][0]["tool"]["driver"]["rules"][0]
     assert rule["shortDescription"]["text"] == "Bulk collect"

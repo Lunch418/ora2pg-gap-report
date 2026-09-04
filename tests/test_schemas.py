@@ -42,7 +42,9 @@ def test_real_json_report_validates_against_report_schema(report_schema):
 
 
 def test_empty_json_report_validates_against_report_schema(report_schema):
-    jsonschema.validate([], report_schema)
+    # A clean scan is still the full envelope, with both containers
+    # present and empty -- a consumer shouldn't have to special-case it.
+    jsonschema.validate(json.loads(to_json([])), report_schema)
 
 
 def test_real_baseline_snapshot_validates_against_baseline_schema(tmp_path, baseline_schema):

@@ -32,19 +32,6 @@ _RULES_RE = re.compile(r"\bRULES\b", re.IGNORECASE)
 # MODEL/RULES pairing shouldn't be allowed to match across statements.
 _LOOKAHEAD_WINDOW = 2000
 
-_MESSAGE = (
-    "MODEL — spreadsheet-стиль вычислений внутри SQL (PARTITION BY / "
-    "DIMENSION BY / MEASURES / RULES). ora2pg не трогает конструкцию "
-    "вообще (подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-007-model-clause.md). CREATE PROCEDURE/FUNCTION "
-    "проходит без ошибки (ora2pg отключает check_function_bodies в своём "
-    "выводе), падает только при первом реальном вызове. В отличие от "
-    "большинства других находок этого проекта, у MODEL нет прямого "
-    "архитектурного эквивалента в PostgreSQL вообще — единственный путь "
-    "это переписать логику вручную на оконные функции или рекурсивные "
-    "CTE, а не механическая подстановка синтаксиса."
-)
-
 
 def find_model_clauses(source: str) -> list[Finding]:
     """Detect Oracle's MODEL clause. Unlike most other detectors here,
@@ -67,7 +54,7 @@ def find_model_clauses(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet="MODEL",
-                message=_MESSAGE,
+                message_id="model_clause",
             )
         )
 

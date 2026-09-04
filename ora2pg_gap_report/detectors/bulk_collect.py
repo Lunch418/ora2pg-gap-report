@@ -31,36 +31,6 @@ _CREATE_TYPE_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 
-_TYPE_DECL_MESSAGE = (
-    "TYPE ... IS TABLE OF ... — локальное объявление вложенной "
-    "коллекции/ассоциативного массива. ora2pg практически не трогает эту "
-    "конструкцию — синтаксис копируется как есть, а такого объявления "
-    "типа не существует в PL/pgSQL (подтверждено реальным прогоном ora2pg "
-    "+ PostgreSQL 16, docs/research/gap-003-bulk-collect-forall.md). "
-    "CREATE PROCEDURE/FUNCTION проходит без единой ошибки (ora2pg "
-    "отключает check_function_bodies в своём выводе), а при первом же "
-    "реальном вызове падает прямо на этом объявлении — до того, как тело "
-    "процедуры вообще начнёт выполняться. Нужно вручную переписать на "
-    "массив PostgreSQL (type[]) или временную таблицу."
-)
-_BULK_COLLECT_MESSAGE = (
-    "BULK COLLECT INTO — массовая выборка в коллекцию. ora2pg лишь "
-    "добавляет ключевое слово STRICT (относящееся к обычному SELECT INTO "
-    "в PL/pgSQL, а не к BULK COLLECT) и не переписывает конструкцию — "
-    "результат не является корректным PL/pgSQL (подтверждено реальным "
-    "прогоном, docs/research/gap-003-bulk-collect-forall.md). Обычно "
-    "переписывается на 'SELECT array_agg(...) INTO ...' или цикл с "
-    "накоплением в массив вручную."
-)
-_FORALL_MESSAGE = (
-    "FORALL — массовое DML-выполнение по коллекции. В PL/pgSQL такой "
-    "конструкции нет, ora2pg копирует её как есть (подтверждено реальным "
-    "прогоном, docs/research/gap-003-bulk-collect-forall.md). Обычно "
-    "переписывается на обычный цикл FOR ... LOOP или на DML с UNNEST() "
-    "по массиву — оценка производительности отдельно, PostgreSQL это "
-    "тоже умеет делать быстро, просто другим синтаксисом."
-)
-
 
 def _schema_level_create_type_positions(text: str) -> set[int]:
     """Every offset where a schema-level 'CREATE [OR REPLACE] TYPE ... IS
@@ -126,7 +96,7 @@ def find_bulk_collect_usage(source: str) -> list[Finding]:
                 object_name=_object_name_at(m.start()),
                 line=line_at(visible, m.start()),
                 snippet=m.group(0).strip(),
-                message=_TYPE_DECL_MESSAGE,
+                message_id="bulk_collect.type_decl",
             )
         )
 
@@ -138,7 +108,7 @@ def find_bulk_collect_usage(source: str) -> list[Finding]:
                 object_name=_object_name_at(m.start()),
                 line=line_at(visible, m.start()),
                 snippet=m.group(0).strip(),
-                message=_BULK_COLLECT_MESSAGE,
+                message_id="bulk_collect.bulk_collect",
             )
         )
 
@@ -150,7 +120,7 @@ def find_bulk_collect_usage(source: str) -> list[Finding]:
                 object_name=_object_name_at(m.start()),
                 line=line_at(visible, m.start()),
                 snippet=m.group(0).strip(),
-                message=_FORALL_MESSAGE,
+                message_id="bulk_collect.forall",
             )
         )
 

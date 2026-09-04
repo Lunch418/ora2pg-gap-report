@@ -1,4 +1,5 @@
 from ora2pg_gap_report.detectors.to_date_rr import find_to_date_rr
+from ora2pg_gap_report.messages import MESSAGES
 
 
 def test_to_date_with_an_rr_format_is_flagged():
@@ -66,8 +67,8 @@ def test_the_message_does_not_recommend_yy_as_a_drop_in_replacement():
     # so they disagree by a century for two-digit years 50-69. An earlier
     # draft of this message claimed PostgreSQL "applies the same rule",
     # which would have sent users from a loud bug to a silent one.
-    from ora2pg_gap_report.detectors.to_date_rr import _MESSAGE
+    message = MESSAGES["to_date_rr"].ru
 
-    assert "YYYY" in _MESSAGE
-    assert "00-69" in _MESSAGE and "70-99" in _MESSAGE
-    assert "то же правило" not in _MESSAGE
+    assert "YYYY" in message
+    assert "00-69" in message and "70-99" in message
+    assert "то же правило" not in message

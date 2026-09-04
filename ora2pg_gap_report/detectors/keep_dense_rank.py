@@ -16,20 +16,6 @@ from ..plsql_lex import (
 # the construct that doesn't survive conversion.
 _KEEP_RE = re.compile(r"\bKEEP\s*\(\s*DENSE_RANK\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) — Oracle-специфичный "
-    "вариант агрегатной функции: взять значение агрегата не по всей "
-    "группе, а по строке, первой (или последней) в заданном порядке "
-    "внутри группы (классика — «зарплата самого раннего нанятого в "
-    "отделе»). ora2pg копирует конструкцию в вывод как есть "
-    "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-040-keep-dense-rank.md). У PostgreSQL нет "
-    "KEEP-синтаксиса — падает синтаксической ошибкой при загрузке. "
-    "Переписывается вручную: чаще всего через оконную функцию "
-    "FIRST_VALUE/LAST_VALUE с той же ORDER BY в OVER-разделе, либо через "
-    "DISTINCT ON, либо через агрегаты PostgreSQL с FILTER."
-)
-
 
 def find_keep_dense_rank(source: str) -> list[Finding]:
     """Detect Oracle's KEEP (DENSE_RANK FIRST|LAST ORDER BY ...)
@@ -49,7 +35,7 @@ def find_keep_dense_rank(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet="KEEP (DENSE_RANK ...)",
-                message=_MESSAGE,
+                message_id="keep_dense_rank",
             )
         )
 

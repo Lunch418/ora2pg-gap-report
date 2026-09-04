@@ -18,20 +18,6 @@ _PACKAGE_BODY_NAME_RE = re.compile(
 )
 _PRAGMA_RE = re.compile(r"PRAGMA\s+AUTONOMOUS_TRANSACTION\s*;", re.IGNORECASE)
 
-_MESSAGE = (
-    "ora2pg перенесёт эту процедуру/функцию через dblink-обёртку "
-    "(переименует в *_atx, уберёт COMMIT из тела, добавит функцию-прокси, "
-    "вызывающую её через dblink()). Стратегия рабочая, но не бесшовная: "
-    "требуется расширение dblink и ручная настройка connection string — "
-    "то есть сетевая зависимость между процедурами, которая может быть "
-    "неприемлема в контуре с жёсткими требованиями к изоляции. При этом "
-    "SHOW_REPORT и --estimate_cost систематически недооценивают стоимость "
-    "этой конструкции именно для функций/процедур внутри PACKAGE BODY — "
-    "сама PRAGMA стоит в декларативной секции (до BEGIN), которая не "
-    "попадает в подсчёт стоимости (declare/code split в "
-    "Ora2Pg.pm::_lookup_function)."
-)
-
 
 def _package_name_at(package_matches: list, position: int) -> str:
     name = "UNKNOWN"
@@ -120,7 +106,7 @@ def find_autonomous_transactions(source: str) -> list[Finding]:
                     object_name=f"{package_name}.{match.group(1).upper()}",
                     line=line_no,
                     snippet=pragma_match.group(0).strip(),
-                    message=_MESSAGE,
+                    message_id="autonomous_tx",
                 )
             )
 

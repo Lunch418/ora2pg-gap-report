@@ -10,21 +10,6 @@ from ..mssql_lex import (
 
 _PATTERN_RE = re.compile(r"\bOUTPUT\s+(?:INSERTED|DELETED)\.", re.IGNORECASE)
 
-_MESSAGE = (
-    "OUTPUT INSERTED.<столбец> / OUTPUT DELETED.<столбец> — возврат "
-    "затронутых строк прямо из INSERT/UPDATE/DELETE в T-SQL. ora2pg "
-    "(-M) копирует оговорку в тело процедуры дословно (подтверждено "
-    "реальным прогоном ora2pg 25.0 + PostgreSQL 16, docs/research/"
-    "gap-097-mssql-output-clause.md). В PostgreSQL та же идея пишется "
-    "как RETURNING, и слова OUTPUT он не понимает. Загрузка проходит "
-    "чисто (check_function_bodies = false в выводе ora2pg), падение — "
-    "при первом вызове. Переписывается на RETURNING <столбец>, но с "
-    "оглядкой на две вещи: RETURNING не различает INSERTED и DELETED "
-    "(для UPDATE он возвращает новые значения — старые придётся брать "
-    "иначе), и в отличие от OUTPUT ... INTO <таблица> его результат "
-    "нельзя направить в таблицу одним оператором."
-)
-
 
 def find_mssql_output_clause(source: str) -> list[Finding]:
     """Detect T-SQL's OUTPUT INSERTED/DELETED clause. ora2pg -M copies
@@ -43,7 +28,7 @@ def find_mssql_output_clause(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=m.group(0).upper(),
-                message=_MESSAGE,
+                message_id="mssql_output_clause",
             )
         )
 

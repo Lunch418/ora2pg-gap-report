@@ -33,7 +33,7 @@ from .atomic_write import write_text_atomic
 from .gap_registry import gap_metadata
 from .models import Finding
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Deliberately narrower than schemas/baseline.schema.json's full required
 # list: just the two fields this module and verification.py actually

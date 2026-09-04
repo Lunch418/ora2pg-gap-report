@@ -176,20 +176,32 @@ def test_i18n_translations_parity_is_clean_on_the_real_repository_state():
     assert doctor.check_i18n_translations_parity() == []
 
 
-def test_i18n_translations_parity_flags_a_detector_message_with_no_english_translation(monkeypatch):
+def test_i18n_translations_parity_flags_a_detector_wired_to_an_unknown_message_id(monkeypatch):
     monkeypatch.setattr(
-        doctor,
-        "_detector_message_constants",
-        lambda: [("brand_new_detector", "_MESSAGE", "a message with no translation")],
+        doctor, "_detector_message_ids", lambda: {"brand_new_detector": "no_such_id"}
     )
     problems = doctor.check_i18n_translations_parity()
     assert len(problems) == 1
-    assert "brand_new_detector._MESSAGE" in problems[0]
-    assert "no English translation" in problems[0]
+    assert "brand_new_detector" in problems[0]
+    assert "no_such_id" in problems[0]
+
+
+def test_i18n_translations_parity_flags_a_blank_translation(monkeypatch):
+    # The remaining silent failure once ids replaced text as the key: the
+    # id resolves, so nothing raises, and the user just gets an empty
+    # explanation.
+    monkeypatch.setattr(doctor, "_detector_message_ids", lambda: {"d": "d"})
+    monkeypatch.setattr(
+        doctor.messages, "MESSAGES", {"d": doctor.messages.Message(ru="есть текст", en="   ")}
+    )
+    monkeypatch.setattr(doctor, "_REMEDIATION_HINT", {})
+    problems = doctor.check_i18n_translations_parity()
+    assert len(problems) == 1
+    assert "MESSAGES['d'].en is empty" in problems[0]
 
 
 def test_i18n_translations_parity_flags_a_missing_remediation_hint(monkeypatch):
-    monkeypatch.setattr(doctor, "_detector_message_constants", lambda: [])
+    monkeypatch.setattr(doctor, "_detector_message_ids", lambda: {})
     monkeypatch.setattr(doctor, "_REMEDIATION_HINT", {"brand_new_detector": "some hint"})
     problems = doctor.check_i18n_translations_parity()
     assert len(problems) == 1
@@ -370,19 +382,22 @@ def test_translations_are_not_glued_is_clean_on_the_real_repository_state():
 
 def test_translations_are_not_glued_flags_a_glued_word(monkeypatch):
     monkeypatch.setattr(
-        doctor.i18n,
-        "EXPLANATION_EN",
-        {"какое-то русское сообщение": "an Oracle table where anobjecttypeinstance lives"},
+        doctor.messages,
+        "MESSAGES",
+        {"some_detector": doctor.messages.Message(
+            ru="какое-то русское сообщение",
+            en="an Oracle table where anobjecttypeinstance lives",
+        )},
     )
     monkeypatch.setattr(doctor.i18n, "REMEDIATION_HINT_EN", {})
     problems = doctor.check_translations_are_not_glued()
     assert len(problems) == 1
     assert "anobjecttypeinstance" in problems[0]
-    assert "EXPLANATION_EN" in problems[0]
+    assert "MESSAGES.en" in problems[0]
 
 
 def test_translations_are_not_glued_also_checks_remediation_hints(monkeypatch):
-    monkeypatch.setattr(doctor.i18n, "EXPLANATION_EN", {})
+    monkeypatch.setattr(doctor.messages, "MESSAGES", {})
     monkeypatch.setattr(
         doctor.i18n, "REMEDIATION_HINT_EN", {"some_detector": "rewriteusingwindowfunctions instead"}
     )
@@ -391,11 +406,30 @@ def test_translations_are_not_glued_also_checks_remediation_hints(monkeypatch):
     assert "REMEDIATION_HINT_EN" in problems[0]
 
 
+def test_translations_are_not_glued_checks_the_russian_side_too(monkeypatch):
+    # Both languages go through the same line-wrapping, so both can lose a
+    # separator on the seam between adjacent string literals.
+    monkeypatch.setattr(
+        doctor.messages,
+        "MESSAGES",
+        {"some_detector": doctor.messages.Message(
+            ru="таблица где живёт anobjecttypeinstance", en="fine text here"
+        )},
+    )
+    monkeypatch.setattr(doctor.i18n, "REMEDIATION_HINT_EN", {})
+    problems = doctor.check_translations_are_not_glued()
+    assert len(problems) == 1
+    assert "MESSAGES.ru" in problems[0]
+
+
 def test_translations_are_not_glued_allows_ordinary_text(monkeypatch):
     monkeypatch.setattr(
-        doctor.i18n,
-        "EXPLANATION_EN",
-        {"ru": "an Oracle object table: every row is an instance of an object type"},
+        doctor.messages,
+        "MESSAGES",
+        {"some_detector": doctor.messages.Message(
+            ru="обычный текст без склеек",
+            en="an Oracle object table: every row is an instance of an object type",
+        )},
     )
     monkeypatch.setattr(doctor.i18n, "REMEDIATION_HINT_EN", {})
     assert doctor.check_translations_are_not_glued() == []

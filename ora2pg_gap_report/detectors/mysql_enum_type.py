@@ -14,20 +14,6 @@ _TABLE_RE = re.compile(
 )
 _ENUM_RE = re.compile(r"\bENUM\s*\(", re.IGNORECASE)
 
-_MESSAGE = (
-    "ENUM(...) — столбец с перечислимым типом MySQL/MariaDB. ora2pg (-m) "
-    "синтезирует под него именованный PostgreSQL-тип "
-    "<таблица>_<столбец>_t и подставляет это имя в определение столбца, "
-    "но сам оператор CREATE TYPE ... AS ENUM (...), которым этот тип "
-    "должен быть объявлен, в вывод не попадает — подтверждено реальным "
-    "прогоном ora2pg 25.0 + PostgreSQL 16 (docs/research/"
-    "gap-068-mysql-enum-type.md). CREATE TABLE падает немедленно, при "
-    "загрузке схемы: 'type \"<таблица>_<столбец>_t\" does not exist'. "
-    "Значения перечисления при этом никуда не теряются — они видны прямо "
-    "в исходном ENUM(...), — так что руками нужно лишь вставить "
-    "недостающий CREATE TYPE перед CREATE TABLE."
-)
-
 
 def find_mysql_enum_columns(source: str) -> list[Finding]:
     """Detect MySQL/MariaDB ENUM(...) columns. ora2pg -m synthesizes a
@@ -53,7 +39,7 @@ def find_mysql_enum_columns(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, open_pos + 1 + col_match.start()),
                     snippet="ENUM(...)",
-                    message=_MESSAGE,
+                    message_id="mysql_enum_type",
                 )
             )
 

@@ -15,22 +15,6 @@ from ..plsql_lex import (
 # quotes intact, same guard as index_organized_table.py uses.
 _ACCESSIBLE_BY_RE = re.compile(r'(?<!")\bACCESSIBLE\s+BY\s*\(', re.IGNORECASE)
 
-_MESSAGE = (
-    "ACCESSIBLE BY (Oracle 12c+) — «белый список» вызывающих: подпрограмма "
-    "объявляется доступной только перечисленным пакетам/процедурам, "
-    "остальные получают ошибку компиляции при попытке её вызвать. Это "
-    "средство инкапсуляции внутри схемы, работающее поверх обычных GRANT. "
-    "ora2pg копирует секцию в вывод как есть, прямо в заголовок функции "
-    "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-043-accessible-by.md). PostgreSQL такого синтаксиса "
-    "не знает — CREATE PROCEDURE/FUNCTION падает синтаксической ошибкой "
-    "уже при загрузке. Прямого аналога нет: ограничение «кто именно из "
-    "кода может вызвать» в PostgreSQL не выражается — ближайшее по смыслу "
-    "решение это вынести подпрограмму в отдельную схему и раздать права "
-    "через GRANT/REVOKE, что даёт защиту на уровне ролей, а не на уровне "
-    "конкретных вызывающих подпрограмм."
-)
-
 
 def find_accessible_by(source: str) -> list[Finding]:
     """Detect Oracle's ACCESSIBLE BY whitelist clause on a subprogram.
@@ -49,7 +33,7 @@ def find_accessible_by(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet="ACCESSIBLE BY",
-                message=_MESSAGE,
+                message_id="accessible_by",
             )
         )
 

@@ -19,22 +19,6 @@ _PATTERNS = (
     (_TYPE_BODY_RE, "CREATE TYPE BODY"),
 )
 
-_MESSAGE = (
-    "CREATE TYPE ... AS OBJECT / TYPE BODY — объектный тип Oracle "
-    "(атрибуты + MEMBER-методы). ora2pg сам явно помечает это "
-    "'-- Unsupported, please edit to match PostgreSQL syntax' и копирует "
-    "Oracle-синтаксис как есть — но что важнее, у --estimate_cost (и, "
-    "судя по коду, у SHOW_REPORT) вообще нет механизма оценки стоимости "
-    "для объектов типа TYPE (подтверждено прогоном --estimate_cost -t "
-    "TYPE, вернувшим ноль строк отчёта, см. "
-    "docs/research/gap-009-object-type.md). Значит такие объекты не "
-    "просто помечены как проблема — они полностью выпадают из любой "
-    "числовой оценки трудозатрат. У PostgreSQL нет объектных типов с "
-    "методами — обычно переписывается на composite type + отдельные "
-    "функции, архитектурно другой подход, не механическая замена "
-    "синтаксиса."
-)
-
 
 def find_object_types(source: str) -> list[Finding]:
     """Detect Oracle object type declarations (CREATE TYPE ... AS/IS
@@ -60,7 +44,7 @@ def find_object_types(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, m.start()),
                     snippet=snippet,
-                    message=_MESSAGE,
+                    message_id="object_type",
                 )
             )
 

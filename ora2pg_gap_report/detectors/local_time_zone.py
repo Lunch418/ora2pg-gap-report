@@ -23,23 +23,6 @@ _LTZ_COLUMN_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "TIMESTAMP WITH LOCAL TIME ZONE — Oracle хранит момент времени в "
-    "нормализованном виде и на чтении автоматически пересчитывает его в "
-    "часовой пояс текущей сессии. ora2pg конвертирует такой столбец в "
-    "простой timestamp — БЕЗ часового пояса (подтверждено реальным "
-    "прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-044-local-time-zone.md). Ошибки не будет никогда: "
-    "CREATE TABLE проходит, INSERT проходит, SELECT возвращает значение. "
-    "Но пересчёт в часовой пояс сессии молча исчезает — одно и то же "
-    "значение теперь отдаётся одинаковым во всех сессиях, независимо от "
-    "их TIME ZONE, тогда как в Oracle оно сдвигалось. Для системы, где "
-    "клиенты в разных поясах, это тихое расхождение в данных, которое "
-    "проявится только как жалоба пользователя на неверное время. "
-    "Правильная замена в PostgreSQL — timestamptz (timestamp with time "
-    "zone): именно он делает то же, что Oracle LTZ."
-)
-
 
 def find_local_time_zone_columns(source: str) -> list[Finding]:
     """Detect Oracle's TIMESTAMP WITH LOCAL TIME ZONE used as a column
@@ -72,7 +55,7 @@ def find_local_time_zone_columns(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, open_pos + 1 + col_match.start()),
                     snippet=re.sub(r"\s+", " ", col_match.group(0).strip().upper()),
-                    message=_MESSAGE,
+                    message_id="local_time_zone",
                 )
             )
 

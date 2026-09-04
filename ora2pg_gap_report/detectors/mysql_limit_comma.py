@@ -14,22 +14,6 @@ from ..mysql_lex import (
 # is caught too; a plain `LIMIT n` has no comma and never matches.
 _LIMIT_COMMA_RE = re.compile(r"\bLIMIT\s+\w+\s*,\s*\w+", re.IGNORECASE)
 
-_MESSAGE = (
-    "LIMIT <смещение>, <количество> — MySQL/MariaDB-специфичная форма "
-    "постраничной выборки через запятую. ora2pg (-m) копирует её в тело "
-    "процедуры/функции дословно (подтверждено реальным прогоном ora2pg "
-    "25.0 + PostgreSQL 16, docs/research/gap-075-mysql-limit-comma.md). "
-    "PostgreSQL такую запись не принимает и сообщает об этом прямо: "
-    "'LIMIT #,# syntax is not supported'. CREATE PROCEDURE/FUNCTION при "
-    "этом проходит без ошибок — ora2pg выставляет в своём выводе "
-    "check_function_bodies = false, поэтому тело не разбирается на "
-    "загрузке, — и падение происходит при первом же реальном вызове. "
-    "Переписывается на LIMIT <количество> OFFSET <смещение>. Обратите "
-    "внимание на порядок: в MySQL-форме первым идёт смещение, поэтому "
-    "механическая замена запятой на OFFSET без перестановки аргументов "
-    "даст молча другую страницу выдачи."
-)
-
 
 def find_mysql_limit_comma(source: str) -> list[Finding]:
     """Detect MySQL/MariaDB's comma form of LIMIT (`LIMIT offset, count`).
@@ -50,7 +34,7 @@ def find_mysql_limit_comma(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet="LIMIT n, m",
-                message=_MESSAGE,
+                message_id="mysql_limit_comma",
             )
         )
 

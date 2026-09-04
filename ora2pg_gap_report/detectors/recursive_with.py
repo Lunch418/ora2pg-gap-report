@@ -31,24 +31,6 @@ _NEXT_CTE_RE = re.compile(
 )
 _UNION_RE = re.compile(r"\bUNION\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "WITH cte AS (...) — рекурсивная факторизация подзапроса Oracle "
-    "(recursive subquery factoring), не через CONNECT BY (см. GAP-005 "
-    "про этот отдельный случай), а через прямую самоссылку CTE на себя "
-    "после UNION [ALL]. Oracle не требует явного ключевого слова "
-    "RECURSIVE — рекурсия определяется автоматически по самоссылке. "
-    "ora2pg копирует WITH как есть, без добавления RECURSIVE (подтверждено "
-    "реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-024-recursive-with.md). PostgreSQL требует "
-    "RECURSIVE явно — без него самоссылка на CTE во второй ветке UNION "
-    "падает: 'there is a WITH item named ..., but it cannot be referenced "
-    "from this part of the query' с подсказкой 'Use WITH RECURSIVE'. Если "
-    "запрос дополнительно использует секцию CYCLE, после добавления "
-    "RECURSIVE вручную придётся ещё и переставить её после закрывающей "
-    "скобки тела CTE и добавить обязательную в PostgreSQL секцию USING — "
-    "у Oracle CYCLE стоит перед AS и не требует USING."
-)
-
 
 def find_recursive_with_missing_keyword(source: str) -> list[Finding]:
     """Detect Oracle's native recursive subquery factoring ('WITH cte AS
@@ -123,7 +105,7 @@ def find_recursive_with_missing_keyword(source: str) -> list[Finding]:
                     object_name=enclosing_object_name(name_index, name_start),
                     line=line_at(clean, name_start),
                     snippet=f"WITH {cte_name.upper()} AS (...)",
-                    message=_MESSAGE,
+                    message_id="recursive_with",
                 )
             )
 

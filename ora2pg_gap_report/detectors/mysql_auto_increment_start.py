@@ -15,23 +15,6 @@ from ..mysql_lex import (
 # auto-increment table in existence.
 _AUTO_INCREMENT_START_RE = re.compile(r"\bAUTO_INCREMENT\s*=\s*(\d+)", re.IGNORECASE)
 
-_MESSAGE = (
-    "AUTO_INCREMENT=<n> в опциях таблицы — следующее значение, которое "
-    "выдаст счётчик; в дампе непустой таблицы оно всегда больше "
-    "максимального существующего id. ora2pg (-m) переносит сам столбец "
-    "корректно (он становится serial), но стартовое значение теряет: в "
-    "выводе нет ни ALTER SEQUENCE ... RESTART WITH <n>, ни setval() "
-    "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-080-mysql-auto-increment-start.md). Схема "
-    "загружается без единой ошибки, и последовательность начинает "
-    "отсчёт с 1 — то есть с значений, которые в перенесённых данных уже "
-    "заняты. Первая же вставка после миграции падает на нарушении "
-    "первичного ключа, и так до тех пор, пока счётчик не догонит "
-    "реальные данные. Чинится одной строкой на таблицу после загрузки "
-    "данных: SELECT setval(pg_get_serial_sequence('<таблица>', "
-    "'<столбец>'), (SELECT max(<столбец>) FROM <таблица>))."
-)
-
 
 def find_mysql_auto_increment_start(source: str) -> list[Finding]:
     """Detect the MySQL `AUTO_INCREMENT=<n>` *table option*. ora2pg -m
@@ -52,7 +35,7 @@ def find_mysql_auto_increment_start(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=f"AUTO_INCREMENT={m.group(1)}",
-                message=_MESSAGE,
+                message_id="mysql_auto_increment_start",
             )
         )
 

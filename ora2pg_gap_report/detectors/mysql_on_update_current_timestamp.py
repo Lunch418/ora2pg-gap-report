@@ -14,20 +14,6 @@ _TABLE_RE = re.compile(
 )
 _ON_UPDATE_RE = re.compile(r"\bON\s+UPDATE\s+CURRENT_TIMESTAMP\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP — MySQL/"
-    "MariaDB-специфичное авто-обновление столбца на каждый UPDATE "
-    "строки, часть самого DEFAULT. ora2pg (-m) копирует 'ON UPDATE "
-    "CURRENT_TIMESTAMP' в вывод дословно, прямо внутри DEFAULT — "
-    "подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 (docs/"
-    "research/gap-069-mysql-on-update-current-timestamp.md). В "
-    "PostgreSQL у DEFAULT нет такого синтаксиса вообще, и CREATE TABLE "
-    "падает немедленно, при загрузке схемы: 'syntax error at or near "
-    "\"ON\"'. Переносится на триггер BEFORE UPDATE, выставляющий "
-    "NEW.<столбец> = now() (или на GENERATED ALWAYS, если версия "
-    "PostgreSQL это позволяет для конкретного случая)."
-)
-
 
 def find_mysql_on_update_current_timestamp(source: str) -> list[Finding]:
     """Detect MySQL/MariaDB's `DEFAULT CURRENT_TIMESTAMP ON UPDATE
@@ -54,7 +40,7 @@ def find_mysql_on_update_current_timestamp(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, open_pos + 1 + col_match.start()),
                     snippet="ON UPDATE CURRENT_TIMESTAMP",
-                    message=_MESSAGE,
+                    message_id="mysql_on_update_current_timestamp",
                 )
             )
 

@@ -20,21 +20,6 @@ _TABLE_OPERATOR_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "TABLE(...) — оператор Oracle, разворачивающий коллекцию (nested "
-    "table, VARRAY или результат pipelined-функции) в набор строк прямо во "
-    "FROM. ora2pg копирует его в вывод как есть (подтверждено реальным "
-    "прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-054-table-collection.md). В PostgreSQL такого "
-    "оператора нет, и запрос падает синтаксической ошибкой прямо на слове "
-    "TABLE. Ближайший аналог — unnest(...) для массива или обычный вызов "
-    "set-returning функции во FROM (FROM get_ids(42)), но подстановка не "
-    "механическая: она зависит от того, чем в PostgreSQL стала сама "
-    "коллекция (массивом, отдельной таблицей или функцией, возвращающей "
-    "SETOF), — см. GAP-021/collection_type.py про сами объявления таких "
-    "типов."
-)
-
 
 def find_table_collection_operator(source: str) -> list[Finding]:
     """Detect Oracle's TABLE(...) collection-unnesting operator in a FROM
@@ -54,7 +39,7 @@ def find_table_collection_operator(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet="TABLE(",
-                message=_MESSAGE,
+                message_id="table_collection",
             )
         )
 

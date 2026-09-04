@@ -19,7 +19,7 @@ def _finding(**overrides) -> Finding:
         object_name="AUDIT_LOG",
         line=4,
         snippet="READ ONLY",
-        message="msg",
+        message_id="read_only_table",
         source_file="schema/audit.sql",
     )
     base.update(overrides)
@@ -83,7 +83,7 @@ def test_save_baseline_is_valid_json_with_schema_version(tmp_path):
     path = tmp_path / "baseline.json"
     save_baseline([_finding()], path)
     raw = json.loads(path.read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 2
+    assert raw["schema_version"] == 3
     assert len(raw["findings"]) == 1
     assert raw["findings"][0]["group_key"]
     assert raw["findings"][0]["object_name"] == "AUDIT_LOG"
@@ -107,7 +107,7 @@ def test_load_baseline_tolerates_a_snapshot_saved_before_gap_metadata_existed(tm
     path.write_text(
         json.dumps(
             {
-                "schema_version": 2,
+                "schema_version": 3,
                 "findings": [
                     {
                         "group_key": "abc123",
@@ -116,7 +116,7 @@ def test_load_baseline_tolerates_a_snapshot_saved_before_gap_metadata_existed(tm
                         "object_name": "AUDIT_LOG",
                         "line": 4,
                         "snippet": "READ ONLY",
-                        "message": "msg",
+                        "message_id": "read_only_table",
                         "source_file": "schema/audit.sql",
                     }
                 ],
@@ -157,7 +157,7 @@ def test_load_baseline_wrong_shape_raises_baseline_load_error(tmp_path):
 
 def test_load_baseline_missing_group_key_raises_baseline_load_error(tmp_path):
     path = tmp_path / "no_group_key.json"
-    path.write_text(json.dumps({"schema_version": 2, "findings": [{"object_name": "X"}]}), encoding="utf-8")
+    path.write_text(json.dumps({"schema_version": 3, "findings": [{"object_name": "X"}]}), encoding="utf-8")
     with pytest.raises(BaselineLoadError):
         load_baseline(path)
 
@@ -169,7 +169,7 @@ def test_load_baseline_missing_detector_raises_baseline_load_error_not_keyerror(
     # KeyError from deep inside --verify instead of a clean, catchable
     # BaselineLoadError right here where the file is actually read.
     path = tmp_path / "no_detector.json"
-    path.write_text(json.dumps({"schema_version": 2, "findings": [{"group_key": "abc123"}]}), encoding="utf-8")
+    path.write_text(json.dumps({"schema_version": 3, "findings": [{"group_key": "abc123"}]}), encoding="utf-8")
     with pytest.raises(BaselineLoadError, match="detector"):
         load_baseline(path)
 

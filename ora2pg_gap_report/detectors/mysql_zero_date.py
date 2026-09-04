@@ -21,23 +21,6 @@ _ZERO_DATE_RE = re.compile(
     r"'0000-00-00(?:\s+00:00:00)?'",
 )
 
-_MESSAGE = (
-    "'0000-00-00' — «нулевая» дата MySQL/MariaDB: не настоящая дата, а "
-    "признак «значение не задано», который MySQL допускает в DATE/DATETIME "
-    "по историческим причинам. ora2pg (-m) молча подменяет её на "
-    "'1970-01-01' — настоящую, осмысленную дату (начало эпохи Unix), — "
-    "подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 (docs/"
-    "research/gap-083-mysql-zero-date.md): в сгенерированном DDL стоит "
-    "DEFAULT '1970-01-01', и вставленная после миграции строка получает "
-    "именно эту дату (проверено на живых данных). Ошибки нет ни на "
-    "загрузке, ни потом — расхождение чисто смысловое и потому "
-    "незаметное: запросы вида WHERE d = '0000-00-00' (поиск незаполненных) "
-    "перестают находить что-либо, а отчёты по датам начинают показывать "
-    "1970 год как реальное событие. Правильный перенос — NULL (плюс, если "
-    "нужно, NOT NULL снимается) или отдельный признак «не задано»; "
-    "проверьте заодно и сами данные, а не только DEFAULT."
-)
-
 
 def find_mysql_zero_dates(source: str) -> list[Finding]:
     """Detect MySQL/MariaDB's '0000-00-00' zero-date sentinel. ora2pg -m
@@ -67,7 +50,7 @@ def find_mysql_zero_dates(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, open_pos + 1 + zero_match.start()),
                     snippet=zero_match.group(0),
-                    message=_MESSAGE,
+                    message_id="mysql_zero_date",
                 )
             )
 

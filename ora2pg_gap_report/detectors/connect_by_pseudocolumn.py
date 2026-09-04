@@ -21,23 +21,6 @@ _PSEUDOCOLUMN_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "CONNECT_BY_ROOT / CONNECT_BY_ISLEAF / CONNECT_BY_ISCYCLE — "
-    "иерархические операторы и псевдостолбцы Oracle: корневое значение "
-    "ветки, признак листа, признак цикла. ora2pg разворачивает сам "
-    "CONNECT BY в WITH RECURSIVE, но эти три конструкции переносит в "
-    "сгенерированный код как есть, без замены (подтверждено реальным "
-    "прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-039-connect-by-pseudocolumn.md). PostgreSQL их не "
-    "знает — падает при загрузке (синтаксическая ошибка на "
-    "CONNECT_BY_ROOT, «column does not exist» на ISLEAF/ISCYCLE). "
-    "Переписывается вручную: корень ветки протаскивается через "
-    "дополнительный столбец рекурсивного CTE, признак листа считается "
-    "отдельным NOT EXISTS-подзапросом, признак цикла — через CYCLE-секцию "
-    "рекурсивного CTE (PostgreSQL 14+). Отдельно: SYS_CONNECT_BY_PATH "
-    "этим детектором НЕ помечается — его ora2pg конвертирует корректно."
-)
-
 
 def find_connect_by_pseudocolumns(source: str) -> list[Finding]:
     """Detect Oracle's CONNECT_BY_ROOT operator and the
@@ -60,7 +43,7 @@ def find_connect_by_pseudocolumns(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=m.group(1).upper(),
-                message=_MESSAGE,
+                message_id="connect_by_pseudocolumn",
             )
         )
 

@@ -20,21 +20,6 @@ _ANYDATA_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "SYS.ANYDATA / ANYDATASET / ANYTYPE — самоописывающийся контейнер "
-    "Oracle, способный хранить значение любого типа вместе с информацией "
-    "о самом типе. ora2pg переносит имя типа в вывод как есть "
-    "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-051-anydata-type.md). В PostgreSQL нет ни такого "
-    "типа, ни схемы SYS, поэтому CREATE TABLE падает сразу на загрузке — "
-    "'schema \"sys\" does not exist' для квалифицированной записи или "
-    "'type \"anydata\" does not exist' для короткой. Механической замены "
-    "нет: обычно столбец переразмечают в jsonb (если важно хранить "
-    "произвольную структуру) либо разносят на несколько типизированных "
-    "столбцов с признаком типа, если реально хранились два-три "
-    "конкретных варианта."
-)
-
 
 def find_anydata_columns(source: str) -> list[Finding]:
     """Detect Oracle ANYDATA/ANYDATASET/ANYTYPE columns. ora2pg copies
@@ -59,7 +44,7 @@ def find_anydata_columns(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, open_pos + 1 + col_match.start()),
                     snippet=col_match.group(1).upper(),
-                    message=_MESSAGE,
+                    message_id="anydata_type",
                 )
             )
 

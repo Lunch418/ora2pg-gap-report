@@ -23,22 +23,6 @@ _INVISIBLE_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "Столбец INVISIBLE — Oracle исключает такой столбец из SELECT * и из "
-    "позиционного INSERT без явного списка столбцов, показывая его "
-    "только при явном упоминании по имени. ora2pg отбрасывает модификатор "
-    "INVISIBLE целиком — столбец конвертируется как обычный, видимый "
-    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-020-invisible-column.md; в самом PostgreSQL нет "
-    "аналога INVISIBLE вообще). Это не ошибка — CREATE TABLE выполняется "
-    "без проблем, но поведение меняется тихо: SELECT * начинает "
-    "возвращать столбец, который в Oracle был из него исключён. Для "
-    "столбцов, специально скрытых от старого клиентского кода при "
-    "добавлении новой колонки (типичный сценарий использования "
-    "INVISIBLE), это может неожиданно сломать код, полагавшийся на "
-    "прежний набор столбцов в SELECT *."
-)
-
 
 def find_invisible_columns(source: str) -> list[Finding]:
     """Detect Oracle's INVISIBLE column modifier on CREATE TABLE. ora2pg
@@ -82,7 +66,7 @@ def find_invisible_columns(source: str) -> list[Finding]:
                     object_name=table_name,
                     line=line_at(clean, m.end() + im.start()),
                     snippet="INVISIBLE",
-                    message=_MESSAGE,
+                    message_id="invisible_column",
                 )
             )
 

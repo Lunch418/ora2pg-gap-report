@@ -24,21 +24,6 @@ _PARTITION_BY_SYSTEM_RE = re.compile(
     r"\bPARTITION\s+BY\s+(SYSTEM)\s*(?:\(|PARTITIONS\b)", re.IGNORECASE
 )
 
-_MESSAGE = (
-    "PARTITION BY RANGE/LIST/HASH/REFERENCE/SYSTEM — секционирование "
-    "таблицы. ora2pg полностью отбрасывает секционирование при "
-    "конвертации: ни PARTITION BY, ни сами секции не попадают в вывод "
-    "вообще — таблица создаётся как обычная, несекционированная "
-    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-013-table-partitioning.md). Совсем без "
-    "предупреждения — ни в выводе, ни в --estimate_cost. Для больших "
-    "таблиц это не просто синтаксическая мелочь: теряется архитектурная "
-    "стратегия хранения/обслуживания (partition pruning, раздельное "
-    "обслуживание партиций). PostgreSQL поддерживает декларативное "
-    "партиционирование, но синтаксис отличается — секции нужно "
-    "пересоздать вручную (CREATE TABLE ... PARTITION OF ...)."
-)
-
 
 def find_dropped_table_partitioning(source: str) -> list[Finding]:
     """Detect Oracle's PARTITION BY RANGE/LIST/HASH/REFERENCE/SYSTEM on
@@ -84,7 +69,7 @@ def find_dropped_table_partitioning(source: str) -> list[Finding]:
                     object_name=table_name,
                     line=line_at(clean, m.end() + pm.start()),
                     snippet=f"PARTITION BY {pm.group(1).upper()}",
-                    message=_MESSAGE,
+                    message_id="table_partitioning",
                 )
             )
 

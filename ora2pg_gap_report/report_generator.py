@@ -1,5 +1,4 @@
 import csv
-import hashlib
 import html
 import io
 import json
@@ -10,8 +9,14 @@ from urllib.parse import quote
 from . import i18n
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_by_detector, gap_metadata, research_doc_url
+from . import messages
 from .models import Finding
 from .verification import DetectorVerification, NewInOutput
+
+# Bumped when the shape of --format json changes. 2 introduced the
+# object envelope with a shared `messages` table, replacing the bare
+# array of findings that inlined each explanation.
+REPORT_SCHEMA_VERSION = 2
 
 SARIF_SCHEMA_URI = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
 _TOOL_INFORMATION_URI = "https://github.com/Lunch418/ora2pg-gap-report"
@@ -31,8 +36,36 @@ def _enrich(f: Finding) -> dict:
     return {**asdict(f), "gap_number": gap_number, "failure_stage": failure_stage}
 
 
-def to_json(findings: list[Finding]) -> str:
-    return json.dumps([_enrich(f) for f in findings], ensure_ascii=False, indent=2)
+def message_map(findings: list[Finding], lang: str) -> dict[str, str]:
+    """The `message_id` -> text map for exactly the messages `findings`
+    actually reference, in `lang`. Sorted so two runs over the same
+    findings produce byte-identical output."""
+    return {mid: messages.text(mid, lang) for mid in sorted({f.message_id for f in findings})}
+
+
+def to_json(findings: list[Finding], lang: str = "ru") -> str:
+    """Findings plus a shared message table, not one inlined paragraph per
+    finding.
+
+    A finding's explanation is 400-600 characters and identical for every
+    finding the same detector produced, so inlining it cost roughly 30 MB
+    of a 72 MB report on a 2,000-file scan -- the same few paragraphs
+    repeated 80,000 times. Emitting `message_id` per finding and the text
+    once under `messages` says the same thing at a fraction of the size,
+    and the id is a stable key a consumer can group or filter on, which
+    the prose never was.
+
+    This is why the payload is an object with `schema_version` rather than
+    the bare array it used to be: consumers need to be able to tell the
+    two shapes apart, and a version they can branch on is a better way to
+    say that than making them sniff for a leading '['.
+    """
+    payload = {
+        "schema_version": REPORT_SCHEMA_VERSION,
+        "messages": message_map(findings, lang),
+        "findings": [_enrich(f) for f in findings],
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
 def to_verification_json(
@@ -62,7 +95,12 @@ def to_verification_json(
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-_CSV_FIELDNAMES = [*(f.name for f in fields(Finding)), "gap_number", "failure_stage"]
+_CSV_FIELDNAMES = [
+    *(f.name for f in fields(Finding)),
+    "message",
+    "gap_number",
+    "failure_stage",
+]
 
 # A cell starting with one of these opens as a formula, not text, the
 # instant the CSV is opened in Excel/LibreOffice/Google Sheets -- and
@@ -82,7 +120,7 @@ def _csv_safe(value: object) -> object:
     return value
 
 
-def to_csv(findings: list[Finding]) -> str:
+def to_csv(findings: list[Finding], lang: str = "ru") -> str:
     """Flat CSV, one row per finding, same fields/order as to_json()'s
     dict keys (Finding's own field order).
 
@@ -104,7 +142,11 @@ def to_csv(findings: list[Finding]) -> str:
     writer = csv.DictWriter(buffer, fieldnames=_CSV_FIELDNAMES, lineterminator="\n")
     writer.writeheader()
     for f in findings:
-        writer.writerow({k: _csv_safe(v) for k, v in _enrich(f).items()})
+        # message_id stays (a stable key to group on), and the prose it
+        # resolves to is written beside it -- a spreadsheet is read by a
+        # person, and an id alone tells them nothing.
+        row = {**_enrich(f), "message": messages.text(f.message_id, lang)}
+        writer.writerow({k: _csv_safe(v) for k, v in row.items()})
     return buffer.getvalue()
 
 
@@ -120,7 +162,7 @@ def to_markdown(findings: list[Finding], lang: str = "ru") -> str:
         source_file = f.source_file.replace("|", "\\|")
         object_name = f.object_name.replace("|", "\\|")
         snippet = f.snippet.replace("|", "\\|")
-        message = f.message.replace("|", "\\|").replace("\n", " ")
+        message = messages.text(f.message_id, lang).replace("|", "\\|").replace("\n", " ")
         gap_number, failure_stage = gap_metadata(f.detector)
         gap_cell = f"GAP-{gap_number}" if gap_number else "—"
         stage_cell = i18n.t(lang, f"failure_stage_short_{failure_stage}") if failure_stage else "—"
@@ -182,7 +224,7 @@ def to_html(findings: list[Finding], lang: str = "ru") -> str:
             f"<td>{f.line}</td>"
             f'<td><span class="badge">{html.escape(f.severity)}</span></td>'
             f'<td class="mono">{html.escape(f.snippet)}</td>'
-            f"<td>{html.escape(f.message)}</td>"
+            f"<td>{html.escape(messages.text(f.message_id, lang))}</td>"
             f'<td class="mono">{gap_cell}</td>'
             f"<td>{stage_cell}</td>"
             "</tr>"
@@ -217,26 +259,27 @@ def to_html(findings: list[Finding], lang: str = "ru") -> str:
 """
 
 
-def _sarif_rule_id(detector: str, message: str) -> str:
-    """A single detector can legitimately have more than one distinct
-    static message -- e.g. bulk_collect.py attaches one of three fixed
-    strings (_TYPE_DECL_MESSAGE / _BULK_COLLECT_MESSAGE / _FORALL_MESSAGE)
-    depending on which sub-pattern matched, all under detector=
-    "bulk_collect". terminal_report.py's own explanation section already
-    accounts for this by grouping on (detector, message), not detector
-    alone (see its explanation_counts dict) -- SARIF rules follow the same
-    grouping here, via a message hash appended to the id, so a rule's
-    fullDescription always accurately describes every result filed under
-    it. Stable across runs (content-derived, not insertion-order-derived),
-    which matters for GitHub code scanning's cross-run issue tracking by
-    ruleId."""
-    digest = hashlib.sha1(message.encode()).hexdigest()[:8]
-    return f"{detector}/{digest}"
+def _sarif_rule_id(detector: str, message_id: str) -> str:
+    """A single detector can legitimately emit more than one distinct
+    message -- bulk_collect attaches one of three, depending on which
+    sub-pattern matched, all under detector="bulk_collect" -- so a rule
+    per detector would file results under a fullDescription that doesn't
+    describe them. The message_id is exactly the right granularity, and
+    for the 105 detectors that emit one message it simply is the detector
+    name.
+
+    This used to be the detector plus a hash of the message prose. That
+    was stable across runs but not across releases: fixing a typo in a
+    message changed every ruleId it appeared under, and GitHub code
+    scanning tracks alerts by ruleId -- so a text edit closed every open
+    alert for that rule and opened fresh ones. An id survives edits to the
+    text it names, which is the whole point of having one."""
+    return message_id if message_id != detector else detector
 
 
-def _sarif_rule(detector: str, message: str) -> dict:
+def _sarif_rule(detector: str, message_id: str, lang: str) -> dict:
     gap = gap_by_detector(detector)
-    # Deliberately not "first sentence of `message`" for shortDescription:
+    # Deliberately not "first sentence of the message" for shortDescription:
     # these messages are free-form prose about Oracle/ora2pg internals,
     # full of abbreviations and literal '...' (e.g. "TYPE ... IS TABLE OF"),
     # so splitting on '.' truncates mid-thought as often as not. The
@@ -245,10 +288,10 @@ def _sarif_rule(detector: str, message: str) -> dict:
     # exact for this rule since _sarif_rule_id() splits rules per distinct
     # message rather than per detector.
     rule: dict = {
-        "id": _sarif_rule_id(detector, message),
+        "id": _sarif_rule_id(detector, message_id),
         "name": detector,
         "shortDescription": {"text": detector.replace("_", " ").capitalize()},
-        "fullDescription": {"text": message},
+        "fullDescription": {"text": messages.text(message_id, lang)},
     }
     if gap is not None:
         rule["helpUri"] = research_doc_url(gap)
@@ -302,7 +345,9 @@ def _sarif_location(f: Finding) -> dict:
     return {"physicalLocation": physical_location}
 
 
-def to_sarif(findings: list[Finding], tool_version: str = "unknown") -> str:
+def to_sarif(
+    findings: list[Finding], tool_version: str = "unknown", lang: str = "ru"
+) -> str:
     """SARIF 2.1.0 (https://sarifweb.azurewebsites.net/), for GitHub/GitLab
     code scanning integrations. One rule per distinct (detector, message)
     pair actually present among `findings` (not all detectors/messages
@@ -310,15 +355,15 @@ def to_sarif(findings: list[Finding], tool_version: str = "unknown") -> str:
     that pair, not detector alone."""
     rules_by_id: dict[str, dict] = {}
     for f in findings:
-        rule_id = _sarif_rule_id(f.detector, f.message)
+        rule_id = _sarif_rule_id(f.detector, f.message_id)
         if rule_id not in rules_by_id:
-            rules_by_id[rule_id] = _sarif_rule(f.detector, f.message)
+            rules_by_id[rule_id] = _sarif_rule(f.detector, f.message_id, lang)
 
     results = [
         {
-            "ruleId": _sarif_rule_id(f.detector, f.message),
+            "ruleId": _sarif_rule_id(f.detector, f.message_id),
             "level": _SARIF_LEVEL.get(f.severity, "warning"),
-            "message": {"text": f.message},
+            "message": {"text": messages.text(f.message_id, lang)},
             "locations": [_sarif_location(f)],
         }
         for f in findings

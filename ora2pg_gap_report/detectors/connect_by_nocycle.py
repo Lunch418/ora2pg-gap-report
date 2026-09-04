@@ -20,21 +20,6 @@ from ..plsql_lex import (
 _NOCYCLE_RE = re.compile(r"\bCONNECT\s+BY\s+NOCYCLE\b", re.IGNORECASE)
 _ORDER_SIBLINGS_RE = re.compile(r"\bORDER\s+SIBLINGS\s+BY\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "CONNECT BY NOCYCLE / ORDER SIBLINGS BY — расширения иерархических "
-    "запросов Oracle сверх базового CONNECT BY. В отличие от обычного "
-    "CONNECT BY (см. GAP-005/detectors/connect_by.py, где конвертация "
-    "работает с известным багом LEVEL), эти конструкции ломают "
-    "конвертацию гораздо серьёзнее: ora2pg не просто переносит их "
-    "неточно, а разваливает структуру всего PL/SQL-блока — "
-    "сгенерированный WITH RECURSIVE оказывается вставлен ДО DECLARE, а "
-    "тело процедуры получает нарушенную вложенность DECLARE/CURSOR "
-    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-014-connect-by-nocycle.md). Падает уже на этапе "
-    "компиляции тела функции при первом вызове, не просто на выполнении. "
-    "Нужен полностью ручной переход на WITH RECURSIVE."
-)
-
 
 def find_connect_by_nocycle_or_order_siblings(source: str) -> list[Finding]:
     """Detect Oracle's CONNECT BY NOCYCLE and ORDER SIBLINGS BY. Confirmed
@@ -55,7 +40,7 @@ def find_connect_by_nocycle_or_order_siblings(source: str) -> list[Finding]:
                     object_name=enclosing_object_name(name_index, m.start()),
                     line=line_at(clean, m.start()),
                     snippet=snippet,
-                    message=_MESSAGE,
+                    message_id="connect_by_nocycle",
                 )
             )
 

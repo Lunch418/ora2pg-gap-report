@@ -124,7 +124,7 @@ def test_main_end_to_end_json_to_file(tmp_path):
         ]
     )
     assert exit_code == 0
-    data = json.loads(output_path.read_text(encoding="utf-8"))
+    data = json.loads(output_path.read_text(encoding="utf-8"))["findings"]
     assert isinstance(data, list)
     object_names = {item["object_name"] for item in data}
     assert "TR_CONSTRUCTORS_CTI" in object_names
@@ -253,7 +253,7 @@ def test_main_stamps_source_file_on_every_finding(tmp_path):
         ]
     )
     assert exit_code == 0
-    data = json.loads(output_path.read_text(encoding="utf-8"))
+    data = json.loads(output_path.read_text(encoding="utf-8"))["findings"]
     by_object = {item["object_name"]: item["source_file"] for item in data}
     assert by_object["LOGGER.PURGE_ALL"].endswith("logger.pkb")
     assert by_object["TR_CONSTRUCTORS_CTI"].endswith("compound_trigger_apress.sql")
@@ -278,7 +278,7 @@ def test_check_connect_by_reports_the_level_bug_via_mocked_ora2pg(monkeypatch, c
         [str(SAMPLES / "connect_by_hierarchy_pkg.sql"), "--check-connect-by", "--format", "json"]
     )
     captured = capsys.readouterr()
-    data = json.loads(captured.out)
+    data = json.loads(captured.out)["findings"]
 
     assert exit_code == 0
     connect_by_findings = [d for d in data if d["detector"] == "connect_by"]
@@ -330,7 +330,7 @@ def test_check_connect_by_live_integration(capsys):
         [str(SAMPLES / "connect_by_hierarchy_pkg.sql"), "--check-connect-by", "--format", "json"]
     )
     captured = capsys.readouterr()
-    data = json.loads(captured.out)
+    data = json.loads(captured.out)["findings"]
     assert exit_code == 0
     assert any(d["detector"] == "connect_by" for d in data)
 
@@ -371,7 +371,7 @@ def test_main_merges_and_resorts_findings_across_multiple_files(tmp_path):
         [str(file_a), str(file_b), "--format", "json", "--output", str(output_path)]
     )
     assert exit_code == 0
-    data = json.loads(output_path.read_text(encoding="utf-8"))
+    data = json.loads(output_path.read_text(encoding="utf-8"))["findings"]
     assert data[0]["severity"] == "high"
     assert data[0]["object_name"] == "BBB_PKG.BAR"
     assert data[-1]["severity"] == "medium"
@@ -449,7 +449,7 @@ def test_severity_filter_only_shows_matching_findings(capsys):
     )
     captured = capsys.readouterr()
     assert exit_code == 0
-    data = json.loads(captured.out)
+    data = json.loads(captured.out)["findings"]
     assert data
     assert {d["severity"] for d in data} == {"medium"}
 
@@ -460,7 +460,7 @@ def test_object_filter_matches_a_case_insensitive_substring(capsys):
     )
     captured = capsys.readouterr()
     assert exit_code == 0
-    data = json.loads(captured.out)
+    data = json.loads(captured.out)["findings"]
     assert data
     assert all("PURGE" in d["object_name"] for d in data)
 
@@ -650,7 +650,7 @@ def test_main_scans_a_directory_end_to_end(tmp_path):
     output_path = tmp_path / "report.json"
     exit_code = main([str(tmp_path), "--format", "json", "--output", str(output_path)])
     assert exit_code == 0
-    findings = json.loads(output_path.read_text(encoding="utf-8"))
+    findings = json.loads(output_path.read_text(encoding="utf-8"))["findings"]
     assert len(findings) > 0
     assert findings[0]["source_file"].endswith("a.pkb")
 
@@ -662,7 +662,7 @@ def test_main_warns_on_a_directory_with_no_matching_files(tmp_path, capsys):
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "no_ddl_here" in captured.err
-    assert json.loads(captured.out) == []
+    assert json.loads(captured.out)["findings"] == []
 
 
 def test_main_save_writes_a_baseline_snapshot(tmp_path):
@@ -672,7 +672,7 @@ def test_main_save_writes_a_baseline_snapshot(tmp_path):
     )
     assert exit_code == 0
     saved = json.loads(baseline_path.read_text(encoding="utf-8"))
-    assert saved["schema_version"] == 2
+    assert saved["schema_version"] == 3
     assert len(saved["findings"]) > 0
     assert all("group_key" in rec for rec in saved["findings"])
 
@@ -696,7 +696,10 @@ def test_main_save_captures_all_findings_regardless_of_display_filters(tmp_path)
         ]
     )
     assert exit_code == 0
-    unfiltered_count = len(json.loads(unfiltered_path.read_text(encoding="utf-8")))
+    # Two different envelopes: the report keys its findings under
+    # "findings" alongside the shared message table, the baseline under
+    # "findings" alongside its own schema_version.
+    unfiltered_count = len(json.loads(unfiltered_path.read_text(encoding="utf-8"))["findings"])
     saved_count = len(json.loads(baseline_path.read_text(encoding="utf-8"))["findings"])
     assert saved_count == unfiltered_count
 
@@ -1446,7 +1449,7 @@ def test_fix_combined_with_verify_is_rejected(tmp_path, capsys):
     generated = tmp_path / "generated.sql"
     generated.write_text(_GENERATED_IDENTITY_BUG, encoding="utf-8")
     baseline_path = tmp_path / "baseline.json"
-    baseline_path.write_text('{"schema_version": 2, "findings": [], "complete": true}', encoding="utf-8")
+    baseline_path.write_text('{"schema_version": 3, "findings": [], "complete": true}', encoding="utf-8")
 
     exit_code = main(["--verify", "--fix", "--baseline", str(baseline_path), str(generated)])
     captured = capsys.readouterr()
@@ -1508,7 +1511,7 @@ def test_a_detector_crash_on_one_file_does_not_take_down_the_whole_scan(tmp_path
     assert "bad.sql" in captured.err
     assert "RecursionError" in captured.err
 
-    findings = json.loads(captured.out)
+    findings = json.loads(captured.out)["findings"]
     # The other file scanned normally...
     assert any(f["source_file"] == str(good) for f in findings)
     # ...and so did every *other* detector on the file that crashed: what

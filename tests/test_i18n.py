@@ -5,13 +5,10 @@ check_i18n_translations_parity(), same spirit as test_gap_registry.py's
 invariant tests: it must hold against the real detectors/i18n.py in this
 checkout, not a synthetic fixture)."""
 
-import glob
-import importlib
-from pathlib import Path
 
 import pytest
 
-from ora2pg_gap_report import i18n
+from ora2pg_gap_report import i18n, messages
 from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT
 
 
@@ -97,46 +94,28 @@ def test_t_raises_for_an_unregistered_key():
         i18n.t("ru", "this_key_does_not_exist")
 
 
-def _detector_message_constants():
-    items = []
-    for f in sorted(glob.glob("ora2pg_gap_report/detectors/*.py")):
-        # Path(f).stem, not f.split("/"): glob returns the platform's own
-        # separator, so splitting on "/" leaves "detectors\foo" as the
-        # "module name" on Windows and import_module then fails.
-        name = Path(f).stem
-        if name == "__init__":
-            continue
-        module = importlib.import_module(f"ora2pg_gap_report.detectors.{name}")
-        for attr in vars(module):
-            if attr.isupper() and "MESSAGE" in attr:
-                items.append((name, attr, getattr(module, attr)))
-    return items
+def test_every_detector_message_id_resolves_in_both_languages():
+    # The replacement for the old "every Russian message string has an
+    # EXPLANATION_EN entry" check. The failure it guards is different now
+    # -- an unknown id raises rather than silently falling back to
+    # Russian -- but a blank translation would still ship quietly.
+    for message_id, message in messages.MESSAGES.items():
+        assert message.ru.strip(), f"{message_id}: empty Russian text"
+        assert message.en.strip(), f"{message_id}: empty English text"
+        assert messages.text(message_id, "en") == message.en
+        assert messages.text(message_id, "ru") == message.ru
 
 
-def test_every_detector_message_constant_has_an_english_translation():
-    missing = [
-        f"{name}.{attr}"
-        for name, attr, message in _detector_message_constants()
-        if message not in i18n.EXPLANATION_EN
-    ]
-    assert missing == []
+def test_an_unknown_message_id_raises_rather_than_rendering_nothing():
+    with pytest.raises(KeyError):
+        messages.text("no_such_message_id")
+
+
+def test_an_unrecognized_language_falls_back_to_russian():
+    any_id = next(iter(messages.MESSAGES))
+    assert messages.text(any_id, "de") == messages.MESSAGES[any_id].ru
 
 
 def test_every_remediation_hint_has_an_english_counterpart():
     missing = sorted(set(_REMEDIATION_HINT) - set(i18n.REMEDIATION_HINT_EN))
     assert missing == []
-
-
-def test_translate_message_is_a_noop_for_russian():
-    assert i18n.translate_message("some Russian text", "ru") == "some Russian text"
-
-
-def test_translate_message_swaps_a_known_message_for_english():
-    name, attr, ru_message = _detector_message_constants()[0]
-    translated = i18n.translate_message(ru_message, "en")
-    assert translated == i18n.EXPLANATION_EN[ru_message]
-    assert translated != ru_message
-
-
-def test_translate_message_falls_back_to_the_original_for_an_unknown_message():
-    assert i18n.translate_message("not a registered message", "en") == "not a registered message"

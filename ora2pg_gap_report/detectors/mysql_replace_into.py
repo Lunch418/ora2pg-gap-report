@@ -13,26 +13,6 @@ from ..mysql_lex import (
 # fine -- can't produce a finding.
 _REPLACE_INTO_RE = re.compile(r"\bREPLACE\s+INTO\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "REPLACE INTO — MySQL/MariaDB-специфичный оператор: вставить строку, "
-    "а если строка с таким же уникальным ключом уже есть — удалить её и "
-    "вставить новую. ora2pg (-m) копирует оператор в тело процедуры/"
-    "функции дословно (подтверждено реальным прогоном ora2pg 25.0 + "
-    "PostgreSQL 16, docs/research/gap-076-mysql-replace-into.md). Такого "
-    "оператора в PostgreSQL нет. CREATE PROCEDURE/FUNCTION проходит без "
-    "ошибок — ora2pg выставляет в своём выводе check_function_bodies = "
-    "false, поэтому тело не разбирается на загрузке, — и падение "
-    "происходит при первом же реальном вызове. Переписывается на "
-    "INSERT ... ON CONFLICT (<ключ>) DO UPDATE SET ..., но перевод не "
-    "дословный, и разницу стоит держать в голове: REPLACE именно удаляет "
-    "старую строку и вставляет новую, поэтому по ней срабатывают "
-    "ON DELETE-триггеры и каскадные удаления дочерних строк, а не "
-    "перечисленные в запросе столбцы получают значения по умолчанию, а "
-    "не сохраняют прежние. ON CONFLICT DO UPDATE ведёт себя ровно "
-    "наоборот, так что на таблице с внешними ключами ON DELETE CASCADE "
-    "механическая замена изменит поведение."
-)
-
 
 def find_mysql_replace_into(source: str) -> list[Finding]:
     """Detect MySQL/MariaDB's REPLACE INTO statement. ora2pg -m copies it
@@ -53,7 +33,7 @@ def find_mysql_replace_into(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet="REPLACE INTO",
-                message=_MESSAGE,
+                message_id="mysql_replace_into",
             )
         )
 

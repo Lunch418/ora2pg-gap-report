@@ -14,23 +14,6 @@ _TABLE_RE = re.compile(
 )
 _SET_RE = re.compile(r"\bSET\s*\(", re.IGNORECASE)
 
-_MESSAGE = (
-    "SET('a','b',...) — тип MySQL/MariaDB для набора значений: в столбце "
-    "может лежать любое подмножество перечисленного списка сразу "
-    "(хранится битовой маской). ora2pg (-m) отображает его в обычный "
-    "text (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-086-mysql-set-type.md). Ошибки нет ни на загрузке, "
-    "ни потом, и уже накопленные данные переносятся как есть — теряется "
-    "ровно проверка: после миграции в столбец можно записать любую "
-    "строку, включая значение не из списка и мусор. Severity здесь "
-    "medium, а не high, в отличие от родственного ENUM (GAP-068): ENUM "
-    "ломает загрузку схемы наглухо, а тут схема поднимается и работает, "
-    "и вопрос только в проверке будущих записей. Восстанавливается либо "
-    "CHECK-ограничением, либо массивом с проверкой на допустимые "
-    "элементы, либо отдельной таблицей связей — что честнее всего, если "
-    "значений много."
-)
-
 
 def find_mysql_set_columns(source: str) -> list[Finding]:
     """Detect MySQL/MariaDB SET(...) multi-value columns. ora2pg -m maps
@@ -55,7 +38,7 @@ def find_mysql_set_columns(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, open_pos + 1 + col_match.start()),
                     snippet="SET(...)",
-                    message=_MESSAGE,
+                    message_id="mysql_set_type",
                 )
             )
 

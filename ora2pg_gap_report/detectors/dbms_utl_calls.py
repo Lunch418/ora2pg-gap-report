@@ -39,15 +39,6 @@ _CONVERTED = {
     "DBMS_LOB.SUBSTR": "заменяется на substr() с перестановкой аргументов.",
 }
 
-_UNSUPPORTED_MESSAGE = (
-    "Специальной конвертации в ora2pg для этого конкретного вызова не "
-    "найдено (проверено по исходникам Ora2Pg/PLSQL.pm на шаге 0) — он "
-    "попадёт только в обезличенный счётчик DBMS_/UTL_ (вес 3 в "
-    "estimate_cost), а сам код останется как есть и не скомпилируется в "
-    "PostgreSQL без ручного переписывания или подключения расширения orafce "
-    "(если для этой функции там вообще есть эквивалент)."
-)
-
 
 def find_dbms_utl_calls(source: str) -> list[Finding]:
     """Classify DBMS_*/UTL_* references: flag only the ones ora2pg has no
@@ -72,7 +63,7 @@ def find_dbms_utl_calls(source: str) -> list[Finding]:
                 object_name=object_name,
                 line=line_no,
                 snippet=m.group(0),
-                message=_UNSUPPORTED_MESSAGE,
+                message_id="dbms_utl_calls",
             )
         )
 

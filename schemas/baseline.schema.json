@@ -5,15 +5,20 @@
   "description": "The shape of a file written by `ora2pg-gap-report ... --save PATH` and read back by `--baseline PATH`. See ora2pg_gap_report/baseline.py for the source of truth this schema describes. NOTE: $defs/baseline_finding's Finding-shaped fields (everything except 'group_key') are duplicated from report.schema.json's $defs/finding rather than $ref'd across files (composing that safely across two additionalProperties:false schemas needs unevaluatedProperties plus a cross-file $ref registry, more moving parts than this gains here) — tests/test_schemas.py's test_report_and_baseline_schemas_share_identical_finding_field_definitions enforces that the two stay identical; update both files together, not just this one.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "findings"],
+  "required": [
+    "schema_version",
+    "findings"
+  ],
   "properties": {
     "schema_version": {
-      "const": 2,
-      "description": "Must match baseline.SCHEMA_VERSION exactly -- load_baseline() rejects any other value rather than risk silently diffing against a baseline computed by an incompatible grouping formula. Bumped to 2 when group_key started hashing a normalized (cwd-relative, POSIX-separator) form of source_file instead of the literal argv spelling, so a version-1 baseline can't silently produce wrong NEW/RESOLVED counts under the new formula -- it fails to load instead."
+      "const": 3,
+      "description": "Must match baseline.SCHEMA_VERSION exactly -- load_baseline() rejects any other value rather than risk silently diffing against a baseline computed by an incompatible grouping formula. 2 changed group_key to hash a normalized path; 3 replaced each finding's inlined `message` with the `message_id` that resolves it (see ora2pg_gap_report/messages.py)."
     },
     "findings": {
       "type": "array",
-      "items": { "$ref": "#/$defs/baseline_finding" }
+      "items": {
+        "$ref": "#/$defs/baseline_finding"
+      }
     }
   },
   "$defs": {
@@ -21,7 +26,18 @@
       "type": "object",
       "description": "A Finding (see report.schema.json) plus 'group_key'.",
       "additionalProperties": false,
-      "required": ["group_key", "detector", "severity", "object_name", "line", "snippet", "message", "source_file", "gap_number", "failure_stage"],
+      "required": [
+        "group_key",
+        "detector",
+        "severity",
+        "object_name",
+        "line",
+        "snippet",
+        "message_id",
+        "source_file",
+        "gap_number",
+        "failure_stage"
+      ],
       "properties": {
         "group_key": {
           "type": "string",
@@ -33,7 +49,11 @@
         },
         "severity": {
           "type": "string",
-          "enum": ["high", "medium", "low"],
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
           "description": "'high' — a hard PostgreSQL error, or a silent architectural/correctness loss. 'medium' — a silent behavior change with bounded, non-correctness impact. This project has no 'critical' tier: 'high' is its top severity."
         },
         "object_name": {
@@ -49,23 +69,35 @@
           "type": "string",
           "description": "The specific fragment that triggered the finding (e.g. 'READ ONLY', 'CROSS APPLY') — not the full statement."
         },
-        "message": {
-          "type": "string",
-          "description": "Full explanation: what ora2pg does with this construct, why it's a problem, and how to work around it."
-        },
         "source_file": {
           "type": "string",
           "description": "Path to the file that was scanned, as given on the command line (or discovered inside a scanned directory). Empty string if not yet stamped (not expected in CLI output, only when calling detectors directly as a library)."
         },
         "gap_number": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "pattern": "^[0-9]{3}$",
           "description": "The GAP-NNN number this detector is registered as in ora2pg_gap_report/gap_registry.py's GAPS list (without the 'GAP-' prefix, e.g. '023'), or null for a detector with no registered gap of its own (e.g. dbms_utl_calls, a classifier -- see that module's own comment in gap_registry.py)."
         },
         "failure_stage": {
-          "type": ["string", "null"],
-          "enum": ["conversion", "deployment", "runtime", "semantic", null],
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "conversion",
+            "deployment",
+            "runtime",
+            "semantic",
+            null
+          ],
           "description": "When someone would actually notice this gap: 'conversion' (only visible in ora2pg's own conversion run/log), 'deployment' (the generated DDL fails to load into PostgreSQL immediately), 'runtime' (the DDL loads cleanly but the flagged code fails the first time it actually runs), 'semantic' (no error is ever raised, at any stage -- behavior is just silently different from Oracle). null when gap_number is null, or for the two gaps in FAILURE_STAGE_EXEMPT_DETECTORS whose finding isn't a code-shape/runtime problem at all (see gap_registry.py)."
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Key into the report's own top-level `messages` object, which carries the explanation text once per distinct message rather than repeating it on every finding. Stable across releases and independent of the prose, so it can be grouped or filtered on -- see ora2pg_gap_report/messages.py."
         }
       }
     }

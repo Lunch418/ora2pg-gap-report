@@ -38,22 +38,6 @@ def _nearest_statement_keyword(
     return found
 
 
-_MESSAGE = (
-    "ROWNUM в UPDATE/DELETE — ограничение числа изменяемых строк "
-    "по-Oracle'овски. ora2pg переписывает 'WHERE ROWNUM <= n' в 'LIMIT n' "
-    "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-057-rownum-dml.md). Для SELECT это верная замена, но "
-    "у UPDATE и DELETE в PostgreSQL оговорки LIMIT нет вообще — "
-    "сгенерированный 'UPDATE ... LIMIT 10' падает синтаксической ошибкой "
-    "на слове LIMIT. Переписывается через подзапрос по первичному ключу: "
-    "DELETE FROM t WHERE id IN (SELECT id FROM t WHERE ... LIMIT n). "
-    "Важно, что смысл при этом всё равно меняется: Oracle не обещает, "
-    "какие именно n строк попадут под ROWNUM, поэтому во внутренний "
-    "SELECT почти всегда нужно дописать явный ORDER BY, иначе выбор строк "
-    "останется недетерминированным."
-)
-
-
 def find_rownum_dml(source: str) -> list[Finding]:
     """Detect Oracle's ROWNUM used directly in an UPDATE or DELETE.
     ora2pg rewrites it into a LIMIT clause, which PostgreSQL does not
@@ -81,7 +65,7 @@ def find_rownum_dml(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=f"{statement} ... ROWNUM",
-                message=_MESSAGE,
+                message_id="rownum_dml",
             )
         )
 

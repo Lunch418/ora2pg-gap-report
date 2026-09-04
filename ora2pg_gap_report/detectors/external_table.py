@@ -9,22 +9,6 @@ _TABLE_RE = re.compile(
 )
 _ORGANIZATION_EXTERNAL_RE = re.compile(r"\bORGANIZATION\s+EXTERNAL\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "CREATE TABLE ... ORGANIZATION EXTERNAL — внешняя таблица Oracle, "
-    "читающая данные напрямую из файла (ORACLE_LOADER/ORACLE_DATAPUMP), а "
-    "не хранящая их в самой БД. ora2pg отбрасывает всю секцию "
-    "ORGANIZATION EXTERNAL целиком, включая TYPE/DEFAULT DIRECTORY/"
-    "ACCESS PARAMETERS/LOCATION — таблица создаётся как обычная, "
-    "физически хранимая, без единого предупреждения и без сигнала в "
-    "--estimate_cost (подтверждено реальным прогоном ora2pg + "
-    "PostgreSQL 16, docs/research/gap-018-external-table.md). Это не "
-    "синтаксическая ошибка — CREATE TABLE выполняется без проблем, но "
-    "результат совсем другой: источник данных (файл) исчезает бесследно, "
-    "таблица остаётся пустой и никогда не подхватит содержимое файла. "
-    "Ближайший эквивалент в PostgreSQL — foreign table через file_fdw "
-    "(или конкретный fdw для нужного формата) — настраивается вручную."
-)
-
 
 def find_external_tables(source: str) -> list[Finding]:
     """Detect Oracle's CREATE TABLE ... ORGANIZATION EXTERNAL. ora2pg
@@ -58,7 +42,7 @@ def find_external_tables(source: str) -> list[Finding]:
                 object_name=m.group(1).upper(),
                 line=line_at(clean, m.start()),
                 snippet="ORGANIZATION EXTERNAL",
-                message=_MESSAGE,
+                message_id="external_table",
             )
         )
 

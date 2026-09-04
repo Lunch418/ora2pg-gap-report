@@ -18,22 +18,6 @@ _TABLE_RE = re.compile(
 # named `period` out of the match.
 _PERIOD_FOR_RE = re.compile(r"\bPERIOD\s+FOR\s+[A-Za-z_][A-Za-z0-9_$#]*", re.IGNORECASE)
 
-_MESSAGE = (
-    "PERIOD FOR (Oracle 12c Temporal Validity) — объявление периода "
-    "действительности строки: таблица получает пару границ времени и "
-    "возможность запрашивать состояние «как было на дату» через "
-    "AS OF PERIOD FOR. ora2pg не просто отбрасывает секцию — он "
-    "разрушает её остатком, вставляя в список столбцов обрубок "
-    "'period FOR' (подтверждено реальным прогоном ora2pg 25.0 + "
-    "PostgreSQL 16, docs/research/gap-045-temporal-validity.md). "
-    "Сгенерированный CREATE TABLE падает синтаксической ошибкой уже при "
-    "загрузке — то есть теряется не только сама фича, ломается создание "
-    "всей таблицы. У PostgreSQL нет встроенной temporal validity; "
-    "переписывается вручную: обычная пара timestamp-столбцов плюс "
-    "фильтрация по ним в запросах (или расширение с типом tstzrange и "
-    "ограничением-исключением, если нужен контроль пересечений)."
-)
-
 
 def find_temporal_validity(source: str) -> list[Finding]:
     """Detect Oracle's PERIOD FOR (12c temporal validity) clause in a
@@ -65,7 +49,7 @@ def find_temporal_validity(source: str) -> list[Finding]:
                 object_name=m.group(1).upper(),
                 line=line_at(clean, m.end() + period_match.start()),
                 snippet=re.sub(r"\s+", " ", period_match.group(0).strip().upper()),
-                message=_MESSAGE,
+                message_id="temporal_validity",
             )
         )
 

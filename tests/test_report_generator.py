@@ -1,8 +1,10 @@
 import csv
+import dataclasses
 import io
 import json
 import re
 
+from ora2pg_gap_report import messages
 from ora2pg_gap_report.models import Finding
 from ora2pg_gap_report.report_generator import to_csv, to_html, to_json, to_markdown
 
@@ -12,16 +14,16 @@ SAMPLE_FINDING = Finding(
     object_name="LOGGER.PURGE_ALL",
     line=2178,
     snippet="pragma autonomous_transaction;",
-    message="uses dblink | needs review",
+    message_id="autonomous_tx",
 )
 
 
 def test_to_json_round_trips_finding_fields():
-    parsed = json.loads(to_json([SAMPLE_FINDING]))
+    parsed = json.loads(to_json([SAMPLE_FINDING]))["findings"]
     # autonomous_tx is GAP-001, one of the two gaps in
     # FAILURE_STAGE_EXEMPT_DETECTORS (see gap_registry.py) -- gap_number
     # is still populated, failure_stage stays null.
-    assert parsed == [{**SAMPLE_FINDING.__dict__, "gap_number": "001", "failure_stage": None}]
+    assert parsed == [{**dataclasses.asdict(SAMPLE_FINDING), "gap_number": "001", "failure_stage": None}]
 
 
 def test_to_json_includes_failure_stage_for_a_classified_gap():
@@ -31,9 +33,9 @@ def test_to_json_includes_failure_stage_for_a_classified_gap():
         object_name="SEQ",
         line=1,
         snippet="CYCLE",
-        message="m",
+        message_id="sequence_cycle",
     )
-    parsed = json.loads(to_json([finding]))
+    parsed = json.loads(to_json([finding]))["findings"]
     assert parsed[0]["gap_number"] == "030"
     assert parsed[0]["failure_stage"] == "runtime"
 
@@ -45,9 +47,9 @@ def test_to_json_gap_number_and_failure_stage_are_null_for_an_unregistered_detec
         object_name="X",
         line=1,
         snippet="x",
-        message="m",
+        message_id="dbms_utl_calls",
     )
-    parsed = json.loads(to_json([finding]))
+    parsed = json.loads(to_json([finding]))["findings"]
     assert parsed[0]["gap_number"] is None
     assert parsed[0]["failure_stage"] is None
 
@@ -61,7 +63,11 @@ def test_to_markdown_renders_table_and_escapes_pipes():
     assert "LOGGER.PURGE_ALL" in markdown
     assert "2178" in markdown
     assert "high" in markdown
-    assert "uses dblink \\| needs review" in markdown
+    # The message comes from the registry now, so a pipe can only reach a
+    # cell through scanned content -- which is exactly where it has to be
+    # escaped, or one Oracle identifier splits the row into two columns.
+    piped = dataclasses.replace(SAMPLE_FINDING, object_name="A | B")
+    assert "A \\| B" in to_markdown([piped])
 
 
 def test_to_markdown_shows_gap_and_failure_stage():
@@ -71,7 +77,7 @@ def test_to_markdown_shows_gap_and_failure_stage():
         object_name="SEQ",
         line=1,
         snippet="CYCLE",
-        message="m",
+        message_id="sequence_cycle",
     )
     markdown = to_markdown([finding])
     assert "GAP-030" in markdown
@@ -80,7 +86,7 @@ def test_to_markdown_shows_gap_and_failure_stage():
 
 def test_to_markdown_shows_em_dash_for_an_unregistered_detector():
     finding = Finding(
-        detector="dbms_utl_calls", severity="low", object_name="X", line=1, snippet="x", message="m"
+        detector="dbms_utl_calls", severity="low", object_name="X", line=1, snippet="x", message_id="dbms_utl_calls"
     )
     markdown = to_markdown([finding])
     data_row = [line for line in markdown.splitlines() if line.startswith("|")][2]
@@ -98,7 +104,7 @@ def test_to_markdown_escapes_pipe_in_source_file_and_object_name():
         object_name='WEIRD|"OBJ"',
         line=1,
         snippet="pragma autonomous_transaction;",
-        message="uses dblink",
+        message_id="autonomous_tx",
         source_file="weird|file.sql",
     )
     markdown = to_markdown([finding])
@@ -123,8 +129,9 @@ def test_to_csv_empty_findings_is_just_a_header_row():
             "object_name",
             "line",
             "snippet",
-            "message",
+            "message_id",
             "source_file",
+            "message",
             "gap_number",
             "failure_stage",
         ]
@@ -138,7 +145,10 @@ def test_to_csv_round_trips_finding_fields():
     assert rows[0]["detector"] == "autonomous_tx"
     assert rows[0]["object_name"] == "LOGGER.PURGE_ALL"
     assert rows[0]["line"] == "2178"
-    assert rows[0]["message"] == "uses dblink | needs review"
+    assert rows[0]["message_id"] == "autonomous_tx"
+    # the prose is resolved beside the id, for whoever opens this in a
+    # spreadsheet
+    assert "dblink" in rows[0]["message"]
     assert rows[0]["gap_number"] == "001"
     assert rows[0]["failure_stage"] == ""
 
@@ -150,15 +160,18 @@ def test_to_csv_quotes_fields_containing_commas_and_newlines():
         object_name="OBJ, WITH_COMMA",
         line=1,
         snippet="pragma autonomous_transaction;",
-        message="line one\nline two",
+        message_id="autonomous_tx",
         source_file="a,b.sql",
     )
     csv_text = to_csv([finding])
     reader = csv.DictReader(io.StringIO(csv_text))
     row = next(reader)
     assert row["object_name"] == "OBJ, WITH_COMMA"
-    assert row["message"] == "line one\nline two"
     assert row["source_file"] == "a,b.sql"
+    # Newlines survive quoting too. They can't come from object_name or a
+    # path, but the resolved message is a multi-sentence paragraph and is
+    # written into the same row.
+    assert row["message"] == messages.text("autonomous_tx")
 
 
 def test_to_csv_uses_plain_newlines_not_crlf():
@@ -184,7 +197,7 @@ def test_to_csv_neutralizes_a_formula_injection_attempt_in_scanned_content():
         object_name="=cmd|' /C calc'!A1",
         line=1,
         snippet="+SUM(1,1)",
-        message="uses dblink",
+        message_id="autonomous_tx",
         source_file="@HYPERLINK(\"http://evil\")",
     )
     csv_text = to_csv([finding])
@@ -225,7 +238,7 @@ def test_to_html_renders_finding_fields():
 
 def test_to_html_shows_gap_and_failure_stage():
     finding = Finding(
-        detector="sequence_cycle", severity="high", object_name="SEQ", line=1, snippet="CYCLE", message="m"
+        detector="sequence_cycle", severity="high", object_name="SEQ", line=1, snippet="CYCLE", message_id="sequence_cycle"
     )
     report = to_html([finding])
     assert "GAP-030" in report
@@ -234,7 +247,7 @@ def test_to_html_shows_gap_and_failure_stage():
 
 def test_to_html_shows_em_dash_for_an_unregistered_detector():
     finding = Finding(
-        detector="dbms_utl_calls", severity="low", object_name="X", line=1, snippet="x", message="m"
+        detector="dbms_utl_calls", severity="low", object_name="X", line=1, snippet="x", message_id="dbms_utl_calls"
     )
     report = to_html([finding])
     assert '<td class="mono">—</td><td>—</td></tr>' in report
@@ -260,13 +273,12 @@ def test_to_html_escapes_finding_content_against_injection():
         object_name='<script>alert(1)</script>',
         line=1,
         snippet="pragma autonomous_transaction;",
-        message="A & B <tag>",
+        message_id="autonomous_tx",
         source_file="<b>weird</b>.sql",
     )
     report = to_html([finding])
     assert "<script>alert(1)</script>" not in report
     assert "&lt;script&gt;" in report
-    assert "A &amp; B &lt;tag&gt;" in report
 
 
 def test_to_html_is_self_contained_with_no_external_resources():
@@ -285,15 +297,15 @@ def test_to_html_is_self_contained_with_no_external_resources():
 def test_to_html_severity_badge_classes():
     high = Finding(
         detector="autonomous_tx", severity="high", object_name="A", line=1,
-        snippet="x", message="m",
+        snippet="x", message_id="autonomous_tx",
     )
     medium = Finding(
         detector="autonomous_tx", severity="medium", object_name="B", line=1,
-        snippet="x", message="m",
+        snippet="x", message_id="autonomous_tx",
     )
     low = Finding(
         detector="autonomous_tx", severity="low", object_name="C", line=1,
-        snippet="x", message="m",
+        snippet="x", message_id="autonomous_tx",
     )
     report = to_html([high, medium, low])
     assert 'class="sev-high"' in report

@@ -19,21 +19,6 @@ _SAMPLE_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "SAMPLE (n) / SAMPLE BLOCK (n) — выборка случайного процента строк "
-    "(или блоков) таблицы прямо во FROM, Oracle-специфичный синтаксис. "
-    "ora2pg копирует конструкцию в вывод как есть (подтверждено реальным "
-    "прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-042-sample-clause.md). У PostgreSQL есть своя "
-    "выборка, но с другим синтаксисом и другим местом в запросе — "
-    "TABLESAMPLE BERNOULLI (n) / TABLESAMPLE SYSTEM (n) — поэтому "
-    "скопированный как есть Oracle-вариант падает синтаксической ошибкой "
-    "при загрузке. Переписывается вручную: SAMPLE (n) → TABLESAMPLE "
-    "BERNOULLI (n) (построчная выборка, ближе к Oracle SAMPLE), "
-    "SAMPLE BLOCK (n) → TABLESAMPLE SYSTEM (n) (поблочная, быстрее, но "
-    "статистически грубее)."
-)
-
 
 def find_sample_clauses(source: str) -> list[Finding]:
     """Detect Oracle's SAMPLE (n) / SAMPLE BLOCK (n) row-sampling clause.
@@ -53,7 +38,7 @@ def find_sample_clauses(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=" ".join(m.group(0).upper().split()),
-                message=_MESSAGE,
+                message_id="sample_clause",
             )
         )
 

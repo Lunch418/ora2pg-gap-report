@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from ora2pg_gap_report import messages
 from ora2pg_gap_report.detectors.autonomous_tx import find_autonomous_transactions
 
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
@@ -35,7 +36,7 @@ def test_finding_shape():
     assert finding.severity == "high"
     assert finding.snippet.lower() == "pragma autonomous_transaction;"
     assert finding.line > 0
-    assert "dblink" in finding.message
+    assert "dblink" in messages.text(finding.message_id)
 
 
 def test_no_false_positives_on_packages_without_the_pragma():

@@ -18,22 +18,6 @@ from ..plsql_lex import (
 # before this pattern ever runs.
 _NLSSORT_RE = re.compile(r"\bNLSSORT\s*\(", re.IGNORECASE)
 
-_MESSAGE = (
-    "NLSSORT(...) — задание порядка сортировки по правилам конкретного "
-    "языка. ora2pg переписывает вызов в PostgreSQL-овую оговорку COLLATE, "
-    "подставляя имя языка из NLS_SORT прямо как имя collation: "
-    "NLSSORT(name, 'NLS_SORT=GERMAN') превращается в "
-    "name COLLATE \"GERMAN\" (подтверждено реальным прогоном ora2pg 25.0 + "
-    "PostgreSQL 16, docs/research/gap-049-nlssort.md). Имена сортировок у "
-    "Oracle и PostgreSQL не совпадают: в PostgreSQL нет collation с именем "
-    "GERMAN, и запрос падает с ошибкой "
-    "'collation \"GERMAN\" for encoding \"UTF8\" does not exist'. Нужно "
-    "вручную сопоставить каждое Oracle-имя с реальной локалью PostgreSQL "
-    "(для немецкого — \"de-DE-x-icu\" или \"de_DE.utf8\", в зависимости от "
-    "того, собран ли сервер с ICU) и при необходимости создать её через "
-    "CREATE COLLATION."
-)
-
 
 def find_nlssort(source: str) -> list[Finding]:
     """Detect Oracle's NLSSORT() collation function. ora2pg rewrites it
@@ -53,7 +37,7 @@ def find_nlssort(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet="NLSSORT(",
-                message=_MESSAGE,
+                message_id="nlssort",
             )
         )
 

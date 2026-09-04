@@ -27,20 +27,6 @@ _MULTISET_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "Операторы над коллекциями Oracle — CAST(MULTISET(...)), "
-    "MULTISET UNION/INTERSECT/EXCEPT, MEMBER OF, SUBMULTISET OF: работа с "
-    "вложенными таблицами и VARRAY как со множествами прямо в SQL. ora2pg "
-    "копирует эти конструкции в вывод как есть, без изменений "
-    "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-041-multiset-operator.md). У PostgreSQL нет ни "
-    "одного из этих операторов — падает синтаксической ошибкой при "
-    "загрузке. Переписывается вручную под модель массивов PostgreSQL: "
-    "CAST(MULTISET(...)) → ARRAY(SELECT ...), MULTISET UNION → оператор "
-    "|| над массивами или отдельный UNION-подзапрос, MEMBER OF → "
-    "'= ANY(массив)', SUBMULTISET OF → оператор <@ над массивами."
-)
-
 
 def find_multiset_operators(source: str) -> list[Finding]:
     """Detect Oracle's collection operators: CAST(MULTISET(...)),
@@ -62,7 +48,7 @@ def find_multiset_operators(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=snippet,
-                message=_MESSAGE,
+                message_id="multiset_operator",
             )
         )
 

@@ -14,22 +14,6 @@ _TABLE_RE = re.compile(
 )
 _FULLTEXT_RE = re.compile(r"\bFULLTEXT\s+(?:KEY|INDEX)\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "FULLTEXT KEY/INDEX — полнотекстовый индекс MySQL/MariaDB, "
-    "объявленный прямо в списке столбцов CREATE TABLE. ora2pg (-m) не "
-    "распознаёт эту конструкцию как индекс: имя индекса и список "
-    "столбцов теряются, а сами слова 'FULLTEXT KEY'/'FULLTEXT INDEX' "
-    "остаются в выводе на месте, где ожидалось очередное определение "
-    "столбца — подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL "
-    "16 (docs/research/gap-072-mysql-fulltext-index.md). CREATE TABLE "
-    "падает немедленно, при загрузке схемы: 'type \"key\" does not "
-    "exist' (PostgreSQL читает 'fulltext' как имя нового столбца, а "
-    "'KEY'/'INDEX' — как имя несуществующего типа для него). "
-    "Восстанавливается вручную: столбцы полнотекстового индекса видны в "
-    "исходном FULLTEXT KEY (...), переносятся на CREATE INDEX ... USING "
-    "gin (to_tsvector('...', ...)) после CREATE TABLE."
-)
-
 
 def find_mysql_fulltext_indexes(source: str) -> list[Finding]:
     """Detect MySQL/MariaDB's inline `FULLTEXT KEY`/`FULLTEXT INDEX`
@@ -56,7 +40,7 @@ def find_mysql_fulltext_indexes(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, open_pos + 1 + col_match.start()),
                     snippet=col_match.group(0).upper(),
-                    message=_MESSAGE,
+                    message_id="mysql_fulltext_index",
                 )
             )
 

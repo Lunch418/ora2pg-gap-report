@@ -15,19 +15,6 @@ from ..plsql_lex import (
 # identifier -- is not enough to produce a finding.
 _GOTO_RE = re.compile(rf"\bGOTO\s+({IDENTIFIER})", re.IGNORECASE)
 
-_MESSAGE = (
-    "GOTO — безусловный переход на метку <<label>> внутри PL/SQL-блока. "
-    "ora2pg копирует и метку, и сам GOTO в вывод как есть (подтверждено "
-    "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-063-goto-statement.md). В PL/pgSQL оператора GOTO "
-    "нет вообще. CREATE PROCEDURE при этом проходит без ошибок — ora2pg "
-    "выставляет в своём выводе check_function_bodies = false, поэтому тело "
-    "не разбирается на загрузке, — и падение происходит при первом же "
-    "реальном вызове. Переписывается на управляющие конструкции: переход "
-    "назад — на LOOP/CONTINUE, переход вперёд через кусок кода — на "
-    "IF/ELSE или на выделение этого куска во вложенный блок с EXIT."
-)
-
 
 def find_goto_statements(source: str) -> list[Finding]:
     """Detect PL/SQL GOTO statements. ora2pg copies them through
@@ -47,7 +34,7 @@ def find_goto_statements(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=f"GOTO {m.group(1).lower()}",
-                message=_MESSAGE,
+                message_id="goto_statement",
             )
         )
 

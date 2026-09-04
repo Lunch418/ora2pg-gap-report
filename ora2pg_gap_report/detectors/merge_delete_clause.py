@@ -19,23 +19,6 @@ _MERGE_RE = re.compile(r"\bMERGE\s+INTO\b", re.IGNORECASE)
 # boundaries explicitly.
 _DELETE_WHERE_RE = re.compile(r"\bDELETE\s+WHERE\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "MERGE ... WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ... — "
-    "составная Oracle-конструкция, удаляющая часть только что "
-    "обновлённых строк. ora2pg копирует её как есть (подтверждено "
-    "реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-002-merge-delete-clause.md), а в MERGE PostgreSQL "
-    "(15+) такого нет — каждая ветка WHEN является одним действием "
-    "(UPDATE/DELETE/INSERT/DO NOTHING), а не составным UPDATE-затем-DELETE. "
-    "Подтверждено на реальном PostgreSQL 16: CREATE PROCEDURE проходит без "
-    "единой ошибки (ora2pg отключает check_function_bodies в своём "
-    "выводе), синтаксическая ошибка всплывает только при первом реальном "
-    "вызове — то есть в проде, а не на этапе компиляции. Обычный MERGE "
-    "(UPDATE+INSERT, без DELETE WHERE) — не проблема, конвертируется и "
-    "выполняется корректно. Нужно вручную разбить на две ветки WHEN "
-    "MATCHED со взаимоисключающими условиями вместо составной конструкции."
-)
-
 
 def find_merge_delete_clauses(source: str) -> list[Finding]:
     """Detect Oracle's MERGE ... DELETE WHERE compound clause. Plain MERGE
@@ -75,7 +58,7 @@ def find_merge_delete_clauses(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, merge_match.start()),
                 line=line_at(clean, absolute_pos),
                 snippet=delete_match.group(0).strip(),
-                message=_MESSAGE,
+                message_id="merge_delete_clause",
             )
         )
 

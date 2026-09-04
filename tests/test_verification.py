@@ -22,7 +22,7 @@ def _baseline_record(detector: str, **overrides) -> dict:
         object_name="SOME_OBJECT",
         line=1,
         snippet="x",
-        message="m",
+        message_id="read_only_table",
         source_file="oracle.sql",
         group_key="abc123",
     )
@@ -37,7 +37,7 @@ def _finding(detector: str, **overrides) -> Finding:
         object_name="SOME_OBJECT",
         line=1,
         snippet="x",
-        message="m",
+        message_id="read_only_table",
         source_file="generated.sql",
     )
     base.update(overrides)

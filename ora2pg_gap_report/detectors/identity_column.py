@@ -18,23 +18,6 @@ _IDENTITY_WITH_OPTIONS_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "GENERATED ALWAYS/BY DEFAULT AS IDENTITY (...) с явными опциями "
-    "последовательности (START WITH/INCREMENT BY/MAXVALUE и т.д.) — "
-    "ora2pg переносит их в PostgreSQL-эквивалент, но оборачивает секцию "
-    "опций в лишнюю пару скобок: 'GENERATED ALWAYS AS IDENTITY "
-    "((START WITH 1 INCREMENT BY 1))' вместо корректного "
-    "'GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1)' "
-    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-028-identity-column.md). Это не пропуск "
-    "конвертации, а именно баг самой подстановки — сам CREATE TABLE "
-    "падает немедленно при загрузке DDL, ещё до вызова любой функции: "
-    "'ERROR: syntax error at or near \"(\"'. Отдельно проверено: "
-    "GENERATED ALWAYS AS IDENTITY без явных опций (пустые скобки не "
-    "нужны) конвертируется корректно — баг специфичен именно для случая "
-    "с опциями. Нужно вручную убрать лишнюю внешнюю пару скобок."
-)
-
 
 def find_identity_columns_with_options(source: str) -> list[Finding]:
     """Detect Oracle identity columns (GENERATED ALWAYS/BY DEFAULT AS
@@ -72,7 +55,7 @@ def find_identity_columns_with_options(source: str) -> list[Finding]:
                     object_name=table_name,
                     line=line_at(clean, m.end() + im.start()),
                     snippet="GENERATED ... AS IDENTITY (...)",
-                    message=_MESSAGE,
+                    message_id="identity_column",
                 )
             )
 

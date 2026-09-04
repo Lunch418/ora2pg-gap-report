@@ -24,20 +24,6 @@ _INTO_RE = re.compile(r"\bINTO\b", re.IGNORECASE)
 # whole finding.
 _LOOKAHEAD_WINDOW = 2000
 
-_MESSAGE = (
-    "INSERT ALL / INSERT FIRST — многотабличная вставка Oracle (условная "
-    "или безусловная, WHEN ... THEN INTO ... либо просто несколько INTO "
-    "подряд). PostgreSQL не имеет такого синтаксиса вообще — ora2pg "
-    "копирует конструкцию как есть, без единого предупреждения "
-    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-016-insert-all.md). Это не просто неточный "
-    "перевод — PL/pgSQL пытается разобрать 'INTO таблица' как INTO для "
-    "переменной (как в SELECT ... INTO), а не как ветку многотабличной "
-    "вставки, и падает уже на этапе компиляции тела функции. Нужно "
-    "вручную переписать на набор отдельных INSERT INTO ... SELECT ..., "
-    "по одному на каждую ветку."
-)
-
 
 def find_multitable_inserts(source: str) -> list[Finding]:
     """Detect Oracle's multitable INSERT ALL/INSERT FIRST. ora2pg copies
@@ -62,7 +48,7 @@ def find_multitable_inserts(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=f"INSERT {m.group(1).upper()}",
-                message=_MESSAGE,
+                message_id="insert_all",
             )
         )
 

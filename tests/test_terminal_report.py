@@ -11,7 +11,7 @@ def _finding(**kwargs):
         object_name="PKG.FOO",
         line=10,
         snippet="pragma autonomous_transaction;",
-        message="explanation text",
+        message_id="read_only_table",
         source_file="foo.pkb",
     )
     defaults.update(kwargs)
@@ -54,7 +54,7 @@ def test_render_explanation_panel_omits_gap_line_for_an_unregistered_detector():
 def test_render_shows_summary_counts_and_every_finding():
     findings = [
         _finding(severity="high", object_name="PKG.A"),
-        _finding(severity="medium", object_name="PKG.B", snippet="s2", message="m2"),
+        _finding(severity="medium", object_name="PKG.B", snippet="s2", message_id="read_only_table"),
     ]
     console = Console(record=True, width=200)
     render(findings, console=console)
@@ -95,7 +95,7 @@ def test_render_does_not_crash_on_bracket_content_in_finding_fields():
             source_file="notes[/archive].sql",
             object_name="PKG.ARR[I][J]",
             snippet="arr[i][j] := 1;",
-            message="see arr[i] for details",
+            message_id="read_only_table",
         )
     ]
     console = Console(record=True, width=200)
@@ -180,7 +180,7 @@ def test_effort_panel_shows_patterns_note_when_a_detector_repeats():
 def test_effort_panel_omits_patterns_note_when_every_finding_is_a_distinct_detector():
     findings = [
         _finding(detector="autonomous_tx", object_name="A"),
-        _finding(detector="bulk_collect", object_name="B", snippet="s2", message="m2"),
+        _finding(detector="bulk_collect", object_name="B", snippet="s2", message_id="read_only_table"),
     ]
     console = Console(record=True, width=200)
     render(findings, console=console)

@@ -14,22 +14,6 @@ _TABLE_RE = re.compile(
 )
 _SPATIAL_RE = re.compile(r"\bSPATIAL\s+(?:KEY|INDEX)\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "SPATIAL KEY/INDEX — пространственный индекс MySQL/MariaDB, "
-    "объявленный в списке столбцов CREATE TABLE. ora2pg (-m) не "
-    "распознаёт конструкцию как индекс: имя индекса и список столбцов "
-    "теряются, а слова 'spatial KEY' остаются в выводе на месте, где "
-    "ожидалось очередное определение столбца — подтверждено реальным "
-    "прогоном ora2pg 25.0 + PostgreSQL 16 (docs/research/"
-    "gap-074-mysql-spatial-index.md). CREATE TABLE падает немедленно, при "
-    "загрузке схемы: 'type \"key\" does not exist'. Отличается от "
-    "родственного GAP-072 (FULLTEXT) не только ключевым словом, но и "
-    "починкой: пространственный индекс восстанавливается как CREATE "
-    "INDEX ... USING gist (<столбец>) поверх PostGIS-типа, и отдельно "
-    "нужно проверить сам тип столбца — MySQL-овские POINT/GEOMETRY "
-    "переносятся не всегда так, как ожидается."
-)
-
 
 def find_mysql_spatial_indexes(source: str) -> list[Finding]:
     """Detect MySQL/MariaDB's inline `SPATIAL KEY`/`SPATIAL INDEX` column-
@@ -54,7 +38,7 @@ def find_mysql_spatial_indexes(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, open_pos + 1 + col_match.start()),
                     snippet=col_match.group(0).upper(),
-                    message=_MESSAGE,
+                    message_id="mysql_spatial_index",
                 )
             )
 

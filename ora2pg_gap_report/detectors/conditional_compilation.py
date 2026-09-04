@@ -16,25 +16,6 @@ from ..plsql_lex import (
 # deliberately only fires on the directive keywords themselves.
 _COND_COMPILE_RE = re.compile(r"\$(IF|ELSIF|ELSE|END)\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "Директивы условной компиляции PL/SQL ($IF/$ELSIF/$ELSE/$END) — "
-    "препроцессор, обрабатываемый компилятором Oracle до собственно "
-    "компиляции тела: код в невыбранной ветке не просто пропускается на "
-    "выполнении, он вообще не компилируется. ora2pg копирует директивы в "
-    "вывод буквально, как обычный текст (подтверждено реальным прогоном "
-    "ora2pg + PostgreSQL 16, "
-    "docs/research/gap-035-conditional-compilation.md) — у PL/pgSQL нет "
-    "препроцессора условной компиляции вообще, это не валидный синтаксис "
-    "ни в каком виде. CREATE PROCEDURE/FUNCTION проходит без единой "
-    "ошибки (ora2pg отключает check_function_bodies в своём выводе), а "
-    "падает только при первом реальном вызове — 'syntax error at or "
-    "near \"$\"'. Особенно коварно для веток, управляемых редко "
-    "переключаемыми флагами (например режимом отладки): отказ может "
-    "случиться далеко не сразу после миграции. Нужно вручную развернуть "
-    "нужную ветку в обычный код (или обычный IF, если решение должно "
-    "приниматься во время выполнения, а не компиляции)."
-)
-
 
 def find_conditional_compilation(source: str) -> list[Finding]:
     """Detect Oracle's PL/SQL conditional-compilation directives ($IF/
@@ -55,7 +36,7 @@ def find_conditional_compilation(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=m.group(0),
-                message=_MESSAGE,
+                message_id="conditional_compilation",
             )
         )
 

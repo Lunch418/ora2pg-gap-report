@@ -14,24 +14,6 @@ _TABLE_RE = re.compile(
 )
 _COLLATE_RE = re.compile(r"\b(COLLATE|CHARACTER\s+SET)\s+\w+", re.IGNORECASE)
 
-_MESSAGE = (
-    "COLLATE / CHARACTER SET на столбце — правило сравнения и сортировки "
-    "строк. ora2pg (-m) выбрасывает эту часть определения столбца из "
-    "вывода целиком (подтверждено реальным прогоном ora2pg 25.0 + "
-    "PostgreSQL 16, docs/research/gap-085-mysql-collate.md). Ошибки не "
-    "будет ни на загрузке, ни потом, но сравнение строк молча меняет "
-    "смысл: типовые для MySQL правила вида utf8mb4_general_ci / "
-    "utf8mb4_0900_ai_ci регистронезависимы, а сравнение в PostgreSQL по "
-    "умолчанию — регистрозависимо. Проверено на живых данных: строка "
-    "'Alice', найденная в MySQL запросом WHERE name = 'alice', после "
-    "миграции не находится вообще (0 строк). То есть ломается не схема, а "
-    "выдача запросов — логины, поиск по имени, проверки уникальности "
-    "начинают вести себя иначе, и заметно это только в бою. "
-    "Восстанавливается либо явным COLLATE на столбце (в PostgreSQL "
-    "доступны ICU-правила с нужной чувствительностью), либо типом citext, "
-    "либо приведением обеих сторон сравнения к lower()."
-)
-
 
 def find_mysql_collations(source: str) -> list[Finding]:
     """Detect per-column COLLATE/CHARACTER SET clauses in a MySQL CREATE
@@ -57,7 +39,7 @@ def find_mysql_collations(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, open_pos + 1 + col_match.start()),
                     snippet=col_match.group(0),
-                    message=_MESSAGE,
+                    message_id="mysql_collate",
                 )
             )
 

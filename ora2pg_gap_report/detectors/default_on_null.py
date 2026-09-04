@@ -16,19 +16,6 @@ _TABLE_RE = re.compile(
 # that had to search past an arbitrary expression.
 _DEFAULT_ON_NULL_RE = re.compile(r"\bDEFAULT\s+ON\s+NULL\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "DEFAULT ON NULL — в отличие от обычного DEFAULT, подставляется "
-    "и тогда, когда столбцу явно передан NULL, а не только когда столбец "
-    "пропущен в INSERT. ora2pg копирует секцию ON NULL в вывод как есть "
-    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-031-default-on-null.md) — PostgreSQL не "
-    "поддерживает такой синтаксис у DEFAULT вообще. В отличие от "
-    "большинства других находок здесь — это не тихая потеря поведения, "
-    "а немедленный 'ERROR: syntax error at or near \"ON\"' уже на этапе "
-    "применения самого CREATE TABLE. Нужно вручную переписать на "
-    "BEFORE-триггер или GENERATED ALWAYS AS (COALESCE(...)) STORED."
-)
-
 
 def find_default_on_null_usage(source: str) -> list[Finding]:
     """Detect Oracle 12c+'s DEFAULT ON NULL <expr> column clause. ora2pg
@@ -58,7 +45,7 @@ def find_default_on_null_usage(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, m.end() + default_match.start()),
                     snippet=re.sub(r"\s+", " ", default_match.group(0).strip()),
-                    message=_MESSAGE,
+                    message_id="default_on_null",
                 )
             )
 

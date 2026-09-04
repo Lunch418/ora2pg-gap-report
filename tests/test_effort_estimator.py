@@ -9,7 +9,7 @@ from ora2pg_gap_report.models import Finding
 
 def _finding(severity: str, detector: str = "x") -> Finding:
     return Finding(
-        detector=detector, severity=severity, object_name="X.Y", line=1, snippet="", message=""
+        detector=detector, severity=severity, object_name="X.Y", line=1, snippet="", message_id="read_only_table"
     )
 
 

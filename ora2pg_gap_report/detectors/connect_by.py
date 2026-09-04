@@ -29,20 +29,6 @@ _OBJECT_TYPE_PATTERNS = (
     (re.compile(r"\bCREATE\s+(?:OR\s+REPLACE\s+)?VIEW\b", re.IGNORECASE), "VIEW"),
 )
 
-_MESSAGE = (
-    "Сгенерированный ora2pg WITH RECURSIVE ссылается на LEVEL — псевдоколонку "
-    "Oracle, которой нет ни в PostgreSQL, ни в самом CTE. ora2pg переименовывает "
-    "LEVEL в столбец-счётчик глубины в анкорной ветке CTE, но не везде — "
-    "известный баг подстановки его regex-based конвертера CONNECT BY "
-    "(docs/research/step0-show-report-baseline.md, раздел 3; воспроизведено "
-    "на реальном прогоне ora2pg). Сгенерированный SQL в этом виде не "
-    "выполнится в PostgreSQL без ручной правки — LEVEL нужно заменить на "
-    "настоящее имя колонки-счётчика. Строка в этой находке относится к "
-    "сгенерированному ora2pg коду, а не к исходному Oracle-файлу — "
-    "используйте имя объекта и фрагмент ниже, чтобы найти проблему, а не "
-    "номер строки."
-)
-
 
 def has_connect_by(source: str) -> bool:
     """Cheap pre-check on the *Oracle source*: is it worth spending an
@@ -99,7 +85,7 @@ def find_connect_by_risks(ora2pg_output: str) -> list[Finding]:
                 object_name=object_name.upper(),
                 line=line_at(clean, absolute_pos),
                 snippet=level_match.group(0).strip(),
-                message=_MESSAGE,
+                message_id="connect_by",
             )
         )
 

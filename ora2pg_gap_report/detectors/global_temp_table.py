@@ -9,22 +9,6 @@ _GTT_RE = re.compile(
 )
 _PRESERVE_ROWS_RE = re.compile(r"\bON\s+COMMIT\s+PRESERVE\s+ROWS\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "CREATE GLOBAL TEMPORARY TABLE без ON COMMIT PRESERVE ROWS — то есть "
-    "либо явный ON COMMIT DELETE ROWS, либо секция ON COMMIT вообще "
-    "опущена (по умолчанию в Oracle это тоже DELETE ROWS). ora2pg "
-    "конвертирует в CREATE TEMPORARY TABLE, но полностью теряет секцию "
-    "ON COMMIT — не подставляет её PostgreSQL-эквивалент "
-    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-012-global-temp-table.md). У обычной CREATE "
-    "TEMPORARY TABLE в PostgreSQL поведение по умолчанию — как раз "
-    "PRESERVE ROWS, противоположное Oracle-семантике DELETE ROWS. Это не "
-    "синтаксическая ошибка — код молча компилируется и выполняется, но "
-    "строки, которые в Oracle должны были очищаться после каждого "
-    "COMMIT, в PostgreSQL остаются до конца сессии. Нужно вручную "
-    "добавить 'ON COMMIT DELETE ROWS' в определение таблицы."
-)
-
 
 def find_global_temp_tables_without_delete_rows(source: str) -> list[Finding]:
     """Detect Oracle GLOBAL TEMPORARY TABLE declarations that need
@@ -64,7 +48,7 @@ def find_global_temp_tables_without_delete_rows(source: str) -> list[Finding]:
                 object_name=m.group(1).upper(),
                 line=line_at(clean, m.start()),
                 snippet="CREATE GLOBAL TEMPORARY TABLE",
-                message=_MESSAGE,
+                message_id="global_temp_table",
             )
         )
 

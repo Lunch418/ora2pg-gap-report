@@ -14,20 +14,6 @@ _SEQUENCE_RE = re.compile(
 # of a literally-named column).
 _CYCLE_RE = re.compile(r"\bCYCLE\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "CREATE SEQUENCE ... CYCLE — после исчерпания диапазона (MAXVALUE/"
-    "MINVALUE) Oracle начинает счёт заново, а не завершается ошибкой. "
-    "ora2pg отбрасывает секцию CYCLE целиком (подтверждено реальным "
-    "прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-030-sequence-cycle.md) — CREATE SEQUENCE проходит "
-    "без ошибок, и последовательность работает идентично оригиналу ровно "
-    "до момента исчерпания диапазона: 'ERROR: nextval: reached maximum "
-    "value of sequence'. Диапазон может исчерпаться месяцы спустя после "
-    "миграции, в проде, а не при тестировании. Нужно добавить CYCLE "
-    "вручную в CREATE SEQUENCE, если циклическое поведение действительно "
-    "нужно."
-)
-
 
 def find_sequence_cycle_usage(source: str) -> list[Finding]:
     """Detect Oracle's CREATE SEQUENCE ... CYCLE. ora2pg drops the CYCLE
@@ -60,7 +46,7 @@ def find_sequence_cycle_usage(source: str) -> list[Finding]:
                 object_name=m.group(1).upper(),
                 line=line_at(clean, m.end() + cycle_match.start()),
                 snippet="CYCLE",
-                message=_MESSAGE,
+                message_id="sequence_cycle",
             )
         )
 

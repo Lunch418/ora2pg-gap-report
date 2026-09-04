@@ -58,6 +58,7 @@ from .core import (
 from .core import _sort_findings as sort_findings
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_metadata
+from . import messages
 from .models import Finding
 from .verification import DetectorVerification, NewInOutput, new_in_output, verify_against_baseline
 
@@ -400,10 +401,6 @@ class ScanScreen(Screen):
         all_findings, objects_scanned, warnings = scan_paths(
             paths, check_connect_by=check_connect_by, lang=lang, dialect=dialect
         )
-        if lang == "en":
-            all_findings = [
-                dataclasses.replace(f, message=i18n.translate_message(f.message, "en")) for f in all_findings
-            ]
 
         baseline_diff: BaselineDiff | None = None
         if baseline_path is not None:
@@ -738,7 +735,7 @@ class ResultsScreen(Screen):
             else:
                 text.append(f"\n{ref}", style="dim")
         text.append("\n\n")
-        text.append(f.message)
+        text.append(messages.text(f.message_id, self.lang))
         self.query_one("#detail", Static).update(text)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

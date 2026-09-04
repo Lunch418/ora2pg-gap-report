@@ -15,25 +15,6 @@ _TABLE_RE = re.compile(
 )
 _PATTERN_RE = re.compile(r"\bFOREIGN\s+KEY\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "FOREIGN KEY — внешний ключ, объявленный в списке столбцов CREATE "
-    "TABLE (в том числе в форме CONSTRAINT <имя> FOREIGN KEY ... "
-    "REFERENCES ... ON DELETE CASCADE, которую выдаёт SSMS). ora2pg (-M) "
-    "выбрасывает его из вывода целиком: строк FOREIGN KEY в "
-    "сгенерированном файле нет ни одной — ни внутри CREATE TABLE, ни "
-    "отдельным ALTER TABLE после него (подтверждено реальным прогоном "
-    "ora2pg 25.0 + PostgreSQL 16, docs/research/"
-    "gap-102-mssql-foreign-key.md). Отдельного типа экспорта под внешние "
-    "ключи у ora2pg нет: в списке поддерживаемых -t значений нет ни "
-    "FKEY, ни CONSTRAINT. Ошибки не будет ни на загрузке, ни потом: "
-    "схема поднимется, приложение заработает, и ссылочная целостность "
-    "просто перестанет существовать — вместе с каскадными удалениями. "
-    "Ровно то же самое ora2pg делает с внешними ключами на MySQL-стороне "
-    "(GAP-082), так что это не особенность одного диалекта. "
-    "Восстанавливается вручную: ALTER TABLE ... ADD CONSTRAINT ... "
-    "FOREIGN KEY ... REFERENCES ... после загрузки всех таблиц."
-)
-
 
 def find_mssql_foreign_keys(source: str) -> list[Finding]:
     """Detect T-SQL FOREIGN KEY clauses in a CREATE TABLE column
@@ -58,7 +39,7 @@ def find_mssql_foreign_keys(source: str) -> list[Finding]:
                     object_name=normalize_name(m.group(1)).upper(),
                     line=line_at(clean, open_pos + 1 + col_match.start()),
                     snippet="FOREIGN KEY",
-                    message=_MESSAGE,
+                    message_id="mssql_foreign_key",
                 )
             )
 

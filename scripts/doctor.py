@@ -77,7 +77,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audit_gap_test_counts import count_tests  # noqa: E402
-from ora2pg_gap_report import i18n  # noqa: E402
+from ora2pg_gap_report import i18n, messages  # noqa: E402
 from ora2pg_gap_report.core import detector_names  # noqa: E402
 from ora2pg_gap_report.gap_registry import (  # noqa: E402
     FAILURE_STAGE_EXEMPT_DETECTORS,
@@ -130,20 +130,66 @@ def _detector_names_on_disk() -> set[str]:
     return {p.stem for p in detectors_dir.glob("*.py") if p.stem != "__init__"}
 
 
-def _detector_message_constants() -> list[tuple[str, str, str]]:
-    """(module_name, constant_name, value) for every module-level constant
-    in ora2pg_gap_report/detectors/*.py whose name contains 'MESSAGE' --
-    the same extraction i18n.py's EXPLANATION_EN dict was built from by
-    hand. A detector can have more than one (bulk_collect has three)."""
-    import importlib
+def _detector_message_ids() -> dict[str, str]:
+    """{detector: message_id} read out of each detector's own source.
 
-    items = []
+    Read, not imported and called: a detector's message_id is a literal in
+    the Finding(...) it constructs, and running the detector to find out
+    would need a source file that happens to trigger it. The literal is
+    what ships, so the literal is what gets checked.
+
+    A detector emitting more than one id (bulk_collect has three) is
+    represented by whichever it mentions first -- every id it uses is
+    validated anyway by check_messages_cover_every_detector() below, which
+    walks MESSAGES from the other direction."""
+    import ast
+
+    found: dict[str, str] = {}
     for name in sorted(_detector_names_on_disk()):
-        module = importlib.import_module(f"ora2pg_gap_report.detectors.{name}")
-        for attr in vars(module):
-            if attr.isupper() and "MESSAGE" in attr:
-                items.append((name, attr, getattr(module, attr)))
-    return items
+        path = REPO_ROOT / "ora2pg_gap_report" / "detectors" / f"{name}.py"
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if (
+                isinstance(node, ast.keyword)
+                and node.arg == "message_id"
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
+            ):
+                found.setdefault(name, node.value.value)
+    return found
+
+
+def check_messages_cover_every_detector() -> list[str]:
+    """Every message_id literal in every detector exists in MESSAGES, and
+    every MESSAGES entry is actually reachable from some detector.
+
+    The second direction matters as much as the first: an id left behind
+    after a detector was renamed or deleted is dead weight that still
+    reads as a live translation, and it is exactly the kind of thing
+    nobody notices without a check, because nothing breaks."""
+    import ast
+
+    used: set[str] = set()
+    problems = []
+    for name in sorted(_detector_names_on_disk()):
+        path = REPO_ROOT / "ora2pg_gap_report" / "detectors" / f"{name}.py"
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if (
+                isinstance(node, ast.keyword)
+                and node.arg == "message_id"
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
+            ):
+                mid = node.value.value
+                used.add(mid)
+                if mid not in messages.MESSAGES:
+                    problems.append(
+                        f"{name}.py: message_id '{mid}' is not in messages.MESSAGES"
+                    )
+    for orphan in sorted(set(messages.MESSAGES) - used):
+        problems.append(
+            f"messages.py: MESSAGES['{orphan}'] is not referenced by any detector"
+        )
+    return problems
 
 
 def _extract_detector_names_from_tree_text(text: str) -> set[str]:
@@ -276,21 +322,34 @@ def check_gap_registry_md_parity() -> list[str]:
 
 
 def check_i18n_translations_parity() -> list[str]:
-    """Every detector's message constant(s) must have an English
-    translation in i18n.EXPLANATION_EN, and every detector that
+    """Every message_id a detector actually emits must exist in
+    messages.MESSAGES with both languages filled in, and every detector
     terminal_report.py's _REMEDIATION_HINT covers must have a matching
-    entry in i18n.REMEDIATION_HINT_EN -- the same drift the doc/registry
-    parity checks above catch, just for the English output path: a
-    detector added (or a message string edited) without updating i18n.py
-    would otherwise silently fall back to Russian text under --lang en,
-    with nothing flagging the gap."""
+    entry in i18n.REMEDIATION_HINT_EN.
+
+    The failure mode this guards changed shape when messages moved into
+    their own registry. It used to be silent: a message keyed by its own
+    Russian text fell back to Russian under --lang en the moment anyone
+    edited that text. Now an unknown id raises instead, so the risk is a
+    loud crash rather than a quiet wrong language -- but a *blank* or
+    missing translation is still silent, and a detector wired to an id
+    nobody added is still a bug worth catching before it ships rather
+    than on a user's first scan."""
     problems = []
-    for name, attr, message in _detector_message_constants():
-        if message not in i18n.EXPLANATION_EN:
+    for detector, message_id in sorted(_detector_message_ids().items()):
+        message = messages.MESSAGES.get(message_id)
+        if message is None:
             problems.append(
-                f"i18n.py: {name}.{attr} has no English translation in EXPLANATION_EN "
-                "(--lang en would silently fall back to Russian for this finding)"
+                f"messages.py: detector '{detector}' emits message_id "
+                f"'{message_id}', which is not in MESSAGES (any finding from "
+                "it would crash the renderer)"
             )
+            continue
+        for lang_name, value in (("ru", message.ru), ("en", message.en)):
+            if not value.strip():
+                problems.append(
+                    f"messages.py: MESSAGES['{message_id}'].{lang_name} is empty"
+                )
     for name in sorted(_REMEDIATION_HINT):
         if name not in i18n.REMEDIATION_HINT_EN:
             problems.append(f"i18n.py: REMEDIATION_HINT_EN is missing an entry for '{name}'")
@@ -396,10 +455,12 @@ def check_translations_are_not_glued() -> list[str]:
     line-wrapper that stripped the separators), which is why it's now a
     rerunnable check rather than something spotted by reading output."""
     problems = []
-    for name, mapping in (
-        ("EXPLANATION_EN", i18n.EXPLANATION_EN),
+    checked: list[tuple[str, dict[str, str]]] = [
         ("REMEDIATION_HINT_EN", i18n.REMEDIATION_HINT_EN),
-    ):
+        ("MESSAGES.ru", {k: v.ru for k, v in messages.MESSAGES.items()}),
+        ("MESSAGES.en", {k: v.en for k, v in messages.MESSAGES.items()}),
+    ]
+    for name, mapping in checked:
         for key, value in mapping.items():
             for word in _GLUED_WORD_RE.findall(value):
                 label = key if len(key) < 40 else key[:37] + "..."
@@ -471,6 +532,7 @@ def main() -> int:
     all_problems.extend(check_architecture_doc_parity())
     all_problems.extend(check_gap_registry_md_parity())
     all_problems.extend(check_i18n_translations_parity())
+    all_problems.extend(check_messages_cover_every_detector())
     all_problems.extend(check_verification_mode_parity())
     all_problems.extend(check_scan_loop_registration_parity())
     all_problems.extend(check_failure_stage_values())

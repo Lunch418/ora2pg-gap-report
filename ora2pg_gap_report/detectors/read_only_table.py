@@ -14,23 +14,6 @@ _TABLE_RE = re.compile(
 # the words.
 _READ_ONLY_RE = re.compile(r'(?<!")\bREAD\s+ONLY\b(?!")', re.IGNORECASE)
 
-_MESSAGE = (
-    "CREATE TABLE ... READ ONLY — Oracle блокирует любой INSERT/UPDATE/"
-    "DELETE в такую таблицу на уровне сервера (ORA-12081), независимо от "
-    "привилегий пользователя. ora2pg отбрасывает секцию READ ONLY "
-    "целиком — таблица конвертируется как обычная, доступная для записи "
-    "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-026-read-only-table.md; проверено напрямую — "
-    "INSERT в сконвертированную таблицу проходит успешно там, где в "
-    "Oracle он был бы гарантированно заблокирован). Не синтаксическая "
-    "ошибка — CREATE TABLE выполняется без проблем, но потеряна "
-    "гарантия целостности данных на уровне БД, которая могла быть "
-    "единственной защитой (например, для таблицы-снапшота или "
-    "исторического архива). В PostgreSQL прямого аналога нет — обычно "
-    "переписывается через REVOKE INSERT/UPDATE/DELETE от всех ролей "
-    "(включая владельца) или через BEFORE-триггер, отклоняющий DML."
-)
-
 
 def find_read_only_tables(source: str) -> list[Finding]:
     """Detect Oracle's CREATE TABLE ... READ ONLY. ora2pg drops the
@@ -71,7 +54,7 @@ def find_read_only_tables(source: str) -> list[Finding]:
                 object_name=m.group(1).upper(),
                 line=line_at(clean, m.end() + read_only_match.start()),
                 snippet="READ ONLY",
-                message=_MESSAGE,
+                message_id="read_only_table",
             )
         )
 

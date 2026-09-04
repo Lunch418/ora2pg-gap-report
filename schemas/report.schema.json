@@ -2,14 +2,23 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Lunch418/ora2pg-gap-report/blob/main/schemas/report.schema.json",
   "title": "ora2pg-gap-report JSON report",
-  "description": "The exact shape of `ora2pg-gap-report ... --format json` output: a flat array of findings, one per problematic Oracle construct detected. See ora2pg_gap_report/models.py (Finding) and report_generator.py (to_json) for the source of truth this schema describes. NOTE: $defs/finding's `properties`/`required` are duplicated in baseline.schema.json's $defs/baseline_finding (which adds one field, 'group_key', on top of the same Finding shape) — tests/test_schemas.py's test_report_and_baseline_schemas_share_identical_finding_field_definitions enforces that the two stay identical; update both files together, not just this one.",
-  "type": "array",
-  "items": { "$ref": "#/$defs/finding" },
+  "description": "The exact shape of `ora2pg-gap-report ... --format json` output: an object carrying a shared message table and an array of findings, one per problematic construct detected. Before schema_version 2 this was a bare array whose every element inlined its own explanation, which cost tens of megabytes on a large scan repeating the same few paragraphs. See ora2pg_gap_report/models.py (Finding), messages.py (MESSAGES) and report_generator.py (to_json) for the source of truth this schema describes. NOTE: $defs/finding's properties/required are duplicated in baseline.schema.json's $defs/baseline_finding (which adds 'group_key' on top of the same Finding shape) — tests/test_schemas.py's test_report_and_baseline_schemas_share_identical_finding_field_definitions enforces that the two stay identical; update both files together, not just this one.",
+  "type": "object",
   "$defs": {
     "finding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["detector", "severity", "object_name", "line", "snippet", "message", "source_file", "gap_number", "failure_stage"],
+      "required": [
+        "detector",
+        "severity",
+        "object_name",
+        "line",
+        "snippet",
+        "message_id",
+        "source_file",
+        "gap_number",
+        "failure_stage"
+      ],
       "properties": {
         "detector": {
           "type": "string",
@@ -17,7 +26,11 @@
         },
         "severity": {
           "type": "string",
-          "enum": ["high", "medium", "low"],
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
           "description": "'high' — a hard PostgreSQL error, or a silent architectural/correctness loss. 'medium' — a silent behavior change with bounded, non-correctness impact. This project has no 'critical' tier: 'high' is its top severity."
         },
         "object_name": {
@@ -33,24 +46,61 @@
           "type": "string",
           "description": "The specific fragment that triggered the finding (e.g. 'READ ONLY', 'CROSS APPLY') — not the full statement."
         },
-        "message": {
-          "type": "string",
-          "description": "Full explanation: what ora2pg does with this construct, why it's a problem, and how to work around it."
-        },
         "source_file": {
           "type": "string",
           "description": "Path to the file that was scanned, as given on the command line (or discovered inside a scanned directory). Empty string if not yet stamped (not expected in CLI output, only when calling detectors directly as a library)."
         },
         "gap_number": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "pattern": "^[0-9]{3}$",
           "description": "The GAP-NNN number this detector is registered as in ora2pg_gap_report/gap_registry.py's GAPS list (without the 'GAP-' prefix, e.g. '023'), or null for a detector with no registered gap of its own (e.g. dbms_utl_calls, a classifier -- see that module's own comment in gap_registry.py)."
         },
         "failure_stage": {
-          "type": ["string", "null"],
-          "enum": ["conversion", "deployment", "runtime", "semantic", null],
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "conversion",
+            "deployment",
+            "runtime",
+            "semantic",
+            null
+          ],
           "description": "When someone would actually notice this gap: 'conversion' (only visible in ora2pg's own conversion run/log), 'deployment' (the generated DDL fails to load into PostgreSQL immediately), 'runtime' (the DDL loads cleanly but the flagged code fails the first time it actually runs), 'semantic' (no error is ever raised, at any stage -- behavior is just silently different from Oracle). null when gap_number is null, or for the two gaps in FAILURE_STAGE_EXEMPT_DETECTORS whose finding isn't a code-shape/runtime problem at all (see gap_registry.py)."
+        },
+        "message_id": {
+          "type": "string",
+          "description": "Key into the report's own top-level `messages` object, which carries the explanation text once per distinct message rather than repeating it on every finding. Stable across releases and independent of the prose, so it can be grouped or filtered on -- see ora2pg_gap_report/messages.py."
         }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "messages",
+    "findings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 2,
+      "description": "Bumped when the shape of this document changes. 2 replaced the bare array of findings (each inlining its own explanation) with this object, carrying the explanations once under `messages`."
+    },
+    "messages": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "message_id -> explanation text, in whichever language the report was rendered for (--lang). Contains exactly the ids referenced by `findings`, nothing more."
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
       }
     }
   }

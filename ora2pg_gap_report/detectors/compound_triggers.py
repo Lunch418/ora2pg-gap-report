@@ -11,26 +11,6 @@ _TRIGGER_START_RE = re.compile(
 )
 _COMPOUND_RE = re.compile(r"\bCOMPOUND\s+TRIGGER\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "COMPOUND TRIGGER: секции BEFORE STATEMENT / BEFORE EACH ROW / "
-    "AFTER EACH ROW / AFTER STATEMENT внутри одного триггера. У ora2pg нет "
-    "отдельного пути конвертации для этого синтаксиса. В файловом режиме "
-    "(-t TRIGGER -i file.sql) его regex-парсер (read_trigger_from_file) "
-    "рассчитан на классическую форму 'ON <table> [FOR EACH ROW] "
-    "[WHEN (...)] BEGIN...END' и на составном триггере тихо возвращает "
-    "0 найденных триггеров — без единой ошибки или предупреждения "
-    "(эмпирически подтверждено, docs/research/step0-show-report-baseline.md, "
-    "раздел 5). В режиме живого подключения счётчик объектов SHOW_REPORT "
-    "покажет этот триггер как обычный валидный (данные берутся из каталога "
-    "Oracle, а не из попытки конвертации) — то есть само число объектов "
-    "проблему не выдаст. По структуре export_trigger() в Ora2Pg.pm крайне "
-    "вероятно, что и в живом режиме конвертация тела COMPOUND TRIGGER даёт "
-    "синтаксически неверный или тихо испорченный код. Нужен ручной перенос "
-    "— как правило, на несколько независимых обычных триггеров "
-    "(BEFORE/AFTER × STATEMENT/ROW) с общим состоянием через пакетную "
-    "переменную или временную таблицу вместо секций компаунд-триггера."
-)
-
 
 def find_compound_triggers(source: str) -> list[Finding]:
     """Detect CREATE [OR REPLACE] TRIGGER ... COMPOUND TRIGGER declarations.
@@ -61,7 +41,7 @@ def find_compound_triggers(source: str) -> list[Finding]:
                 object_name=match.group(1).upper(),
                 line=line_no,
                 snippet=compound_match.group(0).strip(),
-                message=_MESSAGE,
+                message_id="compound_triggers",
             )
         )
 

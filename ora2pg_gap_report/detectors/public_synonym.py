@@ -12,23 +12,6 @@ _FOR_TARGET_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "CREATE [PUBLIC] SYNONYM — ora2pg конвертирует его в CREATE OR REPLACE "
-    "VIEW, но теряет схему целевого объекта целиком: 'FOR hr.employees' "
-    "становится неквалифицированным 'FROM employees' (подтверждено "
-    "реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-032-public-synonym.md). Когда имя синонима "
-    "совпадает с базовым именем цели (самый частый случай в реальности — "
-    "в этом обычно и есть весь смысл синонима), получается "
-    "самоссылающийся VIEW: 'ERROR: relation ... does not exist' прямо на "
-    "этапе применения DDL. Когда имена различаются, отказа не будет, но "
-    "то, к какой именно таблице привяжется представление, целиком зависит "
-    "от search_path в момент CREATE VIEW, а не от исходной Oracle-схемы — "
-    "при миграции нескольких схем в одну базу представление может молча "
-    "привязаться не к той одноимённой таблице, без единой ошибки. Нужно "
-    "вручную квалифицировать целевую таблицу схемой в определении VIEW."
-)
-
 
 def find_public_synonyms(source: str) -> list[Finding]:
     """Detect Oracle's CREATE [PUBLIC] SYNONYM. ora2pg converts it to a
@@ -64,7 +47,7 @@ def find_public_synonyms(source: str) -> list[Finding]:
                 object_name=m.group(1).upper(),
                 line=line_at(clean, m.end()),
                 snippet=f"FOR {target_match.group(1).upper()}",
-                message=_MESSAGE,
+                message_id="public_synonym",
             )
         )
 

@@ -42,18 +42,6 @@ def _mask_quoted_identifiers(text: str) -> str:
         lambda m: "".join("\n" if c == "\n" else " " for c in m.group(0)), text
     )
 
-_MESSAGE = (
-    "table@dblink_name — прямая ссылка на объект в удалённой базе через "
-    "database link. ora2pg копирует ссылку как есть — '@dblink_name' не "
-    "валидный синтаксис SQL в PostgreSQL вообще (подтверждено реальным "
-    "прогоном ora2pg + PostgreSQL 16, docs/research/gap-006-database-link.md). "
-    "CREATE PROCEDURE/FUNCTION проходит без ошибки (ora2pg отключает "
-    "check_function_bodies в своём выводе), падает только при первом "
-    "реальном вызове. Автоматической замены нет и в принципе быть не "
-    "может — нужна ручная настройка postgres_fdw/dblink с реальными "
-    "connection-параметрами удалённой базы."
-)
-
 
 def find_database_link_references(source: str) -> list[Finding]:
     """Detect `table@dblink_name` references to remote objects through an
@@ -85,7 +73,7 @@ def find_database_link_references(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=m.group(0),
-                message=_MESSAGE,
+                message_id="database_link",
             )
         )
 

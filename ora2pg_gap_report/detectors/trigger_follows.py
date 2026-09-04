@@ -25,23 +25,6 @@ _FOLLOWS_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "FOLLOWS / PRECEDES — оговорка Oracle, задающая порядок срабатывания "
-    "триггеров на одном и том же событии одной таблицы. ora2pg не просто "
-    "теряет её: оговорка попадает внутрь тела сгенерированной функции, "
-    "между 'AS $BODY$' и 'BEGIN' (подтверждено реальным прогоном ora2pg "
-    "25.0 + PostgreSQL 16, docs/research/gap-053-trigger-follows.md). "
-    "CREATE FUNCTION и CREATE TRIGGER проходят без ошибок — ora2pg "
-    "выставляет в своём выводе check_function_bodies = false, — а при "
-    "первом же INSERT триггер падает с 'syntax error at or near "
-    "\"FOLLOWS\"'. То есть ломается не порядок срабатывания, а вся "
-    "операция с таблицей. В PostgreSQL порядка «по имени предшественника» "
-    "нет вообще: триггеры на одном событии срабатывают в алфавитном "
-    "порядке имён, поэтому оговорку нужно убрать, а нужную "
-    "последовательность обеспечить именованием (t10_..., t20_...) или "
-    "слиянием триггеров в один."
-)
-
 
 def find_trigger_follows(source: str) -> list[Finding]:
     """Detect Oracle's FOLLOWS/PRECEDES trigger-ordering clause. ora2pg
@@ -69,7 +52,7 @@ def find_trigger_follows(source: str) -> list[Finding]:
                     object_name=trigger.group(1).upper(),
                     line=line_at(clean, m.start()),
                     snippet=f"{m.group(1).upper()} {m.group(2).upper()}",
-                    message=_MESSAGE,
+                    message_id="trigger_follows",
                 )
             )
 

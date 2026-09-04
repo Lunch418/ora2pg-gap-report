@@ -18,23 +18,6 @@ _OF_TYPE_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "CREATE TABLE ... OF <тип> — объектная таблица Oracle: каждая строка "
-    "является экземпляром объектного типа, а атрибуты типа становятся "
-    "столбцами таблицы. ora2pg не конвертирует конструкцию и не "
-    "отбрасывает её — он разрушает структуру таблицы: ключевое слово OF "
-    "попадает в вывод как ИМЯ СТОЛБЦА, а объявления ограничений "
-    "(например 'person_id PRIMARY KEY') теряются целиком (подтверждено "
-    "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-047-object-table.md). Самое опасное здесь в том, "
-    "что при существующем в целевой базе типе загрузка проходит БЕЗ "
-    "ОШИБКИ: создаётся таблица с единственным столбцом по имени 'of' и "
-    "без первичного ключа. Миграция выглядит успешной, а таблица молча "
-    "имеет неверную структуру. Переписывается вручную: объектная таблица "
-    "разворачивается в обычную таблицу с отдельным столбцом на каждый "
-    "атрибут типа плюс явные ограничения."
-)
-
 
 def find_object_tables(source: str) -> list[Finding]:
     """Detect Oracle's CREATE TABLE ... OF <object type> (object table).
@@ -69,7 +52,7 @@ def find_object_tables(source: str) -> list[Finding]:
                 # construct itself.
                 line=line_at(clean, of_match.start(1)),
                 snippet=re.sub(r"\s+", " ", of_match.group(0).strip().upper()),
-                message=_MESSAGE,
+                message_id="object_table",
             )
         )
 

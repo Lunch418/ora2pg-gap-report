@@ -14,18 +14,6 @@ from ..plsql_lex import (
 # phrase in Oracle SQL.
 _FLASHBACK_RE = re.compile(r"\bAS\s+OF\s+(TIMESTAMP|SCN)\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "AS OF TIMESTAMP/SCN — flashback-запрос, читающий таблицу такой, "
-    "какой она была в прошлом. ora2pg копирует конструкцию как есть "
-    "(с побочным искажением текста при подстановке SYSTIMESTAMP в "
-    "некоторых случаях — подтверждено реальным прогоном, "
-    "docs/research/gap-011-flashback-query.md) — в PostgreSQL нет "
-    "встроенного эквивалента вообще. CREATE PROCEDURE/FUNCTION проходит "
-    "без ошибки, падает только при первом реальном вызове. Нужен "
-    "отдельный архитектурный механизм (temporal tables через расширение, "
-    "собственные таблицы истории/аудита) — не синтаксическая замена."
-)
-
 
 def find_flashback_queries(source: str) -> list[Finding]:
     """Detect Oracle's flashback query (AS OF TIMESTAMP/SCN). No
@@ -44,7 +32,7 @@ def find_flashback_queries(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=re.sub(r"\s+", " ", m.group(0)),
-                message=_MESSAGE,
+                message_id="flashback_query",
             )
         )
 

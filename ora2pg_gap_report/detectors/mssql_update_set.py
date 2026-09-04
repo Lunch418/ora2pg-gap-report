@@ -12,23 +12,6 @@ from ..mssql_lex import (
 # run past the end of its own statement into the next one's SET.
 _PATTERN_RE = re.compile(r"\bUPDATE\s+[^;]{0,120}?\bSET\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "UPDATE ... SET — обычное обновление строк. ora2pg (-M) путает это "
-    "SET с одноимённым оператором присваивания переменной в T-SQL (SET "
-    "@x = 1) и переписывает конструкцию по правилам присваивания: само "
-    "слово SET из запроса пропадает, а первое присваивание получает := "
-    "вместо = (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL "
-    "16, docs/research/gap-089-mssql-update-set.md). Из UPDATE orders "
-    "SET amount = @x, nm = \'y\' WHERE id = 1 получается UPDATE orders "
-    "amount := p_x, nm = \'y\' WHERE id = 1. Загрузка проходит чисто — "
-    "ora2pg выставляет в своём выводе check_function_bodies = false, — а "
-    "при первом же реальном вызове процедура падает с \'syntax error at "
-    "or near \":=\"\'. Под это попадает каждый UPDATE в каждой процедуре, "
-    "так что после конвертации их придётся просмотреть все: правится "
-    "возвратом к обычному SQL — UPDATE <таблица> SET <столбец> = "
-    "<значение>."
-)
-
 
 def find_mssql_update_set(source: str) -> list[Finding]:
     """Detect T-SQL UPDATE ... SET statements. ora2pg -M mistakes the
@@ -49,7 +32,7 @@ def find_mssql_update_set(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet="UPDATE ... SET",
-                message=_MESSAGE,
+                message_id="mssql_update_set",
             )
         )
 

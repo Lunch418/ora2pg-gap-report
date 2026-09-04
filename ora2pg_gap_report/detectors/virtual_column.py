@@ -22,23 +22,6 @@ _TABLE_RE = re.compile(
 # 'AS\s*\(' never matches at that position in the first place.
 _AS_EXPR_OPEN_RE = re.compile(r"\bAS\s*\(", re.IGNORECASE)
 
-_MESSAGE = (
-    "GENERATED ALWAYS AS (...) VIRTUAL — виртуальный столбец. Помимо "
-    "вычисления значения, Oracle гарантирует на уровне сервера, что в "
-    "такой столбец нельзя явно ничего записать (ORA-54016 при любой "
-    "попытке в INSERT/UPDATE). ora2pg переносит сам расчёт корректно — "
-    "через BEFORE INSERT OR UPDATE-триггер вместо нативного GENERATED "
-    "ALWAYS AS (...) STORED — но эта защита теряется (подтверждено "
-    "реальным прогоном ora2pg + PostgreSQL 16, "
-    "docs/research/gap-033-virtual-column.md): явное присваивание "
-    "значения такому столбцу в INSERT/UPDATE молча проходит без единой "
-    "ошибки, триггер просто подменяет переданное значение вычисленным. "
-    "Итоговое значение в столбце корректно — это не потеря данных, а "
-    "потеря ранней диагностики: код, по ошибке или намеренно "
-    "присваивающий значение вычисляемому столбцу, в Oracle был бы "
-    "пойман сразу на тестировании, после миграции проходит незамеченным."
-)
-
 
 def find_virtual_columns(source: str) -> list[Finding]:
     """Detect Oracle's virtual-column clause -- 'column [datatype]
@@ -77,7 +60,7 @@ def find_virtual_columns(source: str) -> list[Finding]:
                     object_name=m.group(1).upper(),
                     line=line_at(clean, open_pos + 1 + as_match.start()),
                     snippet="AS (...)",
-                    message=_MESSAGE,
+                    message_id="virtual_column",
                 )
             )
 

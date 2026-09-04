@@ -19,20 +19,6 @@ _FOR_UPDATE_WAIT_RE = re.compile(
     re.IGNORECASE,
 )
 
-_MESSAGE = (
-    "FOR UPDATE ... WAIT n — блокировка строк с ожиданием не дольше n "
-    "секунд. ora2pg копирует оговорку в вывод как есть (подтверждено "
-    "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-    "docs/research/gap-056-for-update-wait.md). У PostgreSQL для FOR UPDATE "
-    "есть только NOWAIT и SKIP LOCKED — варианта «подожди ровно n секунд» "
-    "нет, — поэтому запрос падает синтаксической ошибкой на слове WAIT. "
-    "Эквивалент делается на уровне сессии, а не запроса: "
-    "SET LOCAL lock_timeout = 'n s' перед SELECT ... FOR UPDATE. Разница "
-    "не только в синтаксисе: по истечении времени Oracle возвращает "
-    "ORA-30006, а PostgreSQL прерывает запрос по lock_timeout, так что "
-    "обработку ошибки в вызывающем коде тоже нужно поправить."
-)
-
 
 def find_for_update_wait(source: str) -> list[Finding]:
     """Detect Oracle's FOR UPDATE ... WAIT n lock-timeout clause. ora2pg
@@ -52,7 +38,7 @@ def find_for_update_wait(source: str) -> list[Finding]:
                 object_name=enclosing_object_name(name_index, m.start()),
                 line=line_at(clean, m.start()),
                 snippet=" ".join(m.group(0).upper().split()),
-                message=_MESSAGE,
+                message_id="for_update_wait",
             )
         )
 

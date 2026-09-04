@@ -17,25 +17,6 @@ _PROCEDURE_RE = re.compile(
 # it is parenthesised (T-SQL allows both).
 _AS_RE = re.compile(r"\bAS\b", re.IGNORECASE)
 
-_MESSAGE = (
-    "Процедура без параметров. Само по себе это ничем не примечательно, "
-    "но ora2pg (-M) генерирует для неё пустой блок объявлений — DECLARE, "
-    "пустая строка и одинокая точка с запятой, — который PL/pgSQL "
-    "разобрать не может (подтверждено реальным прогоном ora2pg 25.0 + "
-    "PostgreSQL 16, docs/research/"
-    "gap-091-mssql-parameterless-procedure.md). Проверено прямым "
-    "сравнением: у процедуры с параметром блока DECLARE в выводе нет "
-    "вовсе и тело начинается сразу с BEGIN, а у точно такой же "
-    "процедуры без параметров появляется сломанный DECLARE. Загрузка "
-    "проходит без ошибок — ora2pg выставляет в своём выводе "
-    "check_function_bodies = false, поэтому тело не разбирается, — и "
-    "падение происходит при первом же реальном вызове: 'syntax error at "
-    "or near \";\"'. Под это попадает каждая процедура без параметров, "
-    "то есть, как правило, все служебные и отчётные. Чинится удалением "
-    "пустого DECLARE из готового кода (или добавлением в него реальных "
-    "переменных, если они там нужны)."
-)
-
 
 def find_mssql_parameterless_procedures(source: str) -> list[Finding]:
     """Detect T-SQL procedures declared with no parameters. ora2pg -M
@@ -61,7 +42,7 @@ def find_mssql_parameterless_procedures(source: str) -> list[Finding]:
                 object_name=normalize_name(m.group(1)).upper(),
                 line=line_at(clean, m.start()),
                 snippet="CREATE PROCEDURE ... AS",
-                message=_MESSAGE,
+                message_id="mssql_parameterless_procedure",
             )
         )
 

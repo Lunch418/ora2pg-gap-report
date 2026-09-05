@@ -1,26 +1,31 @@
 # Research
 
-Материалы валидации предпосылок проекта и реестр подтверждённых gap'ов —
-эмпирическая база, на которой строятся детекторы (методология — в основном
-README проекта, раздел «Методология»).
+Validation material for the project's premises, plus the registry of
+confirmed gaps — the empirical base the detectors are built on (for the
+methodology, see the "Methodology" section of the project's main README).
 
-- `GAP_REGISTRY.md` — реестр всех подтверждённых gap'ов с номерами (GAP-NNN),
-  статусом и версией `ora2pg`, на которой каждый подтверждён. Начинать
-  отсюда.
-- `AUDIT.md` — сводная проверка доказательной базы по каждому из 21
-  gap'а: research-документ, реальный вывод ora2pg, expected/actual,
-  детектор, регрессионные тесты (включая guard-тесты на ложные
-  срабатывания), проверка на большом открытом корпусе там, где это
-  применимо.
-- `gap-001-autonomous-transaction.md` … `gap-028-identity-column.md` —
-  подробное исследование по каждому gap'у: минимальный пример, вывод
-  ora2pg, наблюдаемая проблема, вердикт.
-- `rejected-hypotheses.md` — гипотезы, проверенные и не подтвердившиеся
-  (кроме отклонённых в `step0-show-report-baseline.md`) — ora2pg на самом
-  деле справляется корректно, детектор не нужен.
-- `step0-show-report-baseline.md` — исходная сверка того, что `ora2pg
-  SHOW_REPORT` уже показывает "из коробки" по пяти изначально
-  предполагавшимся классам конструкций. Содержит и отклонённые гипотезы
-  (например, `CREATE PACKAGE` — не gap), не только подтверждённые; сами
-  подтверждённые из этого документа позже вынесены в отдельные
-  `gap-NNN-*.md` файлы для единообразия с находками, добавленными позже.
+- `GAP_REGISTRY.md` — the registry of every confirmed gap with its
+  number (GAP-NNN), status and the `ora2pg` version it was confirmed on.
+  Start here.
+- `AUDIT.md` — a consolidated check of the evidence behind each of the
+  21 gaps it covers: research document, real ora2pg output,
+  expected/actual, detector, regression tests (including guard tests
+  against false positives), and verification on a large open-source
+  corpus where applicable.
+- `gap-001-autonomous-transaction.md` … `gap-105-mssql-rowversion.md` —
+  the detailed research for each gap: minimal example, ora2pg output,
+  observed problem, verdict.
+- `rejected-hypotheses.md` — hypotheses that were tested and not
+  confirmed (other than those rejected in
+  `step0-show-report-baseline.md`) — ora2pg actually handles them
+  correctly and no detector is needed.
+- `step0-show-report-baseline.md` — the original survey of what `ora2pg
+  SHOW_REPORT` already shows out of the box for the five classes of
+  construct assumed at the start. It contains rejected hypotheses too
+  (`CREATE PACKAGE`, for instance, is not a gap), not only confirmed
+  ones; the confirmed ones from that document were later moved into
+  separate `gap-NNN-*.md` files for consistency with the findings added
+  afterwards.
+
+Every document here has a Russian counterpart at the same name with a
+`.ru.md` suffix.

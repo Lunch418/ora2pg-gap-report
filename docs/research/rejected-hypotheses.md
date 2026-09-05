@@ -1,30 +1,30 @@
-# Отклонённые гипотезы
+# Rejected hypotheses
 
-Гипотезы, проверенные по методологии проекта (реальный `ora2pg` +
-реальный PostgreSQL) и **не подтвердившиеся** — ora2pg справляется
-корректно. Документируются наравне с подтверждёнными gap'ами: то, что
-конструкция звучит по-ораклиному сложно, не значит, что она не
-переносится (см. «Методология» в README).
+Hypotheses tested under the project's methodology (real `ora2pg` + real
+PostgreSQL) and **not confirmed** — ora2pg handles them correctly. They
+are documented on equal footing with the confirmed gaps: just because a
+construct sounds Oracle-ishly complicated does not mean it fails to port
+(see "Methodology" in the README).
 
-Первая партия отклонённых гипотез (`CREATE PACKAGE`, а также частично
-`DBMS_OUTPUT`/`DBMS_LOB`) — в `step0-show-report-baseline.md`, разделы 1 и
-4. Здесь — более поздние.
+The first batch of rejected hypotheses (`CREATE PACKAGE`, and partly
+`DBMS_OUTPUT`/`DBMS_LOB`) is in `step0-show-report-baseline.md`, sections
+1 and 4. The later ones are here.
 
 ## `XMLTABLE`/`XMLQUERY`
 
-Гипотеза: Oracle-специфичные функции работы с XML в SQL (`XMLTABLE(...
-PASSING ... COLUMNS ...)`) не переносятся.
+Hypothesis: Oracle-specific XML functions in SQL (`XMLTABLE(... PASSING
+... COLUMNS ...)`) do not port.
 
-Проверка: минимальный пример с `XMLTABLE`, разбирающий XML-параметр в
-строки для `INSERT`, прогнан через `ora2pg -t PACKAGE` (v25.0) и
-загружен в реальный PostgreSQL 16.
+Test: a minimal example with `XMLTABLE`, parsing an XML parameter into
+rows for an `INSERT`, run through `ora2pg -t PACKAGE` (v25.0) and loaded
+into a real PostgreSQL 16.
 
-Результат: **отклонено**. PostgreSQL 10+ имеет встроенную функцию
-`xmltable()` с синтаксисом, совместимым с базовым использованием Oracle —
-`PASSING`/`COLUMNS`/`PATH` работают идентично. Пример реально выполнился
-и корректно вставил данные (`SELECT * FROM orders` после вызова показал
-верные строки). Ora2pg даже не нуждается в специальной конвертации — типы
-данных (`NUMBER` → `bigint`) подставляются той же общей логикой, что и
-везде. Более сложные XPath-выражения или редкие опции `XMLTABLE` не
-проверялись — гипотеза отклонена только для базового, наиболее частого
-случая использования.
+Result: **rejected**. PostgreSQL 10+ has a built-in `xmltable()` function
+whose syntax is compatible with the basic Oracle usage —
+`PASSING`/`COLUMNS`/`PATH` behave identically. The example actually ran
+and inserted the data correctly (`SELECT * FROM orders` after the call
+showed the right rows). Ora2pg does not even need a special conversion —
+the data types (`NUMBER` → `bigint`) are substituted by the same general
+logic as everywhere else. More complex XPath expressions and the rarer
+`XMLTABLE` options were not tested — the hypothesis is rejected only for
+the basic, most common usage.

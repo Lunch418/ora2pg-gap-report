@@ -7,10 +7,8 @@ masking/attribution contract is tested directly here instead of only
 through downstream detector behavior."""
 
 from ora2pg_gap_report.mysql_lex import (
-    _line_starts,
     enclosing_object_name,
     enclosing_object_name_index,
-    line_at,
     mask_comments_only,
     mask_strings_and_comments,
     qualified_name_pattern,
@@ -189,22 +187,3 @@ def test_qualified_name_pattern_matches_a_schema_qualified_backtick_name():
     m = pattern.search("CREATE TABLE `mydb`.`orders` (id INT);")
     assert m is not None
     assert m.group(1) == "orders"
-
-
-# --- A-03 regression: line_at() must stay O(log n) per call, not O(n). ---
-
-
-def test_line_at_matches_a_naive_reference_across_many_positions():
-    source = "line1\nline2\n\nline4\nline5"
-    for pos in range(len(source) + 1):
-        assert line_at(source, pos) == source.count("\n", 0, pos) + 1
-
-
-def test_line_at_reuses_the_cached_newline_index_across_calls():
-    _line_starts.cache_clear()
-    source = "a\nb\nc\nd\n" * 50
-    for pos in (0, 10, len(source) - 1):
-        line_at(source, pos)
-    info = _line_starts.cache_info()
-    assert info.misses == 1
-    assert info.hits == 2

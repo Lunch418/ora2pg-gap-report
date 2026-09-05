@@ -38,6 +38,12 @@ really were only four detectors.
 pyproject.toml                 # single source of truth for dependencies/entry points
 ora2pg_gap_report/
 ├── models.py                  # Finding -- the shared finding structure for every detector
+├── detector_spec.py            # DetectorSpec + build(): the five scanning strategies the
+│                               # declarative detectors are made of (see DEVELOPMENT.md)
+├── messages.py                 # every finding's ru/en text, keyed by message id
+├── lex_common.py               # the lexer parts no dialect changes -- line_at, balanced
+│                               # parens, column-list spans -- plus the Lexer protocol
+│                               # build() type-checks a dialect lexer against
 ├── plsql_lex.py                # shared infrastructure: string/comment masking (including
 │                               # q-quotes) in two flavors -- safe, and with the EXECUTE
 │                               # IMMEDIATE argument left visible -- BEGIN/CASE/IF/LOOP...END
@@ -157,6 +163,7 @@ ora2pg_gap_report/
 │                               #  block comments -- the mssql_* detectors' shared base)
 ├── mysql_lex.py                 # MySQL/MariaDB-dialect lexical helpers (mask_strings_and_comments,
 │                               #  enclosing_object_name_index -- the mysql_* detectors' shared base)
+│                               #  Both re-export lex_common's dialect-independent half.
 ├── ora2pg_wrapper.py            # runs ora2pg per object type, parses --estimate_cost
 ├── i18n.py                     # output language (--lang/--set-lang): resolution, English
 │                               # UI strings, and translations of detector explanations

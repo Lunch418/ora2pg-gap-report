@@ -14,7 +14,7 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.text import Text
 
-from . import i18n
+from . import i18n, ora2pg_wrapper
 from .atomic_write import open_text_atomic, write_text_atomic
 from .autofix import FIXERS_BY_DIALECT
 from .baseline import BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
@@ -29,7 +29,13 @@ from .core import (
     scan_source,
 )
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
-from .gap_registry import gap_by_number, normalize_gap_number, research_doc_path, research_doc_url
+from .gap_registry import (
+    gap_by_number,
+    normalize_gap_number,
+    research_doc_path,
+    research_doc_url,
+    verified_ora2pg_versions,
+)
 from .models import Finding
 from .report_generator import (
     to_csv,
@@ -230,6 +236,29 @@ def _file_console(buffer: io.StringIO) -> Console:
     return Console(file=buffer)
 
 
+def _ora2pg_version_warning(ora2pg_bin: str, lang: str) -> str | None:
+    """A warning if the installed ora2pg isn't one the findings were
+    confirmed against, else None.
+
+    Silent whenever there is nothing solid to say: no ora2pg, an
+    unreadable version banner, or a version that matches. The gap
+    registry records which ora2pg each finding was reproduced on
+    (ora2pg_version) and when (last_verified), and ora2pg_wrapper.py's
+    own docstring notes that its output parsing is matched to that
+    version -- so a user running a different one deserves to be told
+    once, not to discover it from a finding that quietly no longer
+    holds."""
+    installed = ora2pg_wrapper.installed_version(ora2pg_bin)
+    if installed is None or installed in verified_ora2pg_versions():
+        return None
+    return i18n.t(
+        lang,
+        "ora2pg_version_mismatch",
+        installed=installed,
+        verified=", ".join(sorted(verified_ora2pg_versions())),
+    )
+
+
 def _apply_filters(findings: list[Finding], severity: str | None, object_substring: str | None) -> list[Finding]:
     if severity is not None:
         findings = [f for f in findings if f.severity == severity]
@@ -270,10 +299,7 @@ def _write_report(findings: list[Finding], fmt: str, stream: IO[str], lang: str 
     a large scan is the biggest thing this process ever holds: building it
     as one string to hand to write_text_atomic()/print() cost several
     times the report's own size in intermediate objects (measured: 690 MB
-    peak for a 107 MB SARIF document over an 1,800-file scan). html is the
-    one format still rendered whole -- it is a single document with a
-    computed summary above the table, and nobody feeds a browser a
-    100 MB page.
+    peak for a 107 MB SARIF document over an 1,800-file scan).
     """
     if fmt == "json":
         write_json(findings, stream, lang=lang)
@@ -304,7 +330,11 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
         return 2
 
     version_line = i18n.t(
-        lang, "confirmed_versions", ora2pg_version=gap.ora2pg_version, postgresql_version=gap.postgresql_version
+        lang,
+        "confirmed_versions",
+        last_verified=gap.last_verified,
+        ora2pg_version=gap.ora2pg_version,
+        postgresql_version=gap.postgresql_version,
     )
     # Same "high"/"medium"/"low" the terminal report shows uppercased
     # elsewhere (_SEVERITY_STYLE in terminal_report.py) -- not translated
@@ -763,6 +793,7 @@ def _main(argv: list[str] | None = None) -> int:
 
     start_time = time.perf_counter()
     all_findings: list[Finding] = []
+    checked_ora2pg_version = False
     objects_scanned = 0
     had_error = False
     had_internal_error = False
@@ -844,6 +875,15 @@ def _main(argv: list[str] | None = None) -> int:
         all_findings.extend(file_findings)
 
         if args.check_connect_by:
+            if not checked_ora2pg_version:
+                # Once per run, and only when ora2pg is actually going to
+                # be used: asking a binary for its version costs a
+                # subprocess, and saying nothing about a tool the run
+                # never touches would be noise.
+                checked_ora2pg_version = True
+                mismatch = _ora2pg_version_warning(args.ora2pg_bin, lang)
+                if mismatch:
+                    err_console.print(f"[yellow]{escape(mismatch)}[/yellow]")
             findings, warning = _connect_by_check(path, source, args.ora2pg_bin, lang)
             all_findings.extend(findings)
             if warning:

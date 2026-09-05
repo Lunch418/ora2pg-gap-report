@@ -96,16 +96,19 @@ def test_architecture_doc_parity_flags_a_stale_entry_for_a_removed_detector(monk
 
 def test_gap_registry_row_regex_extracts_number_severity_and_versions_from_a_realistic_row():
     fragment = (
-        "| ID | Конструкция | Детектор | Severity | Статус | ora2pg | PostgreSQL | Документ |\n"
-        "|---|---|---|---|---|---|---|---|\n"
-        "| GAP-001 | some construct | `autonomous_tx` | high | confirmed | 25.0 | 16 | [gap-001](gap-001.md) |\n"
-        "| GAP-002 | fixed upstream one | `whatever` | high | fixed-upstream | 24.0 | 15 | [gap-002](gap-002.md) |\n"
+        "| ID | Конструкция | Детектор | Severity | Статус | ora2pg | PostgreSQL "
+        "| Проверено | Документ |\n"
+        "|---|---|---|---|---|---|---|---|---|\n"
+        "| GAP-001 | some construct | `autonomous_tx` | high | confirmed | 25.0 | 16 "
+        "| 2026-08-14 | [gap-001](gap-001.md) |\n"
+        "| GAP-002 | fixed upstream one | `whatever` | high | fixed-upstream | 24.0 | 15 "
+        "| — | [gap-002](gap-002.md) |\n"
     )
     matches = doctor._GAP_REGISTRY_ROW_RE.findall(fragment)
     # Only the 'confirmed' row is matched -- a fixed-upstream/wont-fix row
     # has no corresponding tracked version in gap_registry.py to compare
     # against, so it's deliberately not parsed as if it were confirmed.
-    assert matches == [("001", "high", "25.0", "16")]
+    assert matches == [("001", "high", "25.0", "16", "2026-08-14")]
 
 
 def test_gap_registry_row_regex_accepts_dotted_postgresql_versions():
@@ -114,8 +117,13 @@ def test_gap_registry_row_regex_accepts_dotted_postgresql_versions():
     # the row would then be excluded from confirmed_rows entirely and
     # check_gap_registry_md_parity() would skip comparing it instead of
     # flagging a real mismatch, defeating the whole point of the check.
-    fragment = "| GAP-001 | x | `autonomous_tx` | high | confirmed | 25.0 | 16.4 | [x](x.md) |\n"
-    assert doctor._GAP_REGISTRY_ROW_RE.findall(fragment) == [("001", "high", "25.0", "16.4")]
+    fragment = (
+        "| GAP-001 | x | `autonomous_tx` | high | confirmed | 25.0 | 16.4 "
+        "| 2026-08-14 | [x](x.md) |\n"
+    )
+    assert doctor._GAP_REGISTRY_ROW_RE.findall(fragment) == [
+        ("001", "high", "25.0", "16.4", "2026-08-14")
+    ]
 
 
 def test_gap_registry_md_parity_is_clean_on_the_real_repository_state():
@@ -127,11 +135,13 @@ def test_gap_registry_md_parity_is_clean_on_the_real_repository_state():
 
 def test_confirmed_gap_versions_in_text_ignores_non_confirmed_rows():
     fragment = (
-        "| GAP-001 | some construct | `autonomous_tx` | high | confirmed | 25.0 | 16 | [gap-001](gap-001.md) |\n"
-        "| GAP-002 | fixed upstream one | `whatever` | high | fixed-upstream | 24.0 | 15 | [gap-002](gap-002.md) |\n"
+        "| GAP-001 | some construct | `autonomous_tx` | high | confirmed | 25.0 | 16 "
+        "| 2026-08-14 | [gap-001](gap-001.md) |\n"
+        "| GAP-002 | fixed upstream one | `whatever` | high | fixed-upstream | 24.0 | 15 "
+        "| — | [gap-002](gap-002.md) |\n"
     )
     versions = doctor._confirmed_gap_versions_in_text(fragment)
-    assert versions == {"001": ("high", "25.0", "16")}
+    assert versions == {"001": ("high", "25.0", "16", "2026-08-14")}
     assert "002" not in versions
 
 
@@ -140,7 +150,7 @@ def test_gap_registry_md_parity_flags_a_version_mismatch(monkeypatch):
     monkeypatch.setattr(
         doctor,
         "_confirmed_gap_versions_in_text",
-        lambda text: {"001": ("high", "99.9", "16")},
+        lambda text: {"001": ("high", "99.9", "16", gap_by_number("001").last_verified)},
     )
     problems = doctor.check_gap_registry_md_parity()
     assert len(problems) == 1
@@ -153,7 +163,7 @@ def test_gap_registry_md_parity_flags_a_severity_mismatch(monkeypatch):
     monkeypatch.setattr(
         doctor,
         "_confirmed_gap_versions_in_text",
-        lambda text: {"001": ("low", "25.0", "16")},
+        lambda text: {"001": ("low", "25.0", "16", gap_by_number("001").last_verified)},
     )
     problems = doctor.check_gap_registry_md_parity()
     assert len(problems) == 1
@@ -292,7 +302,7 @@ def test_failure_stage_values_is_clean_on_the_real_repository_state():
 
 
 def test_failure_stage_values_flags_an_unknown_stage(monkeypatch):
-    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), severity="high", failure_stage="mid_flight")
+    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), severity="high", failure_stage="mid_flight", last_verified="2026-01-01")
     monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
     problems = doctor.check_failure_stage_values()
     assert len(problems) == 1
@@ -304,7 +314,7 @@ def test_failure_stage_values_flags_a_new_gap_left_unset(monkeypatch):
     # A gap not in FAILURE_STAGE_EXEMPT_DETECTORS must have a
     # failure_stage -- unset is only allowed for the two documented
     # exceptions, not a silent default for every new gap going forward.
-    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), severity="high")  # failure_stage defaults to None
+    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), severity="high", last_verified="2026-01-01")  # failure_stage defaults to None
     monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
     problems = doctor.check_failure_stage_values()
     assert len(problems) == 1
@@ -313,7 +323,7 @@ def test_failure_stage_values_flags_a_new_gap_left_unset(monkeypatch):
 
 
 def test_failure_stage_values_allows_unset_for_exempt_detectors(monkeypatch):
-    fake_gap = GapEntry("001", "autonomous_tx", "autonomous-transaction", (), severity="high")
+    fake_gap = GapEntry("001", "autonomous_tx", "autonomous-transaction", (), severity="high", last_verified="2026-01-01")
     monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
     assert doctor.check_failure_stage_values() == []
 
@@ -356,7 +366,7 @@ def test_gap_severity_matches_detector_source_flags_multiple_severities_in_one_f
         'severity="high"\nseverity="medium"\n', encoding="utf-8"
     )
     monkeypatch.setattr(doctor, "REPO_ROOT", tmp_path)
-    fake_gap = GapEntry("999", "fake_detector", "fake-detector", (), severity="high")
+    fake_gap = GapEntry("999", "fake_detector", "fake-detector", (), severity="high", last_verified="2026-01-01")
     monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
     problems = doctor.check_gap_severity_matches_detector_source()
     assert len(problems) == 1
@@ -369,7 +379,7 @@ def test_gap_severity_matches_detector_source_flags_no_severity_literal_found(mo
     detectors_dir.mkdir(parents=True)
     (detectors_dir / "fake_detector.py").write_text("# no severity literal here\n", encoding="utf-8")
     monkeypatch.setattr(doctor, "REPO_ROOT", tmp_path)
-    fake_gap = GapEntry("999", "fake_detector", "fake-detector", (), severity="high")
+    fake_gap = GapEntry("999", "fake_detector", "fake-detector", (), severity="high", last_verified="2026-01-01")
     monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
     problems = doctor.check_gap_severity_matches_detector_source()
     assert len(problems) == 1
@@ -381,7 +391,7 @@ def test_gap_severity_matches_detector_source_skips_a_missing_detector_file(monk
     # check must not pile on a second, duplicate complaint about the same
     # underlying problem.
     monkeypatch.setattr(doctor, "REPO_ROOT", tmp_path)
-    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), severity="high")
+    fake_gap = GapEntry("999", "brand_new_detector", "brand-new", (), severity="high", last_verified="2026-01-01")
     monkeypatch.setattr(doctor, "GAPS", (fake_gap,))
     assert doctor.check_gap_severity_matches_detector_source() == []
 
@@ -452,3 +462,45 @@ def test_translations_are_not_glued_allows_ordinary_text(monkeypatch):
     )
     monkeypatch.setattr(doctor.messages, "REMEDIATION_HINTS", {})
     assert doctor.check_translations_are_not_glued() == []
+
+
+def test_last_verified_dates_are_clean_on_the_real_repository_state():
+    assert doctor.check_last_verified_dates() == []
+
+
+def test_last_verified_flags_a_malformed_date(monkeypatch):
+    gap = GapEntry("999", "d", "d", (), severity="high", last_verified="14.08.2026")
+    monkeypatch.setattr(doctor, "GAPS", (gap,))
+    problems = doctor.check_last_verified_dates()
+    assert len(problems) == 1
+    assert "is not an ISO yyyy-mm-dd date" in problems[0]
+
+
+def test_last_verified_flags_a_date_in_the_future(monkeypatch):
+    # A mistyped year turns the evidence line into decoration.
+    gap = GapEntry("999", "d", "d", (), severity="high", last_verified="2999-01-01")
+    monkeypatch.setattr(doctor, "GAPS", (gap,))
+    problems = doctor.check_last_verified_dates()
+    assert len(problems) == 1
+    assert "is in the future" in problems[0]
+
+
+def test_gap_registry_md_parity_flags_a_drifted_verification_date(monkeypatch, tmp_path):
+    # The column was added after the table already had ora2pg/PostgreSQL
+    # ones, and the row regex stopped before it -- so it parsed fine while
+    # guarding nothing. This is the test that the column is actually
+    # compared.
+    gap = GapEntry(
+        "001", "autonomous_tx", "autonomous-transaction", (),
+        severity="high", last_verified="2026-08-14",
+    )
+    monkeypatch.setattr(doctor, "GAPS", (gap,))
+    rows = doctor._confirmed_gap_versions_in_text(
+        "| GAP-001 | x | `autonomous_tx` | high | confirmed | 25.0 | 16 | 2020-01-01 | [d](d.md) |\n"
+    )
+    assert rows["001"] == ("high", "25.0", "16", "2020-01-01")
+
+    monkeypatch.setattr(doctor, "_confirmed_gap_versions_in_text", lambda _text: rows)
+    problems = doctor.check_gap_registry_md_parity()
+    assert len(problems) == 1
+    assert "дату проверки 2020-01-01" in problems[0]

@@ -1047,7 +1047,15 @@ def test_main_explain_respects_lang_flag(capsys):
     exit_code = main(["--lang", "en", "--explain", "GAP-023"])
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "Confirmed on: ora2pg" in captured.out
+    # The date the finding was recorded belongs next to the versions it
+    # was recorded against -- "confirmed on 25.0" alone says nothing about
+    # how long ago that was. Read from the registry rather than written in
+    # here, so re-verifying a gap doesn't fail an unrelated test.
+    from ora2pg_gap_report.gap_registry import gap_by_number
+
+    gap = gap_by_number("023")
+    assert gap is not None
+    assert f"Confirmed {gap.last_verified} on: ora2pg" in captured.out
 
 
 def test_main_uses_a_previously_saved_lang_choice(capsys):
@@ -1590,3 +1598,35 @@ def test_an_unexpected_crash_outside_the_scan_loop_is_still_caught_at_the_top_le
     captured = capsys.readouterr()
     assert exit_code == 3
     assert "ValueError" in captured.err
+
+
+def test_ora2pg_version_warning_is_silent_when_the_versions_match(monkeypatch):
+    from ora2pg_gap_report import cli
+    from ora2pg_gap_report.gap_registry import verified_ora2pg_versions
+
+    matching = next(iter(verified_ora2pg_versions()))
+    monkeypatch.setattr(cli.ora2pg_wrapper, "installed_version", lambda _bin: matching)
+    assert cli._ora2pg_version_warning("ora2pg", "en") is None
+
+
+def test_ora2pg_version_warning_is_silent_when_ora2pg_is_absent(monkeypatch):
+    # Nothing solid to say. The tool works fine without ora2pg for
+    # everything except --check-connect-by, and inventing a warning about
+    # a binary that isn't there would be noise.
+    from ora2pg_gap_report import cli
+
+    monkeypatch.setattr(cli.ora2pg_wrapper, "installed_version", lambda _bin: None)
+    assert cli._ora2pg_version_warning("ora2pg", "en") is None
+
+
+def test_ora2pg_version_warning_names_both_versions_on_a_mismatch(monkeypatch):
+    from ora2pg_gap_report import cli
+
+    monkeypatch.setattr(cli.ora2pg_wrapper, "installed_version", lambda _bin: "99.9")
+    warning = cli._ora2pg_version_warning("ora2pg", "en")
+    assert warning is not None
+    assert "99.9" in warning
+    # The version the findings were actually confirmed against has to be
+    # in there too -- "your version differs" without saying from what is
+    # not actionable.
+    assert "25.0" in warning

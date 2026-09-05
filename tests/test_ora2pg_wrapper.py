@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from ora2pg_gap_report import ora2pg_wrapper
 from ora2pg_gap_report.ora2pg_wrapper import (
     Ora2PgNotFoundError,
     parse_function_costs,
@@ -91,3 +92,43 @@ def test_run_estimate_cost_live_integration_on_logger():
     functions = parse_function_costs(output)
     names = {f.name for f in functions}
     assert "logger.save_global_context" in names
+
+
+def test_installed_version_parses_the_banner(monkeypatch):
+    import subprocess
+
+    def fake_run(cmd, **kwargs):
+        assert cmd[1] == "--version"
+        return subprocess.CompletedProcess(cmd, 0, stdout="Ora2Pg v25.0\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert ora2pg_wrapper.installed_version() == "25.0"
+
+
+def test_installed_version_also_looks_at_stderr(monkeypatch):
+    # Some builds print the banner there; assuming stdout would report
+    # "unknown" for a perfectly working install.
+    import subprocess
+
+    monkeypatch.setattr(
+        subprocess, "run",
+        lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, stdout="", stderr="Ora2Pg v24.3\n"),
+    )
+    assert ora2pg_wrapper.installed_version() == "24.3"
+
+
+def test_installed_version_is_none_when_ora2pg_is_absent():
+    assert ora2pg_wrapper.installed_version("definitely-not-a-real-binary-xyz") is None
+
+
+def test_installed_version_is_none_rather_than_a_guess_on_unrecognized_output(monkeypatch):
+    # Reporting a wrong version would be worse than reporting none: the
+    # check exists to tell the user their ora2pg differs from the one the
+    # findings were verified against.
+    import subprocess
+
+    monkeypatch.setattr(
+        subprocess, "run",
+        lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, stdout="no version here\n", stderr=""),
+    )
+    assert ora2pg_wrapper.installed_version() is None

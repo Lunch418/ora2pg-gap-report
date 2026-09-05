@@ -194,8 +194,18 @@ _UI: dict[str, dict[str, str]] = {
         "docs/research/GAP_REGISTRY.md, e.g. GAP-023 or 023",
     },
     "confirmed_versions": {
-        "ru": "Подтверждено на: ora2pg {ora2pg_version}, PostgreSQL {postgresql_version}",
-        "en": "Confirmed on: ora2pg {ora2pg_version}, PostgreSQL {postgresql_version}",
+        "ru": "Подтверждено {last_verified} на: ora2pg {ora2pg_version}, "
+        "PostgreSQL {postgresql_version}",
+        "en": "Confirmed {last_verified} on: ora2pg {ora2pg_version}, "
+        "PostgreSQL {postgresql_version}",
+    },
+    "ora2pg_version_mismatch": {
+        "ru": "Установлен ora2pg {installed}, а находки подтверждались на "
+        "{verified}. Поведение ora2pg на вашей версии может отличаться — "
+        "проверьте docs/research/GAP_REGISTRY.md.",
+        "en": "Installed ora2pg is {installed}, but the findings were confirmed "
+        "against {verified}. ora2pg may behave differently on your version — "
+        "see docs/research/GAP_REGISTRY.md.",
     },
     "explain_severity_line": {"ru": "Severity: {severity}", "en": "Severity: {severity}"},
     "explain_failure_stage_line": {"ru": "Когда ломается: {stage}", "en": "Fails at: {stage}"},

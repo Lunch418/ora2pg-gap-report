@@ -61,6 +61,42 @@ _TOTAL_RE = re.compile(
 )
 
 
+# `ora2pg --version` prints a single line, e.g. "Ora2Pg v25.0". Matched
+# loosely on purpose: the point is to read a version out of whatever it
+# prints, and a wording change should degrade to "unknown" rather than to
+# a wrong answer.
+_VERSION_RE = re.compile(r"\bv?(\d+\.\d+(?:\.\d+)?)\b")
+
+
+def installed_version(ora2pg_bin: str = "ora2pg", timeout: int = 15) -> str | None:
+    """The version of the ora2pg on PATH, or None if it can't be
+    determined.
+
+    None covers every "can't tell" case -- not installed, not runnable,
+    too slow, or output this doesn't recognise -- because every caller
+    treats them the same way: say nothing rather than guess. A version
+    check that reported a wrong version would be worse than no check,
+    since the whole point of it is to tell the user when the findings
+    they are reading were verified against different software than they
+    have.
+    """
+    try:
+        result = subprocess.run(
+            [ora2pg_bin, "--version"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    # Some builds print the banner to stderr; check both rather than
+    # assuming which.
+    match = _VERSION_RE.search(f"{result.stdout}\n{result.stderr}")
+    return match.group(1) if match else None
+
+
 def run_estimate_cost(
     input_file: Path,
     object_type: str,

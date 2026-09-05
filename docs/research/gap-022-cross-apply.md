@@ -1,10 +1,10 @@
-# GAP-022: `CROSS APPLY` / `OUTER APPLY` — синтаксиса APPLY нет в PostgreSQL
+# GAP-022: `CROSS APPLY` / `OUTER APPLY` — PostgreSQL has no APPLY syntax
 
-Oracle feature (12c+): `CROSS APPLY`/`OUTER APPLY` — вызов табличного
-подвыражения для каждой строки внешнего запроса с возможностью
-ссылаться на её столбцы (аналог `LATERAL JOIN` в других СУБД).
+Oracle feature (12c+): `CROSS APPLY`/`OUTER APPLY` — invoking a table
+subexpression for each row of the outer query, with access to that row's
+columns (the equivalent of `LATERAL JOIN` in other databases).
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 SELECT COUNT(*) INTO v_count
@@ -18,29 +18,29 @@ CROSS APPLY (
 ) latest;
 ```
 
-## Вывод ora2pg (v25.0, `-t PACKAGE`)
+## ora2pg output (v25.0, `-t PACKAGE`)
 
-`CROSS APPLY(...)` копируется как есть (пробел перед скобкой убран, но
-это косметика — суть конструкции не тронута).
+`CROSS APPLY(...)` is copied as written (the space before the parenthesis
+is removed, but that is cosmetic — the construct itself is untouched).
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16: `CREATE PROCEDURE` проходит без
-ошибки, падает при первом вызове:
+Confirmed against a real PostgreSQL 16: `CREATE PROCEDURE` succeeds
+without error and fails on the first call:
 
 ```
 ERROR:  syntax error at or near "APPLY"
 LINE 2:         CROSS APPLY(
 ```
 
-В PostgreSQL нет синтаксиса `APPLY` вообще. Ближайший архитектурный
-эквивалент — `JOIN LATERAL (...) ON true` (для `CROSS APPLY`) или
-`LEFT JOIN LATERAL (...) ON true` (для `OUTER APPLY`) — синтаксически
-похоже, но требует ручной правки каждого случая.
+PostgreSQL has no `APPLY` syntax at all. The nearest architectural
+equivalent is `JOIN LATERAL (...) ON true` (for `CROSS APPLY`) or `LEFT
+JOIN LATERAL (...) ON true` (for `OUTER APPLY`) — syntactically similar,
+but every occurrence has to be edited by hand.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
+**Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/cross_apply.py`.

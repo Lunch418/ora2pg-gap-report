@@ -1,14 +1,14 @@
-# GAP-025: индекс `INVISIBLE` теряет своё скрытие от оптимизатора
+# GAP-025: an `INVISIBLE` index loses its invisibility to the optimizer
 
-Oracle feature: `INVISIBLE` — модификатор индекса, из-за которого
-оптимизатор Oracle игнорирует индекс по умолчанию (пока сессия явно не
-включит `OPTIMIZER_USE_INVISIBLE_INDEXES=TRUE`), но продолжает
-поддерживать его данные при DML. Типичный сценарий — добавить индекс
-невидимым, проверить нагрузку/план, потом сделать `VISIBLE`. Не то же
-самое, что `INVISIBLE`-столбец (см. GAP-020) — разные объекты, разный
-характер риска.
+Oracle feature: `INVISIBLE` — an index modifier that makes Oracle's
+optimizer ignore the index by default (until a session explicitly sets
+`OPTIMIZER_USE_INVISIBLE_INDEXES=TRUE`), while still maintaining its data
+on DML. The typical use is to add an index invisibly, check the load and
+the plans, and then make it `VISIBLE`. Not the same thing as an
+`INVISIBLE` column (see GAP-020) — different objects, different kind of
+risk.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE orders (
@@ -19,36 +19,35 @@ CREATE TABLE orders (
 CREATE INDEX orders_status_idx ON orders(status) INVISIBLE;
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE INDEX orders_status_idx ON orders (status);
 ```
 
-Модификатор `INVISIBLE` пропадает без следа.
+The `INVISIBLE` modifier disappears without trace.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Не синтаксическая ошибка — `CREATE INDEX` выполняется без проблем. У
-PostgreSQL нет аналога `INVISIBLE` для индексов вообще, так что
-поведение молча меняется: оптимизатор PostgreSQL сразу начинает
-учитывать этот индекс в планах выполнения, тогда как в Oracle он по
-умолчанию был бы исключён. Для сценария "добавили невидимым, чтобы
-проверить нагрузку перед активацией" это ровно противоположный эффект —
-индекс активен сразу.
+Not a syntax error — the `CREATE INDEX` runs without trouble. PostgreSQL
+has no analogue of `INVISIBLE` for indexes at all, so the behaviour
+changes silently: PostgreSQL's optimizer starts considering the index in
+execution plans immediately, whereas on Oracle it would have been excluded
+by default. For the "added it invisibly to check the load before
+activating" scenario this is exactly the opposite effect — the index is
+live at once.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
+**Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/invisible_index.py`. Severity `medium` —
-в отличие от GAP-013/GAP-018 (`table_partitioning`/`external_table`,
-тоже "конструкция молча пропадает, PostgreSQL не выдаёт ошибку", но
-`high`), здесь худший реалистичный исход — субоптимальный план
-выполнения, не потеря данных и не архитектурная деградация
-(секционирование/источник данных таблицы). Для GAP-013/GAP-018 "молча
-пропадает" означает, что таблица физически хранит/находит данные иначе;
-здесь — что оптимизатор рассматривает на один индекс больше, чем
-предполагалось. Разный уровень реального риска при одинаковом
-"нет ошибки от PostgreSQL".
+unlike GAP-013/GAP-018 (`table_partitioning`/`external_table`, also "the
+construct silently disappears and PostgreSQL raises no error", but
+`high`), the worst realistic outcome here is a suboptimal execution plan,
+not data loss or architectural degradation (partitioning, or a table's
+data source). For GAP-013/GAP-018 "silently disappears" means the table
+physically stores or finds its data differently; here it means the
+optimizer considers one more index than intended. Different levels of real
+risk behind the same "no error from PostgreSQL".

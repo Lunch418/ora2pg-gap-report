@@ -1,12 +1,12 @@
-# GAP-021: `CREATE TYPE ... TABLE OF` / `VARRAY OF` — коллекционный тип пропадает без следа
+# GAP-021: `CREATE TYPE ... TABLE OF` / `VARRAY OF` — the collection type disappears without trace
 
-Oracle feature: коллекционный тип (`TABLE OF` — nested table, `VARRAY(n)
-OF` — varray), объявляемый на уровне схемы и затем используемый как тип
-столбца в обычной таблице (или как локальный тип `TYPE ... IS TABLE OF`
-внутри PL/SQL — тот случай уже отдельно покрыт GAP-003/`bulk_collect.py`;
-здесь речь именно про самостоятельное объявление типа на уровне схемы).
+Oracle feature: a collection type (`TABLE OF` — a nested table, `VARRAY(n)
+OF` — a varray) declared at schema level and then used as a column type in
+an ordinary table. (A local `TYPE ... IS TABLE OF` inside PL/SQL is a
+separate case, already covered by GAP-003/`bulk_collect.py`; this is about
+a standalone type declaration at schema level.)
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TYPE phone_list_t AS TABLE OF VARCHAR2(20);
@@ -18,7 +18,7 @@ CREATE TABLE customers (
 NESTED TABLE phones STORE AS phones_store;
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```
 [DEBUG] unhandled line: CREATE TYPE phone_list_t AS TABLE OF VARCHAR2(20);
@@ -31,16 +31,16 @@ CREATE TABLE customers (
 ) ;
 ```
 
-Сам `CREATE TYPE` не появляется в выводе вообще — не как
-`-- Unsupported`-комментарий (как для объектных типов, см. GAP-009), а
-полностью, без единого следа кроме служебной строки уровня **DEBUG** в
-логе. При этом столбец `phones` в сгенерированной таблице продолжает
-ссылаться на тип `phone_list_t`, который так и не был создан.
+The `CREATE TYPE` never appears in the output at all — not even as an
+`-- Unsupported` comment, the way object types do (see GAP-009), but
+entirely, with no trace beyond a **DEBUG**-level line in the log. Yet the
+`phones` column in the generated table still references the type
+`phone_list_t`, which was never created.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16 — загрузка сгенерированного
-`CREATE TABLE` падает сразу же:
+Confirmed against a real PostgreSQL 16 — loading the generated `CREATE
+TABLE` fails immediately:
 
 ```
 ERROR:  type "phone_list_t" does not exist
@@ -48,18 +48,18 @@ LINE 3:  phones PHONE_LIST_T
                 ^
 ```
 
-Это самый быстрый по времени обнаружения gap из всего реестра — ошибка
-происходит уже на этапе загрузки DDL, а не при первом вызове процедуры
-(как у большинства других находок, где `check_function_bodies = false`
-откладывает ошибку). Отдельно проверено: `VARRAY(n) OF` ведёт себя
-идентично — тоже полностью пропадает, тот же класс ошибки при загрузке
-зависимой таблицы.
+This is the fastest gap in the registry to surface — the error happens at
+DDL load time, not on the first procedure call as with most of the other
+findings, where `check_function_bodies = false` defers it. Checked
+separately: `VARRAY(n) OF` behaves identically — it disappears completely
+too, and produces the same class of error when the dependent table loads.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/collection_type.py`. Отдельно от GAP-009
-(`object_type.py`, который покрывает только `AS OBJECT`/`TYPE BODY`) —
-это разные варианты `CREATE TYPE` с разным характером отказа.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/collection_type.py`. Kept separate from
+GAP-009 (`object_type.py`, which covers only `AS OBJECT`/`TYPE BODY`) —
+these are different flavours of `CREATE TYPE` with different failure
+modes.

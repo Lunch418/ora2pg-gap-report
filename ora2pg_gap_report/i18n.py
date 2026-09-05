@@ -32,6 +32,7 @@ prevention pattern as its other parity checks.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -93,6 +94,31 @@ def prompt_language_interactively(console: Console | None = None) -> str:
     )
     choice = Prompt.ask("Your choice / Ваш выбор", choices=["1", "2"], default="1", console=console)
     return "en" if choice == "1" else "ru"
+
+
+def peek_language(argv: list[str] | None) -> str | None:
+    """--lang's value read straight off argv, before argparse runs.
+
+    Both entry points need this and for the same reason: their own --help
+    text is localized, so the language has to be known before the parser
+    that would parse --lang exists. Accepts every spelling argparse does
+    for this option -- `-l en`, `--lang en`, `--lang=en`, `-len` -- since
+    a short flag that worked everywhere except for choosing the help
+    language would be worse than not having one.
+
+    Deliberately forgiving rather than a second parser: anything it
+    doesn't recognise falls through to resolve_language()'s normal
+    precedence, and argparse still validates the real value once actual
+    parsing happens.
+    """
+    raw = list(argv) if argv is not None else sys.argv[1:]
+    for i, arg in enumerate(raw):
+        if arg in ("--lang", "-l") and i + 1 < len(raw) and raw[i + 1] in _LANGUAGES:
+            return raw[i + 1]
+        for prefix in ("--lang=", "-l"):
+            if arg.startswith(prefix) and arg[len(prefix) :] in _LANGUAGES:
+                return arg[len(prefix) :]
+    return None
 
 
 def resolve_language(explicit: str | None, *, interactive: bool) -> str:

@@ -23,21 +23,6 @@ from . import i18n, oracle_connector
 _TYPE_CHOICES = ", ".join(t.dictionary_type for t in oracle_connector.EXPORTABLE_TYPES)
 
 
-def _peek_lang(argv: list[str] | None) -> str | None:
-    """--lang's value read straight off argv, before argparse runs.
-
-    The parser's help and error text are themselves localized, so the
-    language has to be known before the parser exists. cli.py does the
-    same for the same reason."""
-    raw = list(argv) if argv is not None else sys.argv[1:]
-    for i, token in enumerate(raw):
-        if token == "--lang" and i + 1 < len(raw):
-            return raw[i + 1]
-        if token.startswith("--lang="):
-            return token.split("=", 1)[1]
-    return None
-
-
 def _resolve_types(
     raw: str | None, lang: str = "ru"
 ) -> tuple[oracle_connector.ExportableType, ...]:
@@ -65,6 +50,7 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
     parser.add_argument("--dsn", required=True, help=i18n.t(lang, "export_help_dsn"))
     parser.add_argument("--user", required=True)
     parser.add_argument(
+        "-l",
         "--lang",
         choices=("ru", "en"),
         default=None,
@@ -94,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     # The parser's own help text is localized too, so the language has to
     # be known before it is built -- same two-pass approach cli.py uses
     # for exactly this reason.
-    lang = i18n.resolve_language(_peek_lang(argv), interactive=False)
+    lang = i18n.resolve_language(i18n.peek_language(argv), interactive=False)
     args = _build_arg_parser(lang).parse_args(argv)
     lang = i18n.resolve_language(args.lang, interactive=False)
     owner = args.owner or args.user

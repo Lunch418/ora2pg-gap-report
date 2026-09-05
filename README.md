@@ -302,8 +302,14 @@ scripts/redirects — `--format markdown`, `--format json`, `--format csv`,
 `--format sarif`, or `--format html` (markdown also serves as the default
 format whenever stdout isn't a terminal):
 
+`--format` can be omitted when `--output`'s extension already says which
+one you want — `.json`, `.csv`, `.sarif`, `.html`/`.htm` and `.md` are
+recognised, anything else falls back to markdown, and an explicit
+`--format` always wins. `-f`, `-o` and `-l` are short forms of
+`--format`, `--output` and `--lang`.
+
 ```sh
-ora2pg-gap-report path/to/schema_dump.pkb --format json --output report.json
+ora2pg-gap-report path/to/schema_dump.pkb -o report.json   # format from the extension
 ora2pg-gap-report path/to/schema_dump.pkb --format markdown > report.md
 ora2pg-gap-report path/to/schema_dump.pkb --format csv --output report.csv
 

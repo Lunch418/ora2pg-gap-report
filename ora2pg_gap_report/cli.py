@@ -94,28 +94,6 @@ class _LazyVersionAction(argparse.Action):
         parser.exit()
 
 
-def _peek_lang_for_help(argv: list[str]) -> str | None:
-    """Best-effort peek at an explicit --lang value in argv, so
-    _build_arg_parser() can render --help/description text in the right
-    language *before* argparse has actually parsed --lang out (argparse
-    itself needs the parser already built to parse anything, including
-    --lang -- the classic chicken-and-egg with translating --help text,
-    previously flagged as unsolved in i18n.py's own module docstring;
-    this is that solution). Deliberately narrow: only recognizes '--lang
-    en'/'--lang ru' and '--lang=en'/'--lang=ru' -- good enough for
-    choosing a display language for --help text, not a stand-in for
-    argparse's own validation (an invalid or malformed --lang here just
-    falls through to i18n.resolve_language()'s normal precedence, and
-    argparse itself still rejects it properly once real parsing
-    happens)."""
-    for i, arg in enumerate(argv):
-        if arg == "--lang" and i + 1 < len(argv) and argv[i + 1] in ("ru", "en"):
-            return argv[i + 1]
-        if arg.startswith("--lang=") and arg[len("--lang=") :] in ("ru", "en"):
-            return arg[len("--lang=") :]
-    return None
-
-
 def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ora2pg-gap-report",
@@ -138,13 +116,18 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
         metavar="GAP-NNN",
         help=i18n.t(lang, "help_explain"),
     )
+    # Short forms for the three options that get typed most: -f/-o are
+    # what every comparable tool uses, and -l matches --lang's own name.
     parser.add_argument(
+        "-f",
         "--format",
         choices=("terminal", "markdown", "json", "csv", "sarif", "html"),
         default=None,
         help=i18n.t(lang, "help_format"),
     )
-    parser.add_argument("--output", type=Path, default=None, help=i18n.t(lang, "help_output"))
+    parser.add_argument(
+        "-o", "--output", type=Path, default=None, help=i18n.t(lang, "help_output")
+    )
     parser.add_argument(
         "--check-connect-by",
         action="store_true",
@@ -199,6 +182,7 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
         help=i18n.t(lang, "help_fail_on"),
     )
     parser.add_argument(
+        "-l",
         "--lang",
         choices=("ru", "en"),
         default=None,
@@ -319,11 +303,35 @@ def _write_report(findings: list[Finding], fmt: str, stream: IO[str], lang: str 
         write_markdown(findings, stream, lang=lang)
 
 
+# What a report file's extension says its format is. Only the
+# unambiguous ones: .txt or .out say nothing about content, and guessing
+# from them would be worse than the markdown default.
+_FORMAT_BY_SUFFIX = {
+    ".json": "json",
+    ".csv": "csv",
+    ".sarif": "sarif",
+    ".html": "html",
+    ".htm": "html",
+    ".md": "markdown",
+    ".markdown": "markdown",
+}
+
+
 def resolve_format(explicit_format: str | None, output: Path | None, stdout_is_tty: bool) -> str:
     """Pure resolution logic, kept separate from main() so the
-    default-format behaviour is testable without a real terminal."""
+    default-format behaviour is testable without a real terminal.
+
+    `--output report.json` used to write Markdown into a file named
+    .json -- no error, no warning, just the wrong content under a name
+    that promised otherwise. An explicit --format still wins over the
+    extension; an extension this doesn't recognise falls back to the
+    same default as before."""
     if explicit_format is not None:
         return explicit_format
+    if output is not None:
+        inferred = _FORMAT_BY_SUFFIX.get(output.suffix.lower())
+        if inferred is not None:
+            return inferred
     return "terminal" if (output is None and stdout_is_tty) else "markdown"
 
 
@@ -664,7 +672,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _main(argv: list[str] | None = None) -> int:
     raw_argv = argv if argv is not None else sys.argv[1:]
-    help_lang = i18n.resolve_language(_peek_lang_for_help(raw_argv), interactive=False)
+    help_lang = i18n.resolve_language(i18n.peek_language(raw_argv), interactive=False)
     args = _build_arg_parser(help_lang).parse_args(argv)
     err_console = Console(stderr=True)
 

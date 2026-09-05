@@ -136,3 +136,26 @@ def test_remediation_hint_is_none_for_a_detector_without_one():
     # Not an error, unlike a missing message: the report falls back to a
     # generic line.
     assert messages.remediation_hint("no_such_detector") is None
+
+
+def test_peek_language_reads_every_spelling_argparse_accepts():
+    # Both entry points localize their own --help, so the language has to
+    # be read off argv before the parser that would parse --lang exists.
+    # A short flag that worked everywhere except for choosing the help
+    # language would be worse than not having one.
+    for argv in (["-l", "en"], ["--lang", "en"], ["--lang=en"], ["-len"]):
+        assert i18n.peek_language(argv) == "en", argv
+    assert i18n.peek_language(["-l", "ru", "--format", "json"]) == "ru"
+
+
+def test_peek_language_is_silent_on_anything_it_does_not_recognize():
+    # It is not a second parser: whatever it can't read falls through to
+    # resolve_language()'s normal precedence, and argparse still validates
+    # the real value once real parsing happens.
+    for argv in ([], ["--dsn", "x"], ["-l"], ["-l", "de"], ["--lang=klingon"], ["-lde"]):
+        assert i18n.peek_language(argv) is None, argv
+
+
+def test_peek_language_falls_back_to_sys_argv(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["prog", "--lang", "en"])
+    assert i18n.peek_language(None) == "en"

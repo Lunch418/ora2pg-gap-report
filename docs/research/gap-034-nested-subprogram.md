@@ -1,12 +1,12 @@
-# GAP-034: Локальная вложенная процедура/функция теряет структуру при экспорте
+# GAP-034: a local nested procedure/function loses its structure on export
 
-Oracle feature: локально объявленная процедура/функция внутри
-декларативной секции другого блока (пакета, процедуры, функции,
-анонимного блока) — до `BEGIN` содержащего блока. Обычный способ
-вынести вспомогательную логику, нужную только внутри одной процедуры,
-не делая её отдельным членом пакета.
+Oracle feature: a procedure or function declared locally inside another
+block's declarative section (a package, procedure, function, or anonymous
+block) — before the containing block's `BEGIN`. The usual way to factor
+out helper logic needed only inside one procedure, without making it a
+separate package member.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE PROCEDURE outer_proc AS
@@ -19,7 +19,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-t PROCEDURE`)
+## ora2pg output (v25.0, `-t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE inner_proc (p_val bigint) AS $body$
@@ -34,19 +34,19 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Вложенная `inner_proc` "утекает" наружу как отдельная процедура верхнего
-уровня — `outer_proc` в выводе не существует вообще. Хуже того, тело
-`inner_proc` в выводе искажено: после её собственного `END;` без точки с
-запятой обрыва идёт `BEGIN CALL inner_proc(42); END;` того, что должно
-было быть исполняемым телом `outer_proc` — всё это оказывается
-приклеено внутрь тела `inner_proc` как один блок.
+The nested `inner_proc` leaks out as a separate top-level procedure —
+`outer_proc` does not exist in the output at all. Worse, `inner_proc`'s
+body in the output is mangled: after its own `END;` — with no terminating
+semicolon to close it off — comes `BEGIN CALL inner_proc(42); END;`, which
+should have been `outer_proc`'s executable body, all of it glued inside
+`inner_proc`'s body as a single block.
 
-## Наблюдаемая проблема
+## Observed problem
 
-`CREATE PROCEDURE` в выводе выполняется без единой ошибки — ora2pg
-отключает `check_function_bodies` в самом начале сгенерированного
-файла, так что синтаксис тела не проверяется на этапе `CREATE`. Отказ
-происходит только при первом реальном вызове, на этапе компиляции тела:
+The `CREATE PROCEDURE` in the output runs without a single error — ora2pg
+disables `check_function_bodies` at the very start of the generated file,
+so the body's syntax is not checked at `CREATE` time. The failure happens
+only on the first real call, at the body's compilation stage:
 
 ```sql
 CALL inner_proc(1);
@@ -55,16 +55,17 @@ CALL inner_proc(1);
 -- CONTEXT:  compilation of PL/pgSQL function "inner_proc" near line 2
 ```
 
-Ровно тот же паттерн, что и у `$IF`/`$THEN` (GAP-035): скрипт миграции
-успешно "накатывается" целиком, все объекты вроде бы созданы, а сломанный
-код обнаруживается только когда до него реально доходит вызов — что
-может случиться не на тестировании, а в проде. Плюс исходная процедура
-(`outer_proc`) вообще пропадает из вывода без предупреждения — теряется
-не только вложенная функция, но и то, что её вызывало.
+Exactly the same pattern as `$IF`/`$THEN` (GAP-035): the migration script
+applies cleanly all the way through, every object appears to have been
+created, and the broken code is discovered only when a call actually
+reaches it — which may happen in production rather than in testing. On top
+of that, the original procedure (`outer_proc`) vanishes from the output
+entirely without a warning: what is lost is not only the nested function
+but also whatever called it.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
+**Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/nested_subprogram.py`.

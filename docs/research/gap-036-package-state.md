@@ -1,13 +1,13 @@
-# GAP-036: Пакетная переменная (состояние на уровне сессии) — сломанная эмуляция через `set_config`
+# GAP-036: a package variable (session-level state) — broken emulation through `set_config`
 
-Oracle feature: переменная, объявленная на верхнем уровне `PACKAGE
-BODY` (не внутри конкретной процедуры/функции) — состояние, живущее на
-протяжении всей сессии, общее для всех процедур пакета. Частый паттерн
-— пакет-контекст (`g_user_id`, `g_tenant_id` и подобное), выставляемый
-один раз в начале сессии и читаемый много раз внутри разных процедур
-того же пакета.
+Oracle feature: a variable declared at the top level of a `PACKAGE BODY`
+(not inside a particular procedure or function) — state that lives for the
+whole session and is shared by all of the package's procedures. A common
+pattern is a context package (`g_user_id`, `g_tenant_id` and the like),
+set once at the start of a session and read many times inside different
+procedures of the same package.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE PACKAGE pkg_ctx AS
@@ -28,7 +28,7 @@ CREATE OR REPLACE PACKAGE BODY pkg_ctx AS
 END pkg_ctx;
 ```
 
-## Вывод ora2pg (v25.0, `-t PACKAGE`)
+## ora2pg output (v25.0, `-t PACKAGE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE pkg_ctx_set_user (p_id bigint) AS $body$
@@ -48,18 +48,18 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Сама идея решения разумная — `set_config()`/`current_setting()` с
-пользовательским GUC-параметром (`pkg_ctx.g_user_id`), третий аргумент
-`set_config` — `false` (не транзакционно-локально), что действительно
-соответствует времени жизни пакетной переменной в Oracle (вся сессия).
-Но реализация сломана в двух местах.
+The idea behind the solution is sound — `set_config()`/`current_setting()`
+with a custom GUC parameter (`pkg_ctx.g_user_id`), and `set_config`'s
+third argument `false` (not transaction-local), which does match the
+lifetime of an Oracle package variable (the whole session). But the
+implementation is broken in two places.
 
-## Наблюдаемая проблема
+## Observed problem
 
-**Первая:** `set_config()` принимает `text` вторым аргументом, а
-`p_id` — `bigint`. ora2pg не добавляет явное приведение типа.
-Подтверждено на реальном PostgreSQL 16 — падает при самом первом вызове,
-без единого исключения:
+**First:** `set_config()` takes `text` as its second argument, while
+`p_id` is `bigint`. ora2pg does not add an explicit cast. Confirmed
+against a real PostgreSQL 16 — it fails on the very first call, without
+exception:
 
 ```sql
 CALL pkg_ctx_set_user(42);
@@ -67,37 +67,35 @@ CALL pkg_ctx_set_user(42);
 -- HINT:  No function matches the given name and argument types.
 ```
 
-**Вторая (проявится даже после ручного добавления `::text`):**
-в Oracle необъявленная (не выставленная явно) числовая пакетная
-переменная по умолчанию — `NULL`, чтение до первого `SET` просто вернёт
-`NULL`, без ошибки. `current_setting()` на ещё не установленный
-пользовательский GUC-параметр в PostgreSQL завершается ошибкой, если не
-передать второй аргумент `missing_ok => true`:
+**Second (which shows up even after adding `::text` by hand):** in Oracle
+an unset numeric package variable defaults to `NULL`, so reading it before
+the first `SET` simply returns `NULL`, with no error. `current_setting()`
+on a custom GUC parameter that has not been set yet raises an error in
+PostgreSQL unless the second argument `missing_ok => true` is passed:
 
 ```sql
 SELECT pkg_ctx_get_user();
 -- ERROR:  unrecognized configuration parameter "pkg_ctx.g_user_id"
 ```
 
-Обе ошибки не синтаксические — `CREATE PROCEDURE`/`CREATE FUNCTION`
-проходят без проблем (`check_function_bodies` отключён), падение
-происходит только при вызове. Первая ошибка воспроизводится
-гарантированно при любом использовании — не пограничный случай. Вторая
-зависит от порядка вызовов внутри сессии (нормальный сценарий —
-`get_user()` вызывается в сессии, где `set_user()` ещё не был вызван,
-что для многих реальных пакетов-контекстов случается регулярно —
-например при кэшировании соединений в пуле).
+Neither error is syntactic — `CREATE PROCEDURE`/`CREATE FUNCTION` succeed
+without trouble (`check_function_bodies` is disabled), and the failure
+happens only on the call. The first error reproduces on any use whatsoever
+— it is not an edge case. The second depends on the order of calls within
+a session: the ordinary scenario is `get_user()` being called in a session
+where `set_user()` has not been called yet, which happens regularly for
+many real context packages — with pooled connections, for instance.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Дополнительно проверено: package-level CONSTANT и объявление в спеке
+## Also checked: package-level CONSTANT, and declaration in the spec
 
-Первая версия детектора (см. `git log` по `package_state.py`) смотрела
-только на объявления в `PACKAGE BODY` и пропускала `CONSTANT`. Оба
-случая проверены реальным прогоном ora2pg 25.0 отдельно:
+The detector's first version (see `git log` for `package_state.py`) looked
+only at declarations in the `PACKAGE BODY` and skipped `CONSTANT`. Both
+cases were checked with a separate real ora2pg 25.0 run:
 
-**CONSTANT.** Пакетная константа получает тот же рерайт, что и обычная
-переменная — реального отличия в поведении ora2pg нет:
+**CONSTANT.** A package constant gets the same rewrite as an ordinary
+variable — ora2pg makes no real distinction:
 
 ```sql
 CREATE OR REPLACE PACKAGE BODY pkg_ctx AS
@@ -109,7 +107,7 @@ CREATE OR REPLACE PACKAGE BODY pkg_ctx AS
 END pkg_ctx;
 ```
 
-сгенерированный вывод:
+generated output:
 
 ```sql
 CREATE OR REPLACE FUNCTION pkg_ctx_get_retries () RETURNS integer AS $body$
@@ -119,21 +117,21 @@ BEGIN
 $body$
 ```
 
-Хуже, чем для обычной переменной: у константы вообще нет
-"первого `SET`" — ora2pg не генерирует никакого `set_config()` для её
-исходного значения (`:= 3`), так что `current_setting()` гарантированно
-упадёт с `unrecognized configuration parameter` при любом обращении, не
-только до первого вызова записывающей процедуры.
+Worse than for an ordinary variable: a constant has no "first `SET`" at
+all — ora2pg generates no `set_config()` for its initial value (`:= 3`),
+so `current_setting()` is guaranteed to fail with `unrecognized
+configuration parameter` on any access, not merely before the first call
+to a writing procedure.
 
-**Объявление в спеке, не в теле.** `PACKAGE ... AS <var>; ... END;`
-(без переобъявления в `PACKAGE BODY`) — тоже полноценно попадает под
-рерайт; ora2pg не различает, откуда взялась пакетная переменная.
-Детектор изначально смотрел только на `PACKAGE BODY` (собственный
-минимальный пример этого документа объявляет переменную в спеке и
-поэтому не детектировался вообще — баг, а не отдельный
-неподтверждённый случай, найден аудитом кода и исправлен).
+**Declared in the spec rather than the body.** `PACKAGE ... AS <var>; ...
+END;` (with no redeclaration in the `PACKAGE BODY`) is fully subject to
+the same rewrite; ora2pg does not distinguish where the package variable
+came from. The detector originally looked only at the `PACKAGE BODY` —
+this document's own minimal example declares the variable in the spec and
+so was not detected at all, which was a bug rather than a separate
+unconfirmed case. Found by a code audit and fixed.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
+**Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/package_state.py`.

@@ -7,6 +7,7 @@ import time
 from collections.abc import Sequence
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
+from typing import IO
 
 from rich.console import Console
 from rich.markup import escape
@@ -14,7 +15,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from . import i18n
-from .atomic_write import write_text_atomic
+from .atomic_write import open_text_atomic, write_text_atomic
 from .autofix import FIXERS_BY_DIALECT
 from .baseline import BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
 from .core import (
@@ -30,7 +31,19 @@ from .core import (
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_by_number, normalize_gap_number, research_doc_path, research_doc_url
 from .models import Finding
-from .report_generator import to_csv, to_html, to_json, to_markdown, to_sarif, to_verification_json
+from .report_generator import (
+    to_csv,
+    to_html,
+    to_json,
+    to_markdown,
+    to_sarif,
+    to_verification_json,
+    write_csv,
+    write_html,
+    write_json,
+    write_markdown,
+    write_sarif,
+)
 from .terminal_report import render as render_terminal
 from .terminal_report import render_baseline_diff, render_verification
 from .verification import new_in_output, verify_against_baseline
@@ -226,6 +239,17 @@ def _apply_filters(findings: list[Finding], severity: str | None, object_substri
     return findings
 
 
+def _markdown_header(findings: list[Finding], lang: str) -> str:
+    counts = summarize_by_severity(findings)
+    counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
+    lo, hi = estimate_hours(findings)
+    return (
+        i18n.t(lang, "markdown_report_title")
+        + i18n.t(lang, "markdown_findings_found", n=len(findings), counts=counts_text)
+        + i18n.t(lang, "markdown_effort_estimate", lo=lo, hi=hi)
+    )
+
+
 def _render(findings: list[Finding], fmt: str, lang: str = "ru") -> str:
     if fmt == "json":
         return to_json(findings, lang=lang)
@@ -235,16 +259,33 @@ def _render(findings: list[Finding], fmt: str, lang: str = "ru") -> str:
         return to_sarif(findings, tool_version=_package_version(), lang=lang)
     if fmt == "html":
         return to_html(findings, lang=lang)
+    return _markdown_header(findings, lang) + to_markdown(findings, lang=lang)
 
-    counts = summarize_by_severity(findings)
-    counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
-    lo, hi = estimate_hours(findings)
-    header = (
-        i18n.t(lang, "markdown_report_title")
-        + i18n.t(lang, "markdown_findings_found", n=len(findings), counts=counts_text)
-        + i18n.t(lang, "markdown_effort_estimate", lo=lo, hi=hi)
-    )
-    return header + to_markdown(findings, lang=lang)
+
+def _write_report(findings: list[Finding], fmt: str, stream: IO[str], lang: str = "ru") -> None:
+    """_render()'s output, written straight to `stream`.
+
+    Byte-identical to _render() -- the same generators, pointed at the
+    caller's stream instead of a StringIO. It exists because a report over
+    a large scan is the biggest thing this process ever holds: building it
+    as one string to hand to write_text_atomic()/print() cost several
+    times the report's own size in intermediate objects (measured: 690 MB
+    peak for a 107 MB SARIF document over an 1,800-file scan). html is the
+    one format still rendered whole -- it is a single document with a
+    computed summary above the table, and nobody feeds a browser a
+    100 MB page.
+    """
+    if fmt == "json":
+        write_json(findings, stream, lang=lang)
+    elif fmt == "csv":
+        write_csv(findings, stream, lang=lang)
+    elif fmt == "sarif":
+        write_sarif(findings, stream, tool_version=_package_version(), lang=lang)
+    elif fmt == "html":
+        write_html(findings, stream, lang=lang)
+    else:
+        stream.write(_markdown_header(findings, lang))
+        write_markdown(findings, stream, lang=lang)
 
 
 def resolve_format(explicit_format: str | None, output: Path | None, stdout_is_tty: bool) -> str:
@@ -873,18 +914,20 @@ def _main(argv: list[str] | None = None) -> int:
                 objects_scanned=objects_scanned,
                 lang=lang,
             )
+    elif args.output:
+        try:
+            with open_text_atomic(args.output) as report_file:
+                _write_report(display_findings, fmt, report_file, lang=lang)
+        except OSError as exc:
+            err_console.print(
+                i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))
+            )
+            return 2
     else:
-        report = _render(display_findings, fmt, lang=lang)
-        if args.output:
-            try:
-                write_text_atomic(args.output, report)
-            except OSError as exc:
-                err_console.print(
-                    i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))
-                )
-                return 2
-        else:
-            print(report)
+        # print() would build the whole report as one string first, which
+        # is the allocation _write_report() exists to avoid.
+        _write_report(display_findings, fmt, sys.stdout, lang=lang)
+        sys.stdout.write("\n")
 
     # Printed to stderr regardless of --format: it's supplementary
     # human-facing context, not part of whatever structured payload

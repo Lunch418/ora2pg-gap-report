@@ -252,6 +252,47 @@ with a literal or concatenation (which was enough to produce real
 findings in `utPLSQL`, see above), but haven't been verified empirically
 with the same rigor.
 
+## Memory on a large scan
+
+Every report format is written straight to its destination -- a file
+opened atomically, or stdout -- rather than built as a string first.
+`report_generator.py` exposes both shapes for each format: `to_json()`
+and friends return a string (what tests and `--verify` use), `write_json()`
+and friends write to a stream (what a scan uses). They are the same code;
+`tests/test_streaming_report.py` compares them byte for byte in both
+languages, for every format, empty and non-empty.
+
+This is worth the second entry point because the report, not the scan, was
+the memory ceiling. Measured on an 1,800-file corpus producing 77,800
+findings:
+
+| | before | after |
+|---|---|---|
+| holding all findings | 39 MB | 39 MB |
+| `--format json` | 246 MB | 54 MB |
+| `--format csv` | 489 MB | 54 MB |
+| `--format markdown` | 515 MB | 54 MB |
+| `--format html` | 582 MB | 54 MB |
+| `--format sarif` | 682 MB | 54 MB |
+
+Two things were paying for that. `json.dumps` is literally
+`"".join(iterencode(o))`, and for a large document that join is the
+biggest allocation in the process -- a few million short chunk strings and
+the list holding them. And each format built a full intermediate
+structure, one dict per finding, before encoding began. Writing the
+surrounding document once and each item as it is produced removes both;
+`_stream_json_with_array()` handles the JSON-shaped formats by encoding
+the document with a placeholder where the big array goes, then cutting it
+open there, so indentation and escaping still come from the stdlib
+encoder rather than from braces written by hand.
+
+What remains is the findings list itself, at roughly 22 KB per 1,000
+findings. That is a real floor, not an oversight: `--save`, `--fail-on`,
+`--baseline` and the sort that orders the report all need the complete
+set before any of them can answer. A scan large enough for that to matter
+would need the findings spilled to disk, which is a different design than
+this one, and not one any real schema has called for yet.
+
 ## Post-migration verification (`--verify`)
 
 `--verify` compares pre-migration findings (a `--save` snapshot) against

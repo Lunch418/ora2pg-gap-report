@@ -21,21 +21,25 @@ avoid (and on some platforms fails outright with EXDEV).
 
 import os
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from typing import IO
 
 
-def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
-    """Write `text` to `path` atomically, creating parent directories.
+@contextmanager
+def open_text_atomic(path: Path, encoding: str = "utf-8") -> Iterator[IO[str]]:
+    """A writable text handle whose contents land at `path` atomically,
+    or not at all.
 
-    `--save reports/baseline.json` into a directory that doesn't exist
-    yet used to fail with a bare [Errno 2]; the parent is created here
-    instead, since every caller wants the file written and none of them
-    has a reason to insist the directory already exist.
-
-    OSError propagates exactly as it did from Path.write_text(), so every
-    existing caller's error handling keeps working unchanged -- what
-    changes is only that a failure now leaves the previous file intact
-    instead of a truncated one.
+    The streaming half of write_text_atomic(), for callers producing
+    output too large to hold as one string: a report over a big scan is
+    tens of megabytes, and building it in memory to hand to write_text_
+    atomic() costs several times that in intermediate objects. Everything
+    that makes the non-streaming version safe holds here too -- temp file
+    in the destination's own directory, fsync before the rename, cleanup
+    on any failure -- and the file appears at `path` only on a clean exit
+    from the block.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -52,7 +56,7 @@ def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
     )
     try:
         with tmp:
-            tmp.write(text)
+            yield tmp
             # The rename below is atomic with respect to *readers*, but
             # on a crash the OS may not have flushed the data yet, which
             # would leave the renamed file empty. Forcing it out first
@@ -70,3 +74,20 @@ def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
         except OSError:
             pass
         raise
+
+
+def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
+    """Write `text` to `path` atomically, creating parent directories.
+
+    `--save reports/baseline.json` into a directory that doesn't exist
+    yet used to fail with a bare [Errno 2]; the parent is created here
+    instead, since every caller wants the file written and none of them
+    has a reason to insist the directory already exist.
+
+    OSError propagates exactly as it did from Path.write_text(), so every
+    existing caller's error handling keeps working unchanged -- what
+    changes is only that a failure now leaves the previous file intact
+    instead of a truncated one.
+    """
+    with open_text_atomic(path, encoding) as handle:
+        handle.write(text)

@@ -112,15 +112,22 @@ jobs:
           # ora2pg writes the FATAL line to stdout rather than stderr.
           sudo install -Dm644 /etc/ora2pg/ora2pg.conf.dist /etc/ora2pg/ora2pg.conf
           ora2pg --version
-          # Prove the binary actually runs before the tests assert on what
-          # it produces, so a broken install fails here with ora2pg's own
-          # message instead of inside a test assertion.
-          # -o is a *filename*, joined onto -b; passing a path here makes
-          # ora2pg try to open /tmp//tmp/smoke.sql. run_estimate_cost()
-          # gets this right (it passes out_path.name); this line did not.
+
+      - name: Smoke-test the install against a real sample
+        # A separate step on purpose: the install step cd's into the
+        # unpacked ora2pg source, and a relative path to this repo's own
+        # samples does not resolve from there. Each step starts in the
+        # workspace, so this one is where a repo-relative path is correct.
+        #
+        # It exists so a broken install fails here, with ora2pg's own
+        # message, rather than inside a test assertion about parsed output.
+        # -o is a filename joined onto -b, not a path -- run_estimate_cost()
+        # passes out_path.name for exactly this reason.
+        run: |
+          set -euo pipefail
           ora2pg -t PACKAGE -i docs/research/samples/logger.pkb \
-            --estimate_cost -o smoke.sql -b /tmp
-          test -s /tmp/smoke.sql
+            --estimate_cost -o smoke.sql -b "$RUNNER_TEMP"
+          test -s "$RUNNER_TEMP/smoke.sql"
 
       - name: Install package (dev extras)
         run: pip install -e ".[dev]"

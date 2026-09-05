@@ -1,13 +1,7 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_dynamic_sql_visible,
-    mask_strings_and_comments,
-)
+from .. import plsql_lex
+from ..detector_spec import DetectorSpec, MASK_DYNAMIC_SQL_VISIBLE, build
 
 # NLSSORT(...) and NLS_SORT are two different things with confusingly
 # similar names: NLSSORT() is the function that produces a collation key
@@ -18,27 +12,19 @@ from ..plsql_lex import (
 # before this pattern ever runs.
 _NLSSORT_RE = re.compile(r"\bNLSSORT\s*\(", re.IGNORECASE)
 
+_DOC = """Detect Oracle's NLSSORT() collation function. ora2pg rewrites it
+into a COLLATE clause but carries the Oracle language name straight
+across, and PostgreSQL has no collation under that name, so the
+generated query fails to run. See docs/research/gap-049-nlssort.md."""
 
-def find_nlssort(source: str) -> list[Finding]:
-    """Detect Oracle's NLSSORT() collation function. ora2pg rewrites it
-    into a COLLATE clause but carries the Oracle language name straight
-    across, and PostgreSQL has no collation under that name, so the
-    generated query fails to run. See docs/research/gap-049-nlssort.md."""
-    clean = mask_strings_and_comments(source)
-    visible = mask_dynamic_sql_visible(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="nlssort",
+    dialect="oracle",
+    severity="high",
+    pattern=_NLSSORT_RE,
+    snippet='NLSSORT(',
+    search_mask=MASK_DYNAMIC_SQL_VISIBLE,
+)
 
-    for m in _NLSSORT_RE.finditer(visible):
-        findings.append(
-            Finding(
-                detector="nlssort",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet="NLSSORT(",
-                message_id="nlssort",
-            )
-        )
-
-    return findings
+find_nlssort = build(SPEC, plsql_lex)
+find_nlssort.__doc__ = _DOC

@@ -1,13 +1,7 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_dynamic_sql_visible,
-    mask_strings_and_comments,
-)
+from .. import plsql_lex
+from ..detector_spec import DetectorSpec, MASK_DYNAMIC_SQL_VISIBLE, build
 
 # PIVOT/UNPIVOT always take a parenthesized spec ('PIVOT (aggregate FOR
 # column IN (...))'), optionally preceded by their own modifier keywords
@@ -21,26 +15,18 @@ _PIVOT_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DOC = """Detect Oracle's PIVOT/UNPIVOT clause. No PostgreSQL syntax
+equivalent exists — confirmed unconverted by ora2pg and invalid
+PostgreSQL SQL (see docs/research/gap-008-pivot-unpivot.md)."""
 
-def find_pivot_clauses(source: str) -> list[Finding]:
-    """Detect Oracle's PIVOT/UNPIVOT clause. No PostgreSQL syntax
-    equivalent exists — confirmed unconverted by ora2pg and invalid
-    PostgreSQL SQL (see docs/research/gap-008-pivot-unpivot.md)."""
-    clean = mask_strings_and_comments(source)
-    visible = mask_dynamic_sql_visible(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="pivot_clause",
+    dialect="oracle",
+    severity="high",
+    pattern=_PIVOT_RE,
+    snippet=lambda m: m.group(1).upper(),
+    search_mask=MASK_DYNAMIC_SQL_VISIBLE,
+)
 
-    for m in _PIVOT_RE.finditer(visible):
-        findings.append(
-            Finding(
-                detector="pivot_clause",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet=m.group(1).upper(),
-                message_id="pivot_clause",
-            )
-        )
-
-    return findings
+find_pivot_clauses = build(SPEC, plsql_lex)
+find_pivot_clauses.__doc__ = _DOC

@@ -1,13 +1,7 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_dynamic_sql_visible,
-    mask_strings_and_comments,
-)
+from .. import plsql_lex
+from ..detector_spec import DetectorSpec, MASK_DYNAMIC_SQL_VISIBLE, build
 
 # The TABLE(...) collection-unnesting operator, which only ever appears in
 # a FROM clause (or after a join keyword). Anchoring on the preceding
@@ -20,27 +14,19 @@ _TABLE_OPERATOR_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DOC = """Detect Oracle's TABLE(...) collection-unnesting operator in a FROM
+clause. ora2pg copies it through unchanged; PostgreSQL has no such
+operator, so the generated query fails to parse. See
+docs/research/gap-054-table-collection.md."""
 
-def find_table_collection_operator(source: str) -> list[Finding]:
-    """Detect Oracle's TABLE(...) collection-unnesting operator in a FROM
-    clause. ora2pg copies it through unchanged; PostgreSQL has no such
-    operator, so the generated query fails to parse. See
-    docs/research/gap-054-table-collection.md."""
-    clean = mask_strings_and_comments(source)
-    visible = mask_dynamic_sql_visible(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="table_collection",
+    dialect="oracle",
+    severity="high",
+    pattern=_TABLE_OPERATOR_RE,
+    snippet='TABLE(',
+    search_mask=MASK_DYNAMIC_SQL_VISIBLE,
+)
 
-    for m in _TABLE_OPERATOR_RE.finditer(visible):
-        findings.append(
-            Finding(
-                detector="table_collection",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet="TABLE(",
-                message_id="table_collection",
-            )
-        )
-
-    return findings
+find_table_collection_operator = build(SPEC, plsql_lex)
+find_table_collection_operator.__doc__ = _DOC

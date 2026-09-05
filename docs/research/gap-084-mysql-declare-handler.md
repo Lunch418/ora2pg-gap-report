@@ -1,10 +1,10 @@
-# GAP-084: `DECLARE ... HANDLER` выбрасывается целиком
+# GAP-084: `DECLARE ... HANDLER` is dropped entirely
 
-MySQL/MariaDB feature: обработчик условий в хранимой процедуре —
+MySQL/MariaDB feature: a condition handler in a stored procedure —
 `DECLARE CONTINUE|EXIT HANDLER FOR SQLEXCEPTION | NOT FOUND |
 SQLSTATE '...'`.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE h1 (id INT PRIMARY KEY, v INT);
@@ -16,7 +16,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-m -t PROCEDURE`)
+## ora2pg output (v25.0, `-m -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE safe_insert (IN p_id integer) AS $body$
@@ -32,29 +32,29 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-На месте обработчика — пустые строки. Ни `EXCEPTION WHEN ...`, ни
-какого-либо иного эквивалента в выводе нет (проверено `grep -ci
-'handler\|EXCEPTION WHEN'` — ноль совпадений). То же самое для
-`DECLARE CONTINUE HANDLER FOR NOT FOUND`.
+Where the handler was, there are blank lines. Neither `EXCEPTION WHEN
+...` nor any other equivalent appears in the output (verified with `grep
+-ci 'handler\|EXCEPTION WHEN'` — zero matches). Same for `DECLARE
+CONTINUE HANDLER FOR NOT FOUND`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ошибки нет ни на загрузке, ни при вызове: процедура просто теряет всю
-обработку ошибок разом. Последствия ровно противоположны исходному
-замыслу — то, что MySQL глушил и продолжал выполнение, теперь вылетает
-наружу и обрывает транзакцию вызывающего. В примере выше процедура
-задумана как «вставить, а при любой ошибке молча выйти»; после
-миграции она превращается в «вставить и упасть».
+No error at load or on call: the procedure simply loses all its error
+handling at once. The consequences are the exact opposite of the original
+intent — what MySQL swallowed while continuing execution now escapes and
+aborts the caller's transaction. In the example above the procedure is
+meant to "insert, and on any error exit silently"; after migration it
+becomes "insert and fail".
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage semantic.**
-Восстанавливается блоком `BEGIN ... EXCEPTION WHEN <условие> THEN ...
-END` вокруг нужного участка. Отдельно стоит помнить, что для `NOT
-FOUND` прямого соответствия нет: в PL/pgSQL это не условие исключения,
-а проверка `FOUND`/`GET DIAGNOSTICS` сразу после запроса, то есть такой
-обработчик переписывается не в `EXCEPTION`, а в обычный `IF`.
-Реализовано: `ora2pg_gap_report/detectors/mysql_declare_handler.py`.
+**Gap confirmed, severity high, failure_stage semantic.** Restored with
+a `BEGIN ... EXCEPTION WHEN <condition> THEN ... END` block around the
+relevant section. Worth remembering separately that `NOT FOUND` has no
+direct counterpart: in PL/pgSQL it is not an exception condition but a
+`FOUND`/`GET DIAGNOSTICS` check right after the query, so such a handler
+is rewritten into an ordinary `IF`, not into `EXCEPTION`. Implemented:
+`ora2pg_gap_report/detectors/mysql_declare_handler.py`.

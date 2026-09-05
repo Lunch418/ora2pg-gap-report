@@ -1,9 +1,9 @@
-# GAP-085: `COLLATE`/`CHARACTER SET` на столбце выбрасывается
+# GAP-085: `COLLATE`/`CHARACTER SET` on a column is dropped
 
-MySQL/MariaDB feature: правило сравнения и сортировки строк, заданное
-на конкретном столбце.
+MySQL/MariaDB feature: the comparison and sorting rule for strings, set
+on a specific column.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE col1 (
@@ -12,10 +12,10 @@ CREATE TABLE col1 (
 );
 ```
 
-`utf8mb4_general_ci` — регистронезависимое правило, одно из самых
-распространённых в реальных схемах MySQL.
+`utf8mb4_general_ci` is a case-insensitive collation, one of the most
+common in real MySQL schemas.
 
-## Вывод ora2pg (v25.0, `-m -t TABLE`)
+## ora2pg output (v25.0, `-m -t TABLE`)
 
 ```sql
 CREATE TABLE col1 (
@@ -25,15 +25,15 @@ CREATE TABLE col1 (
 ALTER TABLE col1 ADD PRIMARY KEY (id);
 ```
 
-Строк `COLLATE` в выводе — ноль. То же самое для `CHARACTER SET
-utf8mb4 COLLATE utf8mb4_bin`.
+`COLLATE` lines in the output: zero. Same for `CHARACTER SET utf8mb4
+COLLATE utf8mb4_bin`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ошибки нет ни на загрузке, ни потом, но сравнение строк молча меняет
-смысл: правила `*_ci` в MySQL регистронезависимы, а сравнение в
-PostgreSQL по умолчанию — регистрозависимо. Проверено на живых данных,
-реальный PostgreSQL 16:
+No error at load or afterwards, but string comparison silently changes
+meaning: MySQL's `*_ci` collations are case-insensitive, while comparison
+in PostgreSQL is case-sensitive by default. Verified on live data, real
+PostgreSQL 16:
 
 ```
 =# INSERT INTO col1 VALUES (1,'Alice');
@@ -43,20 +43,20 @@ PostgreSQL по умолчанию — регистрозависимо. Про�
                              0
 ```
 
-В MySQL с исходным правилом сравнения тот же запрос нашёл бы одну
-строку. То есть ломается не схема, а выдача запросов: логины, поиск по
-имени, проверки уникальности начинают вести себя иначе.
+In MySQL with the original collation the same query would have found one
+row. So it is not the schema that breaks but query results: logins, name
+searches and uniqueness checks start behaving differently.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage semantic.** Severity
-здесь high, а не medium, именно потому, что меняется результат
-запросов, а не план их выполнения (ср. GAP-018/`invisible_index`, где
-теряется только подсказка оптимизатору и severity medium).
-Восстанавливается явным `COLLATE` на столбце (в PostgreSQL доступны
-ICU-правила с нужной чувствительностью), типом `citext` либо
-приведением обеих сторон сравнения к `lower()`. Реализовано:
+**Gap confirmed, severity high, failure_stage semantic.** Severity is
+high rather than medium precisely because query results change, not just
+the execution plan (cf. GAP-018/`invisible_index`, where only an
+optimizer hint is lost and severity is medium). Restored with an explicit
+`COLLATE` on the column (PostgreSQL offers ICU collations with the
+required sensitivity), with the `citext` type, or by wrapping both sides
+of the comparison in `lower()`. Implemented:
 `ora2pg_gap_report/detectors/mysql_collate.py`.

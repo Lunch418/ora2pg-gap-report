@@ -1,10 +1,10 @@
-# GAP-083: `'0000-00-00'` молча превращается в `'1970-01-01'`
+# GAP-083: `'0000-00-00'` silently becomes `'1970-01-01'`
 
-MySQL/MariaDB feature: «нулевая» дата — не настоящая дата, а признак
-«значение не задано», который MySQL допускает в `DATE`/`DATETIME` по
-историческим причинам.
+MySQL/MariaDB feature: the "zero" date — not a real date but a marker
+meaning "value not set", which MySQL allows in `DATE`/`DATETIME` for
+historical reasons.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE events (
@@ -13,7 +13,7 @@ CREATE TABLE events (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-m -t TABLE`)
+## ora2pg output (v25.0, `-m -t TABLE`)
 
 ```sql
 CREATE TABLE events (
@@ -23,12 +23,13 @@ CREATE TABLE events (
 ALTER TABLE events ADD PRIMARY KEY (id);
 ```
 
-Признак «не задано» заменён на конкретную дату — начало эпохи Unix.
+The "not set" marker has been replaced with a concrete date — the start
+of the Unix epoch.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ошибки нет ни на загрузке, ни потом. Проверено на живых данных,
-реальный PostgreSQL 16:
+No error at load or afterwards. Verified on live data, real PostgreSQL
+16:
 
 ```
 =# INSERT INTO events (id) VALUES (1);
@@ -39,22 +40,21 @@ INSERT 0 1
   1 | 1970-01-01
 ```
 
-Строка, у которой в MySQL дата была бы «не задана», после миграции
-имеет вполне осмысленную дату 1 января 1970 года. Последствия чисто
-смысловые и потому незаметные: запросы вида `WHERE d = '0000-00-00'`
-(поиск незаполненных) перестают находить что-либо, а отчёты по датам
-начинают показывать 1970 год как реальное событие.
+A row whose date would have been "not set" in MySQL now carries a
+perfectly meaningful date of 1 January 1970. The consequences are purely
+semantic and therefore hard to notice: queries like `WHERE d =
+'0000-00-00'` (looking for unfilled values) stop finding anything, and
+date reports start showing 1970 as a real event.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage semantic.** Правильный
-перенос — `NULL` (и, если нужно, снятие `NOT NULL`) либо отдельный
-признак «не задано». Проверять надо не только `DEFAULT`, но и сами
-данные: нулевые даты в существующих строках переносятся тем же
-механизмом. Реализовано:
-`ora2pg_gap_report/detectors/mysql_zero_date.py` — детектор читает
-comments-only-представление исходника, потому что литерал даты лежит
-внутри строковой константы, которую обычное маскирование затирает.
+**Gap confirmed, severity high, failure_stage semantic.** The correct
+port is `NULL` (dropping `NOT NULL` if needed) or a separate "not set"
+flag. It is not only the `DEFAULT` that needs checking but the data
+itself: zero dates in existing rows are migrated by the same mechanism.
+Implemented: `ora2pg_gap_report/detectors/mysql_zero_date.py` — the
+detector reads the comments-only view of the source, because the date
+literal sits inside a string constant that ordinary masking blanks out.

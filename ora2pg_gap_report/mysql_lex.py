@@ -28,8 +28,13 @@ that matter for correctness, not just cosmetically:
 """
 
 import re
-from bisect import bisect_right
 from functools import lru_cache
+from .lex_common import (
+    flat_enclosing_object_name as enclosing_object_name,
+    line_at,
+    skip_balanced_parens,
+    table_column_definition_list,
+)
 
 # MySQL unquoted identifiers: letters, digits, underscore, dollar sign;
 # unlike Oracle, MySQL also permits a leading digit as long as the whole
@@ -182,65 +187,6 @@ def mask_comments_only(source: str) -> str:
     return _mask(source, reveal_strings=True)
 
 
-@lru_cache(maxsize=8)
-def _line_starts(text: str) -> tuple[int, ...]:
-    """Offset of the start of each line in `text`, 0-indexed. Backs
-    line_at() below -- see that function's docstring for why this exists
-    as a separate, cached step rather than counting newlines inline."""
-    return (0, *(i + 1 for i, c in enumerate(text) if c == "\n"))
-
-
-def line_at(text: str, pos: int) -> int:
-    """1-indexed line number of `pos` within `text`.
-
-    Every one of this project's detectors calls this once per finding,
-    so a whole scan makes O(findings) calls against the same `text`.
-    text.count("\\n", 0, pos) -- the obvious one-liner this used to be --
-    is O(pos) per call, making the total scan O(n^2) in the size of the
-    file (confirmed: 5,720 calls on a 1.6 MB file took 5.6s that way, 155x
-    slower than this). Precomputing the newline offsets once per distinct
-    `text` (cached the same way mask_strings_and_comments() is, and for
-    the same reason -- one `text` in flight per scan_source() call) and
-    then binary-searching them per lookup makes each call O(log n)
-    instead."""
-    return bisect_right(_line_starts(text), pos)
-
-
-def skip_balanced_parens(text: str, start: int) -> int:
-    """`start` points at '('; returns the index just after the matching
-    ')'. Identical to plsql_lex.skip_balanced_parens -- parenthesis
-    nesting isn't dialect-specific."""
-    depth = 0
-    i = start
-    while i < len(text):
-        if text[i] == "(":
-            depth += 1
-        elif text[i] == ")":
-            depth -= 1
-            if depth == 0:
-                return i + 1
-        i += 1
-    return len(text)
-
-
-def table_column_definition_list(text: str, table_name_end: int) -> tuple[int, int] | None:
-    """Given the end of 'CREATE TABLE [schema.]name', the (open_paren_pos,
-    close_paren_pos) span of the column-definition list's own '(...)'.
-    Identical contract to plsql_lex.table_column_definition_list -- MySQL's
-    CREATE TABLE column-list syntax is parenthesized the same way Oracle's
-    is; only the surrounding keywords (ENGINE=, DEFAULT CHARSET=, and
-    similar table options after the closing paren) differ, and this
-    function doesn't need to know about those at all since it stops at
-    the matching ')'."""
-    pos = table_name_end
-    while pos < len(text) and text[pos] in " \t\r\n":
-        pos += 1
-    if pos >= len(text) or text[pos] != "(":
-        return None
-    close = skip_balanced_parens(text, pos) - 1
-    return pos, close
-
-
 _CREATE_PREFIX = r"CREATE\s+(?:OR\s+REPLACE\s+)?"
 _TABLE_NAME_RE = re.compile(qualified_name_pattern(r"CREATE\s+TABLE"), re.IGNORECASE)
 _PROCEDURE_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "PROCEDURE"), re.IGNORECASE)
@@ -270,15 +216,17 @@ def enclosing_object_name_index(text: str) -> tuple[tuple[int, str, str], ...]:
     return tuple(sorted(tagged, key=lambda t: t[0]))
 
 
-def enclosing_object_name(index: tuple[tuple[int, str, str], ...], position: int) -> str:
-    """The name of whichever container (table/procedure/function/trigger/
-    view) starts most recently before `position` -- 'UNKNOWN' if nothing
-    precedes at all. No package-prefix logic needed (see
-    enclosing_object_name_index()'s own docstring): every container here
-    is already a flat, top-level name."""
-    current: str | None = None
-    for pos, _kind, name in index:
-        if pos > position:
-            break
-        current = name
-    return current or "UNKNOWN"
+
+# See plsql_lex's own __all__ for why these are re-exported rather than
+# imported from lex_common by each caller.
+__all__ = [  # noqa: RUF022
+    "IDENTIFIER",
+    "qualified_name_pattern",
+    "mask_strings_and_comments",
+    "mask_comments_only",
+    "line_at",
+    "skip_balanced_parens",
+    "table_column_definition_list",
+    "enclosing_object_name_index",
+    "enclosing_object_name",
+]

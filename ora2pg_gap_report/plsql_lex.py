@@ -8,8 +8,12 @@ section can be told apart from a nested subprogram's).
 """
 
 import re
-from bisect import bisect_right
 from functools import lru_cache
+from .lex_common import (
+    line_at,
+    skip_balanced_parens,
+    table_column_definition_list,
+)
 
 # Oracle unquoted identifiers: letter, then letters/digits/_/$/#.
 IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_$#]*"
@@ -236,45 +240,6 @@ def mask_comments_only(source: str) -> str:
 
     Cached -- see mask_strings_and_comments()'s own docstring for why."""
     return _mask(source, reveal_dynamic_sql=False, reveal_strings=True)
-
-
-@lru_cache(maxsize=8)
-def _line_starts(text: str) -> tuple[int, ...]:
-    """Offset of the start of each line in `text`, 0-indexed. Backs
-    line_at() below -- see that function's docstring for why this exists
-    as a separate, cached step rather than counting newlines inline."""
-    return (0, *(i + 1 for i, c in enumerate(text) if c == "\n"))
-
-
-def line_at(text: str, pos: int) -> int:
-    """1-indexed line number of `pos` within `text`.
-
-    Every one of this project's detectors calls this once per finding,
-    so a whole scan makes O(findings) calls against the same `text`.
-    text.count("\\n", 0, pos) -- the obvious one-liner this used to be --
-    is O(pos) per call, making the total scan O(n^2) in the size of the
-    file (confirmed: 5,720 calls on a 1.6 MB file took 5.6s that way, 155x
-    slower than this). Precomputing the newline offsets once per distinct
-    `text` (cached the same way mask_strings_and_comments() is, and for
-    the same reason -- one `text` in flight per scan_source() call) and
-    then binary-searching them per lookup makes each call O(log n)
-    instead."""
-    return bisect_right(_line_starts(text), pos)
-
-
-def skip_balanced_parens(text: str, start: int) -> int:
-    """`start` points at '('; returns the index just after the matching ')'."""
-    depth = 0
-    i = start
-    while i < len(text):
-        if text[i] == "(":
-            depth += 1
-        elif text[i] == ")":
-            depth -= 1
-            if depth == 0:
-                return i + 1
-        i += 1
-    return len(text)
 
 
 def find_matching_end(text: str, begin_pos: int, hard_boundary: int) -> int | None:
@@ -595,31 +560,25 @@ def statement_end(text: str, search_from: int, next_match_start: int | None) -> 
     return min(candidates) if candidates else len(text)
 
 
-def table_column_definition_list(text: str, table_name_end: int) -> tuple[int, int] | None:
-    """Given the end of 'CREATE TABLE [schema.]name', the (open_paren_pos,
-    close_paren_pos) span of the column-definition list's own '(...)' --
-    open_paren_pos is the index of the '(' itself, close_paren_pos the
-    index of its matching ')' (so the column list's own text is
-    text[open_paren_pos + 1 : close_paren_pos]). None if no '(' follows
-    the table name at all (only whitespace in between) -- a bare 'CREATE
-    TABLE name AS SELECT ...' (a common dedup/diagnostic-table CTAS) has
-    no column-type list for a caller to search at all, as opposed to
-    'CREATE TABLE name (col_list) AS SELECT ...', which does have one
-    (column names only, no types -- those come from the SELECT).
 
-    Exists so a detector matching a column-level clause (a data type
-    like ROWID/UROWID, a GENERATED ALWAYS AS (...) VIRTUAL clause) can
-    search only the column-definition list itself, not a CTAS's trailing
-    AS SELECT clause -- searching past the column list risks misreading
-    an unrelated pseudocolumn/alias in the SELECT as if it were a column
-    declaration (e.g. 'SELECT ROWID rid, ...' is not a ROWID-typed
-    column). Shared rather than reimplemented per detector after the
-    identical scoping logic was found duplicated between rowid_type.py
-    and virtual_column.py during a code review of the latter."""
-    pos = table_name_end
-    while pos < len(text) and text[pos] in " \t\r\n":
-        pos += 1
-    if pos >= len(text) or text[pos] != "(":
-        return None
-    close = skip_balanced_parens(text, pos) - 1
-    return pos, close
+# Re-exported so a detector keeps importing everything it needs from its
+# own dialect's lexer: which of these are dialect-independent is an
+# implementation detail of the lexers, not something 106 detectors and
+# the detector factory should each have to know.
+__all__ = [  # noqa: RUF022  -- grouped by what the name is for, not alphabetically
+    "IDENTIFIER",
+    "qualified_name_pattern",
+    "mask_strings_and_comments",
+    "mask_dynamic_sql_visible",
+    "mask_comments_only",
+    "line_at",
+    "skip_balanced_parens",
+    "table_column_definition_list",
+    "enclosing_object_name_index",
+    "enclosing_object_name",
+    "statement_end",
+    "declare_and_begin",
+    "own_declare_text",
+    "find_matching_end",
+    "is_inside_grant_or_revoke_statement",
+]

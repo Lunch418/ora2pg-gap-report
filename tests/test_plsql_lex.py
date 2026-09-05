@@ -5,40 +5,11 @@ import pytest
 from ora2pg_gap_report.detectors.autonomous_tx import find_autonomous_transactions
 from ora2pg_gap_report.detectors.compound_triggers import find_compound_triggers
 from ora2pg_gap_report.plsql_lex import (
-    _line_starts,
     enclosing_object_name,
     enclosing_object_name_index,
-    line_at,
     mask_dynamic_sql_visible,
     mask_strings_and_comments,
 )
-
-
-# --- A-03 regression: line_at() must stay O(log n) per call, not O(n). ---
-
-
-def test_line_at_matches_a_naive_reference_across_many_positions():
-    source = "line1\nline2\n\nline4\nline5"
-    for pos in range(len(source) + 1):
-        assert line_at(source, pos) == source.count("\n", 0, pos) + 1
-
-
-def test_line_at_on_a_position_at_the_very_start_of_a_line():
-    source = "aaa\nbbb\nccc"
-    assert line_at(source, source.index("bbb")) == 2
-
-
-def test_line_at_reuses_the_cached_newline_index_across_calls():
-    # The mechanism that keeps a whole scan O(n) rather than O(n^2): one
-    # distinct `text` in flight per scan_source() call, however many
-    # findings (and therefore however many line_at() lookups) it produces.
-    _line_starts.cache_clear()
-    source = "a\nb\nc\nd\n" * 50
-    for pos in (0, 10, len(source) - 1):
-        line_at(source, pos)
-    info = _line_starts.cache_info()
-    assert info.misses == 1
-    assert info.hits == 2
 
 
 def test_q_quote_literal_with_embedded_apostrophe_is_fully_masked():

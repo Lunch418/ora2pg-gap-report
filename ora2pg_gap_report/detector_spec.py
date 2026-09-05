@@ -63,7 +63,9 @@ from __future__ import annotations
 import dataclasses
 import re
 from collections.abc import Callable
+from typing import Any
 
+from .lex_common import Lexer
 from .models import Finding
 
 # Every spec's `strategy`. Named rather than free-form so a typo is a
@@ -153,11 +155,30 @@ class DetectorSpec:
         return self.message_id if self.message_id is not None else self.name
 
 
+def _missing(text: str, start: int, next_start: int | None) -> int:
+    raise AssertionError("unreachable: only the statement-scoped strategies call this")
+
+
+def _require(lex: Lexer, attr: str, spec: DetectorSpec) -> Any:
+    """The lexer function `attr`, or a ValueError naming what is missing.
+
+    Called while a spec is being built, so a detector paired with a lexer
+    that cannot support its strategy fails on import rather than raising
+    AttributeError partway through a real scan."""
+    fn = getattr(lex, attr, None)
+    if fn is None:
+        raise ValueError(
+            f"{spec.name}: strategy {spec.strategy!r} needs {attr}(), which "
+            f"the {spec.dialect} lexer does not provide"
+        )
+    return fn
+
+
 def _snippet_for(spec: DetectorSpec, match: re.Match[str]) -> str:
     return spec.snippet(match) if callable(spec.snippet) else spec.snippet
 
 
-def _mask_fn(lex: object, mask: str) -> Callable[[str], str]:
+def _mask_fn(lex: Lexer, mask: str) -> Callable[[str], str]:
     """The named masking function on `lex`. Named rather than passed as a
     callable so a spec stays plain data -- comparable, printable, and the
     same three strings whichever dialect's lexer ends up bound to it."""
@@ -166,27 +187,40 @@ def _mask_fn(lex: object, mask: str) -> Callable[[str], str]:
         MASK_DYNAMIC_SQL_VISIBLE: "mask_dynamic_sql_visible",
         MASK_COMMENTS_ONLY: "mask_comments_only",
     }[mask]
-    fn: Callable[[str], str] = getattr(lex, attr)
+    fn: Callable[[str], str] | None = getattr(lex, attr, None)
+    if fn is None:
+        # mask_dynamic_sql_visible is Oracle-only: EXECUTE IMMEDIATE is
+        # what the view exists to see into. Asked for by another dialect,
+        # this used to be an AttributeError on the first scan; failing
+        # here means it is an ImportError on the broken detector instead.
+        raise ValueError(f"{lex.__name__} has no {attr}()")  # type: ignore[attr-defined]
     return fn
 
 
-def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
+def build(spec: DetectorSpec, lex: Lexer) -> Callable[[str], list[Finding]]:
     """The detector function `spec` describes, bound to `lex` -- the
     dialect's lexer module, passed in rather than imported here so this
     module stays independent of which dialects exist."""
     search_fn = _mask_fn(lex, spec.search_mask)
     anchor_fn = _mask_fn(lex, spec.anchor_mask)
-    line_at = lex.line_at  # type: ignore[attr-defined]
+    line_at = lex.line_at
+    # Oracle-only, for the same reason mask_dynamic_sql_visible is: these
+    # two strategies scope a search to one statement because
+    # DBMS_METADATA.GET_DDL emits no terminating ';'. Resolved here so a
+    # spec pairing them with another dialect fails on import.
+    statement_end: Callable[[str, int, int | None], int] = _require(
+        lex, "statement_end", spec
+    ) if spec.strategy in (TABLE_STATEMENT, STATEMENT_CLAUSE) else _missing
 
     def find_enclosing(source: str) -> list[Finding]:
         searched = search_fn(source)
         anchor = anchor_fn(source) if spec.anchor_mask != spec.search_mask else searched
-        name_index = lex.enclosing_object_name_index(anchor)  # type: ignore[attr-defined]
+        name_index = lex.enclosing_object_name_index(anchor)
         return [
             Finding(
                 detector=spec.name,
                 severity=spec.severity,
-                object_name=lex.enclosing_object_name(name_index, m.start()),  # type: ignore[attr-defined]
+                object_name=lex.enclosing_object_name(name_index, m.start()),
                 line=line_at(anchor, m.start()),
                 snippet=_snippet_for(spec, m),
                 message_id=spec.resolved_message_id,
@@ -221,7 +255,7 @@ def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
             # swallow the rest of the file and claim a later statement's
             # clause as its own.
             next_start = heads[i + 1].start() if i + 1 < len(heads) else None
-            end = lex.statement_end(clean, head.end(), next_start)  # type: ignore[attr-defined]
+            end = statement_end(clean, head.end(), next_start)
             clause = spec.pattern.search(clean[head.end() : end])
             if clause is None:
                 continue
@@ -242,7 +276,7 @@ def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
         findings: list[Finding] = []
         assert spec.statement_pattern is not None  # guaranteed by __post_init__
         for table in spec.statement_pattern.finditer(clean):
-            span = lex.table_column_definition_list(clean, table.end())  # type: ignore[attr-defined]
+            span = lex.table_column_definition_list(clean, table.end())
             if span is None:
                 # CREATE TABLE ... AS SELECT: no column-definition list to
                 # search, and nothing about it is a finding.
@@ -272,7 +306,7 @@ def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
             # terminator: an unterminated statement would otherwise swallow
             # the rest of the file and attribute its matches to this table.
             next_start = tables[i + 1].start() if i + 1 < len(tables) else None
-            end = lex.statement_end(clean, table.end(), next_start)  # type: ignore[attr-defined]
+            end = statement_end(clean, table.end(), next_start)
             statement = clean[table.end() : end]
             for m in spec.pattern.finditer(statement):
                 findings.append(

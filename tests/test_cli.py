@@ -1704,17 +1704,28 @@ def _a_gap_whose_doc_is(translated_into: str):
     return None
 
 
-def test_explain_says_when_the_research_doc_is_not_in_the_asked_for_language(capsys):
+def test_explain_says_when_the_research_doc_is_not_in_the_asked_for_language(capsys, tmp_path, monkeypatch):
     # --explain printed English metadata and then a Russian document with
-    # nothing in between to say so. Translating docs/research/ takes a
-    # while; being straight about what the reader is looking at does not.
-    from ora2pg_gap_report.gap_registry import GAPS, research_doc_is_translated
+    # nothing in between to say so. Being straight about what the reader
+    # is looking at costs one line.
+    #
+    # The doc is written here rather than picked out of docs/research/:
+    # every doc there is translated now, so a registry-driven version of
+    # this test would skip forever and stop guarding the branch. Only the
+    # repository root is redirected -- the gap comes from the real
+    # registry, and research_doc_is_translated() reads the text it finds,
+    # so the fallback is decided exactly as it is in production.
+    from ora2pg_gap_report import gap_registry
 
-    # A gap with no English doc at all -- that is what makes --explain
-    # fall back, and it is not the same question as "has a Russian doc".
-    gap = next((g for g in GAPS if not research_doc_is_translated(g, "en")), None)
-    if gap is None:
-        pytest.skip("every research doc is translated; nothing to fall back from")
+    gap = gap_registry.GAPS[0]
+    research = tmp_path / "docs" / "research"
+    research.mkdir(parents=True)
+    (research / f"gap-{gap.number}-{gap.slug}.ru.md").write_text(
+        "# Заголовок\n\nРусский текст исследования, английского перевода нет.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gap_registry, "REPO_ROOT", tmp_path)
+
     assert main(["--explain", f"GAP-{gap.number}", "--lang", "en"]) == 0
     assert "the document below is in Russian" in capsys.readouterr().out
 

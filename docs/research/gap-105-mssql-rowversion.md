@@ -1,10 +1,10 @@
-# GAP-105: `ROWVERSION` становится `bytea` и перестаёт обновляться
+# GAP-105: `ROWVERSION` becomes `bytea` and stops updating
 
-MSSQL feature: `ROWVERSION` — столбец, значение которого сервер сам
-меняет при каждом изменении строки. На нём обычно построена
-оптимистичная блокировка.
+MSSQL feature: `ROWVERSION` — a column whose value the server changes by
+itself on every modification of the row. Optimistic locking is usually
+built on it.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE versioned (
@@ -13,7 +13,7 @@ CREATE TABLE versioned (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-M -t TABLE`)
+## ora2pg output (v25.0, `-M -t TABLE`)
 
 ```sql
 CREATE TABLE versioned (
@@ -23,31 +23,33 @@ CREATE TABLE versioned (
 ALTER TABLE versioned ADD PRIMARY KEY (id);
 ```
 
-Тип по размеру подходит, но главного — самообновления — у `bytea` нет.
+The type is the right size, but `bytea` lacks the essential part —
+self-updating.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ошибки не будет ни на одном этапе, и это самое опасное. После миграции
-значение `rv` не меняется никогда, а значит проверка вида
+There will be no error at any stage, and that is the dangerous part.
+After the migration the value of `rv` never changes, which means a check
+of the form
 
 ```sql
-UPDATE versioned SET ... WHERE id = @id AND rv = @rv_прочитанное;
+UPDATE versioned SET ... WHERE id = @id AND rv = @rv_read_earlier;
 ```
 
-совпадает всегда. Конфликт одновременных правок перестаёт
-обнаруживаться, и правки молча затирают друг друга — ровно тот сценарий,
-ради предотвращения которого столбец и заводили.
+always matches. Concurrent-edit conflicts stop being detected and edits
+silently overwrite each other — exactly the scenario the column was
+introduced to prevent.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage semantic.**
-Восстанавливается триггером `BEFORE UPDATE`, увеличивающим счётчик
-версии, либо переходом на `xmin` — системный столбец PostgreSQL, который
-меняется при каждом обновлении строки сам. Отдельно проверьте столбцы
-типа `timestamp`: в T-SQL это устаревший синоним `ROWVERSION`, и
-детектор его намеренно не помечает, чтобы не путать со столбцом, который
-просто называется `timestamp`. Реализовано:
+**Gap confirmed, severity high, failure_stage semantic.** Restored with
+a `BEFORE UPDATE` trigger incrementing a version counter, or by moving to
+`xmin` — PostgreSQL's system column, which changes on every row update by
+itself. Check columns of type `timestamp` separately: in T-SQL that is a
+deprecated synonym for `ROWVERSION`, and the detector deliberately does
+not flag it, so as not to confuse it with a column that is merely named
+`timestamp`. Implemented:
 `ora2pg_gap_report/detectors/mssql_rowversion.py`.

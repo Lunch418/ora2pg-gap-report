@@ -1,9 +1,8 @@
-# GAP-102: `FOREIGN KEY` выбрасывается целиком (MSSQL)
+# GAP-102: `FOREIGN KEY` is dropped entirely (MSSQL)
 
-MSSQL feature: внешний ключ, объявленный в списке столбцов `CREATE
-TABLE`.
+MSSQL feature: a foreign key declared in the `CREATE TABLE` column list.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE parentx (id int NOT NULL PRIMARY KEY);
@@ -14,7 +13,7 @@ CREATE TABLE childx (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-M -t TABLE`)
+## ora2pg output (v25.0, `-M -t TABLE`)
 
 ```sql
 CREATE TABLE parentx (
@@ -30,32 +29,32 @@ CREATE TABLE childx (
 ALTER TABLE childx ADD PRIMARY KEY (id);
 ```
 
-Строк `FOREIGN KEY` в выводе нет ни одной — ни внутри `CREATE TABLE`,
-ни отдельным `ALTER TABLE` после него.
+There is not a single `FOREIGN KEY` line in the output — neither inside
+the `CREATE TABLE` nor as a separate `ALTER TABLE` after it.
 
-## Это не «выгружается отдельным типом экспорта»
+## This is not "exported by a separate export type"
 
-Отдельного типа экспорта под внешние ключи у ora2pg нет: в списке
-поддерживаемых значений `-t` (`TABLE`, `VIEW`, `GRANT`, `TRIGGER`,
-`FUNCTION`, `PROCEDURE`, `PARTITION`, `DBLINK`, `INSERT`, `COPY`,
-`TEST*`, `SHOW_*`) нет ни `FKEY`, ни `CONSTRAINT`.
+ora2pg has no separate export type for foreign keys: the list of
+supported `-t` values (`TABLE`, `VIEW`, `GRANT`, `TRIGGER`, `FUNCTION`,
+`PROCEDURE`, `PARTITION`, `DBLINK`, `INSERT`, `COPY`, `TEST*`, `SHOW_*`)
+contains neither `FKEY` nor `CONSTRAINT`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ошибки не будет ни на загрузке, ни потом: схема поднимется, приложение
-заработает, и ссылочная целостность просто перестанет существовать —
-вместе с каскадными удалениями.
+There will be no error at load or afterwards: the schema comes up, the
+application runs, and referential integrity simply ceases to exist —
+along with the cascading deletes.
 
-Ровно то же самое ora2pg делает с внешними ключами на MySQL-стороне
-(GAP-082), так что это не особенность одного диалекта.
+ora2pg does exactly the same to foreign keys on the MySQL side
+(GAP-082), so this is not a quirk of one dialect.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage semantic.**
-Восстанавливается вручную: `ALTER TABLE <таблица> ADD CONSTRAINT <имя>
-FOREIGN KEY (<столбцы>) REFERENCES <родитель> (<столбцы>) ON DELETE
-...` после загрузки всех таблиц. Реализовано:
+**Gap confirmed, severity high, failure_stage semantic.** Restored by
+hand: `ALTER TABLE <table> ADD CONSTRAINT <name> FOREIGN KEY (<columns>)
+REFERENCES <parent> (<columns>) ON DELETE ...` after all tables are
+loaded. Implemented:
 `ora2pg_gap_report/detectors/mssql_foreign_key.py`.

@@ -1688,22 +1688,39 @@ def test_the_short_flags_mean_the_same_as_the_long_ones(tmp_path):
     assert out_short.read_text(encoding="utf-8") == out_long.read_text(encoding="utf-8")
 
 
+def _a_gap_whose_doc_is(translated_into: str):
+    """Any gap whose research doc is in `translated_into`, or None.
+
+    Picked from the registry rather than named here: which gaps are
+    translated changes as docs/research/ is worked through, and a test
+    that hardcodes one fails the moment that doc's turn comes -- which is
+    exactly what happened to the first version of these two.
+    """
+    from ora2pg_gap_report.gap_registry import GAPS, research_doc_is_translated
+
+    for gap in GAPS:
+        if research_doc_is_translated(gap, translated_into):
+            return gap
+    return None
+
+
 def test_explain_says_when_the_research_doc_is_not_in_the_asked_for_language(capsys):
     # --explain printed English metadata and then a Russian document with
     # nothing in between to say so. Translating docs/research/ takes a
     # while; being straight about what the reader is looking at does not.
-    exit_code = main(["--explain", "GAP-046", "--lang", "en"])
-    assert exit_code == 0
-    out = capsys.readouterr().out
-    assert "the document below is in Russian" in out
+    from ora2pg_gap_report.gap_registry import GAPS, research_doc_is_translated
+
+    # A gap with no English doc at all -- that is what makes --explain
+    # fall back, and it is not the same question as "has a Russian doc".
+    gap = next((g for g in GAPS if not research_doc_is_translated(g, "en")), None)
+    if gap is None:
+        pytest.skip("every research doc is translated; nothing to fall back from")
+    assert main(["--explain", f"GAP-{gap.number}", "--lang", "en"]) == 0
+    assert "the document below is in Russian" in capsys.readouterr().out
 
 
 def test_explain_says_nothing_extra_when_the_doc_is_in_the_right_language(capsys):
-    from ora2pg_gap_report.gap_registry import gap_by_number, research_doc_is_translated
-
-    gap = gap_by_number("046")
-    assert gap is not None
-    assert research_doc_is_translated(gap, "ru")
-    main(["--explain", "GAP-046", "--lang", "ru"])
-    out = capsys.readouterr().out
-    assert "перевод" not in out
+    gap = _a_gap_whose_doc_is("en")
+    assert gap is not None, "expected at least one translated research doc"
+    assert main(["--explain", f"GAP-{gap.number}", "--lang", "en"]) == 0
+    assert "the document below is in Russian" not in capsys.readouterr().out

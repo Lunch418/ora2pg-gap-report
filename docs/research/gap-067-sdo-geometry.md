@@ -1,8 +1,8 @@
-# GAP-067: `SDO_GEOMETRY` без `CREATE EXTENSION postgis`
+# GAP-067: `SDO_GEOMETRY` without `CREATE EXTENSION postgis`
 
-Oracle feature: `SDO_GEOMETRY` — пространственный тип Oracle Spatial.
+Oracle feature: `SDO_GEOMETRY` — the Oracle Spatial geometry type.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE places (
@@ -11,7 +11,7 @@ CREATE TABLE places (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE TABLE places (
@@ -21,14 +21,14 @@ CREATE TABLE places (
 ALTER TABLE places ADD PRIMARY KEY (id);
 ```
 
-Выбор целевого типа правильный: `geometry` — это тип PostGIS,
-ближайший аналог `SDO_GEOMETRY`. Но строки `CREATE EXTENSION postgis` в
-выводе нет.
+The choice of target type is right: `geometry` is PostGIS's type, the
+closest analogue of `SDO_GEOMETRY`. But there is no `CREATE EXTENSION
+postgis` line in the output.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16 без предварительно
-установленного PostGIS:
+Confirmed against a real PostgreSQL 16 with no PostGIS installed
+beforehand:
 
 ```
 ERROR:  type "geometry" does not exist
@@ -36,8 +36,8 @@ LINE 3:  geo geometry(GEOMETRY)
              ^
 ```
 
-Отдельно стоит сравнить с поведением того же ora2pg для `SYS_GUID()` в
-том же прогоне — там нужное расширение он подключает сам:
+It is worth comparing this with the same ora2pg's behaviour for
+`SYS_GUID()` in the same run, where it does add the extension itself:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -47,18 +47,19 @@ CREATE TABLE tokens (
 ) ;
 ```
 
-То есть механизм «вывести CREATE EXTENSION» у ora2pg есть, и для
-PostGIS он просто не применяется. Рассчитывать на автоматическое
-подключение нужного расширения нельзя.
+So ora2pg does have the "emit CREATE EXTENSION" mechanism, and simply does
+not apply it for PostGIS. Automatic installation of the required extension
+cannot be relied on.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity medium.** Реализовано:
-`ora2pg_gap_report/detectors/sdo_geometry.py`. Severity здесь ниже, чем
-у остальных gap'ов этой партии, осознанно: само отображение типа выбрано
-верно, и чинится всё одной строкой `CREATE EXTENSION postgis` перед
-загрузкой схемы — переписывать конструкцию, в отличие от прочих, не
-нужно. Отдельно стоит проверить перенос самих значений: модель координат
-и семантика `SDO_GEOMETRY` и PostGIS совпадают не полностью.
+**Gap confirmed, severity medium.** Implemented in
+`ora2pg_gap_report/detectors/sdo_geometry.py`. The severity is lower than
+for the rest of this batch deliberately: the type mapping itself is
+correct, and the whole thing is fixed by one `CREATE EXTENSION postgis`
+line before loading the schema — unlike the others, nothing has to be
+rewritten. Migrating the values themselves is worth checking separately,
+though: the coordinate model and semantics of `SDO_GEOMETRY` and PostGIS
+do not match completely.

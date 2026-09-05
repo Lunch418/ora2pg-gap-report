@@ -1,9 +1,9 @@
 # GAP-066: `CREATE VIEW ... WITH READ ONLY`
 
-Oracle feature: представление, через которое запрещено менять данные —
-`INSERT`/`UPDATE`/`DELETE` по нему падают с ORA-42399.
+Oracle feature: a view through which data cannot be changed —
+`INSERT`/`UPDATE`/`DELETE` against it fail with ORA-42399.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE VIEW v_emp AS
@@ -11,19 +11,19 @@ CREATE OR REPLACE VIEW v_emp AS
   WITH READ ONLY;
 ```
 
-## Вывод ora2pg (v25.0, `-t VIEW`)
+## ora2pg output (v25.0, `-t VIEW`)
 
 ```sql
 CREATE OR REPLACE VIEW v_emp AS SELECT emp_id, name FROM employees;
 ```
 
-Оговорка просто выброшена.
+The clause is simply discarded.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ошибки нет ни на загрузке, ни потом. Простое представление в PostgreSQL
-по умолчанию автоматически обновляемое, поэтому запись через него молча
-проходит. Подтверждено на реальном PostgreSQL 16:
+There is no error, at load or afterwards. A simple view in PostgreSQL is
+automatically updatable by default, so a write through it silently
+succeeds. Confirmed against a real PostgreSQL 16:
 
 ```
 INSERT 0 1
@@ -33,16 +33,17 @@ INSERT 0 1
 (1 row)
 ```
 
-Строка действительно попала в базовую таблицу. Защита, объявленная в
-Oracle в самом определении объекта, после миграции исчезает бесследно —
-это `failure_stage = semantic`.
+The row really did reach the base table. The protection Oracle declared in
+the object's own definition disappears without trace after migration —
+this is `failure_stage = semantic`.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/read_only_view.py`. Ручная переработка:
-вернуть запрет явно — либо правами (`REVOKE INSERT, UPDATE, DELETE ON
-<view> FROM ...`), либо триггером `INSTEAD OF`, возбуждающим исключение.
-Родственный gap про таблицы — GAP-026/`read_only_table.py`.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/read_only_view.py`. Manual rework: restore
+the prohibition explicitly — either through privileges (`REVOKE INSERT,
+UPDATE, DELETE ON <view> FROM ...`) or through an `INSTEAD OF` trigger
+that raises an exception. The related gap for tables is
+GAP-026/`read_only_table.py`.

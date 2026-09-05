@@ -1,24 +1,23 @@
 # GAP-065: `WM_CONCAT`
 
-Oracle feature: недокументированная агрегатная функция, склеивающая
-значения группы в одну строку через запятую. Официально не
-поддерживалась никогда и убрана начиная с 12c, но в унаследованном коде
-встречается постоянно.
+Oracle feature: an undocumented aggregate function that joins a group's
+values into one comma-separated string. It was never officially supported
+and was removed as of 12c, but it turns up constantly in legacy code.
 
-## Минимальный пример
-
-```sql
-SELECT dept_id, WM_CONCAT(name) AS names FROM employees GROUP BY dept_id;
-```
-
-## Вывод ora2pg (v25.0, `-t QUERY`)
+## Minimal example
 
 ```sql
 SELECT dept_id, WM_CONCAT(name) AS names FROM employees GROUP BY dept_id;
 ```
 
-Скопировано как есть. Для сравнения: документированный `LISTAGG` тот же
-ora2pg переписывает в `string_agg` — проверено в том же прогоне:
+## ora2pg output (v25.0, `-t QUERY`)
+
+```sql
+SELECT dept_id, WM_CONCAT(name) AS names FROM employees GROUP BY dept_id;
+```
+
+Copied as written. By way of contrast, the same ora2pg rewrites the
+documented `LISTAGG` into `string_agg` — checked in the same run:
 
 ```sql
 SELECT dept, LISTAGG(name, ',') WITHIN GROUP (ORDER BY name) AS names ...
@@ -27,10 +26,9 @@ SELECT dept, LISTAGG(name, ',') WITHIN GROUP (ORDER BY name) AS names ...
 SELECT dept, string_agg(name, ',' ORDER BY name) AS names ...
 ```
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16 (против реально существующей
-таблицы `employees`):
+Confirmed against a real PostgreSQL 16 (against a real `employees` table):
 
 ```
 ERROR:  function wm_concat(text) does not exist
@@ -40,11 +38,11 @@ LINE 1: SELECT dept_id, WM_CONCAT(name) AS names FROM employees GROU...
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/wm_concat.py`. Ручная переработка: заменить
-на `string_agg(col, ',')`, и при замене сразу дописать порядок —
-`string_agg(col, ',' ORDER BY col)`. `WM_CONCAT` порядок никак не
-гарантировал, поэтому «как было» воспроизвести всё равно нельзя, а молча
-недетерминированный результат лучше сделать явным.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/wm_concat.py`. Manual rework: replace it with
+`string_agg(col, ',')`, and add an explicit order while doing so —
+`string_agg(col, ',' ORDER BY col)`. `WM_CONCAT` guaranteed no ordering at
+all, so "as it was" cannot be reproduced anyway, and it is better to make
+a silently non-deterministic result explicit.

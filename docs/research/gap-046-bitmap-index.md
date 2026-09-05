@@ -1,10 +1,9 @@
-# GAP-046: `CREATE BITMAP INDEX` → `USING gin` без класса операторов
+# GAP-046: `CREATE BITMAP INDEX` → `USING gin` with no operator class
 
-Oracle feature: битовый индекс, рассчитанный на столбцы малой
-кардинальности и на комбинирование нескольких таких индексов побитовыми
-операциями.
+Oracle feature: a bitmap index, designed for low-cardinality columns and
+for combining several such indexes with bitwise operations.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE emp_idx (
@@ -16,7 +15,7 @@ CREATE BITMAP INDEX idx_emp_gender ON emp_idx (gender);
 CREATE INDEX idx_emp_rev ON emp_idx (last_name) REVERSE;
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE TABLE emp_idx (
@@ -29,32 +28,32 @@ CREATE INDEX idx_emp_rev ON emp_idx (last_name);
 ALTER TABLE emp_idx ADD PRIMARY KEY (employee_id);
 ```
 
-`BITMAP` заменён на `USING gin`.
+`BITMAP` has been replaced with `USING gin`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16 — индекс не создаётся вообще:
+Confirmed against a real PostgreSQL 16 — the index is not created at all:
 
 ```
 ERROR:  data type character varying has no default operator class for access method "gin"
 HINT:  You must specify an operator class for the index or define a default operator class for the data type.
 ```
 
-У `gin` по умолчанию нет класса операторов ни для `varchar`, ни для
-чисел — он рассчитан на составные типы (массивы, `jsonb`, `tsvector`).
-То есть замена не просто меняет характеристики индекса, она не проходит
-загрузку.
+`gin` has no default operator class for `varchar` or for numeric types —
+it is meant for composite types (arrays, `jsonb`, `tsvector`). So the
+substitution does not merely change the index's characteristics: it fails
+to load.
 
-Отдельно замечено (не выделено в отдельный gap): `REVERSE`-индекс молча
-теряет свою реверсивность, превращаясь в обычный.
+Noted separately (not raised as its own gap): a `REVERSE` index silently
+loses its reversal and becomes an ordinary one.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/bitmap_index.py`. У PostgreSQL нет битовых
-индексов как типа. Практическая замена — обычный btree (планировщик сам
-умеет комбинировать несколько btree через bitmap scan во время
-выполнения), либо `gin` с явным классом операторов из расширения
-`btree_gin`.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/bitmap_index.py`. PostgreSQL has no bitmap
+index as an index type. The practical replacement is a plain btree — the
+planner combines several btrees through a bitmap scan at execution time
+on its own — or `gin` with an explicit operator class from the
+`btree_gin` extension.

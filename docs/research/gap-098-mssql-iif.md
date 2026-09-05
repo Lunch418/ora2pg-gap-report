@@ -1,9 +1,9 @@
-# GAP-098: `IIF()` копируется как есть
+# GAP-098: `IIF()` is copied as-is
 
-MSSQL feature: `IIF(<условие>, <если да>, <если нет>)` — тернарный
-выбор в T-SQL.
+MSSQL feature: `IIF(<condition>, <if true>, <if false>)` — the T-SQL
+ternary choice.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE PROCEDURE dbo.use_iif AS
@@ -12,7 +12,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-M -t PROCEDURE`)
+## ora2pg output (v25.0, `-M -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE dbo.use_iif () AS $body$
@@ -27,21 +27,21 @@ END;
 $body$
 ```
 
-`IIF` скопирован дословно. Показательно, что соседний `CHARINDEX` в том
-же операторе ora2pg перевести пытается (и делает это неверно — см.
-GAP-100), то есть `IIF` просто не входит в его таблицу соответствий.
+`IIF` is copied verbatim. Tellingly, ora2pg does try to translate the
+neighbouring `CHARINDEX` in the same statement (and gets it wrong — see
+GAP-100), so `IIF` is simply absent from its mapping table.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Функции `IIF` в PostgreSQL нет, и при первом же реальном вызове
-процедура падает. Загрузка проходит чисто — ora2pg выставляет в своём
-выводе `check_function_bodies = false`.
+PostgreSQL has no `IIF` function, and the procedure fails on the very
+first real call. The load goes through cleanly — ora2pg sets
+`check_function_bodies = false` in its own output.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.**
-Переписывается на `CASE WHEN <условие> THEN <если да> ELSE <если нет>
-END`. Реализовано: `ora2pg_gap_report/detectors/mssql_iif.py`.
+**Gap confirmed, severity high, failure_stage runtime.** Rewritten to
+`CASE WHEN <condition> THEN <if true> ELSE <if false> END`. Implemented:
+`ora2pg_gap_report/detectors/mssql_iif.py`.

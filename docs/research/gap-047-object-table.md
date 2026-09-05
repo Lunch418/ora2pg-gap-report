@@ -1,9 +1,9 @@
-# GAP-047: `CREATE TABLE ... OF <тип>` — `OF` становится именем столбца
+# GAP-047: `CREATE TABLE ... OF <type>` — `OF` becomes a column name
 
-Oracle feature: объектная таблица — каждая строка является экземпляром
-объектного типа, атрибуты типа становятся столбцами.
+Oracle feature: an object table — every row is an instance of an object
+type, and the type's attributes become the columns.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE person_objs OF person_typ (
@@ -11,7 +11,7 @@ CREATE TABLE person_objs OF person_typ (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE TABLE person_objs (
@@ -19,21 +19,23 @@ CREATE TABLE person_objs (
 ) ;
 ```
 
-Ключевое слово `OF` попало в вывод как **имя столбца**, тип стал типом
-этого столбца, а объявление `person_id PRIMARY KEY` потерялось целиком.
+The keyword `OF` has ended up in the output as a **column name**, the type
+became that column's type, and the `person_id PRIMARY KEY` declaration was
+lost entirely.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Самое опасное здесь — что при существующем в целевой базе типе загрузка
-проходит **без единой ошибки**. Проверено на реальном PostgreSQL 16:
+The most dangerous part is that when the type exists in the target
+database, the load succeeds **without a single error**. Checked against a
+real PostgreSQL 16:
 
 ```sql
 CREATE TYPE person_typ AS (person_id bigint, full_name text);
--- затем загружаем сгенерированный ora2pg файл:
+-- then load the file ora2pg generated:
 -- CREATE TABLE
 ```
 
-Результирующая структура:
+The resulting structure:
 
 ```
               Table "public.person_objs"
@@ -42,17 +44,17 @@ CREATE TYPE person_typ AS (person_id bigint, full_name text);
  of     | person_typ |           |          |
 ```
 
-Таблица создана, миграция выглядит успешной — но структура неверна:
-единственный столбец по имени `of`, первичный ключ отсутствует. Если
-типа в целевой базе нет, ошибка будет другая и более заметная
-(`type "person_typ" does not exist`) — то есть наличие типа делает
-проблему тише, а не безопаснее.
+The table is created and the migration looks successful — but the
+structure is wrong: a single column named `of`, and no primary key. If the
+type does not exist in the target database the error is different and more
+noticeable (`type "person_typ" does not exist`) — so having the type makes
+the problem quieter, not safer.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/object_table.py`. Ручная переработка:
-объектная таблица разворачивается в обычную таблицу с отдельным столбцом
-на каждый атрибут типа плюс явные ограничения.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/object_table.py`. Manual rework: expand the
+object table into an ordinary table with one column per type attribute,
+plus explicit constraints.

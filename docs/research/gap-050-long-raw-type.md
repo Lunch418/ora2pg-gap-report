@@ -1,8 +1,8 @@
-# GAP-050: `LONG RAW` конвертируется в `text`, а не в `bytea`
+# GAP-050: `LONG RAW` converted to `text` rather than `bytea`
 
-Oracle feature: `LONG RAW` — унаследованный двоичный тип.
+Oracle feature: `LONG RAW` — a legacy binary type.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE binstuff (
@@ -16,10 +16,10 @@ CREATE TABLE binstuff (
 );
 ```
 
-Все типы взяты в один пример намеренно — чтобы отображение `LONG RAW`
-можно было сравнить с соседними в том же самом прогоне.
+All the types are in one example deliberately, so that `LONG RAW`'s
+mapping can be compared with its neighbours' in the very same run.
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE TABLE binstuff (
@@ -33,24 +33,24 @@ CREATE TABLE binstuff (
 ) ;
 ```
 
-`RAW(200)`, `BLOB` и `BFILE` отображены в `bytea` правильно. `LONG RAW`
-— в `text`.
+`RAW(200)`, `BLOB` and `BFILE` are mapped to `bytea` correctly. `LONG RAW`
+becomes `text`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Это расхождение ora2pg с собственной документацией, а не сознательный
-выбор. Документированное значение по умолчанию (`doc/Ora2Pg.pod`,
-директива `DATA_TYPE`) содержит `LONG RAW:bytea`, и то же отображение
-прописано в коде — `lib/Ora2Pg/Oracle.pm:45`:
+This is ora2pg disagreeing with its own documentation, not a deliberate
+choice. The documented default (`doc/Ora2Pg.pod`, the `DATA_TYPE`
+directive) contains `LONG RAW:bytea`, and the same mapping is written in
+the code — `lib/Ora2Pg/Oracle.pm:45`:
 
 ```perl
 	'LONG RAW' => 'bytea',
 ```
 
-`CREATE TABLE` загружается чисто, поэтому на этапе схемы проблема не
-видна. Она проявляется на переносе данных: в `text` нельзя положить
-произвольные байты. Подтверждено на реальном PostgreSQL 16 —
-одни и те же байты в `bytea` и в `text`:
+The `CREATE TABLE` loads cleanly, so the problem is invisible at the
+schema stage. It surfaces when the data is migrated: arbitrary bytes
+cannot be stored in `text`. Confirmed against a real PostgreSQL 16 — the
+same bytes into `bytea` and into `text`:
 
 ```
  bytea ok | \x00ff01fe
@@ -61,10 +61,10 @@ ERROR:  invalid byte sequence for encoding "UTF8": 0x00
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/long_raw_type.py`. Ручная переработка:
-поправить тип столбца на `bytea` — то самое отображение, которое ora2pg
-для `LONG RAW` и декларирует. Обычный `LONG` (символьный тип)
-отображается в `text` корректно и детектором не помечается.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/long_raw_type.py`. Manual rework: change the
+column's type to `bytea` — the very mapping ora2pg declares for `LONG
+RAW`. Plain `LONG` (the character type) maps to `text` correctly and is
+not flagged by the detector.

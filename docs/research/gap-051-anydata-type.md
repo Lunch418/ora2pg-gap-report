@@ -1,10 +1,10 @@
-# GAP-051: `SYS.ANYDATA` как тип столбца
+# GAP-051: `SYS.ANYDATA` as a column type
 
-Oracle feature: `ANYDATA` / `ANYDATASET` / `ANYTYPE` — самоописывающийся
-контейнер, хранящий значение любого типа вместе с информацией о самом
-типе.
+Oracle feature: `ANYDATA` / `ANYDATASET` / `ANYTYPE` — a self-describing
+container holding a value of any type together with information about the
+type itself.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE settings (
@@ -13,7 +13,7 @@ CREATE TABLE settings (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE TABLE settings (
@@ -22,11 +22,11 @@ CREATE TABLE settings (
 ) ;
 ```
 
-Имя типа перенесено как есть, вместе со схемой `SYS`.
+The type name is carried over as written, `SYS` schema included.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16:
+Confirmed against a real PostgreSQL 16:
 
 ```
 ERROR:  schema "sys" does not exist
@@ -34,16 +34,16 @@ LINE 3:  val SYS.ANYDATA
              ^
 ```
 
-Для короткой записи (`ANYDATA` без префикса) ошибка будет про
-несуществующий тип. Падает сразу на загрузке DDL.
+For the short spelling (`ANYDATA` with no prefix) the error is about a
+non-existent type instead. Either way it fails immediately, at DDL load.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/anydata_type.py`. Ручная переработка:
-механической замены нет — столбец обычно переразмечают в `jsonb` (если
-важно хранить произвольную структуру) либо разносят на несколько
-типизированных столбцов с признаком типа, если реально хранились
-два-три конкретных варианта.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/anydata_type.py`. Manual rework: there is no
+mechanical substitution — the column is usually remodelled as `jsonb` (if
+storing an arbitrary structure matters) or split into several typed
+columns with a discriminator, if only two or three concrete variants were
+really being stored.

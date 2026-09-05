@@ -223,3 +223,38 @@ def test_real_open_source_utplsql_hidden_pragma_inside_dynamic_sql_is_found():
     assert {f.object_name for f in findings} == {"RUN_HELPER.CREATE_TEST_SUITE"}
     lines = {f.line for f in findings}
     assert len(lines) == 2  # the routine's own PRAGMA and the hidden one, not the same line twice
+
+
+def test_a_standalone_routines_pragma_is_deliberately_not_flagged():
+    # Not an oversight, and not a detector limitation -- it is the shape
+    # of the gap. Re-measured against ora2pg 25.0: inside a package body
+    # the estimate is identical with and without the PRAGMA (6 units both
+    # ways) while ora2pg still generates the whole dblink workaround, so
+    # it charges nothing for it. For a standalone routine it does charge
+    # (4.2 vs 4.0). "Too little" is a judgement; "nothing at all" is the
+    # reproduced fact this project registers gaps for. See
+    # docs/research/gap-001-autonomous-transaction.md.
+    standalone = (
+        "CREATE OR REPLACE PROCEDURE log_error(p_msg IN VARCHAR2) IS\n"
+        "  PRAGMA AUTONOMOUS_TRANSACTION;\n"
+        "BEGIN\n"
+        "  INSERT INTO error_log(msg) VALUES (p_msg);\n"
+        "  COMMIT;\n"
+        "END log_error;\n"
+    )
+    assert find_autonomous_transactions(standalone) == []
+
+    # The same routine moved inside a package body is flagged, which is
+    # what makes the line above a scope decision rather than a blind spot.
+    in_package = (
+        "CREATE OR REPLACE PACKAGE BODY log_pkg AS\n"
+        "  PROCEDURE log_error(p_msg IN VARCHAR2) IS\n"
+        "    PRAGMA AUTONOMOUS_TRANSACTION;\n"
+        "  BEGIN\n"
+        "    INSERT INTO error_log(msg) VALUES (p_msg);\n"
+        "    COMMIT;\n"
+        "  END log_error;\n"
+        "END log_pkg;\n"
+    )
+    findings = find_autonomous_transactions(in_package)
+    assert [f.object_name for f in findings] == ["LOG_PKG.LOG_ERROR"]

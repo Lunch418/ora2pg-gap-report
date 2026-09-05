@@ -31,6 +31,22 @@ def _package_name_at(package_matches: list[re.Match[str]], position: int) -> str
 def find_autonomous_transactions(source: str) -> list[Finding]:
     """Detect PRAGMA AUTONOMOUS_TRANSACTION inside PACKAGE BODY routines.
 
+    PACKAGE BODY only, and that is the gap rather than the detector's
+    limit. Re-measured against ora2pg 25.0:
+
+      package body, with PRAGMA .... 6 units      standalone, with .... 4.2
+      package body, without ........ 6 units      standalone, without .. 4.0
+
+    Inside a package body ora2pg generates the whole autonomous-transaction
+    workaround -- CREATE EXTENSION dblink, a connection string to fill in,
+    a dblink() round trip per call -- and charges exactly nothing for it:
+    the estimate is identical with and without the PRAGMA. That is GAP-001.
+    For a standalone routine it does charge, and while 0.2 units (one
+    minute) is arguably still light, "too little" is a judgement call and
+    "nothing at all" is a fact. This project only registers gaps it has
+    reproduced as broken, so the standalone case is deliberately not
+    flagged; see docs/research/gap-001-autonomous-transaction.md.
+
     Handles multiple package bodies in one file, string/comment-aware
     scanning, and correctly excludes locally nested subprograms' own
     declare sections from their enclosing routine's — a nested routine's

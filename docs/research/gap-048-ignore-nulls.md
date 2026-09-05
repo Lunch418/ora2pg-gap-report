@@ -1,18 +1,9 @@
-# GAP-048: `IGNORE NULLS` / `RESPECT NULLS` в аналитических функциях
+# GAP-048: `IGNORE NULLS` / `RESPECT NULLS` in analytic functions
 
-Oracle feature: оговорка обработки NULL у аналитических функций
-(`LAG`, `LEAD`, `FIRST_VALUE`, `LAST_VALUE`, `NTH_VALUE`).
+Oracle feature: the null-treatment clause of analytic functions (`LAG`,
+`LEAD`, `FIRST_VALUE`, `LAST_VALUE`, `NTH_VALUE`).
 
-## Минимальный пример
-
-```sql
-SELECT emp_id,
-       LAST_VALUE(salary IGNORE NULLS) OVER (PARTITION BY dept ORDER BY hired) AS last_sal,
-       LAG(bonus, 1) IGNORE NULLS OVER (ORDER BY hired) AS prev_bonus
-  FROM employees;
-```
-
-## Вывод ora2pg (v25.0, `-t QUERY`)
+## Minimal example
 
 ```sql
 SELECT emp_id,
@@ -21,13 +12,22 @@ SELECT emp_id,
   FROM employees;
 ```
 
-Скопировано как есть.
+## ora2pg output (v25.0, `-t QUERY`)
 
-## Наблюдаемая проблема
+```sql
+SELECT emp_id,
+       LAST_VALUE(salary IGNORE NULLS) OVER (PARTITION BY dept ORDER BY hired) AS last_sal,
+       LAG(bonus, 1) IGNORE NULLS OVER (ORDER BY hired) AS prev_bonus
+  FROM employees;
+```
 
-Подтверждено на реальном PostgreSQL 16 (запрос выполнялся против
-реально существующей таблицы `employees`, чтобы ошибка «relation does
-not exist» не могла замаскировать настоящую):
+Copied as written.
+
+## Observed problem
+
+Confirmed against a real PostgreSQL 16 (the query was run against a real
+`employees` table, so that a "relation does not exist" error could not
+mask the real one):
 
 ```
 ERROR:  syntax error at or near "IGNORE"
@@ -35,9 +35,9 @@ LINE 2:        LAST_VALUE(salary IGNORE NULLS) OVER (PARTITION BY de...
                                  ^
 ```
 
-Отдельно проверен вариант `RESPECT NULLS` (в Oracle это поведение по
-умолчанию, но его можно выписать явно) — ora2pg точно так же копирует
-его в вывод, и PostgreSQL так же падает:
+The `RESPECT NULLS` variant was checked separately — in Oracle that is the
+default behaviour, but it can be written out explicitly. ora2pg copies it
+into the output the same way, and PostgreSQL fails the same way:
 
 ```
 ERROR:  syntax error at or near "RESPECT"
@@ -45,14 +45,14 @@ LINE 1: SELECT FIRST_VALUE(salary RESPECT NULLS) OVER (ORDER BY hire...
                                   ^
 ```
 
-Поэтому детектор помечает обе формы, а не только «интересную».
+So the detector flags both forms, not only the "interesting" one.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/ignore_nulls.py`. Ручная переработка:
-прямого синтаксиса в PostgreSQL 16 нет, `IGNORE NULLS` эмулируется —
-обычно через группирующий ключ `count(col) FILTER (WHERE col IS NOT
-NULL)` плюс `first_value` внутри группы, либо через боковой подзапрос.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/ignore_nulls.py`. Manual rework: PostgreSQL
+16 has no direct syntax, so `IGNORE NULLS` is emulated — usually through a
+grouping key built with `count(col) FILTER (WHERE col IS NOT NULL)` plus
+`first_value` within the group, or through a lateral subquery.

@@ -1,11 +1,10 @@
-# GAP-045: `PERIOD FOR` — Temporal Validity, обрубок в выводе
+# GAP-045: `PERIOD FOR` — Temporal Validity, truncated in the output
 
-Oracle feature: `PERIOD FOR <имя> (<начало>, <конец>)` (12c Temporal
-Validity) — объявление периода действительности строки, дающее
-возможность запрашивать состояние «как было на дату» через
-`AS OF PERIOD FOR`.
+Oracle feature: `PERIOD FOR <name> (<start>, <end>)` (12c Temporal
+Validity) — declares a row's validity period, enabling "as it was on a
+date" queries through `AS OF PERIOD FOR`.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE emp_hist (
@@ -16,7 +15,7 @@ CREATE TABLE emp_hist (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE TABLE emp_hist (
@@ -27,14 +26,14 @@ CREATE TABLE emp_hist (
 ) ;
 ```
 
-Это не отбрасывание секции и не копирование её целиком — в списке
-столбцов остаётся **обрубок** `period FOR`, без имени периода и без
-списка столбцов.
+This is neither dropping the clause nor copying it whole — a **stump**,
+`period FOR`, is left in the column list, with no period name and no
+column list.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16 — ломается создание всей таблицы,
-а не только теряется фича:
+Confirmed against a real PostgreSQL 16 — creating the whole table breaks,
+not merely the feature being lost:
 
 ```
 ERROR:  syntax error at or near "FOR"
@@ -44,11 +43,10 @@ LINE 5:  period FOR
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/temporal_validity.py`. У PostgreSQL нет
-встроенной temporal validity. Ручная переработка: обычная пара
-timestamp-столбцов плюс фильтрация по ним в запросах, либо тип
-`tstzrange` с ограничением-исключением, если нужен контроль пересечений
-периодов.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/temporal_validity.py`. PostgreSQL has no
+built-in temporal validity. Manual rework: an ordinary pair of timestamp
+columns plus filtering on them in queries, or a `tstzrange` type with an
+exclusion constraint if overlapping periods need to be controlled.

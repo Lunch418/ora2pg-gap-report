@@ -1,11 +1,11 @@
-# GAP-103: `COLLATE` выбрасывается, всё становится `citext`
+# GAP-103: `COLLATE` is dropped and everything becomes `citext`
 
-MSSQL feature: `COLLATE` на столбце — правило сравнения и сортировки
-строк.
+MSSQL feature: `COLLATE` on a column — the comparison and sorting rule
+for strings.
 
-## Минимальный пример
+## Minimal example
 
-Взято правило с `_CS_` — регистрозависимое:
+A `_CS_` collation is used here — case-sensitive:
 
 ```sql
 CREATE TABLE cs1 (
@@ -14,7 +14,7 @@ CREATE TABLE cs1 (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-M -t TABLE`)
+## ora2pg output (v25.0, `-M -t TABLE`)
 
 ```sql
 CREATE TABLE cs1 (
@@ -23,14 +23,14 @@ CREATE TABLE cs1 (
 ) ;
 ```
 
-Оговорка `COLLATE` выброшена, а сам столбец отображён в `citext` —
-регистронезависимый тип.
+The `COLLATE` clause is dropped and the column itself is mapped to
+`citext` — a case-insensitive type.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Для исходных правил с `_CI_` это попадание в цель. Для `_CS_` — молчаливая
-подмена смысла на противоположный. Проверено на живых данных, реальный
-PostgreSQL 16:
+For source collations with `_CI_` this hits the target. For `_CS_` it is
+a silent substitution of the opposite meaning. Verified on live data,
+real PostgreSQL 16:
 
 ```
 =# INSERT INTO cs1 VALUES (1,'ABC');
@@ -40,23 +40,23 @@ PostgreSQL 16:
                      1
 ```
 
-SQL Server с правилом `..._CS_AS` не нашёл бы здесь ничего.
+SQL Server with the `..._CS_AS` collation would have found nothing here.
 
-Ошибки при этом нет ни на одном этапе — меняется только выдача
-запросов, и заметно это в бою: ломаются проверки уникальности, поиск по
-коду, сравнение идентификаторов.
+There is no error at any stage — only query results change, and that
+shows up in production: uniqueness checks, code lookups and identifier
+comparisons all break.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage semantic.** Severity
-здесь high, а не medium, именно потому, что меняется результат запросов,
-а не план их выполнения (ср. GAP-025/`invisible_index`, где теряется
-только подсказка оптимизатору). Чинится заменой `citext` на `text` с
-явным `COLLATE` нужной чувствительности — в PostgreSQL для этого есть
-ICU-правила. Родственный gap на MySQL-стороне — GAP-085, но там
-направление подмены обратное: регистронезависимое сравнение становится
-регистрозависимым. Реализовано:
+**Gap confirmed, severity high, failure_stage semantic.** Severity is
+high rather than medium precisely because query results change, not just
+the execution plan (cf. GAP-025/`invisible_index`, where only an
+optimizer hint is lost). Fixed by replacing `citext` with `text` plus an
+explicit `COLLATE` of the required sensitivity — PostgreSQL offers ICU
+collations for exactly this. The related gap on the MySQL side is
+GAP-085, but there the substitution runs the other way: case-insensitive
+comparison becomes case-sensitive. Implemented:
 `ora2pg_gap_report/detectors/mssql_collation.py`.

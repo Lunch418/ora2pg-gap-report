@@ -1,9 +1,9 @@
-# GAP-104: вычисляемый столбец получает тип `citext`
+# GAP-104: a computed column gets the type `citext`
 
-MSSQL feature: вычисляемый столбец — `<имя> AS (<выражение>)`, с
-`PERSISTED` или без.
+MSSQL feature: a computed column — `<name> AS (<expression>)`, with or
+without `PERSISTED`.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE items3 (
@@ -14,7 +14,7 @@ CREATE TABLE items3 (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-M -t TABLE`)
+## ora2pg output (v25.0, `-M -t TABLE`)
 
 ```sql
 CREATE TABLE items3 (
@@ -34,14 +34,13 @@ $BODY$
  LANGUAGE 'plpgsql' SECURITY DEFINER;
 ```
 
-Подход с триггером сам по себе рабочий, но тип столбца выведен как
-`citext` — независимо от того, что считает выражение. Заодно в тело
-триггера попало служебное слово `PERSISTED`.
+The trigger approach itself works, but the column type came out as
+`citext` — regardless of what the expression computes. The keyword
+`PERSISTED` also made it into the trigger body.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ошибки нет ни на загрузке, ни при вставке. Проверено на реальном
-PostgreSQL 16:
+No error at load or on insert. Verified on a real PostgreSQL 16:
 
 ```
 =# \d items3
@@ -53,21 +52,23 @@ PostgreSQL 16:
  total  | citext        |
 ```
 
-Значение посчитается и запишется, но дальше это уже строка: сортировка
-идёт лексикографически (`'100' < '20'`), сравнение с числом и `SUM()` по
-столбцу падают или дают не то.
+The value is computed and stored, but from then on it is a string:
+sorting is lexicographic (`'100' < '20'`), and comparison against a
+number or `SUM()` over the column either fails or returns the wrong
+thing.
 
-Слово `PERSISTED` в теле триггера, как ни странно, ошибки не вызывает:
-PostgreSQL читает его как псевдоним столбца в выражении — ровно та же
-безобидная случайность, что и с `STORED` на MySQL-стороне.
+The word `PERSISTED` in the trigger body, oddly enough, causes no error:
+PostgreSQL reads it as a column alias in the expression — exactly the
+same harmless accident as with `STORED` on the MySQL side.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage semantic.** Чинится
-заменой типа столбца на тот, что реально считает выражение, а лучше —
-переносом на штатный `GENERATED ALWAYS AS (...) STORED`, который в
-PostgreSQL есть и делает ровно то же, что `PERSISTED` в SQL Server.
-Реализовано: `ora2pg_gap_report/detectors/mssql_computed_column.py`.
+**Gap confirmed, severity high, failure_stage semantic.** Fixed by
+changing the column to the type the expression actually computes, or
+better, by moving to the built-in `GENERATED ALWAYS AS (...) STORED`,
+which PostgreSQL has and which does exactly what `PERSISTED` does in SQL
+Server. Implemented:
+`ora2pg_gap_report/detectors/mssql_computed_column.py`.

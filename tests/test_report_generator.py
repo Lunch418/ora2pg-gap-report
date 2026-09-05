@@ -319,8 +319,41 @@ def test_to_markdown_empty_findings_in_english():
 
 def test_to_markdown_uses_english_column_headers():
     markdown = to_markdown([SAMPLE_FINDING], lang="en")
-    assert "| File | Object | Line | Severity | Snippet | Comment | GAP | Fails at |" in markdown
+    assert "| File | Object | Line | Severity | Snippet | Problem | GAP | Fails at |" in markdown
     assert "Файл" not in markdown
+
+
+def test_to_markdown_links_to_one_explanation_instead_of_inlining_it():
+    # The explanation is 400-600 characters and identical for every
+    # finding a detector produced. Inlined, a row ran to about a thousand
+    # characters -- valid Markdown, unreadable as a table, and most of the
+    # document's size.
+    two = [SAMPLE_FINDING, dataclasses.replace(SAMPLE_FINDING, line=999)]
+    markdown = to_markdown(two, lang="en")
+    table_rows = [ln for ln in markdown.splitlines() if ln.startswith("| ") and "---" not in ln]
+    assert all(len(row) < 200 for row in table_rows[1:]), table_rows[1:]
+
+    explanation = messages.text(SAMPLE_FINDING.message_id, "en")
+    assert markdown.count(explanation) == 1
+    assert "## Explanations" in markdown
+    assert f"### {SAMPLE_FINDING.detector}" in markdown
+
+
+def test_the_markdown_link_target_matches_the_heading_anchor():
+    # A link to an anchor that does not exist is worse than no link.
+    markdown = to_markdown([SAMPLE_FINDING], lang="en")
+    anchor = SAMPLE_FINDING.detector.replace("_", "")
+    assert f"[{SAMPLE_FINDING.detector}](#{anchor})" in markdown
+    # GitHub builds the anchor by lowercasing the heading and dropping
+    # anything that isn't a word character or a space; a detector name is
+    # already lowercase with underscores, so the two must agree.
+    heading = f"### {SAMPLE_FINDING.detector}"
+    assert heading in markdown
+    assert "".join(c for c in heading[4:].lower() if c.isalnum()) == anchor
+
+
+def test_to_markdown_writes_no_explanations_section_when_there_is_nothing_to_explain():
+    assert "## Explanations" not in to_markdown([], lang="en")
 
 
 def test_to_html_empty_findings_in_english():

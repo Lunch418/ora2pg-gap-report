@@ -1,10 +1,10 @@
-# GAP-086: `SET(...)` превращается в `text` без проверки
+# GAP-086: `SET(...)` becomes `text` with no validation
 
-MySQL/MariaDB feature: `SET('a','b',...)` — тип для набора значений: в
-столбце может лежать любое подмножество перечисленного списка сразу
-(хранится битовой маской).
+MySQL/MariaDB feature: `SET('a','b',...)` — a type for a set of values:
+the column may hold any subset of the listed values at once (stored as a
+bit mask).
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE perms (
@@ -13,7 +13,7 @@ CREATE TABLE perms (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-m -t TABLE`)
+## ora2pg output (v25.0, `-m -t TABLE`)
 
 ```sql
 CREATE TABLE perms (
@@ -23,24 +23,24 @@ CREATE TABLE perms (
 ALTER TABLE perms ADD PRIMARY KEY (id);
 ```
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ошибки нет ни на загрузке, ни потом, и уже накопленные данные
-переносятся как есть. Теряется ровно проверка: после миграции в столбец
-можно записать любую строку, включая значение не из списка и просто
-мусор.
+No error at load or afterwards, and data already accumulated is migrated
+as-is. What is lost is exactly the validation: after the migration any
+string can be written into the column, including a value not on the list,
+or plain garbage.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity medium, failure_stage semantic.** Severity
-здесь ниже, чем у родственного `ENUM` (GAP-068), осознанно: `ENUM`
-ломает загрузку схемы наглухо — генерируется ссылка на несуществующий
-тип, — а тут схема поднимается и работает, существующие значения
-сохраняются, и ни один запрос не начинает возвращать неверный ответ.
-Вопрос только в проверке будущих записей. Восстанавливается
-`CHECK`-ограничением, массивом с проверкой допустимых элементов либо
-отдельной таблицей связей — последнее честнее всего, если значений
-много. Реализовано: `ora2pg_gap_report/detectors/mysql_set_type.py`.
+**Gap confirmed, severity medium, failure_stage semantic.** Severity
+here is deliberately lower than for the related `ENUM` (GAP-068): `ENUM`
+breaks the schema load outright — a reference to a non-existent type is
+generated — whereas here the schema comes up and works, existing values
+are preserved, and no query starts returning a wrong answer. The only
+question is validation of future writes. Restored with a `CHECK`
+constraint, an array with a check on the allowed elements, or a separate
+link table — the last being the most honest option when there are many
+values. Implemented: `ora2pg_gap_report/detectors/mysql_set_type.py`.

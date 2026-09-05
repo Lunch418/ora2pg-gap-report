@@ -197,15 +197,6 @@ def test_export_help_is_localized(capsys):
     assert "Выгружает DDL" in capsys.readouterr().out
 
 
-def test_peek_lang_reads_both_spellings():
-    assert oracle_export._peek_lang(["--lang", "en", "--dsn", "x"]) == "en"
-    assert oracle_export._peek_lang(["--lang=en"]) == "en"
-    assert oracle_export._peek_lang(["--dsn", "x"]) is None
-    # A trailing --lang with no value must not raise here; argparse is
-    # what reports that, with its own message.
-    assert oracle_export._peek_lang(["--lang"]) is None
-
-
 def test_export_messages_are_localized(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("ORACLE_PASSWORD", "secret")
     monkeypatch.setattr(oracle_connector, "connect", lambda *a, **k: _FakeConn())

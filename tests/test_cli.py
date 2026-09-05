@@ -1630,3 +1630,59 @@ def test_ora2pg_version_warning_names_both_versions_on_a_mismatch(monkeypatch):
     # in there too -- "your version differs" without saying from what is
     # not actionable.
     assert "25.0" in warning
+
+
+def test_the_output_extension_picks_the_format():
+    # `--output report.json` used to write Markdown into a file named
+    # .json -- no error, no warning, just the wrong content under a name
+    # that promised otherwise.
+    from pathlib import Path
+
+    from ora2pg_gap_report.cli import resolve_format
+
+    for name, expected in (
+        ("r.json", "json"), ("r.csv", "csv"), ("r.sarif", "sarif"),
+        ("r.html", "html"), ("r.htm", "html"), ("r.md", "markdown"),
+        ("R.JSON", "json"),  # extensions are matched case-insensitively
+    ):
+        assert resolve_format(None, Path(name), stdout_is_tty=False) == expected, name
+
+
+def test_an_explicit_format_still_beats_the_extension():
+    from pathlib import Path
+
+    from ora2pg_gap_report.cli import resolve_format
+
+    assert resolve_format("csv", Path("r.json"), stdout_is_tty=False) == "csv"
+
+
+def test_an_uninformative_extension_keeps_the_old_default():
+    # .txt and .out say nothing about content; guessing from them would be
+    # worse than the documented default.
+    from pathlib import Path
+
+    from ora2pg_gap_report.cli import resolve_format
+
+    for name in ("r.txt", "r.out", "report"):
+        assert resolve_format(None, Path(name), stdout_is_tty=False) == "markdown", name
+    assert resolve_format(None, None, stdout_is_tty=True) == "terminal"
+
+
+def test_writing_to_a_json_path_really_produces_json(tmp_path):
+    # End to end, not just the resolver: the file has to parse.
+    import json
+
+    out = tmp_path / "report.json"
+    exit_code = main([str(SAMPLES / "logger.pkb"), "-o", str(out)])
+    assert exit_code == 0
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["findings"], "expected findings on a known-bad sample"
+
+
+def test_the_short_flags_mean_the_same_as_the_long_ones(tmp_path):
+    out_short = tmp_path / "short.md"
+    out_long = tmp_path / "long.md"
+    main([str(SAMPLES / "logger.pkb"), "-f", "markdown", "-o", str(out_short), "-l", "en"])
+    main([str(SAMPLES / "logger.pkb"), "--format", "markdown", "--output", str(out_long),
+          "--lang", "en"])
+    assert out_short.read_text(encoding="utf-8") == out_long.read_text(encoding="utf-8")

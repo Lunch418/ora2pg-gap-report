@@ -1,10 +1,10 @@
-# GAP-027: `CREATE MATERIALIZED VIEW LOG` не конвертируется вообще
+# GAP-027: `CREATE MATERIALIZED VIEW LOG` is not converted at all
 
-Oracle feature: журнал изменений таблицы (`CREATE MATERIALIZED VIEW LOG
-ON table ...`), нужный для инкрементального `FAST REFRESH`
-материализованных представлений, построенных на этой таблице.
+Oracle feature: a table's change log (`CREATE MATERIALIZED VIEW LOG ON
+table ...`), required for the incremental `FAST REFRESH` of materialized
+views built on that table.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE products (
@@ -17,7 +17,7 @@ WITH ROWID, SEQUENCE (product_id, name)
 INCLUDING NEW VALUES;
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```
 [DEBUG] unhandled line: CREATE MATERIALIZED VIEW LOG ON products
@@ -25,32 +25,31 @@ WITH ROWID, SEQUENCE (product_id, name)
 INCLUDING NEW VALUES;
 ```
 
-Конструкция полностью пропадает из вывода — не как
-`-- Unsupported`-комментарий, а без единого следа кроме служебной строки
-уровня **DEBUG** в логе.
+The construct disappears from the output completely — not as an
+`-- Unsupported` comment, but without a trace beyond a **DEBUG**-level
+line in the log.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Не синтаксическая ошибка — сама таблица `products` создаётся
-нормально, журнал просто не появляется вообще. Если где-то в схеме
-построено материализованное представление с `REFRESH FAST` на этой
-таблице, оно перестаёт работать в режиме быстрого обновления без явного
-журнала. В PostgreSQL у материализованных представлений нет
-инкрементального `REFRESH FAST` вообще — только полный `REFRESH
-MATERIALIZED VIEW` — так что сама концепция журнала изменений там не
-нужна, но это означает архитектурно другой подход к освежению данных
-(полный пересчёт вместо инкрементального), который нужно спроектировать
-заново, а не просто перенести синтаксис.
+Not a syntax error — the `products` table itself is created normally, the
+log simply never appears. If a materialized view with `REFRESH FAST` on
+this table exists anywhere in the schema, it stops working in fast-refresh
+mode without an explicit log. PostgreSQL has no incremental `REFRESH FAST`
+for materialized views at all — only a full `REFRESH MATERIALIZED VIEW` —
+so the concept of a change log is not needed there; but that means an
+architecturally different approach to refreshing the data (a full
+recomputation instead of an incremental one), which has to be designed
+anew rather than carried over syntactically.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/materialized_view_log.py`. Severity
-`high` — тот же профиль, что у GAP-013/GAP-018
-(`table_partitioning`/`external_table`): конструкция молча пропадает
-без единой ошибки от PostgreSQL, но означает реальную архитектурную
-потерю (здесь — стратегия обновления зависимых материализованных
-представлений), а не просто субоптимальность (ср. GAP-025, где
-severity `medium` именно потому, что риск ограничен планом выполнения).
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/materialized_view_log.py`. Severity `high` —
+the same profile as GAP-013/GAP-018
+(`table_partitioning`/`external_table`): the construct silently disappears
+with no error at all from PostgreSQL, yet it means a real architectural
+loss (here, the refresh strategy of dependent materialized views) rather
+than mere suboptimality — compare GAP-025, which is `medium` precisely
+because its risk is confined to the execution plan.

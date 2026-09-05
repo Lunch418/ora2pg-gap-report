@@ -1,10 +1,10 @@
-# GAP-026: `CREATE TABLE ... READ ONLY` теряет гарантию неизменяемости
+# GAP-026: `CREATE TABLE ... READ ONLY` loses its immutability guarantee
 
-Oracle feature: `CREATE TABLE ... READ ONLY` — сервер блокирует любой
-`INSERT`/`UPDATE`/`DELETE` в такую таблицу (`ORA-12081`), независимо от
-привилегий подключившегося пользователя, включая владельца схемы.
+Oracle feature: `CREATE TABLE ... READ ONLY` — the server blocks any
+`INSERT`/`UPDATE`/`DELETE` against such a table (`ORA-12081`), regardless
+of the connected user's privileges, including the schema owner's.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE audit_log (
@@ -13,7 +13,7 @@ CREATE TABLE audit_log (
 ) READ ONLY;
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE TABLE audit_log (
@@ -22,33 +22,33 @@ CREATE TABLE audit_log (
 ) ;
 ```
 
-Секция `READ ONLY` пропадает без следа.
+The `READ ONLY` clause disappears without trace.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Не синтаксическая ошибка — `CREATE TABLE` выполняется без проблем.
-Подтверждено на реальном PostgreSQL 16 напрямую:
+Not a syntax error — the `CREATE TABLE` runs without trouble. Confirmed
+against a real PostgreSQL 16 directly:
 
 ```sql
 INSERT INTO audit_log VALUES (1, 'should have been blocked in Oracle');
--- INSERT 0 1  -- прошло успешно
+-- INSERT 0 1  -- succeeded
 ```
 
-В Oracle этот же `INSERT` гарантированно завершился бы ошибкой
-`ORA-12081: update operation not allowed on table`. Потеряна не просто
-синтаксическая деталь, а гарантия целостности данных на уровне сервера
-— для таблицы-снапшота или исторического архива это может быть
-единственной защитой от случайной записи.
+On Oracle that same `INSERT` would have failed with `ORA-12081: update
+operation not allowed on table`, guaranteed. What is lost is not a
+syntactic detail but a server-enforced data-integrity guarantee — for a
+snapshot table or a historical archive that may be the only protection
+against an accidental write.
 
-У PostgreSQL нет прямого аналога `READ ONLY` для обычной таблицы —
-обычно переписывается через `REVOKE INSERT, UPDATE, DELETE` от всех
-ролей (включая владельца — в PostgreSQL владелец по умолчанию всё ещё
-обходит `REVOKE`, так что нужен более явный механизм) или через
-`BEFORE`-триггер, отклоняющий DML явно.
+PostgreSQL has no direct analogue of `READ ONLY` for an ordinary table.
+The usual rewrite is `REVOKE INSERT, UPDATE, DELETE` from every role —
+though in PostgreSQL the owner still bypasses `REVOKE` by default, so a
+more explicit mechanism is needed — or a `BEFORE` trigger that rejects DML
+outright.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
+**Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/read_only_table.py`.

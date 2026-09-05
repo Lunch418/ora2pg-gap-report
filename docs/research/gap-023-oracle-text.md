@@ -1,10 +1,10 @@
-# GAP-023: Oracle Text — домен-индекс отбрасывается, функции поиска не переносятся
+# GAP-023: Oracle Text — the domain index is dropped and the search functions are not carried over
 
-Oracle feature: Oracle Text — полнотекстовый поиск через домен-индекс
-(`CREATE INDEX ... INDEXTYPE IS CTXSYS.CONTEXT`, также `CTXCAT`/
-`CTXRULE`) и функции `CONTAINS()`/`CATSEARCH()`/`MATCHES()`.
+Oracle feature: Oracle Text — full-text search through a domain index
+(`CREATE INDEX ... INDEXTYPE IS CTXSYS.CONTEXT`, also `CTXCAT`/`CTXRULE`)
+and the `CONTAINS()`/`CATSEARCH()`/`MATCHES()` functions.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE articles (article_id NUMBER, body CLOB);
@@ -19,7 +19,7 @@ FROM articles
 WHERE CONTAINS(body, 'oracle') > 0;
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE` и `-t PACKAGE`)
+## ora2pg output (v25.0, `-t TABLE` and `-t PACKAGE`)
 
 ```sql
 CREATE TABLE articles (
@@ -29,37 +29,36 @@ CREATE TABLE articles (
 CREATE INDEX articles_body_idx ON articles (body);
 ```
 
-Секция `INDEXTYPE IS CTXSYS.CONTEXT` пропадает без следа — индекс
-конвертируется как обычный B-tree. Вызов `CONTAINS(body, 'oracle')`
-копируется как есть.
+The `INDEXTYPE IS CTXSYS.CONTEXT` clause disappears without trace — the
+index is converted as an ordinary B-tree. The `CONTAINS(body, 'oracle')`
+call is copied as written.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Создание индекса и таблицы проходит без ошибки — но это не обычная
-таблица-с-обычным-индексом, а таблица, у которой полностью потеряна
-возможность полнотекстового поиска, ради которой индекс изначально
-создавался: обычный B-tree по `CLOB`/`text` столбцу не даёт ничего похожего
-на `CONTAINS()`.
+Creating the table and the index succeeds without error — but this is not
+an ordinary table with an ordinary index: it is a table that has entirely
+lost the full-text search capability the index existed for. A plain B-tree
+over a `CLOB`/`text` column gives nothing resembling `CONTAINS()`.
 
-Подтверждено на реальном PostgreSQL 16 — вызов `CONTAINS()` падает при
-первом вызове:
+Confirmed against a real PostgreSQL 16 — the `CONTAINS()` call fails on
+the first invocation:
 
 ```
 ERROR:  function contains(text, unknown) does not exist
 HINT:  No function matches the given name and argument types.
 ```
 
-У PostgreSQL есть архитектурный эквивалент — `tsvector`/`tsquery` +
-GIN-индекс (`to_tsvector(...)`/`@@`), но это принципиально другой
-синтаксис и модель (языковые словари, ранжирование через `ts_rank`),
-требующий ручного переписывания, а не синтаксической замены.
+PostgreSQL has an architectural equivalent — `tsvector`/`tsquery` plus a
+GIN index (`to_tsvector(...)`/`@@`) — but it is a fundamentally different
+syntax and model (language dictionaries, ranking via `ts_rank`), requiring
+a manual rewrite rather than a syntactic substitution.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/oracle_text.py` — покрывает как сам
-домен-индекс (`INDEXTYPE IS CTXSYS.*`), так и функции поиска
-(`CONTAINS`/`CATSEARCH`/`MATCHES`), поскольку оба конца одной и той же
-фичи теряются одинаково молча.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/oracle_text.py` — it covers both the domain
+index itself (`INDEXTYPE IS CTXSYS.*`) and the search functions
+(`CONTAINS`/`CATSEARCH`/`MATCHES`), since both ends of the same feature are
+lost equally silently.

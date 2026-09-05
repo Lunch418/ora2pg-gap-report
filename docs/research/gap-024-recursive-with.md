@@ -1,14 +1,14 @@
-# GAP-024: нативная рекурсивная `WITH ... AS (...)` без ключевого слова `RECURSIVE`
+# GAP-024: a native recursive `WITH ... AS (...)` with no `RECURSIVE` keyword
 
-Oracle feature: рекурсивная факторизация подзапроса (recursive subquery
-factoring) — `WITH cte (cols) AS (anchor UNION [ALL] recursive-branch)`,
-где рекурсивная ветка ссылается на сам `cte`. Не то же самое, что
-`CONNECT BY` (см. GAP-005) — это отдельный, современный, портируемый
-способ писать рекурсивные запросы, без иерархических Oracle-расширений.
-Oracle не требует явного ключевого слова `RECURSIVE` — рекурсия
-определяется автоматически по самоссылке.
+Oracle feature: recursive subquery factoring — `WITH cte (cols) AS (anchor
+UNION [ALL] recursive-branch)`, where the recursive branch references `cte`
+itself. Not the same thing as `CONNECT BY` (see GAP-005): this is a
+separate, modern, portable way of writing recursive queries, without
+Oracle's hierarchical extensions. Oracle does not require an explicit
+`RECURSIVE` keyword — the recursion is detected automatically from the
+self-reference.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 WITH tree (employee_id, manager_id) AS (
@@ -21,7 +21,7 @@ WITH tree (employee_id, manager_id) AS (
 SELECT COUNT(*) INTO v_count FROM tree;
 ```
 
-## Вывод ora2pg (v25.0, `-t PACKAGE`)
+## ora2pg output (v25.0, `-t PACKAGE`)
 
 ```sql
 WITH tree(employee_id, manager_id) AS (
@@ -30,12 +30,12 @@ WITH tree(employee_id, manager_id) AS (
 SELECT COUNT(*)                     FROM tree
 ```
 
-`WITH` копируется как есть — ключевое слово `RECURSIVE` не добавлено.
+The `WITH` is copied as written — the `RECURSIVE` keyword is not added.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16: `CREATE PROCEDURE` проходит без
-ошибки, падает при первом вызове:
+Confirmed against a real PostgreSQL 16: `CREATE PROCEDURE` succeeds
+without error and fails on the first call:
 
 ```
 ERROR:  relation "tree" does not exist
@@ -45,25 +45,26 @@ HINT:  Use WITH RECURSIVE, or re-order the WITH items to remove forward
        references.
 ```
 
-PostgreSQL требует ключевое слово `RECURSIVE` явно — без него самоссылка
-на CTE во второй ветке `UNION` не резолвится.
+PostgreSQL requires the `RECURSIVE` keyword explicitly — without it the
+CTE's self-reference in the second `UNION` branch does not resolve.
 
-Отдельно проверено: если Oracle-запрос дополнительно использует секцию
-`CYCLE` (`WITH cte (...) CYCLE col SET flag TO 'Y' DEFAULT 'N' AS (...)`
-— секция стоит перед `AS`), простого добавления `RECURSIVE` недостаточно
-— в PostgreSQL секция `CYCLE` синтаксически идёт **после** закрывающей
-скобки тела CTE, а не перед `AS`, и требует обязательную секцию `USING
-path_column`, которой в Oracle-варианте нет вообще. То есть у запросов с
-`CYCLE` это два накладывающихся друг на друга разных нарушения
-совместимости, не одно.
+Checked separately: if the Oracle query additionally uses a `CYCLE` clause
+(`WITH cte (...) CYCLE col SET flag TO 'Y' DEFAULT 'N' AS (...)` — the
+clause sits before `AS`), simply adding `RECURSIVE` is not enough. In
+PostgreSQL the `CYCLE` clause syntactically follows the closing
+parenthesis of the CTE body rather than preceding `AS`, and requires a
+mandatory `USING path_column` clause that the Oracle form does not have at
+all. So for queries with `CYCLE` these are two overlapping, distinct
+incompatibilities rather than one.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/recursive_with.py`. Детектор ищет `WITH
-name AS (` без предшествующего `RECURSIVE`, где тело содержит `UNION`
-и имя CTE снова встречается в `FROM`-части одной из веток после первого
-`UNION` — так исключаются как обычные, нерекурсивные `UNION`-CTE, так и
-случайное совпадение имени CTE с алиасом столбца.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/recursive_with.py`. The detector looks for
+`WITH name AS (` with no preceding `RECURSIVE`, where the body contains a
+`UNION` and the CTE's name appears again in the `FROM` part of one of the
+branches after that first `UNION` — which excludes both ordinary
+non-recursive `UNION` CTEs and an accidental collision between a CTE name
+and a column alias.

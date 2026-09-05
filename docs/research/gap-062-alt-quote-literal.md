@@ -1,9 +1,9 @@
-# GAP-062: альтернативные кавычки `q'[...]'`
+# GAP-062: alternative quoting `q'[...]'`
 
-Oracle feature: способ записать строку с апострофами внутри, не удваивая
-их.
+Oracle feature: a way to write a string containing apostrophes without
+doubling them.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE PROCEDURE say IS
@@ -14,7 +14,7 @@ END;
 /
 ```
 
-## Вывод ora2pg (v25.0, `-t PROCEDURE`)
+## ora2pg output (v25.0, `-t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE say () AS $body$
@@ -28,18 +28,19 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Литерал скопирован как есть.
+The literal is copied as written.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Загрузка проходит чисто (`check_function_bodies = false` в выводе
-ora2pg):
+The load succeeds cleanly (`check_function_bodies = false` in ora2pg's
+output):
 
 ```
 CREATE PROCEDURE
 ```
 
-Падение — при первом вызове. Подтверждено на реальном PostgreSQL 16:
+The failure comes on the first call. Confirmed against a real PostgreSQL
+16:
 
 ```
 ERROR:  mismatched parentheses at or near "]"
@@ -47,21 +48,21 @@ LINE 4:   msg varchar(100) := q'[it's a test]';
                                             ^
 ```
 
-PostgreSQL читает `q` как отдельный идентификатор, дальше начинается
-обычный строковый литерал `'[it'`, и разбор уезжает.
+PostgreSQL reads `q` as a separate identifier, an ordinary string literal
+`'[it'` starts after it, and the parse goes off the rails.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/alt_quote_literal.py`. Это один из двух
-детекторов, работающих поверх `mask_comments_only()`: `plsql_lex`
-понимает q-кавычки и штатно вымарывает их вместе с остальными
-литералами, то есть обычная маскировка стёрла бы ровно тот текст,
-который здесь ищется. Сканировать сырой исходник тоже нельзя — тогда
-детектор ловил бы закомментированный код.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/alt_quote_literal.py`. This is one of the two
+detectors working over `mask_comments_only()`: `plsql_lex` understands
+q-quotes and duly blanks them along with the other literals, so ordinary
+masking would erase exactly the text being searched for here. Scanning the
+raw source is not an option either — the detector would then catch
+commented-out code.
 
-Ручная переработка: заменить на обычный литерал с удвоенными
-апострофами или, что ближе по духу, на долларовые кавычки PostgreSQL:
-`$q$it's a test$q$` — внутри них экранировать не нужно ничего.
+Manual rework: replace it with an ordinary literal using doubled
+apostrophes, or — closer in spirit — with PostgreSQL's dollar quoting:
+`$q$it's a test$q$`, inside which nothing needs escaping at all.

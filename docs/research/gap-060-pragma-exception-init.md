@@ -1,9 +1,9 @@
-# GAP-060: `PRAGMA EXCEPTION_INIT` — обработчик становится мёртвым кодом
+# GAP-060: `PRAGMA EXCEPTION_INIT` — the handler becomes dead code
 
-Oracle feature: привязка объявленного исключения к номеру ошибки Oracle,
-чтобы ловить её по имени в `WHEN`.
+Oracle feature: binding a declared exception to an Oracle error number, so
+it can be caught by name in `WHEN`.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE PROCEDURE ins_one IS
@@ -18,10 +18,10 @@ END;
 /
 ```
 
-ORA-00001 — нарушение уникальности. В Oracle процедура печатает
+ORA-00001 is a uniqueness violation. On Oracle the procedure prints
 `handled duplicate`.
 
-## Вывод ora2pg (v25.0, `-t PROCEDURE`)
+## ora2pg output (v25.0, `-t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE ins_one () AS $body$
@@ -36,22 +36,23 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Сам `PRAGMA` выброшен, обработчик переписан на `WHEN SQLSTATE '50001'`.
+The `PRAGMA` itself is discarded and the handler rewritten to `WHEN
+SQLSTATE '50001'`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-`'50001'` — константа, не зависящая от номера ORA. Проверено на двух
-разных: `-1` (ORA-00001, уникальность) и `-60` (ORA-00060,
-взаимоблокировка) — в обоих случаях в выводе `SQLSTATE '50001'`.
+`'50001'` is a constant, independent of the ORA number. Checked with two
+different ones: `-1` (ORA-00001, uniqueness) and `-60` (ORA-00060,
+deadlock) — in both cases the output says `SQLSTATE '50001'`.
 
-Процедура создаётся без единой ошибки:
+The procedure is created without a single error:
 
 ```
 CREATE PROCEDURE
 ```
 
-Дальше — реальный вызов против реального ограничения уникальности.
-Подтверждено на PostgreSQL 16:
+Then comes a real call against a real unique constraint. Confirmed on
+PostgreSQL 16:
 
 ```
 ERROR:  duplicate key value violates unique constraint "uniq_t_pkey"
@@ -60,23 +61,23 @@ CONTEXT:  SQL statement "INSERT INTO uniq_t(id) VALUES (1)"
 PL/pgSQL function ins_one() line 3 at SQL statement
 ```
 
-Обработчик не сработал. Настоящий код PostgreSQL для этой ошибки —
-`23505`, что проверено тут же:
+The handler did not fire. PostgreSQL's real code for this error is
+`23505`, verified in the same session:
 
 ```
 NOTICE:  unique_violation SQLSTATE = 23505
 ```
 
-PostgreSQL никогда не возбуждает `50001`, поэтому обработчик становится
-мёртвым кодом, а обработанная в Oracle ошибка после миграции молча
-вылетает наружу и роняет вызывающий код.
+PostgreSQL never raises `50001`, so the handler becomes dead code, and an
+error that Oracle handled escapes silently after migration and brings down
+the calling code.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/pragma_exception_init.py`. Ручная
-переработка: сопоставить каждый номер ORA с настоящим кодом PostgreSQL и
-заменить `'50001'` на него — или на именованное условие вроде
-`unique_violation` / `deadlock_detected`, что читается лучше.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/pragma_exception_init.py`. Manual rework: map
+each ORA number onto PostgreSQL's real code and replace `'50001'` with it
+— or with a named condition such as `unique_violation` /
+`deadlock_detected`, which reads better.

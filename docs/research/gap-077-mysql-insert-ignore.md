@@ -1,9 +1,9 @@
 # GAP-077: `INSERT IGNORE`
 
-MySQL/MariaDB feature: вставка, превращающая ошибки в предупреждения и
-молча пропускающая проблемные строки.
+MySQL/MariaDB feature: an insert that turns errors into warnings and
+silently skips the offending rows.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE uniq1 (id INT PRIMARY KEY, v INT);
@@ -13,7 +13,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-m -t PROCEDURE`)
+## ora2pg output (v25.0, `-m -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE add_uniq (IN p_id integer) AS $body$
@@ -25,12 +25,12 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Скопировано дословно.
+Copied verbatim.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Загрузка проходит чисто (`check_function_bodies = false` в выводе
-ora2pg). При разборе тела на реальном PostgreSQL 16:
+The load goes through cleanly (`check_function_bodies = false` in
+ora2pg's output). When the body is parsed on a real PostgreSQL 16:
 
 ```
 ERROR:  "uniq1" is not a known variable
@@ -39,12 +39,12 @@ ERROR:  "uniq1" is not a known variable
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.** Ближайший
-аналог — `INSERT ... ON CONFLICT DO NOTHING`, но он уже по охвату:
-`IGNORE` в MySQL глушит не только конфликт уникальности, но и другие
-ошибки вставки, вплоть до обрезания слишком длинных значений и
-подстановки нулей вместо некорректных дат. Если код полагался именно на
-это широкое поведение, дословный перевод изменит смысл. Реализовано:
-`ora2pg_gap_report/detectors/mysql_insert_ignore.py`.
+**Gap confirmed, severity high, failure_stage runtime.** The closest
+counterpart is `INSERT ... ON CONFLICT DO NOTHING`, but it is narrower in
+scope: MySQL's `IGNORE` suppresses not only unique-key conflicts but
+other insert errors as well, down to truncating over-long values and
+substituting zeros for invalid dates. If the code relied on precisely
+that broad behaviour, a literal translation changes its meaning.
+Implemented: `ora2pg_gap_report/detectors/mysql_insert_ignore.py`.

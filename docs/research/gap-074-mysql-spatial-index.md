@@ -1,9 +1,9 @@
 # GAP-074: `SPATIAL KEY`/`SPATIAL INDEX`
 
-MySQL/MariaDB feature: пространственный индекс, объявляемый в списке
-столбцов `CREATE TABLE`.
+MySQL/MariaDB feature: a spatial index declared in the `CREATE TABLE`
+column list.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE places (
@@ -13,7 +13,7 @@ CREATE TABLE places (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-m -t TABLE`)
+## ora2pg output (v25.0, `-m -t TABLE`)
 
 ```sql
 CREATE TABLE places (
@@ -24,12 +24,12 @@ CREATE TABLE places (
 ALTER TABLE places ADD PRIMARY KEY (id);
 ```
 
-Имя индекса (`sp_loc`) и список столбцов (`loc`) потеряны, в выводе
-остались только два ключевых слова.
+The index name (`sp_loc`) and the column list (`loc`) are lost; only the
+two keywords remain in the output.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16:
+Confirmed on a real PostgreSQL 16:
 
 ```
 ERROR:  type "key" does not exist
@@ -37,19 +37,19 @@ LINE 5:  spatial KEY
                  ^
 ```
 
-`CREATE TABLE` падает немедленно, при загрузке схемы.
+`CREATE TABLE` fails immediately, at schema load.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high.** Форма поломки совпадает с
-GAP-072 (`FULLTEXT KEY`) и GAP-073 (`KEY`), но выделен отдельно
-осознанно: и конструкция MySQL другая, и починка другая — не GIN по
-`to_tsvector` и не обычный btree, а `CREATE INDEX ... USING gist
-(<столбец>)` поверх PostGIS-типа. Отдельно стоит проверить сам тип
-столбца: в примере выше `POINT` попал в вывод как есть, и совпадение
-имени с типом PostgreSQL `point` не означает совпадения семантики с
-пространственными типами MySQL. Реализовано:
+**Gap confirmed, severity high.** The shape of the breakage matches
+GAP-072 (`FULLTEXT KEY`) and GAP-073 (`KEY`), but it is kept separate
+deliberately: the MySQL construct is different and so is the fix — not a
+GIN index over `to_tsvector` and not a plain btree, but `CREATE INDEX
+... USING gist (<column>)` on top of a PostGIS type. The column type
+itself is worth checking separately: in the example above `POINT` made it
+into the output as-is, and a name matching PostgreSQL's `point` type does
+not mean the semantics match MySQL's spatial types. Implemented:
 `ora2pg_gap_report/detectors/mysql_spatial_index.py`.

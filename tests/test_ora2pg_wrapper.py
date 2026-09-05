@@ -6,6 +6,7 @@ import pytest
 from ora2pg_gap_report import ora2pg_wrapper
 from ora2pg_gap_report.ora2pg_wrapper import (
     Ora2PgNotFoundError,
+    Ora2PgRunError,
     parse_function_costs,
     parse_totals,
     run_estimate_cost,
@@ -132,3 +133,41 @@ def test_installed_version_is_none_rather_than_a_guess_on_unrecognized_output(mo
         lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, stdout="no version here\n", stderr=""),
     )
     assert ora2pg_wrapper.installed_version() is None
+
+
+def test_a_failure_reports_ora2pgs_stdout_when_stderr_is_empty(monkeypatch, tmp_path):
+    # ora2pg writes its fatal errors to stdout and exits 1 with stderr
+    # empty -- "FATAL: can't find configuration file
+    # /etc/ora2pg/ora2pg.conf" is the most common one there is. Reporting
+    # stderr alone left the user with a bare exit code and no reason.
+    import subprocess
+
+    monkeypatch.setattr(
+        subprocess, "run",
+        lambda cmd, **kw: subprocess.CompletedProcess(
+            cmd, 1,
+            stdout="FATAL: can't find configuration file /etc/ora2pg/ora2pg.conf\n"
+                   + "\n".join(f"    -{c} | --flag{c}" for c in "abcdefghij"),
+            stderr="",
+        ),
+    )
+    with pytest.raises(Ora2PgRunError) as excinfo:
+        ora2pg_wrapper.run_estimate_cost(tmp_path / "x.sql", "PACKAGE")
+    message = str(excinfo.value)
+    assert "can't find configuration file" in message
+    # ora2pg follows the fatal line with its whole usage screen; a hundred
+    # lines of flag documentation is not an error message.
+    assert message.count("\n") <= 6
+
+
+def test_a_failure_still_prefers_stderr_when_there_is_some(monkeypatch, tmp_path):
+    import subprocess
+
+    monkeypatch.setattr(
+        subprocess, "run",
+        lambda cmd, **kw: subprocess.CompletedProcess(
+            cmd, 1, stdout="some progress output", stderr="DBI connect failed",
+        ),
+    )
+    with pytest.raises(Ora2PgRunError, match="DBI connect failed"):
+        ora2pg_wrapper.run_estimate_cost(tmp_path / "x.sql", "PACKAGE")

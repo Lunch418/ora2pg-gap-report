@@ -68,6 +68,16 @@ _TOTAL_RE = re.compile(
 _VERSION_RE = re.compile(r"\bv?(\d+\.\d+(?:\.\d+)?)\b")
 
 
+def _first_lines(text: str, limit: int = 5) -> str:
+    """The first few non-empty lines of `text`.
+
+    For ora2pg's fatal-error output, which is one useful line followed by
+    its entire usage screen -- a hundred lines of flag documentation is
+    not what someone wants to read out of an error message."""
+    lines = [line for line in (text or "").splitlines() if line.strip()]
+    return "\n".join(lines[:limit])
+
+
 def installed_version(ora2pg_bin: str = "ora2pg", timeout: int = 15) -> str | None:
     """The version of the ora2pg on PATH, or None if it can't be
     determined.
@@ -147,8 +157,18 @@ def run_estimate_cost(
             raise Ora2PgRunError(f"ora2pg не ответил за {timeout}с") from exc
 
         if result.returncode != 0:
+            # stderr first, but not only: ora2pg writes its fatal errors to
+            # *stdout* -- "FATAL: can't find configuration file
+            # /etc/ora2pg/ora2pg.conf", followed by its usage text -- and
+            # exits 1 with stderr empty. Reporting stderr alone turned the
+            # single most common ora2pg failure, a missing config, into
+            # "ora2pg завершился с кодом 1:" and nothing else. Found by the
+            # CI job that runs the real binary, which is what that job is
+            # for. The usage dump that follows the FATAL line is noise, so
+            # only the first few lines are kept.
+            detail = (result.stderr or "").strip() or _first_lines(result.stdout)
             raise Ora2PgRunError(
-                f"ora2pg завершился с кодом {result.returncode}:\n{result.stderr}"
+                f"ora2pg завершился с кодом {result.returncode}:\n{detail}"
             )
         if not out_path.exists():
             return ""

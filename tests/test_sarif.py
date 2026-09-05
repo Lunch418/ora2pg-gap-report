@@ -51,7 +51,7 @@ def test_real_scan_produces_valid_sarif(sarif_schema):
 
 def test_line_zero_sentinel_produces_valid_sarif_without_a_region(sarif_schema):
     # line=0 is this project's "not a line in this file" sentinel (see
-    # cli.py's _connect_by_check()) -- SARIF regions are 1-based, so
+    # cli.py's connect_by_check()) -- SARIF regions are 1-based, so
     # emitting startLine=0 would be an invalid document, not just wrong.
     finding = Finding(
         detector="connect_by",

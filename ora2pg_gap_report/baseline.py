@@ -27,11 +27,18 @@ import dataclasses
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 from . import i18n
 from .atomic_write import write_text_atomic
+
 from .gap_registry import gap_metadata
 from .models import Finding
+
+# One saved finding, as save_baseline() writes it: the finding's own
+# fields plus gap_number/failure_stage. Loaded back from JSON, so the
+# value types are whatever JSON allows rather than anything narrower.
+BaselineRecord = dict[str, Any]
 
 SCHEMA_VERSION = 3
 
@@ -105,7 +112,7 @@ def save_baseline(findings: list[Finding], path: Path) -> None:
     write_text_atomic(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 
 
-def load_baseline(path: Path, lang: str = "ru") -> list[dict]:
+def load_baseline(path: Path, lang: str = "ru") -> list[dict[str, Any]]:
     """Raw finding records from a file written by save_baseline(), each
     carrying its 'group_key'."""
     try:
@@ -149,11 +156,11 @@ def load_baseline(path: Path, lang: str = "ru") -> list[dict]:
 @dataclasses.dataclass(frozen=True)
 class BaselineDiff:
     new: list[Finding]
-    resolved: list[dict]
+    resolved: list[BaselineRecord]
     unchanged_count: int
 
 
-def diff_against_baseline(findings: list[Finding], baseline: list[dict]) -> BaselineDiff:
+def diff_against_baseline(findings: list[Finding], baseline: list[BaselineRecord]) -> BaselineDiff:
     """Compares by group counts, not by matching individual records to
     each other -- see the module docstring for why. For a group present
     N times in the baseline and M times now: min(N, M) count as
@@ -162,7 +169,7 @@ def diff_against_baseline(findings: list[Finding], baseline: list[dict]) -> Base
     with more than one instance is arbitrary (list order) when they're
     genuinely indistinguishable; the counts themselves are always
     correct regardless."""
-    baseline_groups: dict[str, list[dict]] = {}
+    baseline_groups: dict[str, list[BaselineRecord]] = {}
     for rec in baseline:
         baseline_groups.setdefault(rec["group_key"], []).append(rec)
 
@@ -171,7 +178,7 @@ def diff_against_baseline(findings: list[Finding], baseline: list[dict]) -> Base
         current_groups.setdefault(group_key(f), []).append(f)
 
     new: list[Finding] = []
-    resolved: list[dict] = []
+    resolved: list[BaselineRecord] = []
     unchanged_count = 0
 
     for key in set(baseline_groups) | set(current_groups):

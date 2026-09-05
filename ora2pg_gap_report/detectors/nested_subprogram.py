@@ -13,7 +13,7 @@ from ..plsql_lex import (
 )
 
 
-def _package_name_at(package_matches: list, position: int) -> str | None:
+def _package_name_at(package_matches: list[re.Match[str]], position: int) -> str | None:
     name = None
     for pm in package_matches:
         if pm.start() > position:

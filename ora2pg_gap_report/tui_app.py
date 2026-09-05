@@ -49,13 +49,13 @@ from . import i18n
 from .baseline import BaselineDiff, BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
 from .core import (
     DIALECTS,
-    _connect_by_check,
-    _expand_paths,
+    connect_by_check,
+    expand_paths,
     baseline_dialects,
     count_objects,
     scan_source,
 )
-from .core import _sort_findings as sort_findings
+from .core import sort_findings
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_metadata
 from . import messages
@@ -127,7 +127,7 @@ def scan_paths(
     objects_scanned = 0
     warnings: list[str] = []
 
-    expanded, empty_dirs = _expand_paths(paths)
+    expanded, empty_dirs = expand_paths(paths)
     for empty_dir in empty_dirs:
         warnings.append(i18n.t(lang, "tui_warning_no_files_under", dir=empty_dir))
 
@@ -189,7 +189,7 @@ def scan_paths(
 
         findings.extend(file_findings)
         if check_connect_by:
-            connect_by_findings, warning = _connect_by_check(file_path, source, ora2pg_bin, lang)
+            connect_by_findings, warning = connect_by_check(file_path, source, ora2pg_bin, lang)
             findings.extend(connect_by_findings)
             if warning:
                 warnings.append(warning)
@@ -208,7 +208,10 @@ def scan_path(
     return scan_paths([path], lang=lang, dialect=dialect)
 
 
-class ScanScreen(Screen):
+# Screen[T] and App[T] are parameterised by what they *return* when
+# dismissed; none of these hand a value back to a caller, so None is
+# the accurate parameter rather than a placeholder.
+class ScanScreen(Screen[None]):
     """Landing screen: pick one or more paths in the tree, choose
     severity/language and any optional checks (CONNECT BY, baseline
     comparison, --verify), press Scan."""
@@ -482,7 +485,7 @@ class ScanScreen(Screen):
         # shared with scan_paths(): --verify treats `paths` as ora2pg's
         # *generated* PostgreSQL output, not Oracle source, so none of
         # scan_paths()'s Oracle-specific extras (--check-connect-by) apply.
-        expanded, empty_dirs = _expand_paths(paths)
+        expanded, empty_dirs = expand_paths(paths)
         warnings = [i18n.t(lang, "tui_warning_no_files_under", dir=d) for d in empty_dirs]
         post_migration_findings: list[Finding] = []
         for file_path in expanded:
@@ -524,7 +527,7 @@ class ScanScreen(Screen):
         )
 
 
-class ResultsScreen(Screen):
+class ResultsScreen(Screen[None]):
     """Findings from one scan: a summary bar, a table, and a details panel
     that fills in when a row is selected -- same information --explain and
     the terminal report already show (message + GAP-NNN + failure_stage),
@@ -603,7 +606,7 @@ class ResultsScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Header()
         yield Static(self._summary_text(), id="summary")
-        table: DataTable = DataTable(id="findings-table", cursor_type="row")
+        table: DataTable[str] = DataTable(id="findings-table", cursor_type="row")
         yield table
         yield Static(i18n.t(self.lang, "tui_results_select_row_hint"), id="detail")
         with Horizontal(id="baseline-save-controls"):
@@ -767,7 +770,7 @@ class ResultsScreen(Screen):
             self.query_one("#summary", Static).update(self._summary_text())
 
 
-class VerifyResultsScreen(Screen):
+class VerifyResultsScreen(Screen[None]):
     """--verify inside the TUI: the same detector-level STILL_PRESENT/
     NOT_DETECTED/NOT_VERIFIABLE comparison terminal_report.py's own
     render_verification() draws with Rich, redrawn here as a DataTable --
@@ -869,7 +872,7 @@ class VerifyResultsScreen(Screen):
             self.app.pop_screen()
 
 
-class GapReportApp(App):
+class GapReportApp(App[None]):
     """Entry point for `ora2pg-gap-report --tui`. See run_tui() below for
     the actual launch (handles the "textual isn't installed" case one
     level up, in cli.py, before this module is even imported)."""

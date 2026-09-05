@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from ora2pg_gap_report import cli, core
-from ora2pg_gap_report.cli import _expand_paths, main, resolve_format, scan_source
+from ora2pg_gap_report.cli import expand_paths, main, resolve_format, scan_source
 
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -556,7 +556,7 @@ def test_expand_paths_recursively_finds_ddl_files_in_a_directory(tmp_path):
     (nested / "logger.pks").write_text("create table t (id number);\n", encoding="utf-8")
     (nested / "readme.txt").write_text("not ddl\n", encoding="utf-8")
 
-    found, empty_dirs = _expand_paths([tmp_path])
+    found, empty_dirs = expand_paths([tmp_path])
 
     assert empty_dirs == []
     assert sorted(p.name for p in found) == ["logger.pkb", "logger.pks", "top.sql"]
@@ -567,7 +567,7 @@ def test_expand_paths_leaves_plain_files_and_missing_paths_untouched(tmp_path):
     real_file.write_text("create table t (id number);\n", encoding="utf-8")
     missing = tmp_path / "does_not_exist.sql"
 
-    found, empty_dirs = _expand_paths([real_file, missing])
+    found, empty_dirs = expand_paths([real_file, missing])
 
     assert found == [real_file, missing]
     assert empty_dirs == []
@@ -581,7 +581,7 @@ def test_expand_paths_matches_uppercase_extensions_too():
     tmp_path_dir.mkdir(exist_ok=True)
     try:
         (tmp_path_dir / "LOGGER.PKB").write_text("create table t (id number);\n", encoding="utf-8")
-        found, empty_dirs = _expand_paths([tmp_path_dir])
+        found, empty_dirs = expand_paths([tmp_path_dir])
         assert empty_dirs == []
         assert [p.name for p in found] == ["LOGGER.PKB"]
     finally:
@@ -597,7 +597,7 @@ def test_expand_paths_deduplicates_a_file_reachable_both_directly_and_via_a_dire
     dup_file = nested / "logger.pkb"
     dup_file.write_text("create table t (id number);\n", encoding="utf-8")
 
-    found, empty_dirs = _expand_paths([nested, dup_file])
+    found, empty_dirs = expand_paths([nested, dup_file])
 
     assert empty_dirs == []
     assert found == [dup_file]
@@ -608,7 +608,7 @@ def test_expand_paths_deduplicates_the_same_directory_listed_twice(tmp_path):
     nested.mkdir()
     (nested / "logger.pkb").write_text("create table t (id number);\n", encoding="utf-8")
 
-    found, empty_dirs = _expand_paths([nested, nested])
+    found, empty_dirs = expand_paths([nested, nested])
 
     assert empty_dirs == []
     assert len(found) == 1
@@ -637,7 +637,7 @@ def test_expand_paths_reports_a_directory_with_no_matching_files(tmp_path):
     empty.mkdir()
     (empty / "readme.txt").write_text("not ddl\n", encoding="utf-8")
 
-    found, empty_dirs = _expand_paths([empty])
+    found, empty_dirs = expand_paths([empty])
 
     assert found == []
     assert empty_dirs == [empty]
@@ -1589,7 +1589,7 @@ def test_an_unexpected_crash_outside_the_scan_loop_is_still_caught_at_the_top_le
     def boom(paths):
         raise ValueError("simulated: bug outside the scan loop")
 
-    monkeypatch.setattr(cli, "_expand_paths", boom)
+    monkeypatch.setattr(cli, "expand_paths", boom)
 
     source = tmp_path / "x.sql"
     source.write_text("SELECT 1;\n", encoding="utf-8")

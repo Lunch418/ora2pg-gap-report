@@ -4,8 +4,8 @@ counting the objects it declares, expanding directory arguments into
 files, and the opt-in CONNECT BY/ora2pg check.
 
 Previously all five lived in cli.py itself, and tui_app.py imported them
-straight from there (_connect_by_check, _expand_paths, count_objects,
-scan_source, _sort_findings) -- coupling the interactive mode to the
+straight from there (connect_by_check, expand_paths, count_objects,
+scan_source, sort_findings) -- coupling the interactive mode to the
 flag-based CLI's own module instead of to a neutral layer both are peers
 of. cli.py still re-exports the same names (see its own imports from this
 module) so nothing about its public surface or its main()'s internal call
@@ -122,6 +122,7 @@ from .detectors.table_partitioning import find_dropped_table_partitioning
 from .detectors.temporal_validity import find_temporal_validity
 from .detectors.virtual_column import find_virtual_columns
 from .detectors.with_function import find_with_function_clauses
+from .baseline import BaselineRecord
 from .models import Finding
 from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError, run_estimate_cost
 from .plsql_lex import enclosing_object_name_index, mask_strings_and_comments
@@ -268,7 +269,14 @@ _DETECTORS_BY_DIALECT = {
 # everywhere, and several callers present these in order.
 DIALECTS: tuple[str, ...] = tuple(_DETECTORS_BY_DIALECT)
 
-_SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+# The four names below are public because they are used from outside this
+# module -- cli.py and tui_app.py both build their whole flow out of them.
+# They carried a leading underscore for a while anyway, which said
+# "internal" while every real caller was elsewhere; tui_app.py had even
+# aliased one back to a public name on import. A convention that has to be
+# worked around at the call site is not documenting anything.
+
+SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 _DDL_SUFFIXES = (".sql", ".pks", ".pkb")
 
 
@@ -336,7 +344,7 @@ def dialect_of_detector(detector: str) -> str | None:
     return _dialect_by_detector().get(detector)
 
 
-def baseline_dialects(baseline: list[dict]) -> tuple[frozenset[str], tuple[str, ...]]:
+def baseline_dialects(baseline: list[BaselineRecord]) -> tuple[frozenset[str], tuple[str, ...]]:
     """`(dialects the snapshot's detectors belong to, detector names that
     belong to none of them)`, for deciding which dialect --verify should
     re-scan the generated output with.
@@ -367,8 +375,8 @@ def baseline_dialects(baseline: list[dict]) -> tuple[frozenset[str], tuple[str, 
     return frozenset(dialects), tuple(sorted(unknown))
 
 
-def _sort_findings(findings: list[Finding]) -> None:
-    findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.object_name, f.line))
+def sort_findings(findings: list[Finding]) -> None:
+    findings.sort(key=lambda f: (SEVERITY_ORDER.get(f.severity, 99), f.object_name, f.line))
 
 
 def scan_source(
@@ -400,7 +408,7 @@ def scan_source(
             if errors is None:
                 raise
             errors.append((detector.__module__.rsplit(".", 1)[-1], exc))
-    _sort_findings(findings)
+    sort_findings(findings)
     return findings
 
 
@@ -432,7 +440,7 @@ def count_objects(source: str) -> int:
     )
 
 
-def _expand_paths(paths: list[Path]) -> tuple[list[Path], list[Path]]:
+def expand_paths(paths: list[Path]) -> tuple[list[Path], list[Path]]:
     """Expand any directories in `paths` into the .sql/.pks/.pkb files they
     contain (recursively, sorted for deterministic output, extension match
     case-insensitive since exported DDL sometimes carries uppercase
@@ -473,7 +481,7 @@ def _expand_paths(paths: list[Path]) -> tuple[list[Path], list[Path]]:
     return expanded, empty_dirs
 
 
-def _connect_by_check(
+def connect_by_check(
     path: Path, source: str, ora2pg_bin: str, lang: str = "ru"
 ) -> tuple[list[Finding], str | None]:
     """Returns (findings, warning) — warning is set instead of raising when

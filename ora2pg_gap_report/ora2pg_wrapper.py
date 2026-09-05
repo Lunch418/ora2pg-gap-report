@@ -42,7 +42,8 @@ class Ora2PgRunError(RuntimeError):
 class FunctionCost:
     name: str
     total_cost: float
-    breakdown: dict  # keyword (e.g. "DBMS_", "CONNECT BY") -> occurrence count
+    # keyword (e.g. "DBMS_", "CONNECT BY") -> occurrence count
+    breakdown: dict[str, int]
 
 
 _FUNCTION_COST_RE = re.compile(
@@ -182,7 +183,7 @@ def parse_function_costs(ora2pg_output: str) -> list[FunctionCost]:
     functions: list[FunctionCost] = []
     name = None
     total = 0.0
-    breakdown: dict = {}
+    breakdown: dict[str, int] = {}
 
     for line in ora2pg_output.splitlines():
         func_match = _FUNCTION_COST_RE.search(line)
@@ -204,7 +205,7 @@ def parse_function_costs(ora2pg_output: str) -> list[FunctionCost]:
     return functions
 
 
-def parse_totals(ora2pg_output: str) -> list[tuple]:
+def parse_totals(ora2pg_output: str) -> list[tuple[str | None, float, float]]:
     """Return (package_name_or_None, total_units, person_days) for every
     "Total estimated cost..." summary line in the output. -t PACKAGE mode
     emits one such line per package (named); -t FUNCTION/PROCEDURE mode

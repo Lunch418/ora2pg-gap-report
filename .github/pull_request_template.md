@@ -1,14 +1,15 @@
-## Что меняется и зачем
+## What changes and why
 
-<!-- Кратко: что за находка/фича, почему она нужна -->
+<!-- Briefly: what the finding/feature is, and why it is needed -->
 
-## Чек-лист
+## Checklist
 
-- [ ] `pytest` — зелёный
-- [ ] `ruff check ora2pg_gap_report/ tests/ scripts/` — зелёный
-- [ ] `python3 scripts/doctor.py` — зелёный
-- [ ] Если это новый детектор: гипотеза подтверждена реальным прогоном
-      `ora2pg` (не по документации), есть минимум один позитивный тест и
-      один guard-тест на ложные срабатывания, research-документ добавлен
-      в `docs/research/` и зарегистрирован в `gap_registry.py`
-- [ ] CHANGELOG.md обновлён
+- [ ] `pytest` — green
+- [ ] `ruff check ora2pg_gap_report/ tests/ scripts/` — green
+- [ ] `python3 scripts/doctor.py` — green
+- [ ] For a new detector: the hypothesis is confirmed by a real `ora2pg`
+      run (not from the documentation), there is at least one positive
+      test and one guard test against false positives, and a research
+      document has been added to `docs/research/` and registered in
+      `gap_registry.py`
+- [ ] CHANGELOG.md updated

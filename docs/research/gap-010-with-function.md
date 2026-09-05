@@ -1,10 +1,10 @@
-# GAP-010: `WITH FUNCTION`/`WITH PROCEDURE` — парсер ora2pg разваливает структуру
+# GAP-010: `WITH FUNCTION`/`WITH PROCEDURE` — ora2pg's parser destroys the structure
 
-Oracle feature (12c+): встроенное определение функции/процедуры прямо
-внутри `WITH`-предложения запроса — область видимости ограничена этим
-запросом, без отдельного объявления в пакете.
+Oracle feature (12c+): an inline function or procedure defined directly
+inside a query's `WITH` clause — scoped to that query, with no separate
+declaration in a package.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE PACKAGE BODY calc_pkg AS
@@ -22,10 +22,11 @@ END calc_pkg;
 /
 ```
 
-## Вывод ora2pg (v25.0, `-t PACKAGE`)
+## ora2pg output (v25.0, `-t PACKAGE`)
 
-Это самая серьёзная по характеру находка проекта — не "конструкция не
-конвертируется", а **парсер полностью разваливает структуру исходника**:
+This is the project's most serious finding in character — not "the
+construct isn't converted" but **the parser destroys the structure of the
+source**:
 
 ```sql
 CREATE OR REPLACE PROCEDURE calc_pkg_run_calc () AS $body$
@@ -48,17 +49,19 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Вложенная `apply_discount` "утекла" наружу как отдельная функция пакета
-верхнего уровня (`calc_pkg_apply_discount`), а тело `run_calc` обрезано
-буквально до `BEGIN WITH;` — весь реальный запрос (`SELECT SUM(...) INTO
-v_total FROM orders`) физически пропал из тела `run_calc` и оказался
-приклеен к концу тела `apply_discount` вместо этого.
+The nested `apply_discount` has leaked out as a separate top-level package
+function (`calc_pkg_apply_discount`), and `run_calc`'s body has been
+truncated to literally `BEGIN WITH;` — the entire real query (`SELECT
+SUM(...) INTO v_total FROM orders`) has physically vanished from
+`run_calc`'s body and ended up glued to the end of `apply_discount`'s body
+instead.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16: обе `CREATE` проходят без ошибки
-(`check_function_bodies = false`), но `run_calc` падает уже на этапе
-**компиляции** тела функции при первом вызове (не просто выполнения):
+Confirmed against a real PostgreSQL 16: both `CREATE` statements succeed
+without error (`check_function_bodies = false`), but `run_calc` fails at
+the **compilation** stage of the function body on the first call, not
+merely at execution:
 
 ```
 ERROR:  syntax error at end of input
@@ -67,8 +70,8 @@ CONTEXT:  compilation of PL/pgSQL function "calc_pkg_run_calc" near line 7
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, и это структурная порча кода, а не просто
-неконвертированная конструкция.** Реализовано:
+**Gap confirmed, and this is structural corruption of the code rather
+than merely an unconverted construct.** Implemented in
 `ora2pg_gap_report/detectors/with_function.py`.

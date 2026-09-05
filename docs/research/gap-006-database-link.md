@@ -1,12 +1,12 @@
-# GAP-006: `table@dblink_name` — прямые ссылки на database link в SQL
+# GAP-006: `table@dblink_name` — direct database-link references in SQL
 
-Oracle feature: `SELECT ... FROM table@dblink_name` — прямая ссылка на
-объект в удалённой базе через `DATABASE LINK` внутри обычного SQL-запроса
-(не сам `CREATE DATABASE LINK`, а его использование в запросах).
-Распространено в интеграционных/ERP-сценариях — обмен данными между
-схемами/базами без промежуточного слоя.
+Oracle feature: `SELECT ... FROM table@dblink_name` — a direct reference to
+an object in a remote database through a `DATABASE LINK` inside an ordinary
+SQL query (not `CREATE DATABASE LINK` itself, but its use in queries).
+Common in integration and ERP scenarios — exchanging data between schemas
+or databases without an intermediate layer.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE PACKAGE BODY remote_sync_pkg AS
@@ -22,36 +22,36 @@ END remote_sync_pkg;
 /
 ```
 
-## Вывод ora2pg (v25.0, `-t PACKAGE`)
+## ora2pg output (v25.0, `-t PACKAGE`)
 
-`orders@remote_erp_link` копируется как есть — `@remote_erp_link`
-остаётся приклеенным к имени таблицы без каких-либо изменений.
+`orders@remote_erp_link` is copied verbatim — `@remote_erp_link` stays
+attached to the table name, unchanged.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16: `@` — не валидный синтаксис SQL в
-PostgreSQL вообще (в имени таблицы недопустим этот символ вне кавычек).
-`CREATE PROCEDURE` проходит без ошибки (`check_function_bodies = false` в
-выводе ora2pg), падает только при первом реальном вызове:
+Confirmed against a real PostgreSQL 16: `@` is not valid SQL syntax in
+PostgreSQL at all (the character is not allowed in an unquoted table name).
+`CREATE PROCEDURE` succeeds without error (`check_function_bodies = false`
+in ora2pg's output); it fails only on the first real call:
 
 ```
 ERROR:  syntax error at or near "@"
 LINE 3:     FROM orders@remote_erp_link
 ```
 
-У PostgreSQL есть архитектурный эквивалент (`postgres_fdw`/`dblink`
-расширения + `IMPORT FOREIGN SCHEMA`/foreign tables), но это требует
-ручной настройки внешнего сервера и не может быть автоматически
-подставлено вместо `@dblink_name` без знания реальных connection-параметров
-удалённой базы — потому это гэп, а не что-то, что в принципе можно
-конвертировать автоматически.
+PostgreSQL has an architectural equivalent (the `postgres_fdw`/`dblink`
+extensions plus `IMPORT FOREIGN SCHEMA`/foreign tables), but that requires
+configuring a foreign server by hand and cannot be substituted for
+`@dblink_name` automatically without knowing the remote database's real
+connection parameters — which is why this is a gap rather than something
+that could be converted automatically in principle.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Отдельно ценно тем, что это распространённый паттерн
-в интеграционных Oracle-системах (обмен между схемами/базами), а не
-редкая синтаксическая экзотика.
+**Gap confirmed.** Valuable in particular because it is a common pattern in
+integrated Oracle systems (exchange between schemas and databases), not a
+rare piece of syntactic exotica.
 
-Реализовано: `ora2pg_gap_report/detectors/database_link.py`.
+Implemented in `ora2pg_gap_report/detectors/database_link.py`.

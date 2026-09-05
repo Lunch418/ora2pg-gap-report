@@ -1,10 +1,10 @@
 # GAP-008: `PIVOT`/`UNPIVOT`
 
 Oracle feature: `PIVOT (aggregate_function FOR pivot_column IN (values))` /
-`UNPIVOT (...)` — поворот строк в столбцы и обратно прямо в SQL, без
-условной агрегации вручную. Распространено в отчётности.
+`UNPIVOT (...)` — turning rows into columns and back directly in SQL,
+without writing conditional aggregation by hand. Common in reporting.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 SELECT * FROM (SELECT product_id, quarter, sales FROM sales_history)
@@ -14,29 +14,30 @@ PIVOT (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-t PACKAGE`)
+## ora2pg output (v25.0, `-t PACKAGE`)
 
-Конструкция копируется как есть, без единого изменения (кроме
-косметического удаления пробела перед скобкой).
+The construct is copied as written, with no change at all beyond the
+cosmetic removal of a space before a parenthesis.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16: `CREATE PROCEDURE` проходит без
-ошибки, падает при первом вызове:
+Confirmed against a real PostgreSQL 16: `CREATE PROCEDURE` succeeds
+without error and fails on the first call:
 
 ```
 ERROR:  syntax error at or near "("
 LINE 4:         SUM(sales)
 ```
 
-В PostgreSQL нет встроенного `PIVOT`/`UNPIVOT` вообще. Обычно
-переписывается на условную агрегацию (`FILTER (WHERE ...)`/`CASE WHEN`)
-или расширение `tablefunc` (`crosstab()`), архитектурно разные подходы в
-зависимости от того, известен ли список значений для поворота заранее.
+PostgreSQL has no built-in `PIVOT`/`UNPIVOT` at all. The usual rewrite is
+conditional aggregation (`FILTER (WHERE ...)`/`CASE WHEN`) or the
+`tablefunc` extension (`crosstab()`) — architecturally different
+approaches, depending on whether the list of values to pivot on is known
+in advance.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
+**Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/pivot_clause.py`.

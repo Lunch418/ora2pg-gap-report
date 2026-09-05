@@ -1,8 +1,9 @@
-# GAP-094: `BEGIN TRY` / `BEGIN CATCH` копируются как есть
+# GAP-094: `BEGIN TRY` / `BEGIN CATCH` are copied as-is
 
-MSSQL feature: `BEGIN TRY ... END TRY BEGIN CATCH ... END CATCH` — обработка ошибок в T-SQL.
+MSSQL feature: `BEGIN TRY ... END TRY BEGIN CATCH ... END CATCH` — error
+handling in T-SQL.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE PROCEDURE dbo.safe_op AS
@@ -16,7 +17,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-M -t PROCEDURE`)
+## ora2pg output (v25.0, `-M -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE dbo.safe_op () AS $body$
@@ -36,28 +37,29 @@ END;
 $body$
 ```
 
-Вся конструкция скопирована дословно, включая `END TRY` и `END CATCH`.
+The whole construct is copied verbatim, `END TRY` and `END CATCH`
+included.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Загрузка проходит чисто — ora2pg выставляет в своём выводе
-`check_function_bodies = false`, поэтому тело не разбирается. При
-разборе тела на реальном PostgreSQL 16:
+The load goes through cleanly — ora2pg sets `check_function_bodies =
+false` in its own output, so the body is not parsed. When the body is
+parsed on a real PostgreSQL 16:
 
 ```
 ERROR:  syntax error at or near ";"
 ```
 
-(в этом примере первым срабатывает GAP-091 — процедура без параметров;
-сам `BEGIN TRY` в PL/pgSQL не существует независимо от него)
+(in this example GAP-091 fires first — a parameterless procedure;
+`BEGIN TRY` itself does not exist in PL/pgSQL regardless)
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.**
-Переписывается на блок `BEGIN ... EXCEPTION WHEN OTHERS THEN ... END`,
-причём вызовы внутри `CATCH` тоже меняются: `ERROR_MESSAGE()` — это
-`SQLERRM`, `ERROR_NUMBER()` — `SQLSTATE`. Реализовано:
+**Gap confirmed, severity high, failure_stage runtime.** Rewritten into
+a `BEGIN ... EXCEPTION WHEN OTHERS THEN ... END` block, and the calls
+inside the `CATCH` change too: `ERROR_MESSAGE()` becomes `SQLERRM`,
+`ERROR_NUMBER()` becomes `SQLSTATE`. Implemented:
 `ora2pg_gap_report/detectors/mssql_try_catch.py`.

@@ -1,8 +1,9 @@
-# GAP-096: `SCOPE_IDENTITY()` / `@@IDENTITY` копируются как есть
+# GAP-096: `SCOPE_IDENTITY()` / `@@IDENTITY` are copied as-is
 
-MSSQL feature: `SCOPE_IDENTITY()`, `@@IDENTITY`, `IDENT_CURRENT()` — способы узнать значение, выданное `IDENTITY` при последней вставке.
+MSSQL feature: `SCOPE_IDENTITY()`, `@@IDENTITY`, `IDENT_CURRENT()` — the
+ways to obtain the value `IDENTITY` produced on the most recent insert.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE PROCEDURE dbo.add_row AS
@@ -12,7 +13,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-M -t PROCEDURE`)
+## ora2pg output (v25.0, `-M -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE dbo.add_row () AS $body$
@@ -28,22 +29,21 @@ END;
 $body$
 ```
 
-Вызов скопирован дословно.
+The call is copied verbatim.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ни такой функции, ни такой системной переменной в PostgreSQL нет —
-процедура падает при первом же реальном вызове. Загрузка проходит
-чисто (`check_function_bodies = false` в выводе ora2pg).
+PostgreSQL has neither such a function nor such a system variable — the
+procedure fails on the very first real call. The load goes through
+cleanly (`check_function_bodies = false` in ora2pg's output).
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.**
-Переписывается лучше всего на `INSERT ... RETURNING <столбец> INTO
-<переменная>`. Учтите, что сам столбец `IDENTITY` при этом тоже теряется
-(GAP-090), так что возвращать может быть уже нечего — эти два места
-правятся вместе. Реализовано:
+**Gap confirmed, severity high, failure_stage runtime.** Best rewritten
+to `INSERT ... RETURNING <column> INTO <variable>`. Note that the
+`IDENTITY` column itself is lost as well (GAP-090), so there may be
+nothing left to return — the two places are fixed together. Implemented:
 `ora2pg_gap_report/detectors/mssql_scope_identity.py`.

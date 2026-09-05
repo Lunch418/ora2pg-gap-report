@@ -258,6 +258,31 @@ def write_csv(findings: list[Finding], stream: IO[str], lang: str = "ru") -> Non
         writer.writerow({k: _csv_safe(v) for k, v in row.items()})
 
 
+def _md_anchor(detector: str) -> str:
+    """The GitHub-style anchor for a detector's explanation heading.
+
+    Detector names are already lowercase with underscores, and GitHub
+    turns underscores into nothing and spaces into hyphens -- with no
+    spaces or punctuation in the name, the anchor is the name itself."""
+    return detector.replace("_", "")
+
+
+def _write_markdown_explanations(
+    findings: list[Finding], stream: IO[str], lang: str
+) -> None:
+    """One explanation per detector actually present, once, after the
+    table -- what the table's links point at."""
+    seen: dict[str, str] = {}
+    for f in findings:
+        seen.setdefault(f.detector, f.message_id)
+    if not seen:
+        return
+    stream.write(i18n.t(lang, "md_explanations_heading"))
+    for detector in sorted(seen):
+        text = messages.text(seen[detector], lang).replace("\n", " ")
+        stream.write(f"### {detector}\n\n{text}\n\n")
+
+
 def to_markdown(findings: list[Finding], lang: str = "ru") -> str:
     buffer = io.StringIO()
     write_markdown(findings, buffer, lang=lang)
@@ -276,14 +301,23 @@ def write_markdown(findings: list[Finding], stream: IO[str], lang: str = "ru") -
         source_file = f.source_file.replace("|", "\\|")
         object_name = f.object_name.replace("|", "\\|")
         snippet = f.snippet.replace("|", "\\|")
-        message = messages.text(f.message_id, lang).replace("|", "\\|").replace("\n", " ")
         gap_number, failure_stage = gap_metadata(f.detector)
         gap_cell = f"GAP-{gap_number}" if gap_number else "—"
         stage_cell = i18n.t(lang, f"failure_stage_short_{failure_stage}") if failure_stage else "—"
+        # A link to the explanation below, not the explanation itself.
+        # The full text is 400-600 characters and identical for every
+        # finding the same detector produced; inlining it made each row
+        # around a thousand characters wide -- valid Markdown, unreadable
+        # as a table, and the bulk of the document's size. Same reasoning
+        # as --format json's shared `messages` map, and the same shape the
+        # terminal report has always had with its "Пояснения" section.
         stream.write(
             f"| {source_file} | `{object_name}` | {f.line} | {f.severity} "
-            f"| `{snippet}` | {message} | {gap_cell} | {stage_cell} |\n"
+            f"| `{snippet}` | [{f.detector}](#{_md_anchor(f.detector)}) "
+            f"| {gap_cell} | {stage_cell} |\n"
         )
+
+    _write_markdown_explanations(findings, stream, lang)
 
 
 _HTML_SEVERITY_CLASS = {"high": "sev-high", "medium": "sev-medium", "low": "sev-low"}
@@ -316,6 +350,16 @@ def to_html(findings: list[Finding], lang: str = "ru") -> str:
     return buffer.getvalue()
 
 
+def _html_found_line(findings: list[Finding], counts_text: str, lang: str) -> str:
+    """The "N problematic objects (breakdown)" line, without the empty
+    parentheses a clean scan used to produce."""
+    if not counts_text:
+        return i18n.t(lang, "html_findings_found_none")
+    return i18n.t(
+        lang, "html_findings_found", n=len(findings), counts=html.escape(counts_text)
+    )
+
+
 def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> None:
     """Self-contained HTML report (inline CSS only, no external resources
     -- this project's other formats are all designed to work in an
@@ -346,7 +390,7 @@ def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> No
 <body>
 <h1>{i18n.t(lang, "html_h1")}</h1>
 <div class="summary">
-<p>{i18n.t(lang, "html_findings_found", n=len(findings), counts=html.escape(counts_text))}</p>
+<p>{_html_found_line(findings, counts_text, lang)}</p>
 <p class="caveat">{i18n.t(lang, "html_effort_caveat", lo=lo, hi=hi)}</p>
 </div>
 """)

@@ -272,9 +272,14 @@ def _markdown_header(findings: list[Finding], lang: str) -> str:
     counts = summarize_by_severity(findings)
     counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
     lo, hi = estimate_hours(findings)
+    found = (
+        i18n.t(lang, "markdown_findings_found", n=len(findings), counts=counts_text)
+        if counts_text
+        else i18n.t(lang, "markdown_findings_found_none")
+    )
     return (
         i18n.t(lang, "markdown_report_title")
-        + i18n.t(lang, "markdown_findings_found", n=len(findings), counts=counts_text)
+        + found
         + i18n.t(lang, "markdown_effort_estimate", lo=lo, hi=hi)
     )
 

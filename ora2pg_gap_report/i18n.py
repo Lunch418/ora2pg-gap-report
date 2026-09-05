@@ -563,8 +563,12 @@ _UI: dict[str, dict[str, str]] = {
     # report_generator.py (to_markdown / to_html)
     "md_no_findings": {"ru": "Проблемных конструкций не найдено.\n", "en": "No problematic constructs found.\n"},
     "md_table_header": {
-        "ru": "| Файл | Объект | Строка | Серьёзность | Фрагмент | Комментарий | GAP | Когда ломается |",
-        "en": "| File | Object | Line | Severity | Snippet | Comment | GAP | Fails at |",
+        "ru": "| Файл | Объект | Строка | Серьёзность | Фрагмент | Что не так | GAP | Когда ломается |",
+        "en": "| File | Object | Line | Severity | Snippet | Problem | GAP | Fails at |",
+    },
+    "md_explanations_heading": {
+        "ru": "\n## Пояснения\n\n",
+        "en": "\n## Explanations\n\n",
     },
     "html_table_header": {
         "ru": "<th>Файл</th><th>Объект</th><th>Строка</th><th>Серьёзность</th>"
@@ -581,6 +585,17 @@ _UI: dict[str, dict[str, str]] = {
     "html_findings_found": {
         "ru": "Найдено проблемных объектов: {n} ({counts})",
         "en": "Problematic objects found: {n} ({counts})",
+    },
+    # The no-findings variants. A clean scan is the ordinary outcome in
+    # CI, and the counts breakdown is empty then, so the parenthesised
+    # form rendered as "Найдено проблемных объектов: 0 ()".
+    "html_findings_found_none": {
+        "ru": "Найдено проблемных объектов: 0",
+        "en": "Problematic objects found: 0",
+    },
+    "markdown_findings_found_none": {
+        "ru": "Найдено проблемных объектов: 0\n\n",
+        "en": "Problematic objects found: 0\n\n",
     },
     "html_effort_caveat": {
         "ru": "Грубая оценка ручной доработки: {lo:g}–{hi:g} ч. — неоткалиброванная эвристика "

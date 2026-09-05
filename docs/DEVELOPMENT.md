@@ -91,6 +91,31 @@ keyed by the detector's own name, with both `ru` and `en`. `doctor.py`
 checks that every detector's message id exists and that no message is
 left orphaned.
 
+## Tests that run the real ora2pg
+
+Most of this suite tests this project's own code against ora2pg behaviour
+recorded by hand in `docs/research/`. `tests/test_real_ora2pg.py` is the
+part that checks the recording still holds: `ora2pg_wrapper.py` parses
+ora2pg's `--estimate_cost` output by matching its exact comment wording,
+and a release that rewords it makes those regexes match *nothing* rather
+than raise — a silent zero indistinguishable from a clean package.
+
+They are marked `ora2pg` and skip when the binary isn't on PATH, so a
+developer without a Perl toolchain still gets a green suite:
+
+```sh
+pytest -m ora2pg          # just those, if you have ora2pg installed
+pytest -m "not ora2pg"    # everything else
+```
+
+CI runs them in their own job with ora2pg built from source, pinned to
+the version `gap_registry.py` records its findings against. One of the
+tests asserts those two agree, so bumping the CI version without
+re-verifying the gaps fails loudly instead of quietly testing the parsers
+against output nobody reviewed. The job also fails if the tests *skip* —
+a marker-selected job that installs nothing would otherwise pass green
+while running no tests at all.
+
 ## Registry integrity (doctor)
 
 The registry (`ora2pg_gap_report/gap_registry.py`) and the file layout

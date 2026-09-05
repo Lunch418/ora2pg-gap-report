@@ -70,6 +70,59 @@ jobs:
           PYTHONWARNDEFAULTENCODING: "1"
         run: pytest -v
 
+  ora2pg-integration:
+    # The one job that runs the real thing. Everything else in this
+    # workflow tests this project's code against ora2pg behaviour recorded
+    # by hand; nothing checked that the recording still holds.
+    # ora2pg_wrapper.py parses ora2pg's --estimate_cost output by matching
+    # its exact comment wording, and a reworded release makes those
+    # regexes match nothing rather than raise -- a silent zero that looks
+    # exactly like a clean package. This job is what would catch that.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ora2pg from source
+        # Pinned to the version gap_registry.py records its findings
+        # against -- tests/test_real_ora2pg.py asserts the two agree, so
+        # bumping this without re-verifying the gaps fails loudly instead
+        # of quietly testing the parsers against unreviewed output.
+        # From source rather than apt: Ubuntu's package lags, and which
+        # version ran is the whole point here.
+        env:
+          ORA2PG_VERSION: "25.0"
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libdbi-perl
+          curl -fsSL "https://github.com/darold/ora2pg/archive/refs/tags/v${ORA2PG_VERSION}.tar.gz" -o /tmp/ora2pg.tar.gz
+          tar -xzf /tmp/ora2pg.tar.gz -C /tmp
+          cd "/tmp/ora2pg-${ORA2PG_VERSION}"
+          perl Makefile.PL
+          make
+          sudo make install
+          ora2pg --version
+
+      - name: Install package (dev extras)
+        run: pip install -e ".[dev]"
+
+      - name: Run the tests that need a real ora2pg
+        # -m ora2pg alone would pass vacuously if every test were skipped
+        # (a renamed marker, a broken install): --strict-markers catches
+        # the first, and the explicit count check below catches the second.
+        run: |
+          set -euo pipefail
+          pytest -v -m ora2pg --strict-markers | tee /tmp/ora2pg-tests.txt
+          if grep -qE "([0-9]+ skipped|no tests ran)" /tmp/ora2pg-tests.txt; then
+            echo "::error::the ora2pg tests were skipped -- ora2pg is not on PATH in this job"
+            exit 1
+          fi
+          grep -qE "[0-9]+ passed" /tmp/ora2pg-tests.txt
+
   package-build:
     runs-on: ubuntu-latest
     steps:

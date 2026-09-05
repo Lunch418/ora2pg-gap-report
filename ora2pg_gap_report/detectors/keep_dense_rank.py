@@ -1,13 +1,7 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_dynamic_sql_visible,
-    mask_strings_and_comments,
-)
+from .. import plsql_lex
+from ..detector_spec import DetectorSpec, MASK_DYNAMIC_SQL_VISIBLE, build
 
 # Anchored on the whole KEEP (DENSE_RANK ...) shape, not a bare KEEP: the
 # word on its own is a legal identifier and appears in unrelated Oracle
@@ -16,27 +10,19 @@ from ..plsql_lex import (
 # the construct that doesn't survive conversion.
 _KEEP_RE = re.compile(r"\bKEEP\s*\(\s*DENSE_RANK\b", re.IGNORECASE)
 
+_DOC = """Detect Oracle's KEEP (DENSE_RANK FIRST|LAST ORDER BY ...)
+aggregate modifier. ora2pg passes it through unchanged and PostgreSQL
+has no KEEP syntax, so the generated code fails to load. See
+docs/research/gap-040-keep-dense-rank.md."""
 
-def find_keep_dense_rank(source: str) -> list[Finding]:
-    """Detect Oracle's KEEP (DENSE_RANK FIRST|LAST ORDER BY ...)
-    aggregate modifier. ora2pg passes it through unchanged and PostgreSQL
-    has no KEEP syntax, so the generated code fails to load. See
-    docs/research/gap-040-keep-dense-rank.md."""
-    clean = mask_strings_and_comments(source)
-    visible = mask_dynamic_sql_visible(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="keep_dense_rank",
+    dialect="oracle",
+    severity="high",
+    pattern=_KEEP_RE,
+    snippet='KEEP (DENSE_RANK ...)',
+    search_mask=MASK_DYNAMIC_SQL_VISIBLE,
+)
 
-    for m in _KEEP_RE.finditer(visible):
-        findings.append(
-            Finding(
-                detector="keep_dense_rank",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet="KEEP (DENSE_RANK ...)",
-                message_id="keep_dense_rank",
-            )
-        )
-
-    return findings
+find_keep_dense_rank = build(SPEC, plsql_lex)
+find_keep_dense_rank.__doc__ = _DOC

@@ -1,13 +1,7 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_dynamic_sql_visible,
-    mask_strings_and_comments,
-)
+from .. import plsql_lex
+from ..detector_spec import DetectorSpec, MASK_DYNAMIC_SQL_VISIBLE, build
 
 # Both spellings of Oracle's null-treatment clause on analytic functions.
 # RESPECT NULLS is Oracle's default and therefore usually implicit, but it
@@ -16,27 +10,19 @@ from ..plsql_lex import (
 # both are flagged rather than just the interesting one.
 _NULL_TREATMENT_RE = re.compile(r"\b(?:IGNORE|RESPECT)\s+NULLS\b", re.IGNORECASE)
 
+_DOC = """Detect Oracle's IGNORE NULLS / RESPECT NULLS clause on analytic
+functions. ora2pg passes it through unchanged and PostgreSQL 16 has
+no equivalent syntax, so the generated query fails to parse. See
+docs/research/gap-048-ignore-nulls.md."""
 
-def find_ignore_nulls(source: str) -> list[Finding]:
-    """Detect Oracle's IGNORE NULLS / RESPECT NULLS clause on analytic
-    functions. ora2pg passes it through unchanged and PostgreSQL 16 has
-    no equivalent syntax, so the generated query fails to parse. See
-    docs/research/gap-048-ignore-nulls.md."""
-    clean = mask_strings_and_comments(source)
-    visible = mask_dynamic_sql_visible(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="ignore_nulls",
+    dialect="oracle",
+    severity="high",
+    pattern=_NULL_TREATMENT_RE,
+    snippet=lambda m: " ".join(m.group(0).upper().split()),
+    search_mask=MASK_DYNAMIC_SQL_VISIBLE,
+)
 
-    for m in _NULL_TREATMENT_RE.finditer(visible):
-        findings.append(
-            Finding(
-                detector="ignore_nulls",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet=" ".join(m.group(0).upper().split()),
-                message_id="ignore_nulls",
-            )
-        )
-
-    return findings
+find_ignore_nulls = build(SPEC, plsql_lex)
+find_ignore_nulls.__doc__ = _DOC

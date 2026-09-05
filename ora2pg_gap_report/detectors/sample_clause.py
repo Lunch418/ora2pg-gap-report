@@ -1,13 +1,7 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_dynamic_sql_visible,
-    mask_strings_and_comments,
-)
+from .. import plsql_lex
+from ..detector_spec import DetectorSpec, MASK_DYNAMIC_SQL_VISIBLE, build
 
 # Anchored on the full `SAMPLE [BLOCK] (<number>)` shape rather than the
 # bare word: `sample` is an entirely ordinary identifier (a column, a
@@ -19,27 +13,19 @@ _SAMPLE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DOC = """Detect Oracle's SAMPLE (n) / SAMPLE BLOCK (n) row-sampling clause.
+ora2pg passes it through unchanged; PostgreSQL spells the same idea
+TABLESAMPLE with different syntax, so the generated code fails to
+load. See docs/research/gap-042-sample-clause.md."""
 
-def find_sample_clauses(source: str) -> list[Finding]:
-    """Detect Oracle's SAMPLE (n) / SAMPLE BLOCK (n) row-sampling clause.
-    ora2pg passes it through unchanged; PostgreSQL spells the same idea
-    TABLESAMPLE with different syntax, so the generated code fails to
-    load. See docs/research/gap-042-sample-clause.md."""
-    clean = mask_strings_and_comments(source)
-    visible = mask_dynamic_sql_visible(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="sample_clause",
+    dialect="oracle",
+    severity="high",
+    pattern=_SAMPLE_RE,
+    snippet=lambda m: " ".join(m.group(0).upper().split()),
+    search_mask=MASK_DYNAMIC_SQL_VISIBLE,
+)
 
-    for m in _SAMPLE_RE.finditer(visible):
-        findings.append(
-            Finding(
-                detector="sample_clause",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet=" ".join(m.group(0).upper().split()),
-                message_id="sample_clause",
-            )
-        )
-
-    return findings
+find_sample_clauses = build(SPEC, plsql_lex)
+find_sample_clauses.__doc__ = _DOC

@@ -80,7 +80,19 @@ class DetectorSpec:
     strategy: str = ENCLOSING
     snippet: Snippet = ""
     message_id: str | None = None
-    mask: str = MASK_STRINGS_AND_COMMENTS
+    # Two views, because a detector can need to search one and report
+    # positions from another. `search_mask` is what the pattern runs over;
+    # `anchor_mask` is what line numbers and enclosing-object names are
+    # computed from. They differ for the detectors that must see inside
+    # EXECUTE IMMEDIATE string literals: those search the dynamic-SQL-
+    # visible view, but a finding still has to name the routine and line
+    # the reader will actually find in the file, which only the fully
+    # masked view indexes correctly. Both views are position-preserving
+    # (masking blanks characters, it never shortens), so an offset from
+    # one is meaningful in the other -- that is the invariant the whole
+    # two-view arrangement rests on.
+    search_mask: str = MASK_STRINGS_AND_COMMENTS
+    anchor_mask: str = MASK_STRINGS_AND_COMMENTS
     # Required by the two table strategies, meaningless to `enclosing`:
     # the pattern that finds the CREATE TABLE whose name becomes
     # object_name, capturing that name in group 1.
@@ -105,35 +117,45 @@ def _snippet_for(spec: DetectorSpec, match: re.Match[str]) -> str:
     return spec.snippet(match) if callable(spec.snippet) else spec.snippet
 
 
+def _mask_fn(lex: object, mask: str) -> Callable[[str], str]:
+    """The named masking function on `lex`. Named rather than passed as a
+    callable so a spec stays plain data -- comparable, printable, and the
+    same three strings whichever dialect's lexer ends up bound to it."""
+    attr = {
+        MASK_STRINGS_AND_COMMENTS: "mask_strings_and_comments",
+        MASK_DYNAMIC_SQL_VISIBLE: "mask_dynamic_sql_visible",
+        MASK_COMMENTS_ONLY: "mask_comments_only",
+    }[mask]
+    fn: Callable[[str], str] = getattr(lex, attr)
+    return fn
+
+
 def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
     """The detector function `spec` describes, bound to `lex` -- the
     dialect's lexer module, passed in rather than imported here so this
     module stays independent of which dialects exist."""
-    mask = {
-        MASK_STRINGS_AND_COMMENTS: "mask_strings_and_comments",
-        MASK_DYNAMIC_SQL_VISIBLE: "mask_dynamic_sql_visible",
-        MASK_COMMENTS_ONLY: "mask_comments_only",
-    }[spec.mask]
-    mask_fn = getattr(lex, mask)
+    search_fn = _mask_fn(lex, spec.search_mask)
+    anchor_fn = _mask_fn(lex, spec.anchor_mask)
     line_at = lex.line_at  # type: ignore[attr-defined]
 
     def find_enclosing(source: str) -> list[Finding]:
-        clean = mask_fn(source)
-        name_index = lex.enclosing_object_name_index(clean)  # type: ignore[attr-defined]
+        searched = search_fn(source)
+        anchor = anchor_fn(source) if spec.anchor_mask != spec.search_mask else searched
+        name_index = lex.enclosing_object_name_index(anchor)  # type: ignore[attr-defined]
         return [
             Finding(
                 detector=spec.name,
                 severity=spec.severity,
                 object_name=lex.enclosing_object_name(name_index, m.start()),  # type: ignore[attr-defined]
-                line=line_at(clean, m.start()),
+                line=line_at(anchor, m.start()),
                 snippet=_snippet_for(spec, m),
                 message_id=spec.resolved_message_id,
             )
-            for m in spec.pattern.finditer(clean)
+            for m in spec.pattern.finditer(searched)
         ]
 
     def find_in_table_columns(source: str) -> list[Finding]:
-        clean = mask_fn(source)
+        clean = search_fn(source)
         findings: list[Finding] = []
         assert spec.table_pattern is not None  # guaranteed by __post_init__
         for table in spec.table_pattern.finditer(clean):
@@ -158,7 +180,7 @@ def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
         return findings
 
     def find_in_table_statement(source: str) -> list[Finding]:
-        clean = mask_fn(source)
+        clean = search_fn(source)
         findings: list[Finding] = []
         assert spec.table_pattern is not None
         tables = list(spec.table_pattern.finditer(clean))

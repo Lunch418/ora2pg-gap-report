@@ -1,37 +1,23 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_dynamic_sql_visible,
-    mask_strings_and_comments,
-)
+from .. import plsql_lex
+from ..detector_spec import DetectorSpec, MASK_DYNAMIC_SQL_VISIBLE, build
 
 _APPLY_RE = re.compile(r"\b(CROSS|OUTER)\s+APPLY\b", re.IGNORECASE)
 
+_DOC = """Detect Oracle's CROSS APPLY / OUTER APPLY. ora2pg passes it through
+unchanged; PostgreSQL has no APPLY syntax at all -- the closest
+equivalent is JOIN LATERAL / LEFT JOIN LATERAL, a manual rewrite.
+See docs/research/gap-022-cross-apply.md."""
 
-def find_apply_joins(source: str) -> list[Finding]:
-    """Detect Oracle's CROSS APPLY / OUTER APPLY. ora2pg passes it through
-    unchanged; PostgreSQL has no APPLY syntax at all -- the closest
-    equivalent is JOIN LATERAL / LEFT JOIN LATERAL, a manual rewrite.
-    See docs/research/gap-022-cross-apply.md."""
-    clean = mask_strings_and_comments(source)
-    visible = mask_dynamic_sql_visible(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="cross_apply",
+    dialect="oracle",
+    severity="high",
+    pattern=_APPLY_RE,
+    snippet=lambda m: f"{m.group(1).upper()} APPLY",
+    search_mask=MASK_DYNAMIC_SQL_VISIBLE,
+)
 
-    for m in _APPLY_RE.finditer(visible):
-        findings.append(
-            Finding(
-                detector="cross_apply",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet=f"{m.group(1).upper()} APPLY",
-                message_id="cross_apply",
-            )
-        )
-
-    return findings
+find_apply_joins = build(SPEC, plsql_lex)
+find_apply_joins.__doc__ = _DOC

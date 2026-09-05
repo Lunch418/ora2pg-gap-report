@@ -1,41 +1,27 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    IDENTIFIER,
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_dynamic_sql_visible,
-    mask_strings_and_comments,
-)
+from .. import plsql_lex
+from ..plsql_lex import IDENTIFIER
+from ..detector_spec import DetectorSpec, MASK_DYNAMIC_SQL_VISIBLE, build
 
 # GOTO followed by a label name. The label name is required by the match
 # so that the word alone -- as a column, a variable or part of an
 # identifier -- is not enough to produce a finding.
 _GOTO_RE = re.compile(rf"\bGOTO\s+({IDENTIFIER})", re.IGNORECASE)
 
+_DOC = """Detect PL/SQL GOTO statements. ora2pg copies them through
+unchanged and PL/pgSQL has no GOTO at all, so the procedure loads
+cleanly (bodies are not checked) and then fails on its first call.
+See docs/research/gap-063-goto-statement.md."""
 
-def find_goto_statements(source: str) -> list[Finding]:
-    """Detect PL/SQL GOTO statements. ora2pg copies them through
-    unchanged and PL/pgSQL has no GOTO at all, so the procedure loads
-    cleanly (bodies are not checked) and then fails on its first call.
-    See docs/research/gap-063-goto-statement.md."""
-    clean = mask_strings_and_comments(source)
-    visible = mask_dynamic_sql_visible(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="goto_statement",
+    dialect="oracle",
+    severity="high",
+    pattern=_GOTO_RE,
+    snippet=lambda m: f"GOTO {m.group(1).lower()}",
+    search_mask=MASK_DYNAMIC_SQL_VISIBLE,
+)
 
-    for m in _GOTO_RE.finditer(visible):
-        findings.append(
-            Finding(
-                detector="goto_statement",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet=f"GOTO {m.group(1).lower()}",
-                message_id="goto_statement",
-            )
-        )
-
-    return findings
+find_goto_statements = build(SPEC, plsql_lex)
+find_goto_statements.__doc__ = _DOC

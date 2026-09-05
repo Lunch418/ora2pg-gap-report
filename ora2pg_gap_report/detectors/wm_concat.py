@@ -1,13 +1,7 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_dynamic_sql_visible,
-    mask_strings_and_comments,
-)
+from .. import plsql_lex
+from ..detector_spec import DetectorSpec, MASK_DYNAMIC_SQL_VISIBLE, build
 
 # Both the bare and the SYS/WMSYS-qualified spellings, since legacy code
 # uses all three interchangeably.
@@ -16,27 +10,19 @@ _WM_CONCAT_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DOC = """Detect Oracle's undocumented WM_CONCAT aggregate. ora2pg copies
+the call through unchanged (unlike LISTAGG, which it rewrites to
+string_agg), and PostgreSQL has no such function, so the query fails
+at run time. See docs/research/gap-065-wm-concat.md."""
 
-def find_wm_concat(source: str) -> list[Finding]:
-    """Detect Oracle's undocumented WM_CONCAT aggregate. ora2pg copies
-    the call through unchanged (unlike LISTAGG, which it rewrites to
-    string_agg), and PostgreSQL has no such function, so the query fails
-    at run time. See docs/research/gap-065-wm-concat.md."""
-    clean = mask_strings_and_comments(source)
-    visible = mask_dynamic_sql_visible(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="wm_concat",
+    dialect="oracle",
+    severity="high",
+    pattern=_WM_CONCAT_RE,
+    snippet='WM_CONCAT(',
+    search_mask=MASK_DYNAMIC_SQL_VISIBLE,
+)
 
-    for m in _WM_CONCAT_RE.finditer(visible):
-        findings.append(
-            Finding(
-                detector="wm_concat",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet="WM_CONCAT(",
-                message_id="wm_concat",
-            )
-        )
-
-    return findings
+find_wm_concat = build(SPEC, plsql_lex)
+find_wm_concat.__doc__ = _DOC

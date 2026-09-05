@@ -26,6 +26,7 @@ same reasoning --check-connect-by and --verify already use for "this
 input is post-migration output, not pre-migration source")."""
 
 import re
+from collections.abc import Callable
 
 from .plsql_lex import skip_balanced_parens
 
@@ -163,7 +164,10 @@ def fix_mssql_empty_declare(source: str) -> tuple[str, int]:
 # this file no longer is. Inventing a fix for those would be exactly the
 # "rewriting DDL that's about to be deployed" this module's docstring
 # rules out.
-FIXERS_BY_DIALECT: dict[str, tuple] = {
+# What every fixer is: source in, (fixed source, number of fixes) out.
+Fixer = Callable[[str], tuple[str, int]]
+
+FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
     "oracle": (fix_identity_double_parens,),
     "mysql": (),
     "mssql": (fix_mssql_charindex_quotes, fix_mssql_empty_declare),

@@ -610,8 +610,8 @@ async def test_results_screen_table_headers_are_translated_to_russian():
 
 
 def test_tui_app_does_not_import_from_cli():
-    # scan_source()/count_objects()/_expand_paths()/_connect_by_check()/
-    # _sort_findings() used to live in cli.py itself, and this module
+    # scan_source()/count_objects()/expand_paths()/connect_by_check()/
+    # sort_findings() used to live in cli.py itself, and this module
     # imported them straight from there -- coupling the interactive mode
     # to the flag-based CLI's own module instead of to core.py, the
     # neutral shared layer both are peers of (cli.py's --tui handling

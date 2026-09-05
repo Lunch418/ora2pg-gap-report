@@ -19,7 +19,7 @@ _PACKAGE_BODY_NAME_RE = re.compile(
 _PRAGMA_RE = re.compile(r"PRAGMA\s+AUTONOMOUS_TRANSACTION\s*;", re.IGNORECASE)
 
 
-def _package_name_at(package_matches: list, position: int) -> str:
+def _package_name_at(package_matches: list[re.Match[str]], position: int) -> str:
     name = "UNKNOWN"
     for pm in package_matches:
         if pm.start() > position:

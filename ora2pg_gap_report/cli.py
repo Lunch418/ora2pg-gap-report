@@ -20,11 +20,11 @@ from .autofix import FIXERS_BY_DIALECT
 from .baseline import BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
 from .core import (
     DIALECTS,
-    _SEVERITY_ORDER,
+    SEVERITY_ORDER,
     baseline_dialects,
-    _connect_by_check,
-    _expand_paths,
-    _sort_findings,
+    connect_by_check,
+    expand_paths,
+    sort_findings,
     count_objects,
     scan_source,
 )
@@ -451,7 +451,7 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
         )
         return 2
 
-    paths_to_scan, empty_dirs = _expand_paths(args.paths)
+    paths_to_scan, empty_dirs = expand_paths(args.paths)
     had_error = False
     for empty_dir in empty_dirs:
         err_console.print(i18n.t(lang, "empty_dir_warning", dir=escape(str(empty_dir))))
@@ -554,7 +554,7 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
         err_console.print(i18n.t(lang, "fix_no_fixers_for_dialect", dialect=args.dialect))
         return 2
 
-    paths_to_scan, empty_dirs = _expand_paths(args.paths)
+    paths_to_scan, empty_dirs = expand_paths(args.paths)
     had_error = False
     for empty_dir in empty_dirs:
         err_console.print(i18n.t(lang, "empty_dir_warning", dir=escape(str(empty_dir))))
@@ -772,7 +772,7 @@ def _main(argv: list[str] | None = None) -> int:
 
     if args.check_connect_by and args.dialect != "oracle":
         # CONNECT BY is Oracle-only syntax, and the check itself runs
-        # ora2pg in Oracle mode (core._connect_by_check -> run_estimate_cost,
+        # ora2pg in Oracle mode (core.connect_by_check -> run_estimate_cost,
         # no -m/-M). On a MySQL/MSSQL file it could only ever find nothing --
         # accepting the flag anyway would be a silent no-op dressed up as a
         # performed check.
@@ -798,7 +798,7 @@ def _main(argv: list[str] | None = None) -> int:
     had_error = False
     had_internal_error = False
 
-    paths_to_scan, empty_dirs = _expand_paths(args.paths)
+    paths_to_scan, empty_dirs = expand_paths(args.paths)
     for empty_dir in empty_dirs:
         err_console.print(i18n.t(lang, "empty_dir_warning", dir=escape(str(empty_dir))))
         had_error = True
@@ -884,13 +884,13 @@ def _main(argv: list[str] | None = None) -> int:
                 mismatch = _ora2pg_version_warning(args.ora2pg_bin, lang)
                 if mismatch:
                     err_console.print(f"[yellow]{escape(mismatch)}[/yellow]")
-            findings, warning = _connect_by_check(path, source, args.ora2pg_bin, lang)
+            findings, warning = connect_by_check(path, source, args.ora2pg_bin, lang)
             all_findings.extend(findings)
             if warning:
                 err_console.print(f"[yellow]{escape(warning)}[/yellow]")
 
     elapsed_seconds = time.perf_counter() - start_time
-    _sort_findings(all_findings)
+    sort_findings(all_findings)
 
     # --save/--baseline/--fail-on all act on the full, unfiltered scan
     # result (`all_findings`) rather than what --severity/--object narrow
@@ -988,8 +988,8 @@ def _main(argv: list[str] | None = None) -> int:
         return 2
 
     if args.fail_on is not None:
-        threshold = _SEVERITY_ORDER[args.fail_on]
-        failing = [f for f in all_findings if _SEVERITY_ORDER.get(f.severity, 99) <= threshold]
+        threshold = SEVERITY_ORDER[args.fail_on]
+        failing = [f for f in all_findings if SEVERITY_ORDER.get(f.severity, 99) <= threshold]
         if failing:
             err_console.print(
                 i18n.t(lang, "gate_failed", n=len(failing), sev=args.fail_on)

@@ -120,6 +120,14 @@ check_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unreachable = true
+# A bare `dict`/`list`/`tuple` annotation is Any inside, so mypy checks
+# nothing about what a container holds while the annotation reads as if
+# it does. Turning this on found 26 of them; every one had a concrete
+# answer that was simply never written down (the SARIF builders' dicts,
+# the fixer tuples, the baseline records, Textual's Screen/App result
+# types). None needed a `type: ignore` -- see disallow_untyped_defs
+# above for the same reasoning about function bodies.
+disallow_any_generics = true
 
 # oracledb is a genuinely optional extra (see [project.optional-
 # dependencies]'s own "oracle" group) -- oracle_connector.py/

@@ -72,6 +72,7 @@ and REMEDIATION_HINTS) live with the thing they describe.
 
 import dataclasses
 
+from .baseline import BaselineRecord
 from .gap_registry import gap_by_detector
 from .models import Finding
 
@@ -237,7 +238,7 @@ class NewInOutput:
 
 
 def verify_against_baseline(
-    baseline: list[dict], post_migration_findings: list[Finding]
+    baseline: list[BaselineRecord], post_migration_findings: list[Finding]
 ) -> list[DetectorVerification]:
     """One entry per distinct detector present in `baseline` (the loaded
     --save snapshot from the pre-migration scan) -- not one entry per
@@ -287,7 +288,7 @@ def verify_against_baseline(
 
 
 def new_in_output(
-    baseline: list[dict], post_migration_findings: list[Finding]
+    baseline: list[BaselineRecord], post_migration_findings: list[Finding]
 ) -> list[NewInOutput]:
     """Detectors that fired on the generated output but appear nowhere in
     `baseline` -- one entry per detector, same granularity as

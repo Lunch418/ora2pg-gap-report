@@ -4,7 +4,7 @@ import io
 import json
 import textwrap
 from collections.abc import Iterable, Iterator
-from typing import IO
+from typing import IO, Any
 from dataclasses import asdict, fields
 from pathlib import PurePath
 from urllib.parse import quote
@@ -14,7 +14,14 @@ from .effort_estimator import estimate_hours, ordered_counts, summarize_by_sever
 from .gap_registry import gap_by_detector, gap_metadata, research_doc_url
 from . import messages
 from .models import Finding
+
 from .verification import DetectorVerification, NewInOutput
+
+# A JSON object on its way to being serialized -- values are whatever
+# json accepts, which is the honest type here rather than anything
+# narrower.
+JsonObject = dict[str, Any]
+
 
 # Bumped when the shape of --format json changes. 2 introduced the
 # object envelope with a shared `messages` table, replacing the bare
@@ -104,7 +111,7 @@ def _stream_json(payload: object, stream: IO[str]) -> None:
         stream.write(chunk)
 
 
-def _enrich(f: Finding) -> dict:
+def _enrich(f: Finding) -> JsonObject:
     """A finding's own dict shape plus gap_number/failure_stage, looked
     up from the registry rather than stored on Finding itself -- Finding
     represents what a detector found, not what the registry separately
@@ -397,7 +404,7 @@ def _sarif_rule_id(detector: str, message_id: str) -> str:
     return message_id if message_id != detector else detector
 
 
-def _sarif_rule(detector: str, message_id: str, lang: str) -> dict:
+def _sarif_rule(detector: str, message_id: str, lang: str) -> JsonObject:
     gap = gap_by_detector(detector)
     # Deliberately not "first sentence of the message" for shortDescription:
     # these messages are free-form prose about Oracle/ora2pg internals,
@@ -407,7 +414,7 @@ def _sarif_rule(detector: str, message_id: str, lang: str) -> dict:
     # correct; fullDescription carries the real explanation, which is
     # exact for this rule since _sarif_rule_id() splits rules per distinct
     # message rather than per detector.
-    rule: dict = {
+    rule: JsonObject = {
         "id": _sarif_rule_id(detector, message_id),
         "name": detector,
         "shortDescription": {"text": detector.replace("_", " ").capitalize()},
@@ -451,8 +458,8 @@ def _sarif_uri(source_file: str) -> str:
     return quote(PurePath(source_file).as_posix(), safe="/")
 
 
-def _sarif_location(f: Finding) -> dict:
-    physical_location: dict = {"artifactLocation": {"uri": _sarif_uri(f.source_file)}}
+def _sarif_location(f: Finding) -> JsonObject:
+    physical_location: JsonObject = {"artifactLocation": {"uri": _sarif_uri(f.source_file)}}
     # line == 0 is this project's own "not a line in this file" sentinel
     # (used by the --check-connect-by integration, whose findings come from
     # ora2pg's own generated output, not the scanned file — see cli.py's
@@ -476,13 +483,13 @@ def write_sarif(
     pair actually present among `findings` (not all detectors/messages
     this project ships) -- see _sarif_rule_id()'s docstring for why it's
     that pair, not detector alone."""
-    rules_by_id: dict[str, dict] = {}
+    rules_by_id: dict[str, JsonObject] = {}
     for f in findings:
         rule_id = _sarif_rule_id(f.detector, f.message_id)
         if rule_id not in rules_by_id:
             rules_by_id[rule_id] = _sarif_rule(f.detector, f.message_id, lang)
 
-    def results() -> Iterator[dict]:
+    def results() -> Iterator[JsonObject]:
         for f in findings:
             yield {
                 "ruleId": _sarif_rule_id(f.detector, f.message_id),

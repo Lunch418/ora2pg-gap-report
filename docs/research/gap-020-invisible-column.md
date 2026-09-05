@@ -1,13 +1,12 @@
-# GAP-020: столбец `INVISIBLE` теряет своё скрытие
+# GAP-020: an `INVISIBLE` column loses its invisibility
 
-Oracle feature: `INVISIBLE` — модификатор столбца, исключающий его из
-`SELECT *` и из позиционного `INSERT` без явного списка столбцов; столбец
-по-прежнему доступен, но только при явном упоминании по имени. Частый
-сценарий использования — добавление нового столбца в существующую
-таблицу без риска сломать старый код, полагающийся на прежний состав
-`SELECT *`.
+Oracle feature: `INVISIBLE` — a column modifier that excludes the column
+from `SELECT *` and from a positional `INSERT` with no explicit column
+list; the column is still available, but only when named explicitly. A
+common use is adding a new column to an existing table without risking
+breaking older code that relies on the previous shape of `SELECT *`.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE customers (
@@ -16,7 +15,7 @@ CREATE TABLE customers (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE TABLE customers (
@@ -25,14 +24,14 @@ CREATE TABLE customers (
 ) ;
 ```
 
-Модификатор `INVISIBLE` пропадает без следа — столбец конвертируется как
-обычный, видимый.
+The `INVISIBLE` modifier disappears without trace — the column is
+converted as an ordinary, visible one.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Не синтаксическая ошибка — `CREATE TABLE` выполняется без проблем. У
-PostgreSQL нет аналога `INVISIBLE` вообще, так что поведение молча
-меняется: подтверждено на реальном PostgreSQL 16 —
+Not a syntax error — the `CREATE TABLE` runs without trouble. PostgreSQL
+has no analogue of `INVISIBLE` at all, so the behaviour changes silently.
+Confirmed against a real PostgreSQL 16:
 
 ```sql
 INSERT INTO customers VALUES (1, 'x');
@@ -42,17 +41,16 @@ SELECT * FROM customers;
 --           1 | x
 ```
 
-`legacy_code` появляется в `SELECT *`, хотя в Oracle он был бы из него
-исключён. Для типичного сценария использования `INVISIBLE` (скрыть новый
-столбец от старого кода) это именно тот случай, который модификатор
-должен был предотвратить — старый код, делающий `SELECT *`, после
-миграции неожиданно получает лишний столбец.
+`legacy_code` shows up in `SELECT *`, though on Oracle it would have been
+excluded. For `INVISIBLE`'s typical use — hiding a new column from older
+code — this is precisely the case the modifier was there to prevent: after
+migration, old code doing `SELECT *` unexpectedly receives an extra column.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/invisible_column.py`. Покрывает только
-`CREATE TABLE`; `ALTER TABLE ... MODIFY (col INVISIBLE)` на существующей
-таблице пока не отслеживается.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/invisible_column.py`. It covers `CREATE
+TABLE` only; `ALTER TABLE ... MODIFY (col INVISIBLE)` on an existing table
+is not tracked yet.

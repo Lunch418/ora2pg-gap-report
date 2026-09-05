@@ -1,12 +1,12 @@
-# GAP-014: `CONNECT BY NOCYCLE` / `ORDER SIBLINGS BY` — структурное разрушение блока при конвертации
+# GAP-014: `CONNECT BY NOCYCLE` / `ORDER SIBLINGS BY` — the block's structure is destroyed on conversion
 
-Oracle feature: расширения иерархических запросов сверх базового
-`CONNECT BY` (см. GAP-005 про сам `CONNECT BY` и известный баг с
-`LEVEL`) — `NOCYCLE` (защита от циклов в графе) и `ORDER SIBLINGS BY`
-(сортировка потомков внутри одного родителя, сохраняющая иерархический
-порядок обхода).
+Oracle feature: hierarchical-query extensions beyond plain `CONNECT BY`
+(see GAP-005 for `CONNECT BY` itself and its known `LEVEL` bug) —
+`NOCYCLE` (protection against cycles in the graph) and `ORDER SIBLINGS BY`
+(ordering children within one parent while preserving the hierarchical
+traversal order).
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE PROCEDURE build_tree AS
@@ -24,36 +24,36 @@ END;
 /
 ```
 
-## Вывод ora2pg (v25.0, `-t PACKAGE`)
+## ora2pg output (v25.0, `-t PACKAGE`)
 
-В отличие от обычного `CONNECT BY` (переводится в `WITH RECURSIVE` внутри
-тела функции, с известным отдельным багом про `LEVEL` — см. GAP-005), это
-расширение ломает конвертацию гораздо серьёзнее: сгенерированный
-`WITH RECURSIVE` оказался вставлен **до** `DECLARE`, а тело процедуры
-получило нарушенную вложенность `DECLARE`/`CURSOR` — структура всего
-блока разваливается, а не только сам иерархический запрос.
+Unlike plain `CONNECT BY` — which becomes a `WITH RECURSIVE` inside the
+function body, with its own separate `LEVEL` bug (GAP-005) — this
+extension breaks the conversion far more seriously: the generated `WITH
+RECURSIVE` ended up inserted **before** `DECLARE`, and the procedure body
+came out with broken `DECLARE`/`CURSOR` nesting. The structure of the
+whole block falls apart, not just the hierarchical query.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16: `CREATE PROCEDURE` падает уже на
-этапе компиляции тела функции (синтаксическая ошибка), а не только при
-первом вызове — то есть даже раньше, чем для типичных gap'ов в этом
-реестре, где `check_function_bodies = false` обычно откладывает ошибку до
-первого `CALL`.
+Confirmed against a real PostgreSQL 16: `CREATE PROCEDURE` fails at the
+function body's compilation stage (a syntax error), not merely on the
+first call — that is, even earlier than for the typical gaps in this
+registry, where `check_function_bodies = false` usually defers the error
+to the first `CALL`.
 
-Это не просто неточный перевод одной конструкции — это структурное
-повреждение всего окружающего PL/SQL-блока, что делает откат/починку
-сложнее, чем для точечных gap'ов.
+This is not an inaccurate translation of one construct: it is structural
+damage to the whole surrounding PL/SQL block, which makes rolling back or
+repairing it harder than for the more localized gaps.
 
-Отдельно проверено: обычный `CONNECT BY` без `NOCYCLE` и без
-`ORDER SIBLINGS BY` этим детектором не флагуется — для него уже есть
-отдельный, менее серьёзный gap (GAP-005 / `detectors/connect_by.py`).
+Checked separately: plain `CONNECT BY` with neither `NOCYCLE` nor `ORDER
+SIBLINGS BY` is not flagged by this detector — it already has its own,
+less serious gap (GAP-005 / `detectors/connect_by.py`).
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/connect_by_nocycle.py`. Флагует `CONNECT BY
-NOCYCLE` и `ORDER SIBLINGS BY` раздельно (запрос может содержать любую из
-двух конструкций, либо обе сразу).
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/connect_by_nocycle.py`. `CONNECT BY NOCYCLE`
+and `ORDER SIBLINGS BY` are flagged separately, since a query may contain
+either construct or both at once.

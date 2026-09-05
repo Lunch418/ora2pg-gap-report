@@ -194,7 +194,8 @@ def test_i18n_translations_parity_flags_a_blank_translation(monkeypatch):
     monkeypatch.setattr(
         doctor.messages, "MESSAGES", {"d": doctor.messages.Message(ru="есть текст", en="   ")}
     )
-    monkeypatch.setattr(doctor, "_REMEDIATION_HINT", {})
+    monkeypatch.setattr(doctor, "_detector_names_on_disk", lambda: set())
+    monkeypatch.setattr(doctor.messages, "REMEDIATION_HINTS", {})
     problems = doctor.check_i18n_translations_parity()
     assert len(problems) == 1
     assert "MESSAGES['d'].en is empty" in problems[0]
@@ -202,10 +203,25 @@ def test_i18n_translations_parity_flags_a_blank_translation(monkeypatch):
 
 def test_i18n_translations_parity_flags_a_missing_remediation_hint(monkeypatch):
     monkeypatch.setattr(doctor, "_detector_message_ids", lambda: {})
-    monkeypatch.setattr(doctor, "_REMEDIATION_HINT", {"brand_new_detector": "some hint"})
+    monkeypatch.setattr(doctor, "_detector_names_on_disk", lambda: {"brand_new_detector"})
+    monkeypatch.setattr(doctor.messages, "REMEDIATION_HINTS", {})
     problems = doctor.check_i18n_translations_parity()
     assert len(problems) == 1
-    assert "REMEDIATION_HINT_EN is missing an entry for 'brand_new_detector'" in problems[0]
+    assert "REMEDIATION_HINTS has no entry for 'brand_new_detector'" in problems[0]
+
+
+def test_i18n_translations_parity_flags_a_hint_naming_no_detector(monkeypatch):
+    # The other direction: a hint left behind after its detector was
+    # renamed or removed still reads as live advice.
+    monkeypatch.setattr(doctor, "_detector_message_ids", lambda: {})
+    monkeypatch.setattr(doctor, "_detector_names_on_disk", lambda: set())
+    monkeypatch.setattr(
+        doctor.messages, "REMEDIATION_HINTS",
+        {"gone": doctor.messages.Message(ru="совет", en="hint")},
+    )
+    problems = doctor.check_i18n_translations_parity()
+    assert len(problems) == 1
+    assert "REMEDIATION_HINTS['gone'] names no detector on disk" in problems[0]
 
 
 def test_verification_mode_parity_is_clean_on_the_real_repository_state():
@@ -389,7 +405,7 @@ def test_translations_are_not_glued_flags_a_glued_word(monkeypatch):
             en="an Oracle table where anobjecttypeinstance lives",
         )},
     )
-    monkeypatch.setattr(doctor.i18n, "REMEDIATION_HINT_EN", {})
+    monkeypatch.setattr(doctor.messages, "REMEDIATION_HINTS", {})
     problems = doctor.check_translations_are_not_glued()
     assert len(problems) == 1
     assert "anobjecttypeinstance" in problems[0]
@@ -399,11 +415,14 @@ def test_translations_are_not_glued_flags_a_glued_word(monkeypatch):
 def test_translations_are_not_glued_also_checks_remediation_hints(monkeypatch):
     monkeypatch.setattr(doctor.messages, "MESSAGES", {})
     monkeypatch.setattr(
-        doctor.i18n, "REMEDIATION_HINT_EN", {"some_detector": "rewriteusingwindowfunctions instead"}
+        doctor.messages, "REMEDIATION_HINTS",
+        {"some_detector": doctor.messages.Message(
+            ru="нормальный совет", en="rewriteusingwindowfunctions instead"
+        )},
     )
     problems = doctor.check_translations_are_not_glued()
     assert len(problems) == 1
-    assert "REMEDIATION_HINT_EN" in problems[0]
+    assert "REMEDIATION_HINTS.en" in problems[0]
 
 
 def test_translations_are_not_glued_checks_the_russian_side_too(monkeypatch):
@@ -416,7 +435,7 @@ def test_translations_are_not_glued_checks_the_russian_side_too(monkeypatch):
             ru="таблица где живёт anobjecttypeinstance", en="fine text here"
         )},
     )
-    monkeypatch.setattr(doctor.i18n, "REMEDIATION_HINT_EN", {})
+    monkeypatch.setattr(doctor.messages, "REMEDIATION_HINTS", {})
     problems = doctor.check_translations_are_not_glued()
     assert len(problems) == 1
     assert "MESSAGES.ru" in problems[0]
@@ -431,5 +450,5 @@ def test_translations_are_not_glued_allows_ordinary_text(monkeypatch):
             en="an Oracle object table: every row is an instance of an object type",
         )},
     )
-    monkeypatch.setattr(doctor.i18n, "REMEDIATION_HINT_EN", {})
+    monkeypatch.setattr(doctor.messages, "REMEDIATION_HINTS", {})
     assert doctor.check_translations_are_not_glued() == []

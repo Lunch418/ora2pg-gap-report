@@ -30,7 +30,7 @@ translations in messages.py, and that every entry in messages.py is
 reachable from some detector -- drift in the first direction crashes the
 renderer on a real finding, drift in the second leaves dead text that
 still reads as a live translation. Plus the same coverage check for
-i18n.py's REMEDIATION_HINT_EN, without which --lang en silently falls
+messages.py's REMEDIATION_HINTS, without which --lang en silently falls
 back to Russian for a new or edited detector.
 And that every detector has a verification.py VERIFICATION_MODE entry --
 without it, a new detector added to `--verify` would silently default to
@@ -81,7 +81,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from audit_gap_test_counts import count_tests  # noqa: E402
-from ora2pg_gap_report import i18n, messages  # noqa: E402
+from ora2pg_gap_report import messages  # noqa: E402
 from ora2pg_gap_report.core import detector_names  # noqa: E402
 from ora2pg_gap_report.gap_registry import (  # noqa: E402
     FAILURE_STAGE_EXEMPT_DETECTORS,
@@ -90,7 +90,6 @@ from ora2pg_gap_report.gap_registry import (  # noqa: E402
     GapEntry,
     research_doc_path,
 )
-from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT  # noqa: E402
 from ora2pg_gap_report.verification import VERIFICATION_MODE  # noqa: E402
 
 # Matches a detector filename one level under 'detectors/' in the ASCII
@@ -352,8 +351,7 @@ def check_gap_registry_md_parity() -> list[str]:
 def check_i18n_translations_parity() -> list[str]:
     """Every message_id a detector actually emits must exist in
     messages.MESSAGES with both languages filled in, and every detector
-    terminal_report.py's _REMEDIATION_HINT covers must have a matching
-    entry in i18n.REMEDIATION_HINT_EN.
+    on disk must have a REMEDIATION_HINTS entry with both filled in too.
 
     The failure mode this guards changed shape when messages moved into
     their own registry. It used to be silent: a message keyed by its own
@@ -378,9 +376,22 @@ def check_i18n_translations_parity() -> list[str]:
                 problems.append(
                     f"messages.py: MESSAGES['{message_id}'].{lang_name} is empty"
                 )
-    for name in sorted(_REMEDIATION_HINT):
-        if name not in i18n.REMEDIATION_HINT_EN:
-            problems.append(f"i18n.py: REMEDIATION_HINT_EN is missing an entry for '{name}'")
+    # Hints are keyed by detector, not by message id: a detector emitting
+    # three messages still gets one line of advice.
+    for name in sorted(_detector_names_on_disk()):
+        hint = messages.REMEDIATION_HINTS.get(name)
+        if hint is None:
+            problems.append(f"messages.py: REMEDIATION_HINTS has no entry for '{name}'")
+            continue
+        for lang_name, value in (("ru", hint.ru), ("en", hint.en)):
+            if not value.strip():
+                problems.append(
+                    f"messages.py: REMEDIATION_HINTS['{name}'].{lang_name} is empty"
+                )
+    for orphan in sorted(set(messages.REMEDIATION_HINTS) - _detector_names_on_disk()):
+        problems.append(
+            f"messages.py: REMEDIATION_HINTS['{orphan}'] names no detector on disk"
+        )
     return problems
 
 
@@ -484,7 +495,7 @@ def check_translations_are_not_glued() -> list[str]:
     rerunnable check rather than something spotted by reading output."""
     problems = []
     checked: list[tuple[str, dict[str, str]]] = [
-        ("REMEDIATION_HINT_EN", i18n.REMEDIATION_HINT_EN),
+        ("REMEDIATION_HINTS.en", {k: v.en for k, v in messages.REMEDIATION_HINTS.items()}),
         ("MESSAGES.ru", {k: v.ru for k, v in messages.MESSAGES.items()}),
         ("MESSAGES.en", {k: v.en for k, v in messages.MESSAGES.items()}),
     ]
@@ -572,7 +583,7 @@ def main() -> int:
             "✓ Всё чисто: у каждого gap'а есть research-документ, детектор, позитивный и "
             "guard-тест, docs/ARCHITECTURE.md не разошёлся со списком детекторов на диске, "
             "версии в GAP_REGISTRY.md совпадают с gap_registry.py, у каждого детектора "
-            "есть английский перевод в i18n.py, у каждого детектора есть запись в "
+            "оба перевода в messages.py (и текст находки, и совет), у каждого детектора есть запись в "
             "verification.py, каждый детектор с диска реально зарегистрирован в "
             "своём диалекте в core.py, у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
             "задан валидный failure_stage, у каждого gap'а severity в реестре совпадает "

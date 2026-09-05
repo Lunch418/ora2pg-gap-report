@@ -51,7 +51,23 @@ to compare against in the first place -- there is nothing for `verify`
 to do with it.
 
 scripts/doctor.py cross-checks VERIFICATION_MODE against every real
-detector on disk, same drift-prevention pattern as EXPLANATION_EN.
+detector on disk, same drift-prevention pattern the other registries use.
+
+## Why this isn't a GapEntry field
+
+It looks like one -- it is a per-detector classification recorded once,
+like `severity` or `failure_stage`, both of which do live on GapEntry.
+The difference is what it is keyed by. GapEntry is keyed by gap, and
+there are 105 gaps but 106 detectors: `dbms_utl_calls` is a classifier
+with no GAP-NNN of its own (see gap_metadata()'s docstring and
+docs/ARCHITECTURE.md). Folding this into GapEntry would mean either
+inventing a gap that doesn't exist or special-casing one detector out of
+the registry -- and a registry with one documented exception is exactly
+the shape that drifts.
+
+So the split is by key, not by accident: gap-keyed facts live in
+gap_registry.py, detector-keyed ones (this, and messages.py's MESSAGES
+and REMEDIATION_HINTS) live with the thing they describe.
 """
 
 import dataclasses

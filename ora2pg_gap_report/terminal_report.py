@@ -43,7 +43,6 @@ from .effort_estimator import (
     summarize_by_severity,
 )
 from .gap_registry import gap_metadata
-from .i18n import REMEDIATION_HINT_EN
 from .models import Finding
 from . import messages
 from .verification import DetectorVerification, NewInOutput
@@ -55,121 +54,6 @@ _SEVERITY_STYLE = {
 }
 _TOP_OBJECTS_LIMIT = 10
 
-# One short imperative line per detector, for the "Рекомендации" section —
-# a compact index into the full explanation already shown per-finding
-# below, not new advice. Every detector shipped in this project has an
-# entry here; _render_recommended_actions() still falls back to a generic
-# line for anything unrecognized (e.g. a third-party detector added via
-# this module directly, not through cli.py's registered list) rather than
-# crashing on it.
-_REMEDIATION_HINT = {
-    "autonomous_tx": "Проверить dblink-перенос вручную — сетевая зависимость может быть неприемлема в изолированном контуре",
-    "compound_triggers": "Разбить на отдельные обычные триггеры (BEFORE/AFTER × STATEMENT/ROW) с общим состоянием через таблицу",
-    "dbms_utl_calls": "Переписать вручную или подключить расширение orafce, если для вызова там есть эквивалент",
-    "connect_by": "Заменить LEVEL на настоящую колонку-счётчик в сгенерированном WITH RECURSIVE",
-    "merge_delete_clause": "Разбить MERGE на две ветки WHEN MATCHED со взаимоисключающими условиями вместо DELETE WHERE",
-    "bulk_collect": "Переписать TYPE/BULK COLLECT на массив PostgreSQL (type[]) или временную таблицу, FORALL — на цикл или UNNEST()",
-    "database_link": "Настроить postgres_fdw/dblink с реальными connection-параметрами удалённой базы вместо @dblink_name",
-    "model_clause": "Переписать вручную на оконные функции или рекурсивные CTE — прямого эквивалента MODEL в PostgreSQL нет",
-    "pivot_clause": "Переписать на условную агрегацию (FILTER/CASE WHEN) или расширение tablefunc (crosstab())",
-    "object_type": "Переписать на composite type + отдельные функции — у PostgreSQL нет объектных типов с методами",
-    "with_function": "Вынести встроенную функцию в обычную функцию/процедуру PostgreSQL вручную — ora2pg ломает структуру запроса",
-    "flashback_query": "Спроектировать отдельный механизм истории/аудита — прямого эквивалента AS OF в PostgreSQL нет",
-    "global_temp_table": "Добавить 'ON COMMIT DELETE ROWS' вручную в определение временной таблицы — ora2pg теряет секцию ON COMMIT",
-    "table_partitioning": "Пересоздать партиции вручную (CREATE TABLE ... PARTITION OF ...) — ora2pg отбрасывает секционирование полностью",
-    "connect_by_nocycle": "Полностью переписать вручную на WITH RECURSIVE — конвертация NOCYCLE/ORDER SIBLINGS BY разваливает структуру блока",
-    "context_object": "Переписать на current_setting()/set_config() или Row-Level Security (CREATE POLICY) — прямого аналога CREATE CONTEXT нет",
-    "insert_all": "Разбить на набор отдельных INSERT INTO ... SELECT ... — по одному на каждую ветку WHEN/INTO",
-    "json_table": "Переписать на jsonb_to_recordset()/jsonb_array_elements() с явным приведением типов",
-    "external_table": "Настроить foreign table через file_fdw (или fdw под нужный формат) — ora2pg превращает её в обычную таблицу",
-    "sql_macro": "Встроить логику макроса как обычное условие/подзапрос прямо в вызывающий код — SQL_MACRO конвертируется в обычную функцию",
-    "invisible_column": "Явно перечислять столбцы в SELECT/INSERT там, где скрытие было важно — PostgreSQL не имеет аналога INVISIBLE",
-    "collection_type": "Переписать на встроенный массив (datatype[]) или отдельную связанную таблицу — ora2pg полностью теряет объявление коллекционного типа",
-    "cross_apply": "Переписать на JOIN LATERAL (...) ON true / LEFT JOIN LATERAL (...) ON true — синтаксиса APPLY в PostgreSQL нет",
-    "oracle_text": "Переписать на tsvector/tsquery + GIN-индекс (to_tsvector/@@) — ora2pg теряет INDEXTYPE и не переносит CONTAINS/CATSEARCH/MATCHES",
-    "recursive_with": "Добавить ключевое слово RECURSIVE вручную (и при наличии CYCLE — переставить её после тела CTE и добавить обязательную секцию USING)",
-    "invisible_index": "Проверить, действительно ли индекс должен быть скрыт от оптимизатора — PostgreSQL не имеет аналога INVISIBLE для индексов",
-    "read_only_table": "Настроить REVOKE INSERT/UPDATE/DELETE от всех ролей или BEFORE-триггер, отклоняющий DML — ora2pg теряет секцию READ ONLY",
-    "materialized_view_log": "Спроектировать обновление материализованных представлений через полный REFRESH MATERIALIZED VIEW — у PostgreSQL нет инкрементального FAST REFRESH",
-    "identity_column": "Убрать лишнюю внешнюю пару скобок вокруг опций последовательности вручную — баг подстановки ora2pg, не пропуск конвертации",
-    "rowid_type": "Вручную выбрать подходящий тип (обычно text) для столбца, который ora2pg сконвертировал из ROWID/UROWID в oid",
-    "sequence_cycle": "Добавить CYCLE вручную в CREATE SEQUENCE, если циклическое поведение действительно нужно",
-    "default_on_null": "Переписать вручную на BEFORE-триггер или GENERATED ALWAYS AS (COALESCE(...)) STORED — прямого аналога DEFAULT ... ON NULL в PostgreSQL нет",
-    "public_synonym": "Вручную квалифицировать целевую таблицу схемой в определении сгенерированного VIEW",
-    "virtual_column": "Учитывать, что сгенерированный триггер молча отбрасывает любое явно присвоенное столбцу значение — добавить проверку на уровне приложения, если эта защита важна",
-    "conditional_compilation": "Вручную развернуть нужную ветку в обычный код (или обычный IF для решения во время выполнения) — препроцессора условной компиляции в PostgreSQL нет",
-    "nested_subprogram": "Вручную вынести вложенную логику в отдельную функцию/процедуру PostgreSQL верхнего уровня",
-    "package_state": "Добавить явное приведение типа к set_config() и missing_ok => true к current_setting(), либо спроектировать состояние иначе (временная таблица, параметр приложения)",
-    "index_organized_table": "Перепроверить производительность на реальной нагрузке — у PostgreSQL нет настоящих индекс-организованных таблиц, конвертированная таблица — обычная куча с отдельным индексом",
-    "match_recognize": "Переписать на оконные функции (LAG/LEAD над разделом) с фильтрацией или на рекурсивный CTE — прямого аналога row pattern matching в PostgreSQL нет",
-    "connect_by_pseudocolumn": "Корень ветки протащить дополнительным столбцом рекурсивного CTE, признак листа — через NOT EXISTS, признак цикла — через секцию CYCLE (PostgreSQL 14+)",
-    "keep_dense_rank": "Переписать на оконную функцию FIRST_VALUE/LAST_VALUE с той же ORDER BY внутри OVER, либо на DISTINCT ON, либо на агрегат с FILTER",
-    "multiset_operator": "Перевести на модель массивов PostgreSQL: CAST(MULTISET(...)) → ARRAY(SELECT ...), MULTISET UNION → ||, MEMBER OF → = ANY(...), SUBMULTISET OF → <@",
-    "sample_clause": "Заменить на TABLESAMPLE: SAMPLE (n) → TABLESAMPLE BERNOULLI (n), SAMPLE BLOCK (n) → TABLESAMPLE SYSTEM (n)",
-    "accessible_by": "Прямого аналога нет — вынести подпрограмму в отдельную схему и ограничить доступ через GRANT/REVOKE (защита на уровне ролей, а не вызывающих подпрограмм)",
-    "local_time_zone": "Заменить тип столбца на timestamptz — именно он воспроизводит пересчёт в часовой пояс сессии, который делает Oracle LTZ",
-    "temporal_validity": "Развернуть в обычную пару timestamp-столбцов с фильтрацией в запросах, либо в тип tstzrange с ограничением-исключением при контроле пересечений",
-    "bitmap_index": "Заменить на обычный btree (планировщик сам комбинирует их через bitmap scan) либо на gin с явным классом операторов из расширения btree_gin",
-    "object_table": "Развернуть объектную таблицу в обычную: отдельный столбец на каждый атрибут типа плюс явные ограничения",
-    "ignore_nulls": "Эмулировать вручную: группирующий ключ через count(col) FILTER (WHERE col IS NOT NULL) плюс first_value внутри группы, либо боковой подзапрос",
-    "nlssort": "Сопоставить имя сортировки Oracle с реальной локалью PostgreSQL (GERMAN → \"de-DE-x-icu\" или \"de_DE.utf8\") и при необходимости создать её через CREATE COLLATION",
-    "long_raw_type": "Поправить тип столбца на bytea — это и есть собственное документированное отображение ora2pg для LONG RAW",
-    "anydata_type": "Переразметить столбец в jsonb либо разнести на несколько типизированных столбцов с признаком типа",
-    "system_trigger": "DDL-события перевести на событийные триггеры PostgreSQL (CREATE EVENT TRIGGER), LOGON/LOGOFF/SERVERERROR — на журналирование сервера или логику приложения",
-    "trigger_follows": "Убрать оговорку, нужный порядок обеспечить именованием триггеров (PostgreSQL вызывает их в алфавитном порядке) либо слиянием в один триггер",
-    "table_collection": "Заменить на unnest(...) для массива или на обычный вызов set-returning функции во FROM — в зависимости от того, чем стала сама коллекция",
-    "cursor_expression": "Заменить на соединение с агрегацией дочерних строк (array_agg/json_agg) либо на отдельную функцию, возвращающую refcursor",
-    "for_update_wait": "Убрать WAIT n и выставить таймаут на уровне сессии: SET LOCAL lock_timeout = 'n s' перед SELECT ... FOR UPDATE",
-    "rownum_dml": "Переписать через подзапрос по первичному ключу — DELETE FROM t WHERE id IN (SELECT id FROM t WHERE ... ORDER BY ... LIMIT n)",
-    "to_date_rr": "Заменить RR на явный четырёхзначный YYYY с приведением входных данных — PostgreSQL кода RR не знает и молча выдаёт 0001 год до нашей эры, а YY не эквивалент: его порог 69/70 против 49/50 у Oracle RR",
-    "authid_clause": "Убрать оговорку из исходника перед конвертацией (иначе объект пропадёт целиком) и дописать в готовую функцию SECURITY DEFINER или SECURITY INVOKER",
-    "pragma_exception_init": "Сопоставить каждый номер ORA с настоящим кодом PostgreSQL и заменить подставленный '50001' на него (например unique_violation вместо -1)",
-    "subtype_range": "Заменить RANGE lo .. hi на проверку: CREATE DOMAIN ... CHECK (VALUE BETWEEN lo AND hi)",
-    "alt_quote_literal": "Заменить на долларовые кавычки PostgreSQL ($q$...$q$) или на обычный литерал с удвоенными апострофами",
-    "goto_statement": "Переписать на управляющие конструкции: переход назад — на LOOP/CONTINUE, переход вперёд — на IF/ELSE или вложенный блок с EXIT",
-    "cursor_rowtype": "Объявить переменную как RECORD — в PL/pgSQL она принимает строку любого курсора, и FETCH работает без изменений",
-    "wm_concat": "Заменить на string_agg(col, ',' ORDER BY col) — порядок стоит задать явно, WM_CONCAT его не гарантировал",
-    "read_only_view": "Вернуть запрет записи явно: REVOKE INSERT, UPDATE, DELETE ON <view> либо триггер INSTEAD OF, возбуждающий исключение",
-    "sdo_geometry": "Добавить CREATE EXTENSION postgis перед загрузкой схемы (ora2pg её не выводит) и отдельно проверить перенос самих значений",
-    "mysql_enum_type": "Вставить недостающий CREATE TYPE <таблица>_<столбец>_t AS ENUM (...) перед CREATE TABLE — значения уже видны в исходном ENUM(...)",
-    "mysql_on_update_current_timestamp": "Перенести на триггер BEFORE UPDATE, выставляющий NEW.<столбец> = now()",
-    "mysql_on_duplicate_key_update": "Переписать на INSERT ... ON CONFLICT (<уникальный_ключ>) DO UPDATE SET ...",
-    "mysql_signal": "Переписать на RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>', MESSAGE = '<текст>'",
-    "mysql_fulltext_index": "Восстановить вручную: CREATE INDEX ... USING gin (to_tsvector('...', ...)) после CREATE TABLE, столбцы видны в исходном FULLTEXT KEY (...)",
-    "mysql_key_index": "Переписать в CREATE INDEX <имя> ON <таблица> (<столбцы>) после CREATE TABLE — синоним INDEX ora2pg переносит корректно, ломается только написание KEY",
-    "mysql_spatial_index": "Восстановить как CREATE INDEX ... USING gist (<столбец>) поверх PostGIS-типа и отдельно проверить сам тип столбца",
-    "mysql_limit_comma": "Переписать на LIMIT <количество> OFFSET <смещение> — порядок аргументов обратный, механическая замена запятой даст другую страницу",
-    "mysql_replace_into": "Переписать на INSERT ... ON CONFLICT DO UPDATE, сверив разницу: REPLACE удаляет строку и потому запускает ON DELETE-каскады",
-    "mysql_insert_ignore": "Переписать на INSERT ... ON CONFLICT DO NOTHING, проверив, какие именно ошибки глушились — IGNORE шире",
-    "mysql_prepare_from": "Переписать на EXECUTE <строка> USING ... в PL/pgSQL — PostgreSQL-овский PREPARE ... AS здесь не подходит",
-    "mysql_last_insert_id": "Переписать на INSERT ... RETURNING <столбец> INTO <переменная>; lastval() относится к последней последовательности вообще, а не к таблице",
-    "mysql_auto_increment_start": "После загрузки данных выставить счётчик: SELECT setval(pg_get_serial_sequence('<таблица>','<столбец>'), (SELECT max(<столбец>) FROM <таблица>))",
-    "mysql_date_format": "Переписать на to_char(<дата>, 'YYYY-MM-DD HH24:MI:SS') и сверить каждый спецификатор — ошибки не будет, вернётся молча не то",
-    "mysql_foreign_key": "Восстановить вручную: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... REFERENCES ... после загрузки всех таблиц",
-    "mysql_zero_date": "Переносить '0000-00-00' в NULL, а не в подставленную ora2pg дату 1970-01-01; проверить заодно сами данные, а не только DEFAULT",
-    "mysql_declare_handler": "Восстановить обработку ошибок блоком BEGIN ... EXCEPTION WHEN ... END; для NOT FOUND — через проверку FOUND, а не EXCEPTION",
-    "mysql_collate": "Вернуть правило сравнения явно: COLLATE с ICU-правилом, тип citext или lower() с обеих сторон сравнения",
-    "mysql_set_type": "Добавить CHECK-ограничение на допустимые значения (или вынести в отдельную таблицу связей) — ora2pg оставляет просто text без проверки",
-    'mssql_bracket_identifier': 'Снять квадратные скобки с имён в скрипте до конвертации (или выгружать через живое подключение к SQL Server — там ora2pg их убирает сам)',
-    'mssql_newid_default': 'Добавить CREATE EXTENSION IF NOT EXISTS "uuid-ossp" перед загрузкой схемы либо перейти на встроенную gen_random_uuid()',
-    'mssql_update_set': 'Вернуть обычный SQL: UPDATE <таблица> SET <столбец> = <значение> — ora2pg превращает SET в присваивание := и ломает каждый UPDATE',
-    'mssql_identity_column': 'Заменить на GENERATED BY DEFAULT AS IDENTITY (или serial) и выставить счётчик по максимуму перенесённых данных',
-    'mssql_parameterless_procedure': 'Удалить из готового кода пустой блок DECLARE с одинокой точкой с запятой',
-    'mssql_if_statement': 'Переписать в полную форму PL/pgSQL: IF <условие> THEN <операторы>; END IF;',
-    'mssql_raiserror': "Переписать на RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>'; severity из RAISERROR — это уровень сообщения, а не код",
-    'mssql_try_catch': 'Переписать на BEGIN ... EXCEPTION WHEN OTHERS THEN ... END; ERROR_MESSAGE() — это SQLERRM, ERROR_NUMBER() — SQLSTATE',
-    'mssql_top_clause': 'Переписать на LIMIT <n>; при TOP без ORDER BY порядок так и останется неопределённым, задайте его явно',
-    'mssql_scope_identity': 'Переписать на INSERT ... RETURNING <столбец> INTO <переменная> — заодно проверьте, что сам IDENTITY не потерялся (GAP-090)',
-    'mssql_output_clause': 'Переписать на RETURNING <столбец>; учтите, что RETURNING не различает INSERTED и DELETED',
-    'mssql_iif': 'Переписать на CASE WHEN <условие> THEN ... ELSE ... END',
-    'mssql_datediff': 'Переписать через вычитание дат/EXTRACT(EPOCH ...); помните, что DATEDIFF считает пересечённые границы, а не полные интервалы',
-    'mssql_charindex': "Снять лишние кавычки в сгенерированном position(''x'' in ...) — должно быть position('x' in ...)",
-    'mssql_filtered_index': 'Перенести оператор дословно после загрузки схемы: в PostgreSQL частичные индексы с WHERE есть и синтаксис тот же',
-    'mssql_foreign_key': 'Восстановить вручную: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... REFERENCES ... после загрузки всех таблиц',
-    'mssql_collation': 'Заменить citext на text с явным COLLATE нужной чувствительности — для _CS_-правил подмена на citext меняет смысл на противоположный',
-    'mssql_computed_column': 'Заменить тип столбца на тот, что реально считает выражение, а лучше перенести на GENERATED ALWAYS AS (...) STORED',
-    'mssql_rowversion': 'Вернуть самообновление триггером BEFORE UPDATE либо перейти на системный столбец xmin — иначе оптимистичная блокировка молча перестаёт работать',
-}
 
 
 def _severity_dot(severity: str | None) -> str:
@@ -406,7 +290,6 @@ def _render_recommended_actions(findings: list[Finding], console: Console, lang:
         by_detector[f.detector] = by_detector.get(f.detector, 0) + 1
 
     ranked = sorted(by_detector.items(), key=lambda kv: -kv[1])
-    hints = REMEDIATION_HINT_EN if lang == "en" else _REMEDIATION_HINT
 
     body = Text()
     for i, (detector, n) in enumerate(ranked, start=1):
@@ -415,7 +298,9 @@ def _render_recommended_actions(findings: list[Finding], console: Console, lang:
         body.append(f"[{i}] ", style="bold")
         body.append(f"{detector}  ")
         body.append(f"({n})\n", style="dim")
-        hint = hints.get(detector, i18n.t(lang, "see_explanation_below"))
+        hint = messages.remediation_hint(detector, lang) or i18n.t(
+            lang, "see_explanation_below"
+        )
         body.append(f"    -> {hint}", style="dim")
 
     console.print(

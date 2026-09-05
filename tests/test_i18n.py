@@ -9,7 +9,6 @@ checkout, not a synthetic fixture)."""
 import pytest
 
 from ora2pg_gap_report import i18n, messages
-from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT
 
 
 @pytest.fixture(autouse=True)
@@ -116,6 +115,24 @@ def test_an_unrecognized_language_falls_back_to_russian():
     assert messages.text(any_id, "de") == messages.MESSAGES[any_id].ru
 
 
-def test_every_remediation_hint_has_an_english_counterpart():
-    missing = sorted(set(_REMEDIATION_HINT) - set(i18n.REMEDIATION_HINT_EN))
-    assert missing == []
+def test_every_remediation_hint_carries_both_languages():
+    # The pair used to live in two files -- ru in terminal_report.py, en in
+    # i18n.py -- so "has an English counterpart" was a real question. Now
+    # one Message holds both and the question is whether either half is
+    # blank.
+    blank = sorted(
+        name for name, hint in messages.REMEDIATION_HINTS.items()
+        if not hint.ru.strip() or not hint.en.strip()
+    )
+    assert blank == []
+
+
+def test_remediation_hint_falls_back_to_russian_for_an_unknown_language():
+    name = next(iter(messages.REMEDIATION_HINTS))
+    assert messages.remediation_hint(name, "de") == messages.REMEDIATION_HINTS[name].ru
+
+
+def test_remediation_hint_is_none_for_a_detector_without_one():
+    # Not an error, unlike a missing message: the report falls back to a
+    # generic line.
+    assert messages.remediation_hint("no_such_detector") is None

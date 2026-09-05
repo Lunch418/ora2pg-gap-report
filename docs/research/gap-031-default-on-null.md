@@ -1,14 +1,14 @@
-# GAP-031: `DEFAULT ON NULL` копируется verbatim — синтаксическая ошибка
+# GAP-031: `DEFAULT ON NULL` copied verbatim — a syntax error
 
-Oracle feature (12c+): `<column> <type> DEFAULT ON NULL <expr>` —
-отличается от обычного `DEFAULT`: обычный `DEFAULT` подставляется,
-только когда столбец вообще не упомянут в `INSERT`; `DEFAULT ON NULL`
-подставляется и тогда, когда столбец упомянут явно, но передано
-`NULL` — типичное использование для столбцов вроде "статус",
-"количество попыток", куда приложение может по ошибке (или намеренно,
-для унификации кода) передать `NULL` вместо явного значения.
+Oracle feature (12c+): `<column> <type> DEFAULT ON NULL <expr>` — different
+from an ordinary `DEFAULT`: a plain `DEFAULT` applies only when the column
+is not mentioned in the `INSERT` at all, while `DEFAULT ON NULL` also
+applies when the column is named explicitly but `NULL` is passed. Typical
+for columns such as "status" or "retry count", where the application may
+pass `NULL` by mistake — or deliberately, to keep the calling code uniform
+— instead of an explicit value.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE orders (
@@ -17,7 +17,7 @@ CREATE TABLE orders (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE TABLE orders (
@@ -26,16 +26,16 @@ CREATE TABLE orders (
 ) ;
 ```
 
-Секция `ON NULL` копируется в вывод как есть — `PostgreSQL` не
-поддерживает такой синтаксис у `DEFAULT` вообще (в PostgreSQL 16
-единственный способ добиться похожего поведения — `BEFORE`-триггер или
-`GENERATED ALWAYS AS ... STORED` с `COALESCE`, но не сам `DEFAULT`).
+The `ON NULL` clause is copied into the output as written — PostgreSQL
+does not support that syntax on `DEFAULT` at all. (In PostgreSQL 16 the
+only ways to get similar behaviour are a `BEFORE` trigger or `GENERATED
+ALWAYS AS ... STORED` with `COALESCE`, not `DEFAULT` itself.)
 
-## Наблюдаемая проблема
+## Observed problem
 
-В отличие от большинства gap'ов в этом реестре — это не тихая потеря
-поведения, а немедленный отказ уже на этапе применения самого DDL.
-Подтверждено на реальном PostgreSQL 16:
+Unlike most gaps in this registry, this is not a silent loss of behaviour
+but an immediate failure while applying the DDL itself. Confirmed against
+a real PostgreSQL 16:
 
 ```sql
 CREATE TABLE orders (
@@ -47,15 +47,15 @@ CREATE TABLE orders (
 --                              ^
 ```
 
-Скрипт миграции обрывается на этой самой таблице — не позже, при первой
-вставке, как в большинстве других "тихих" gap'ов, а сразу. Легко
-заметить при первом прогоне сгенерированного дампа, но требует ручного
-переписывания под триггер или `COALESCE` в `GENERATED ALWAYS AS`,
-прежде чем миграция сможет продолжиться дальше этой таблицы.
+The migration script stops at this very table — not later, on the first
+insert, as with most of the other "silent" gaps, but at once. Easy to
+notice on the first run of the generated dump, but it requires a manual
+rewrite to a trigger or a `COALESCE` in `GENERATED ALWAYS AS` before the
+migration can get past this table.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
+**Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/default_on_null.py`.

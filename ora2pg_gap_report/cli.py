@@ -32,6 +32,7 @@ from .effort_estimator import estimate_hours, ordered_counts, summarize_by_sever
 from .gap_registry import (
     gap_by_number,
     normalize_gap_number,
+    research_doc_is_translated,
     research_doc_path,
     research_doc_url,
     verified_ora2pg_versions,
@@ -362,15 +363,12 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
         else None
     )
 
-    doc_path = research_doc_path(gap)
+    doc_path = research_doc_path(gap, lang)
     if doc_path is None:
         # docs/research/ isn't shipped in the pip-installed package (see
         # gap_registry.py's module docstring) -- only a source checkout has
         # it on disk. Falling back to a GitHub link still gets the user to
         # the same content instead of a bare "not found". Note: the
-        # research doc itself (when found locally, below) is only ever
-        # shown in Russian -- translating docs/research/ is out of scope
-        # for this module, see its docstring.
         console.print(i18n.t(lang, "explain_doc_not_local", number=gap.number, detector=gap.detector))
         console.print(version_line)
         console.print(severity_line)
@@ -384,6 +382,10 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
     console.print(severity_line)
     if stage_line is not None:
         console.print(stage_line)
+    if not research_doc_is_translated(gap, lang):
+        # Better to say so than to print a document in a language the
+        # reader did not ask for and leave them to work it out.
+        console.print(i18n.t(lang, "explain_doc_not_translated"))
     console.print(doc_path.read_text(encoding="utf-8"))
     return 0
 

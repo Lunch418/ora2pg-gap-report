@@ -291,6 +291,12 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "ora2pg завершился с кодом {code}:\n{detail}",
         "en": "ora2pg exited with code {code}:\n{detail}",
     },
+    "explain_doc_not_translated": {
+        "ru": "[dim](документ ниже — на английском: русский перевод этого "
+        "gap'а ещё не готов)[/dim]",
+        "en": "[dim](the document below is in Russian: its English "
+        "translation is not ready yet)[/dim]",
+    },
     "confirmed_versions": {
         "ru": "Подтверждено {last_verified} на: ora2pg {ora2pg_version}, "
         "PostgreSQL {postgresql_version}",

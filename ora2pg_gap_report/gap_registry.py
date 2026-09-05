@@ -664,13 +664,59 @@ def gap_metadata(detector: str) -> tuple[str | None, str | None]:
     return gap.number, gap.failure_stage
 
 
-def research_doc_path(gap: GapEntry) -> Path | None:
-    """Path to this gap's docs/research/gap-NNN-<slug>.md in a *source
-    checkout* of the repository -- None if docs/ isn't there at all (a
-    pip install; see the module docstring) or the file is genuinely
-    missing."""
-    path = REPO_ROOT / "docs" / "research" / f"gap-{gap.number}-{gap.slug}.md"
-    return path if path.is_file() else None
+def research_doc_path(gap: GapEntry, lang: str = "ru") -> Path | None:
+    """Path to this gap's research doc in a *source checkout* of the
+    repository -- None if docs/ isn't there at all (a pip install; see
+    the module docstring) or the file is genuinely missing.
+
+    Follows the same bilingual convention as docs/ARCHITECTURE.md and
+    its .ru.md counterpart: the English text lives at the base name, the
+    Russian beside it with a .ru.md suffix. Russian asks for the .ru.md
+    and falls back to the base name; every other language takes the base
+    name. Translation is in progress, so both fallbacks are live -- a doc
+    with no English version yet still resolves to the Russian one rather
+    than to nothing, which is the more useful answer for a reader who
+    came looking for the evidence."""
+    base = REPO_ROOT / "docs" / "research" / f"gap-{gap.number}-{gap.slug}"
+    candidates = (
+        [base.with_suffix(".ru.md"), base.with_suffix(".md")]
+        if lang == "ru"
+        else [base.with_suffix(".md"), base.with_suffix(".ru.md")]
+    )
+    for path in candidates:
+        if path.is_file():
+            return path
+    return None
+
+
+# Enough Cyrillic to mean the prose is Russian rather than a stray
+# quoted identifier or a Russian word inside otherwise English text. The
+# research docs quote real ora2pg output, which is ASCII, so a translated
+# doc has almost none while an untranslated one is mostly Cyrillic --
+# the two are nowhere near this threshold from either side.
+_RUSSIAN_PROSE_RATIO = 0.10
+
+
+def research_doc_is_translated(gap: GapEntry, lang: str) -> bool:
+    """Whether the doc research_doc_path() would return is actually in
+    `lang`, rather than the other language served as a fallback.
+
+    Decided from the text, not the filename. During the translation of
+    docs/research/ a doc can be Russian under the base name (not migrated
+    yet) or English under it (migrated, with the Russian moved to
+    .ru.md), and the filename cannot tell those apart. Reading the text
+    is right at every point in that transition, and stays right once it
+    is finished."""
+    path = research_doc_path(gap, lang)
+    if path is None:
+        return False
+    text = path.read_text(encoding="utf-8")
+    letters = sum(1 for c in text if c.isalpha())
+    if not letters:
+        return True
+    cyrillic = sum(1 for c in text if "\u0400" <= c <= "\u04ff")
+    is_russian = cyrillic / letters > _RUSSIAN_PROSE_RATIO
+    return is_russian == (lang == "ru")
 
 
 def research_doc_url(gap: GapEntry) -> str:

@@ -222,14 +222,26 @@ class ScanScreen(Screen[None]):
     #controls { height: auto; padding: 1 2; }
     /* Per-select widths, not one shared 26: three pickers plus the Scan
        button have to fit an 80-column terminal (the narrowest this app
-       targets, and what App.run_test() gives the TUI tests). Each is
-       sized to its own longest label -- "All severities" at 14 for
-       severity, "Русский" at 7 for language, "oracle" at 6 for dialect
-       -- rather than every one paying for the widest. */
+       targets, and what App.run_test() gives the TUI tests), so each is
+       sized to its own content rather than every one paying for the
+       widest.
+       These are measured minimums, not label lengths. A Select needs
+       room for its border and its dropdown arrow on top of the label, so
+       sizing to the label alone (which is what the first version of this
+       block did -- 12/20/13 for labels of 6/13/7) leaves the widget one
+       row TALLER than its neighbours: the text wraps inside it. That is
+       invisible in a screenshot of one widget and obvious in the row --
+       a ragged bottom edge under the pickers. The numbers below are the
+       smallest width at which each renders at height 3, taken from a
+       real headless render in BOTH languages and pinned by
+       test_control_row_widgets_are_all_the_same_height.
+       Severity is the one that differs between locales: "Только medium"
+       needs 18, "All severities" needs 22, so 22 it is. Total with
+       margins and the Scan button is 75 of the 78 available. */
     #controls Select { margin-right: 2; }
-    #dialect-select { width: 12; }
-    #severity-select { width: 20; }
-    #lang-select { width: 13; }
+    #dialect-select { width: 14; }
+    #severity-select { width: 22; }
+    #lang-select { width: 15; }
     #controls Button { margin-top: 0; }
     #multi-select-controls { height: auto; padding: 0 2; }
     #multi-select-controls Button { margin-right: 2; }

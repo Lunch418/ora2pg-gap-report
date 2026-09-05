@@ -1,9 +1,9 @@
-# GAP-089: `UPDATE ... SET` превращается в присваивание `:=`
+# GAP-089: `UPDATE ... SET` turns into a `:=` assignment
 
-MSSQL feature: обычный `UPDATE ... SET` — не что-то экзотическое, а
-самый частый оператор в хранимых процедурах.
+MSSQL feature: an ordinary `UPDATE ... SET` — nothing exotic, just the
+most common statement in stored procedures.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE PROCEDURE dbo.upd_only @x int AS
@@ -12,7 +12,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-M -t PROCEDURE`)
+## ora2pg output (v25.0, `-M -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE dbo.upd_only (p_x integer) AS $body$
@@ -26,33 +26,33 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Слово `SET` из запроса исчезло, а первое присваивание получило `:=`
-вместо `=`. Причина понятна: в T-SQL `SET` — это ещё и оператор
-присваивания переменной (`SET @x = 1`), и ora2pg применил к запросу
-правила присваивания.
+The `SET` keyword vanished from the statement, and the first assignment
+got `:=` instead of `=`. The cause is clear: in T-SQL `SET` is also the
+variable-assignment statement (`SET @x = 1`), and ora2pg applied the
+assignment rules to the query.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Загрузка проходит чисто — ora2pg выставляет в своём выводе
-`check_function_bodies = false`, поэтому тело не разбирается. При
-разборе тела на реальном PostgreSQL 16:
+The load goes through cleanly — ora2pg sets `check_function_bodies =
+false` in its own output, so the body is not parsed. When the body is
+parsed on a real PostgreSQL 16:
 
 ```
 ERROR:  syntax error at or near ":="
 ```
 
-Проверено на трёх разных процедурах — с параметром, без параметра и с
-`IF`-блоком: `UPDATE` ломается во всех.
+Checked on three different procedures — with a parameter, without a
+parameter, and with an `IF` block: `UPDATE` breaks in all of them.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.** Под это
-попадает каждый `UPDATE` в каждой процедуре, так что после конвертации
-их придётся просмотреть все. Правится возвратом к обычному SQL:
-`UPDATE <таблица> SET <столбец> = <значение>`. Реализовано:
-`ora2pg_gap_report/detectors/mssql_update_set.py` — детектор намеренно
-не помечает настоящее присваивание переменной T-SQL (`SET @x = 1`),
-которое ora2pg переводит верно.
+**Gap confirmed, severity high, failure_stage runtime.** This catches
+every `UPDATE` in every procedure, so after conversion they all have to
+be reviewed. Fixed by restoring plain SQL: `UPDATE <table> SET <column> =
+<value>`. Implemented:
+`ora2pg_gap_report/detectors/mssql_update_set.py` — the detector
+deliberately does not flag a genuine T-SQL variable assignment (`SET @x =
+1`), which ora2pg translates correctly.

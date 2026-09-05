@@ -1,14 +1,14 @@
-# GAP-087: идентификаторы в квадратных скобках ломают конвертацию целиком
+# GAP-087: bracketed identifiers break the conversion entirely
 
-Первый gap партии MSSQL. ora2pg поддерживает SQL Server как источник
-напрямую, через `-M`/`--mssql`, и работает файлово (`-i <file>`, без
-живого подключения) так же, как режимы Oracle и MySQL.
+The first gap of the MSSQL batch. ora2pg supports SQL Server as a source
+directly, via `-M`/`--mssql`, and works file-based (`-i <file>`, no live
+connection) the same way the Oracle and MySQL modes do.
 
-MSSQL feature: `[dbo].[Orders]`, `[Id]`, `[int]` — штатная запись имён в
-T-SQL. Именно так их выводит SSMS и «Generate Scripts» по умолчанию, то
-есть так выглядит практически любой реальный скрипт.
+MSSQL feature: `[dbo].[Orders]`, `[Id]`, `[int]` — the standard way of
+writing names in T-SQL. It is exactly what SSMS and "Generate Scripts"
+emit by default, so it is what practically every real script looks like.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE [dbo].[Orders](
@@ -20,7 +20,7 @@ CREATE TABLE [dbo].[Orders](
 );
 ```
 
-## Вывод ora2pg (v25.0, `-M -t TABLE`)
+## ora2pg output (v25.0, `-M -t TABLE`)
 
 ```sql
 CREATE TABLE "[dbo]"."[orders]" (
@@ -32,13 +32,14 @@ CREATE TABLE "[dbo]"."[orders]" (
 ALTER TABLE "[dbo]"."[orders]" ADD PRIMARY KEY ([id]);
 ```
 
-Скобки не сняты: они остались частью имени и сверху ещё взяты в двойные
-кавычки. Получилась таблица с именем `[orders]` в схеме `[dbo]` и
-столбцы типов `[INT]`, `[NVARCHAR]`, `[MONEY]` — таких типов нет.
+The brackets are not stripped: they stayed part of the name and were then
+wrapped in double quotes on top. The result is a table named `[orders]`
+in a schema `[dbo]`, with columns of types `[INT]`, `[NVARCHAR]`,
+`[MONEY]` — types that do not exist.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16:
+Confirmed on a real PostgreSQL 16:
 
 ```
 ERROR:  syntax error at or near "["
@@ -46,12 +47,12 @@ LINE 2:  "[id]" [INT] NOT NULL,
                 ^
 ```
 
-Загрузка падает на первом же столбце.
+The load fails on the very first column.
 
-## Дело именно в скобках
+## It really is the brackets
 
-Проверено отдельно — та же таблица, записанная без скобок,
-конвертируется корректно:
+Checked separately — the same table written without brackets converts
+correctly:
 
 ```sql
 CREATE TABLE dbo.Orders(
@@ -72,14 +73,14 @@ CREATE TABLE dbo.orders (
 ) ;
 ```
 
-## Почему так
+## Why this happens
 
-В исходниках ora2pg снятие скобок есть — регулярка вида
-`s/[\[\]]+//g` встречается в `lib/Ora2Pg/MSSQL.pm` восемь раз. Но все
-восемь лежат внутри подпрограмм, работающих с живым подключением, и
-применяются к строкам, вычитанным из базы через DBI:
+ora2pg's sources do strip brackets — a regex of the form `s/[\[\]]+//g`
+appears eight times in `lib/Ora2Pg/MSSQL.pm`. But all eight sit inside
+subroutines that work against a live connection, applied to strings read
+from the database through DBI:
 
-| строка | подпрограмма |
+| line | subroutine |
 |---|---|
 | 381, 384 | `_column_info` |
 | 644 | `_get_views` |
@@ -89,20 +90,20 @@ CREATE TABLE dbo.orders (
 | 2331 | `_column_attributes` |
 | 2631 | `_get_materialized_views` |
 
-Файловый путь через `-i` до них не доходит вовсе — отсюда и разница в
-поведении между «выгрузить из живого SQL Server» и «сконвертировать
-скрипт».
+The file-based path through `-i` never reaches them at all — hence the
+difference in behaviour between "dump from a live SQL Server" and
+"convert a script".
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high.** По охвату это самый крупный gap
-всей MSSQL-партии: под него попадает любой скрипт, выгруженный SSMS с
-настройками по умолчанию, и падает он на первой же таблице, до того как
-успеют проявиться остальные проблемы. Обходится двумя способами: снять
-скобки в скрипте до конвертации либо выгружать схему через живое
-подключение к SQL Server. Реализовано:
-`ora2pg_gap_report/detectors/mssql_bracket_identifier.py` — по одной
-находке на объект, а не на каждую скобку.
+**Gap confirmed, severity high.** By reach this is the largest gap of
+the whole MSSQL batch: it catches any script exported by SSMS with
+default settings, and it fails on the very first table, before the other
+problems get a chance to surface. Two workarounds: strip the brackets in
+the script before conversion, or export the schema through a live
+connection to SQL Server. Implemented:
+`ora2pg_gap_report/detectors/mssql_bracket_identifier.py` — one finding
+per object rather than per bracket.

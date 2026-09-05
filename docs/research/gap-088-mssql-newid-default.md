@@ -1,9 +1,9 @@
-# GAP-088: `NEWID()` — `uuid_generate_v4()` без расширения
+# GAP-088: `NEWID()` — `uuid_generate_v4()` without the extension
 
-MSSQL feature: `NEWID()` / `NEWSEQUENTIALID()` — генерация GUID по
-умолчанию.
+MSSQL feature: `NEWID()` / `NEWSEQUENTIALID()` — GUID generation as a
+default.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE tokens (
@@ -12,7 +12,7 @@ CREATE TABLE tokens (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-M -t TABLE`)
+## ora2pg output (v25.0, `-M -t TABLE`)
 
 ```sql
 CREATE TABLE tokens (
@@ -21,40 +21,42 @@ CREATE TABLE tokens (
 ) ;
 ```
 
-Цель выбрана правильно — `uuid` и `uuid_generate_v4()`, — но строки
-`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"` в выводе нет.
+The target is chosen correctly — `uuid` and `uuid_generate_v4()` — but
+there is no `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"` line in the
+output.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16:
+Confirmed on a real PostgreSQL 16:
 
 ```
 ERROR:  function uuid_generate_v4() does not exist
 ```
 
-`CREATE TABLE` падает немедленно, при загрузке схемы.
+`CREATE TABLE` fails immediately, at schema load.
 
-Показательно, что механизм подключения расширений у ora2pg есть и в том
-же прогоне работает: под строковые типы он сам выводит первой строкой
+Tellingly, ora2pg does have a mechanism for enabling extensions, and it
+works in that very same run: for string types it emits, as the first
+line,
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS citext;
 ```
 
-То есть дело не в отсутствии механизма, а в том, что для `uuid-ossp` он
-не применяется. Родственная ситуация на Oracle-стороне —
-GAP-067 (`SDO_GEOMETRY` без `CREATE EXTENSION postgis`).
+So it is not that the mechanism is missing, but that it is not applied to
+`uuid-ossp`. The related situation on the Oracle side is GAP-067
+(`SDO_GEOMETRY` without `CREATE EXTENSION postgis`).
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high.** Чинится одной строкой
-`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"` перед загрузкой схемы; в
-PostgreSQL 13+ можно вместо этого перейти на встроенную
-`gen_random_uuid()` и обойтись без расширения вовсе. Severity здесь
-high, а не medium (как у GAP-067), потому что в отличие от PostGIS это
-не «доустановить внешнее расширение под особый тип данных», а
-блокировка загрузки на совершенно рядовом столбце-идентификаторе.
-Реализовано: `ora2pg_gap_report/detectors/mssql_newid_default.py`.
+**Gap confirmed, severity high.** Fixed with a single `CREATE EXTENSION
+IF NOT EXISTS "uuid-ossp"` line before loading the schema; on PostgreSQL
+13+ one can instead switch to the built-in `gen_random_uuid()` and skip
+the extension entirely. Severity here is high rather than medium (as with
+GAP-067) because, unlike PostGIS, this is not "install an extra external
+extension for an unusual data type" but a blocked load on a completely
+ordinary identifier column. Implemented:
+`ora2pg_gap_report/detectors/mssql_newid_default.py`.

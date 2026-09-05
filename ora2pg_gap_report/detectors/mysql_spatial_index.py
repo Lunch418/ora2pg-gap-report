@@ -1,12 +1,8 @@
 import re
 
-from ..models import Finding
-from ..mysql_lex import (
-    line_at,
-    mask_strings_and_comments,
-    qualified_name_pattern,
-    table_column_definition_list,
-)
+from .. import mysql_lex
+from ..mysql_lex import qualified_name_pattern
+from ..detector_spec import DetectorSpec, TABLE_COLUMNS, build
 
 _TABLE_RE = re.compile(
     qualified_name_pattern(r"CREATE\s+TABLE"),
@@ -14,32 +10,20 @@ _TABLE_RE = re.compile(
 )
 _SPATIAL_RE = re.compile(r"\bSPATIAL\s+(?:KEY|INDEX)\b", re.IGNORECASE)
 
+_DOC = """Detect MySQL/MariaDB's inline `SPATIAL KEY`/`SPATIAL INDEX` column-
+list clause. ora2pg -m drops the index name and column list and leaves
+the bare keywords where a column definition was expected, so CREATE
+TABLE fails to load. See docs/research/gap-074-mysql-spatial-index.md."""
 
-def find_mysql_spatial_indexes(source: str) -> list[Finding]:
-    """Detect MySQL/MariaDB's inline `SPATIAL KEY`/`SPATIAL INDEX` column-
-    list clause. ora2pg -m drops the index name and column list and leaves
-    the bare keywords where a column definition was expected, so CREATE
-    TABLE fails to load. See docs/research/gap-074-mysql-spatial-index.md."""
-    clean = mask_strings_and_comments(source)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="mysql_spatial_index",
+    dialect="mysql",
+    severity="high",
+    pattern=_SPATIAL_RE,
+    strategy=TABLE_COLUMNS,
+    snippet=lambda m: m.group(0).upper(),
+    table_pattern=_TABLE_RE,
+)
 
-    for m in _TABLE_RE.finditer(clean):
-        span = table_column_definition_list(clean, m.end())
-        if span is None:
-            continue  # bare CTAS with no column-definition list at all
-        open_pos, close_pos = span
-        column_list = clean[open_pos + 1 : close_pos]
-
-        for col_match in _SPATIAL_RE.finditer(column_list):
-            findings.append(
-                Finding(
-                    detector="mysql_spatial_index",
-                    severity="high",
-                    object_name=m.group(1).upper(),
-                    line=line_at(clean, open_pos + 1 + col_match.start()),
-                    snippet=col_match.group(0).upper(),
-                    message_id="mysql_spatial_index",
-                )
-            )
-
-    return findings
+find_mysql_spatial_indexes = build(SPEC, mysql_lex)
+find_mysql_spatial_indexes.__doc__ = _DOC

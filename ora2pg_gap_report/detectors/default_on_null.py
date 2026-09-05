@@ -1,7 +1,8 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import line_at, mask_strings_and_comments, qualified_name_pattern, statement_end
+from .. import plsql_lex
+from ..plsql_lex import qualified_name_pattern
+from ..detector_spec import DetectorSpec, TABLE_STATEMENT, build
 
 _TABLE_RE = re.compile(
     qualified_name_pattern(r"CREATE\s+TABLE"),
@@ -16,37 +17,26 @@ _TABLE_RE = re.compile(
 # that had to search past an arbitrary expression.
 _DEFAULT_ON_NULL_RE = re.compile(r"\bDEFAULT\s+ON\s+NULL\b", re.IGNORECASE)
 
+_DOC = """Detect Oracle 12c+'s DEFAULT ON NULL <expr> column clause. ora2pg
+copies the ON NULL section into the generated CREATE TABLE verbatim
+-- PostgreSQL has no such DEFAULT variant at all, so this is a hard
+syntax error at DDL-apply time itself, not a later runtime surprise
+like most other gaps in this registry. See
+docs/research/gap-031-default-on-null.md.
 
-def find_default_on_null_usage(source: str) -> list[Finding]:
-    """Detect Oracle 12c+'s DEFAULT ON NULL <expr> column clause. ora2pg
-    copies the ON NULL section into the generated CREATE TABLE verbatim
-    -- PostgreSQL has no such DEFAULT variant at all, so this is a hard
-    syntax error at DDL-apply time itself, not a later runtime surprise
-    like most other gaps in this registry. See
-    docs/research/gap-031-default-on-null.md.
+object_name is the table's own name (schema-level DDL) -- same
+reasoning as read_only_table.py for skipping enclosing_object_name().
+Statement scoping uses statement_end(), same as read_only_table.py."""
 
-    object_name is the table's own name (schema-level DDL) -- same
-    reasoning as read_only_table.py for skipping enclosing_object_name().
-    Statement scoping uses statement_end(), same as read_only_table.py."""
-    clean = mask_strings_and_comments(source)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="default_on_null",
+    dialect="oracle",
+    severity="high",
+    pattern=_DEFAULT_ON_NULL_RE,
+    strategy=TABLE_STATEMENT,
+    snippet=lambda m: re.sub(r"\s+", " ", m.group(0).strip()),
+    table_pattern=_TABLE_RE,
+)
 
-    table_matches = list(_TABLE_RE.finditer(clean))
-    for i, m in enumerate(table_matches):
-        next_start = table_matches[i + 1].start() if i + 1 < len(table_matches) else None
-        stmt_end = statement_end(clean, m.end(), next_start)
-        statement = clean[m.end() : stmt_end]
-
-        for default_match in _DEFAULT_ON_NULL_RE.finditer(statement):
-            findings.append(
-                Finding(
-                    detector="default_on_null",
-                    severity="high",
-                    object_name=m.group(1).upper(),
-                    line=line_at(clean, m.end() + default_match.start()),
-                    snippet=re.sub(r"\s+", " ", default_match.group(0).strip()),
-                    message_id="default_on_null",
-                )
-            )
-
-    return findings
+find_default_on_null_usage = build(SPEC, plsql_lex)
+find_default_on_null_usage.__doc__ = _DOC

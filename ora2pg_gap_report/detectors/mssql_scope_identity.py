@@ -1,38 +1,25 @@
 import re
 
-from ..models import Finding
-from ..mssql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_strings_and_comments,
-)
+from .. import mssql_lex
+from ..detector_spec import DetectorSpec, build
 
 # '@@IDENTITY' cannot use a leading \b: '@' is not a word character, so
 # there is no boundary between it and the preceding space. Matched as its
 # own alternative instead.
 _PATTERN_RE = re.compile(r"(?:\b(SCOPE_IDENTITY|IDENT_CURRENT)\b|(@@IDENTITY)\b)", re.IGNORECASE)
 
+_DOC = """Detect SCOPE_IDENTITY()/@@IDENTITY/IDENT_CURRENT(). ora2pg -M
+copies them through unchanged and PostgreSQL has no such function or
+system variable, so the containing routine loads cleanly and fails on
+its first call. See docs/research/gap-096-mssql-scope-identity.md."""
 
-def find_mssql_scope_identity(source: str) -> list[Finding]:
-    """Detect SCOPE_IDENTITY()/@@IDENTITY/IDENT_CURRENT(). ora2pg -M
-    copies them through unchanged and PostgreSQL has no such function or
-    system variable, so the containing routine loads cleanly and fails on
-    its first call. See docs/research/gap-096-mssql-scope-identity.md."""
-    clean = mask_strings_and_comments(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="mssql_scope_identity",
+    dialect="mssql",
+    severity="high",
+    pattern=_PATTERN_RE,
+    snippet=lambda m: (m.group(1) or m.group(2)).upper(),
+)
 
-    for m in _PATTERN_RE.finditer(clean):
-        findings.append(
-            Finding(
-                detector="mssql_scope_identity",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet=(m.group(1) or m.group(2)).upper(),
-                message_id="mssql_scope_identity",
-            )
-        )
-
-    return findings
+find_mssql_scope_identity = build(SPEC, mssql_lex)
+find_mssql_scope_identity.__doc__ = _DOC

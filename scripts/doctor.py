@@ -25,10 +25,13 @@ gap_registry.py's own ora2pg_version/postgresql_version fields -- the
 Python fields are the canonical source (see GapEntry's own docstring),
 the Markdown table is a human-facing restatement of the same facts, and
 restated facts drift from their source exactly the way this whole script
-exists to catch. And that every detector's message constant(s) have an
-English translation registered in i18n.py (EXPLANATION_EN/
-REMEDIATION_HINT_EN) -- the class of drift that would otherwise leave
---lang en silently falling back to Russian for a new or edited detector.
+exists to catch. And that every message_id a detector emits has both
+translations in messages.py, and that every entry in messages.py is
+reachable from some detector -- drift in the first direction crashes the
+renderer on a real finding, drift in the second leaves dead text that
+still reads as a live translation. Plus the same coverage check for
+i18n.py's REMEDIATION_HINT_EN, without which --lang en silently falls
+back to Russian for a new or edited detector.
 And that every detector has a verification.py VERIFICATION_MODE entry --
 without it, a new detector added to `--verify` would silently default to
 NOT_VERIFIABLE (safe, but unnoticed) rather than the classification
@@ -68,6 +71,7 @@ Run: python3 scripts/doctor.py
 Exit code: 0 if every gap's artifacts check out, 1 if any is missing.
 """
 
+import ast
 import re
 import sys
 from pathlib import Path
@@ -130,31 +134,65 @@ def _detector_names_on_disk() -> set[str]:
     return {p.stem for p in detectors_dir.glob("*.py") if p.stem != "__init__"}
 
 
-def _detector_message_ids() -> dict[str, str]:
-    """{detector: message_id} read out of each detector's own source.
+def _str_constant(node: ast.AST) -> str | None:
+    """The value of `node` if it is a string literal, else None."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
 
-    Read, not imported and called: a detector's message_id is a literal in
-    the Finding(...) it constructs, and running the detector to find out
-    would need a source file that happens to trigger it. The literal is
-    what ships, so the literal is what gets checked.
+
+def _message_ids_in(detector: str) -> list[str]:
+    """Every message_id the detector `detector` can emit, read out of its
+    own source.
+
+    Read, not imported and called: a detector's message_id is a literal --
+    either in a Finding(...) it constructs by hand, or in the DetectorSpec
+    it declares -- and running the detector to find out which ids it emits
+    would need a source file that happens to trigger each one. The literal
+    is what ships, so the literal is what gets checked.
+
+    Both detector forms are read, because both exist on purpose. A
+    hand-written detector passes `message_id=` to Finding directly. A
+    spec-built one usually passes nothing, and DetectorSpec then resolves
+    the id to the detector's own name -- so this reads the spec's `name=`
+    in exactly the case DetectorSpec.resolved_message_id would fall back
+    to it. Reading only the explicit keyword, as this did before the
+    factory existed, made every migrated detector look like it emitted no
+    message at all, and its live MESSAGES entry look like an orphan.
+    """
+    path = REPO_ROOT / "ora2pg_gap_report" / "detectors" / f"{detector}.py"
+    ids: list[str] = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.keyword) and node.arg == "message_id":
+            explicit = _str_constant(node.value)
+            if explicit is not None:
+                ids.append(explicit)
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "DetectorSpec"
+            and not any(kw.arg == "message_id" for kw in node.keywords)
+        ):
+            for kw in node.keywords:
+                if kw.arg == "name":
+                    implied = _str_constant(kw.value)
+                    if implied is not None:
+                        ids.append(implied)
+    return ids
+
+
+def _detector_message_ids() -> dict[str, str]:
+    """{detector: message_id} for every detector that emits exactly one.
 
     A detector emitting more than one id (bulk_collect has three) is
-    represented by whichever it mentions first -- every id it uses is
-    validated anyway by check_messages_cover_every_detector() below, which
-    walks MESSAGES from the other direction."""
-    import ast
-
+    represented by whichever _message_ids_in() reports first -- every id
+    it uses is validated anyway by check_messages_cover_every_detector()
+    below, which walks MESSAGES from the other direction."""
     found: dict[str, str] = {}
     for name in sorted(_detector_names_on_disk()):
-        path = REPO_ROOT / "ora2pg_gap_report" / "detectors" / f"{name}.py"
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if (
-                isinstance(node, ast.keyword)
-                and node.arg == "message_id"
-                and isinstance(node.value, ast.Constant)
-                and isinstance(node.value.value, str)
-            ):
-                found.setdefault(name, node.value.value)
+        ids = _message_ids_in(name)
+        if ids:
+            found[name] = ids[0]
     return found
 
 
@@ -166,25 +204,15 @@ def check_messages_cover_every_detector() -> list[str]:
     after a detector was renamed or deleted is dead weight that still
     reads as a live translation, and it is exactly the kind of thing
     nobody notices without a check, because nothing breaks."""
-    import ast
-
     used: set[str] = set()
     problems = []
     for name in sorted(_detector_names_on_disk()):
-        path = REPO_ROOT / "ora2pg_gap_report" / "detectors" / f"{name}.py"
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if (
-                isinstance(node, ast.keyword)
-                and node.arg == "message_id"
-                and isinstance(node.value, ast.Constant)
-                and isinstance(node.value.value, str)
-            ):
-                mid = node.value.value
-                used.add(mid)
-                if mid not in messages.MESSAGES:
-                    problems.append(
-                        f"{name}.py: message_id '{mid}' is not in messages.MESSAGES"
-                    )
+        for mid in _message_ids_in(name):
+            used.add(mid)
+            if mid not in messages.MESSAGES:
+                problems.append(
+                    f"{name}.py: message_id '{mid}' is not in messages.MESSAGES"
+                )
     for orphan in sorted(set(messages.MESSAGES) - used):
         problems.append(
             f"messages.py: MESSAGES['{orphan}'] is not referenced by any detector"

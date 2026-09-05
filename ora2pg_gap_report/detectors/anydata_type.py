@@ -1,12 +1,8 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    line_at,
-    mask_strings_and_comments,
-    qualified_name_pattern,
-    table_column_definition_list,
-)
+from .. import plsql_lex
+from ..plsql_lex import qualified_name_pattern
+from ..detector_spec import DetectorSpec, TABLE_COLUMNS, build
 
 _TABLE_RE = re.compile(
     qualified_name_pattern(r"CREATE\s+TABLE"),
@@ -20,32 +16,20 @@ _ANYDATA_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DOC = """Detect Oracle ANYDATA/ANYDATASET/ANYTYPE columns. ora2pg copies
+the type name through unchanged and PostgreSQL has neither the type
+nor the SYS schema, so the generated DDL fails to load. See
+docs/research/gap-051-anydata-type.md."""
 
-def find_anydata_columns(source: str) -> list[Finding]:
-    """Detect Oracle ANYDATA/ANYDATASET/ANYTYPE columns. ora2pg copies
-    the type name through unchanged and PostgreSQL has neither the type
-    nor the SYS schema, so the generated DDL fails to load. See
-    docs/research/gap-051-anydata-type.md."""
-    clean = mask_strings_and_comments(source)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="anydata_type",
+    dialect="oracle",
+    severity="high",
+    pattern=_ANYDATA_RE,
+    strategy=TABLE_COLUMNS,
+    snippet=lambda m: m.group(1).upper(),
+    table_pattern=_TABLE_RE,
+)
 
-    for m in _TABLE_RE.finditer(clean):
-        span = table_column_definition_list(clean, m.end())
-        if span is None:
-            continue  # bare CTAS with no column-definition list at all
-        open_pos, close_pos = span
-        column_list = clean[open_pos + 1 : close_pos]
-
-        for col_match in _ANYDATA_RE.finditer(column_list):
-            findings.append(
-                Finding(
-                    detector="anydata_type",
-                    severity="high",
-                    object_name=m.group(1).upper(),
-                    line=line_at(clean, open_pos + 1 + col_match.start()),
-                    snippet=col_match.group(1).upper(),
-                    message_id="anydata_type",
-                )
-            )
-
-    return findings
+find_anydata_columns = build(SPEC, plsql_lex)
+find_anydata_columns.__doc__ = _DOC

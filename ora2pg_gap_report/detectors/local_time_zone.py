@@ -1,12 +1,8 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    line_at,
-    mask_strings_and_comments,
-    qualified_name_pattern,
-    table_column_definition_list,
-)
+from .. import plsql_lex
+from ..plsql_lex import qualified_name_pattern
+from ..detector_spec import DetectorSpec, TABLE_COLUMNS, build
 
 _TABLE_RE = re.compile(
     qualified_name_pattern(r"CREATE\s+TABLE"),
@@ -23,40 +19,28 @@ _LTZ_COLUMN_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DOC = """Detect Oracle's TIMESTAMP WITH LOCAL TIME ZONE used as a column
+type. ora2pg converts it to a plain `timestamp` (no time zone at
+all), silently dropping the session-time-zone normalisation that is
+the entire point of the Oracle type -- PostgreSQL's `timestamptz`
+would be the faithful target. No error is ever raised. See
+docs/research/gap-044-local-time-zone.md.
 
-def find_local_time_zone_columns(source: str) -> list[Finding]:
-    """Detect Oracle's TIMESTAMP WITH LOCAL TIME ZONE used as a column
-    type. ora2pg converts it to a plain `timestamp` (no time zone at
-    all), silently dropping the session-time-zone normalisation that is
-    the entire point of the Oracle type -- PostgreSQL's `timestamptz`
-    would be the faithful target. No error is ever raised. See
-    docs/research/gap-044-local-time-zone.md.
+object_name is the table's own name (schema-level DDL) -- same
+reasoning as rowid_type.py, whose column-list scoping this mirrors:
+only the '(...)' column-definition list right after the table name is
+searched, so a trailing AS SELECT clause can't be misread as a type
+declaration."""
 
-    object_name is the table's own name (schema-level DDL) -- same
-    reasoning as rowid_type.py, whose column-list scoping this mirrors:
-    only the '(...)' column-definition list right after the table name is
-    searched, so a trailing AS SELECT clause can't be misread as a type
-    declaration."""
-    clean = mask_strings_and_comments(source)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="local_time_zone",
+    dialect="oracle",
+    severity="high",
+    pattern=_LTZ_COLUMN_RE,
+    strategy=TABLE_COLUMNS,
+    snippet=lambda m: re.sub(r"\s+", " ", m.group(0).strip().upper()),
+    table_pattern=_TABLE_RE,
+)
 
-    for m in _TABLE_RE.finditer(clean):
-        span = table_column_definition_list(clean, m.end())
-        if span is None:
-            continue  # bare CTAS with no column-definition list at all
-        open_pos, close_pos = span
-        column_list = clean[open_pos + 1 : close_pos]
-
-        for col_match in _LTZ_COLUMN_RE.finditer(column_list):
-            findings.append(
-                Finding(
-                    detector="local_time_zone",
-                    severity="high",
-                    object_name=m.group(1).upper(),
-                    line=line_at(clean, open_pos + 1 + col_match.start()),
-                    snippet=re.sub(r"\s+", " ", col_match.group(0).strip().upper()),
-                    message_id="local_time_zone",
-                )
-            )
-
-    return findings
+find_local_time_zone_columns = build(SPEC, plsql_lex)
+find_local_time_zone_columns.__doc__ = _DOC

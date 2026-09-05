@@ -1,13 +1,8 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import (
-    IDENTIFIER,
-    line_at,
-    mask_strings_and_comments,
-    qualified_name_pattern,
-    table_column_definition_list,
-)
+from .. import plsql_lex
+from ..plsql_lex import IDENTIFIER, qualified_name_pattern
+from ..detector_spec import DetectorSpec, TABLE_COLUMNS, build
 
 _TABLE_RE = re.compile(
     qualified_name_pattern(r"CREATE\s+TABLE"),
@@ -33,47 +28,35 @@ _ROWID_COLUMN_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DOC = """Detect Oracle's ROWID/UROWID used as a column's data type. ora2pg
+converts it to `oid`, PostgreSQL's own internal object-identifier
+type -- a real datatype, not a fallback text/blob, so CREATE TABLE
+succeeds -- but any actual Oracle ROWID value fails INSERT into it,
+since Oracle ROWID's string representation isn't valid oid input.
+See docs/research/gap-029-rowid-urowid.md.
 
-def find_rowid_types(source: str) -> list[Finding]:
-    """Detect Oracle's ROWID/UROWID used as a column's data type. ora2pg
-    converts it to `oid`, PostgreSQL's own internal object-identifier
-    type -- a real datatype, not a fallback text/blob, so CREATE TABLE
-    succeeds -- but any actual Oracle ROWID value fails INSERT into it,
-    since Oracle ROWID's string representation isn't valid oid input.
-    See docs/research/gap-029-rowid-urowid.md.
+object_name is the table's own name (schema-level DDL) -- same
+reasoning as read_only_table.py for skipping enclosing_object_name().
 
-    object_name is the table's own name (schema-level DDL) -- same
-    reasoning as read_only_table.py for skipping enclosing_object_name().
+Deliberately scoped to just the '(...)' column-definition list right
+after the table name, not the whole statement up to the next ';' the
+way read_only_table.py/default_on_null.py are: a CREATE TABLE ... AS
+SELECT ROWID rid, ... (a common dedup/diagnostic-table idiom) has no
+column-type list at all -- ROWID there is the pseudocolumn in the
+SELECT, not a type declaration -- and searching past the column list
+into that trailing clause would misdetect it as one. A CREATE TABLE
+with no '(' immediately following the name (a bare CTAS) is skipped
+entirely -- nothing case."""
 
-    Deliberately scoped to just the '(...)' column-definition list right
-    after the table name, not the whole statement up to the next ';' the
-    way read_only_table.py/default_on_null.py are: a CREATE TABLE ... AS
-    SELECT ROWID rid, ... (a common dedup/diagnostic-table idiom) has no
-    column-type list at all -- ROWID there is the pseudocolumn in the
-    SELECT, not a type declaration -- and searching past the column list
-    into that trailing clause would misdetect it as one. A CREATE TABLE
-    with no '(' immediately following the name (a bare CTAS) is skipped
-    entirely -- nothing case."""
-    clean = mask_strings_and_comments(source)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="rowid_type",
+    dialect="oracle",
+    severity="high",
+    pattern=_ROWID_COLUMN_RE,
+    strategy=TABLE_COLUMNS,
+    snippet=lambda m: re.sub(r"\s+", " ", m.group(0).strip()),
+    table_pattern=_TABLE_RE,
+)
 
-    for m in _TABLE_RE.finditer(clean):
-        span = table_column_definition_list(clean, m.end())
-        if span is None:
-            continue  # bare CTAS with no column-definition list at all
-        open_pos, close_pos = span
-        column_list = clean[open_pos + 1 : close_pos]
-
-        for col_match in _ROWID_COLUMN_RE.finditer(column_list):
-            findings.append(
-                Finding(
-                    detector="rowid_type",
-                    severity="high",
-                    object_name=m.group(1).upper(),
-                    line=line_at(clean, open_pos + 1 + col_match.start()),
-                    snippet=re.sub(r"\s+", " ", col_match.group(0).strip()),
-                    message_id="rowid_type",
-                )
-            )
-
-    return findings
+find_rowid_types = build(SPEC, plsql_lex)
+find_rowid_types.__doc__ = _DOC

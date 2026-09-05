@@ -1,12 +1,8 @@
 import re
 
-from ..models import Finding
-from ..mysql_lex import (
-    line_at,
-    mask_strings_and_comments,
-    qualified_name_pattern,
-    table_column_definition_list,
-)
+from .. import mysql_lex
+from ..mysql_lex import qualified_name_pattern
+from ..detector_spec import DetectorSpec, TABLE_COLUMNS, build
 
 _TABLE_RE = re.compile(
     qualified_name_pattern(r"CREATE\s+TABLE"),
@@ -14,34 +10,22 @@ _TABLE_RE = re.compile(
 )
 _FULLTEXT_RE = re.compile(r"\bFULLTEXT\s+(?:KEY|INDEX)\b", re.IGNORECASE)
 
+_DOC = """Detect MySQL/MariaDB's inline `FULLTEXT KEY`/`FULLTEXT INDEX`
+column-list clause. ora2pg -m doesn't recognize it as an index at
+all: the index name and column list are dropped, and the bare
+keywords are left sitting where a column definition was expected,
+which PostgreSQL then tries (and fails) to parse as one. See
+docs/research/gap-072-mysql-fulltext-index.md."""
 
-def find_mysql_fulltext_indexes(source: str) -> list[Finding]:
-    """Detect MySQL/MariaDB's inline `FULLTEXT KEY`/`FULLTEXT INDEX`
-    column-list clause. ora2pg -m doesn't recognize it as an index at
-    all: the index name and column list are dropped, and the bare
-    keywords are left sitting where a column definition was expected,
-    which PostgreSQL then tries (and fails) to parse as one. See
-    docs/research/gap-072-mysql-fulltext-index.md."""
-    clean = mask_strings_and_comments(source)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="mysql_fulltext_index",
+    dialect="mysql",
+    severity="high",
+    pattern=_FULLTEXT_RE,
+    strategy=TABLE_COLUMNS,
+    snippet=lambda m: m.group(0).upper(),
+    table_pattern=_TABLE_RE,
+)
 
-    for m in _TABLE_RE.finditer(clean):
-        span = table_column_definition_list(clean, m.end())
-        if span is None:
-            continue  # bare CTAS with no column-definition list at all
-        open_pos, close_pos = span
-        column_list = clean[open_pos + 1 : close_pos]
-
-        for col_match in _FULLTEXT_RE.finditer(column_list):
-            findings.append(
-                Finding(
-                    detector="mysql_fulltext_index",
-                    severity="high",
-                    object_name=m.group(1).upper(),
-                    line=line_at(clean, open_pos + 1 + col_match.start()),
-                    snippet=col_match.group(0).upper(),
-                    message_id="mysql_fulltext_index",
-                )
-            )
-
-    return findings
+find_mysql_fulltext_indexes = build(SPEC, mysql_lex)
+find_mysql_fulltext_indexes.__doc__ = _DOC

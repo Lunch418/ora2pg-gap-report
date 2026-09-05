@@ -13,6 +13,7 @@ from . import i18n
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_by_detector, gap_metadata, research_doc_url
 from . import messages
+from .baseline import group_key
 from .models import Finding
 
 from .verification import DetectorVerification, NewInOutput
@@ -30,6 +31,12 @@ REPORT_SCHEMA_VERSION = 2
 
 SARIF_SCHEMA_URI = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
 _TOOL_INFORMATION_URI = "https://github.com/Lunch418/ora2pg-gap-report"
+
+# SARIF names each fingerprint with a version suffix so a consumer can
+# tell that the rule producing it changed rather than silently comparing
+# values computed two different ways. Bump the /v2 if group_key() ever
+# changes what it hashes.
+_SARIF_FINGERPRINT_NAME = "ora2pgGapReport/groupKey/v1"
 
 _SARIF_LEVEL = {"high": "error", "medium": "warning", "low": "note"}
 
@@ -496,6 +503,16 @@ def write_sarif(
                 "level": _SARIF_LEVEL.get(f.severity, "warning"),
                 "message": {"text": messages.text(f.message_id, lang)},
                 "locations": [_sarif_location(f)],
+                # How a consumer tells "this is the same alert as last
+                # time" apart from "a new one". Without it, GitHub code
+                # scanning matches on the line number among other things,
+                # so editing anything above a finding closes its alert and
+                # opens an identical one -- and a reviewer's "won't fix"
+                # dismissal goes with it. group_key is exactly the right
+                # value: it is what --baseline already uses to decide the
+                # same question, deliberately built from detector, file,
+                # object and fragment and not from the line.
+                "partialFingerprints": {_SARIF_FINGERPRINT_NAME: group_key(f)},
             }
 
     sarif = {

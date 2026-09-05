@@ -29,6 +29,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import i18n
+
 
 class Ora2PgNotFoundError(RuntimeError):
     """The ora2pg executable could not be located/started."""
@@ -113,6 +115,7 @@ def run_estimate_cost(
     object_type: str,
     ora2pg_bin: str = "ora2pg",
     timeout: int = 120,
+    lang: str = "ru",
 ) -> str:
     """Run `ora2pg -t <object_type> -i <input_file> --estimate_cost` and
     return the generated output as text (empty string if ora2pg found
@@ -151,11 +154,10 @@ def run_estimate_cost(
             # all of these mean "couldn't even start ora2pg", which callers
             # are meant to treat the same way: skip this check gracefully.
             raise Ora2PgNotFoundError(
-                f"ora2pg executable not found or not runnable ({ora2pg_bin!r}: {exc}) "
-                "— see README для установки"
+                i18n.t(lang, "ora2pg_not_runnable", bin=repr(ora2pg_bin), exc=exc)
             ) from exc
         except subprocess.TimeoutExpired as exc:
-            raise Ora2PgRunError(f"ora2pg не ответил за {timeout}с") from exc
+            raise Ora2PgRunError(i18n.t(lang, "ora2pg_timeout", timeout=timeout)) from exc
 
         if result.returncode != 0:
             # stderr first, but not only: ora2pg writes its fatal errors to
@@ -169,7 +171,7 @@ def run_estimate_cost(
             # only the first few lines are kept.
             detail = (result.stderr or "").strip() or _first_lines(result.stdout)
             raise Ora2PgRunError(
-                f"ora2pg завершился с кодом {result.returncode}:\n{detail}"
+                i18n.t(lang, "ora2pg_failed", code=result.returncode, detail=detail)
             )
         if not out_path.exists():
             return ""

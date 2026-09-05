@@ -193,6 +193,78 @@ _UI: dict[str, dict[str, str]] = {
         "en": "[red]Unknown GAP: {ref}[/red] — expected a number from "
         "docs/research/GAP_REGISTRY.md, e.g. GAP-023 or 023",
     },
+    # --- ora2pg-gap-export ------------------------------------------
+    # The export command had no --lang at all, so every string it printed
+    # was Russian regardless of the language the user had chosen for the
+    # rest of the tool.
+    "export_description": {
+        "ru": "Выгружает DDL объектов живой Oracle-схемы в отдельные .sql "
+        "файлы — для последующего анализа через `ora2pg-gap-report`.",
+        "en": "Exports a live Oracle schema's object DDL to individual .sql "
+        "files, for offline analysis with `ora2pg-gap-report`.",
+    },
+    "export_help_dsn": {
+        "ru": "Oracle connect string, напр. host:1521/ORCLPDB1",
+        "en": "Oracle connect string, e.g. host:1521/ORCLPDB1",
+    },
+    "export_help_owner": {
+        "ru": "Схема, из которой выгружать объекты (по умолчанию — совпадает с --user)",
+        "en": "Schema to export objects from (defaults to --user)",
+    },
+    "export_help_types": {
+        "ru": "Какие типы объектов выгружать, через запятую (по умолчанию все: "
+        "{choices}). Имена — как в ALL_OBJECTS.object_type, регистр не важен",
+        "en": "Which object types to export, comma separated (default: all of "
+        "{choices}). Names are as in ALL_OBJECTS.object_type; case doesn't matter",
+    },
+    "export_help_output_dir": {
+        "ru": "Куда сохранить .sql файлы (по умолчанию — ./oracle_export)",
+        "en": "Where to write the .sql files (default: ./oracle_export)",
+    },
+    "export_unknown_type": {
+        "ru": "неизвестный тип объекта: {unknown}. Доступны: {choices}",
+        "en": "unknown object type: {unknown}. Available: {choices}",
+    },
+    "export_connect_failed": {
+        "ru": "Не удалось подключиться к Oracle: {exc}",
+        "en": "Could not connect to Oracle: {exc}",
+    },
+    "export_failed": {
+        "ru": "Ошибка при выгрузке схемы: {exc}",
+        "en": "Schema export failed: {exc}",
+    },
+    "export_done": {
+        "ru": "Экспортировано {n} объект(ов) в {dir}/",
+        "en": "Exported {n} object(s) to {dir}/",
+    },
+    "export_partial": {
+        "ru": "Не удалось выгрузить {n} объект(ов):",
+        "en": "Could not export {n} object(s):",
+    },
+    "export_password_prompt": {
+        "ru": "Пароль Oracle: ",
+        "en": "Oracle password: ",
+    },
+    "oracledb_missing": {
+        "ru": "python-oracledb не установлен. Установите: "
+        "pip install ora2pg-gap-report[oracle]",
+        "en": "python-oracledb is not installed. Install it with: "
+        "pip install ora2pg-gap-report[oracle]",
+    },
+    "ora2pg_not_runnable": {
+        "ru": "исполняемый файл ora2pg не найден или не запускается "
+        "({bin}: {exc}) — см. README по установке",
+        "en": "the ora2pg executable was not found or could not be run "
+        "({bin}: {exc}) — see the README for setup",
+    },
+    "ora2pg_timeout": {
+        "ru": "ora2pg не ответил за {timeout}с",
+        "en": "ora2pg did not respond within {timeout}s",
+    },
+    "ora2pg_failed": {
+        "ru": "ora2pg завершился с кодом {code}:\n{detail}",
+        "en": "ora2pg exited with code {code}:\n{detail}",
+    },
     "confirmed_versions": {
         "ru": "Подтверждено {last_verified} на: ora2pg {ora2pg_version}, "
         "PostgreSQL {postgresql_version}",

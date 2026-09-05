@@ -15,7 +15,7 @@ def test_main_uses_owner_default_from_user(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("ORACLE_PASSWORD", "secret")
     seen = {}
 
-    def fake_connect(dsn, user, password):
+    def fake_connect(dsn, user, password, lang="ru"):
         seen["connect"] = (dsn, user, password)
         return _FakeConn()
 
@@ -61,7 +61,7 @@ def test_main_prompts_for_password_when_env_var_absent(monkeypatch, tmp_path):
     monkeypatch.delenv("ORACLE_PASSWORD", raising=False)
     seen = {}
 
-    def fake_connect(dsn, user, password):
+    def fake_connect(dsn, user, password, lang="ru"):
         seen["password"] = password
         return _FakeConn()
 
@@ -78,7 +78,7 @@ def test_main_prompts_for_password_when_env_var_absent(monkeypatch, tmp_path):
 def test_main_reports_missing_oracledb_driver_gracefully(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("ORACLE_PASSWORD", "secret")
 
-    def fake_connect(dsn, user, password):
+    def fake_connect(dsn, user, password, lang="ru"):
         raise oracle_connector.OracleDriverMissingError("python-oracledb не установлен.")
 
     monkeypatch.setattr(oracle_connector, "connect", fake_connect)
@@ -94,7 +94,7 @@ def test_main_reports_missing_oracledb_driver_gracefully(monkeypatch, tmp_path, 
 def test_main_reports_connection_failure_without_a_traceback(monkeypatch, tmp_path, capsys):
     monkeypatch.setenv("ORACLE_PASSWORD", "secret")
 
-    def fake_connect(dsn, user, password):
+    def fake_connect(dsn, user, password, lang="ru"):
         raise RuntimeError("DPY-6005: cannot connect to database (unreachable host)")
 
     monkeypatch.setattr(oracle_connector, "connect", fake_connect)
@@ -180,3 +180,47 @@ def test_main_reports_objects_that_could_not_be_exported(monkeypatch, tmp_path, 
     assert exit_code == 0
     assert "SECRET_T" in err
     assert "ORA-31603" in err
+
+
+def test_export_help_is_localized(capsys):
+    # The command had no --lang at all, so every string it printed was
+    # Russian regardless of what the user had chosen for the rest of the
+    # tool. The parser's own help is built from the resolved language,
+    # which means the language has to be read off argv before argparse
+    # runs -- hence _peek_lang.
+    with pytest.raises(SystemExit):
+        oracle_export.main(["--lang", "en", "--help"])
+    assert "Exports a live Oracle schema" in capsys.readouterr().out
+
+    with pytest.raises(SystemExit):
+        oracle_export.main(["--lang", "ru", "--help"])
+    assert "Выгружает DDL" in capsys.readouterr().out
+
+
+def test_peek_lang_reads_both_spellings():
+    assert oracle_export._peek_lang(["--lang", "en", "--dsn", "x"]) == "en"
+    assert oracle_export._peek_lang(["--lang=en"]) == "en"
+    assert oracle_export._peek_lang(["--dsn", "x"]) is None
+    # A trailing --lang with no value must not raise here; argparse is
+    # what reports that, with its own message.
+    assert oracle_export._peek_lang(["--lang"]) is None
+
+
+def test_export_messages_are_localized(monkeypatch, tmp_path, capsys):
+    monkeypatch.setenv("ORACLE_PASSWORD", "secret")
+    monkeypatch.setattr(oracle_connector, "connect", lambda *a, **k: _FakeConn())
+    monkeypatch.setattr(
+        oracle_connector, "export_schema",
+        lambda conn, owner, output_dir, *, types, errors: [output_dir / "a.sql"],
+    )
+    oracle_export.main(
+        ["--lang", "en", "--dsn", "h:1521/x", "--user", "hr", "--output-dir", str(tmp_path)]
+    )
+    assert "Exported 1 object(s)" in capsys.readouterr().err
+
+
+def test_an_unknown_type_is_reported_in_the_chosen_language():
+    with pytest.raises(ValueError, match="unknown object type"):
+        oracle_export._resolve_types("nope", "en")
+    with pytest.raises(ValueError, match="неизвестный тип объекта"):
+        oracle_export._resolve_types("nope", "ru")

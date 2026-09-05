@@ -34,6 +34,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
 
+from . import i18n
+
 # Type-only: never actually imported at runtime unless _oracledb() below
 # does it (lazily, only once a caller has a real reason to need it). With
 # `from __future__ import annotations`, every annotation in this module is
@@ -48,24 +50,21 @@ class OracleDriverMissingError(RuntimeError):
     """python-oracledb isn't installed."""
 
 
-def _oracledb() -> ModuleType:
+def _oracledb(lang: str = "ru") -> ModuleType:
     try:
         import oracledb
     except ImportError as exc:
-        raise OracleDriverMissingError(
-            "python-oracledb не установлен. Установите: "
-            "pip install ora2pg-gap-report[oracle]"
-        ) from exc
+        raise OracleDriverMissingError(i18n.t(lang, "oracledb_missing")) from exc
     return oracledb
 
 
-def connect(dsn: str, user: str, password: str) -> oracledb.Connection:
+def connect(dsn: str, user: str, password: str, lang: str = "ru") -> oracledb.Connection:
     """Open a connection in oracledb's default thin mode (pure Python, no
     Instant Client). `dsn` is a normal Oracle connect string, e.g.
     "host:1521/ORCLPDB1". Returns the connection as-is — oracledb's own
     connection errors (bad password, unreachable host, ...) propagate
     unwrapped; their messages are already clear."""
-    oracledb_module = _oracledb()
+    oracledb_module = _oracledb(lang)
     return oracledb_module.connect(user=user, password=password, dsn=dsn)
 
 

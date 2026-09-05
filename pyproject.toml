@@ -79,6 +79,14 @@ include = ["ora2pg_gap_report*"]
 filterwarnings = [
     "error::EncodingWarning",
 ]
+# `-m ora2pg` selects the tests that need a real ora2pg binary on PATH.
+# They are skipped when it isn't there rather than failing, so a
+# developer without a Perl toolchain still gets a green suite -- the CI
+# job that installs ora2pg is what makes them actually run. Registered
+# here so an unregistered-marker warning never hides a typo'd marker.
+markers = [
+    "ora2pg: needs a real ora2pg binary on PATH (installed by the ora2pg CI job)",
+]
 
 [tool.ruff.lint]
 # Explicit selection, not ruff's own implicit default -- that default has

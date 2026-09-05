@@ -1,9 +1,9 @@
-# GAP-101: фильтрованный индекс выбрасывается целиком
+# GAP-101: a filtered index is dropped entirely
 
-MSSQL feature: фильтрованный индекс — `CREATE INDEX ... WHERE
-<условие>`, индекс по части строк таблицы.
+MSSQL feature: a filtered index — `CREATE INDEX ... WHERE <condition>`,
+an index over part of a table's rows.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE soft_del (
@@ -13,7 +13,7 @@ CREATE TABLE soft_del (
 CREATE NONCLUSTERED INDEX IX_alive ON soft_del (id) WHERE deleted = 0;
 ```
 
-## Вывод ora2pg (v25.0, `-M -t TABLE`)
+## ora2pg output (v25.0, `-M -t TABLE`)
 
 ```sql
 CREATE TABLE soft_del (
@@ -23,12 +23,12 @@ CREATE TABLE soft_del (
 ALTER TABLE soft_del ADD PRIMARY KEY (id);
 ```
 
-Индекса в выводе нет вообще.
+The index is absent from the output entirely.
 
-## Это не общая проблема с индексами
+## This is not a general problem with indexes
 
-Проверено отдельно: обычный индекс с `INCLUDE` тот же ora2pg в том же
-прогоне переносит корректно.
+Verified separately: an ordinary index with `INCLUDE` is ported correctly
+by the same ora2pg in the same run.
 
 ```sql
 CREATE NONCLUSTERED INDEX IX_lookup_a ON lookup1 (a) INCLUDE (b, c);
@@ -38,23 +38,25 @@ CREATE NONCLUSTERED INDEX IX_lookup_a ON lookup1 (a) INCLUDE (b, c);
 CREATE INDEX ix_lookup_a ON lookup1 (a) INCLUDE (b, c);
 ```
 
-Загружается без ошибок (PostgreSQL поддерживает `INCLUDE` начиная с 11).
-То есть теряется именно фильтрованная форма.
+It loads without error (PostgreSQL has supported `INCLUDE` since 11). So
+it is the filtered form specifically that is lost.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ошибки не будет ни на загрузке, ни потом: схема поднимется без индекса.
-Разница проявится как деградация планов на больших таблицах, а если
-индекс был `UNIQUE` — ещё и как исчезнувшее ограничение уникальности.
+There will be no error at load or afterwards: the schema comes up without
+the index. The difference shows up as plan degradation on large tables
+and, if the index was `UNIQUE`, as a vanished uniqueness constraint as
+well.
 
-Обиднее всего, что переносить тут почти нечего: в PostgreSQL есть ровно
-такие же частичные индексы и ровно с тем же синтаксисом.
+The most galling part is that there is almost nothing to port here:
+PostgreSQL has exactly the same partial indexes with exactly the same
+syntax.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage semantic.**
-Восстанавливается дословным переносом оператора после загрузки схемы.
-Реализовано: `ora2pg_gap_report/detectors/mssql_filtered_index.py`.
+**Gap confirmed, severity high, failure_stage semantic.** Restored by
+carrying the statement over verbatim after the schema is loaded.
+Implemented: `ora2pg_gap_report/detectors/mssql_filtered_index.py`.

@@ -1,8 +1,9 @@
-# GAP-099: `DATEDIFF()` копируется как есть
+# GAP-099: `DATEDIFF()` is copied as-is
 
-MSSQL feature: `DATEDIFF(<единица>, <начало>, <конец>)` — разница дат.
+MSSQL feature: `DATEDIFF(<unit>, <start>, <end>)` — the difference
+between two dates.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE PROCEDURE dbo.datefns AS
@@ -11,32 +12,31 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-M -t PROCEDURE`)
+## ora2pg output (v25.0, `-M -t PROCEDURE`)
 
 ```sql
      SELECT  created + INTERVAL '7 day', DATEDIFF(day, created, date_trunc('millisecond', CURRENT_TIMESTAMP::timestamp)), date_part('year', created) FROM orders;
 ```
 
-Соседние функции переведены правильно: `DATEADD` стал арифметикой с
-`INTERVAL`, `DATEPART` — `date_part()`, `GETDATE()` — выражением с
-`CURRENT_TIMESTAMP`. А `DATEDIFF` остался как был.
+The neighbouring functions are translated correctly: `DATEADD` became
+`INTERVAL` arithmetic, `DATEPART` became `date_part()`, `GETDATE()`
+became a `CURRENT_TIMESTAMP` expression. `DATEDIFF` stayed as it was.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Функции `DATEDIFF` в PostgreSQL нет. Загрузка проходит чисто
-(`check_function_bodies = false` в выводе ora2pg), падение — при первом
-реальном вызове.
+PostgreSQL has no `DATEDIFF` function. The load goes through cleanly
+(`check_function_bodies = false` in ora2pg's output); the failure comes
+on the first real call.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.**
-Переписывается через вычитание: разница в днях — `(<конец>::date -
-<начало>::date)`, в остальных единицах — через `EXTRACT(EPOCH FROM
-(<конец> - <начало>))` с делением. Обратите внимание на семантику:
-T-SQL `DATEDIFF` считает пересечённые границы единиц, а не полные
-интервалы, поэтому `DATEDIFF(year, ...)` между 31 декабря и 1 января
-даёт 1, а прямое вычитание даст 0. Реализовано:
-`ora2pg_gap_report/detectors/mssql_datediff.py`.
+**Gap confirmed, severity high, failure_stage runtime.** Rewritten with
+subtraction: the difference in days is `(<end>::date - <start>::date)`,
+other units go through `EXTRACT(EPOCH FROM (<end> - <start>))` with a
+division. Mind the semantics: T-SQL's `DATEDIFF` counts crossed unit
+boundaries rather than whole intervals, so `DATEDIFF(year, ...)` between
+31 December and 1 January gives 1, while a direct subtraction gives 0.
+Implemented: `ora2pg_gap_report/detectors/mssql_datediff.py`.

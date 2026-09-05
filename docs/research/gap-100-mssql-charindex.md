@@ -1,9 +1,8 @@
-# GAP-100: `CHARINDEX()` переводится в `position()` с удвоенными кавычками
+# GAP-100: `CHARINDEX()` becomes `position()` with doubled quotes
 
-MSSQL feature: `CHARINDEX(<что искать>, <где искать>)` — поиск
-подстроки.
+MSSQL feature: `CHARINDEX(<needle>, <haystack>)` — substring search.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE PROCEDURE dbo.ci @nm varchar(50) AS
@@ -12,7 +11,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-M -t PROCEDURE`)
+## ora2pg output (v25.0, `-M -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE dbo.ci (p_nm varchar(50)) AS $body$
@@ -24,32 +23,32 @@ END;
 $body$
 ```
 
-В отличие от прочих встроенных функций этой партии, `CHARINDEX` ora2pg
-переводить пытается — и цель выбирает верную, `position(... in ...)`, —
-но удваивает кавычки вокруг искомой строки.
+Unlike the other built-in functions in this batch, ora2pg does try to
+translate `CHARINDEX` — and picks the right target, `position(... in
+...)` — but doubles the quotes around the search string.
 
-## Наблюдаемая проблема
+## Observed problem
 
-`position(''abc'' in p_nm)` — это уже не валидный SQL. Подтверждено на
-реальном PostgreSQL 16:
+`position(''abc'' in p_nm)` is no longer valid SQL. Confirmed on a real
+PostgreSQL 16:
 
 ```
 ERROR:  syntax error at or near "abc"
 LINE 4:      SELECT  position(''abc'' in p_nm);
 ```
 
-Загрузка проходит чисто (`check_function_bodies = false` в выводе
-ora2pg), ошибка вылезает при первом вызове.
+The load goes through cleanly (`check_function_bodies = false` in
+ora2pg's output); the error surfaces on the first call.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.** Это не
-«конструкции нет в PostgreSQL», а именно ошибка перевода: цель верная,
-испорчено экранирование. Чинится снятием лишних кавычек —
-`position('abc' in p_nm)`. Имейте в виду, что у `CHARINDEX` есть третий
-аргумент (позиция начала поиска), которому у `position()` прямого
-соответствия нет и который переносится через `substring()`.
-Реализовано: `ora2pg_gap_report/detectors/mssql_charindex.py`.
+**Gap confirmed, severity high, failure_stage runtime.** This is not "the
+construct is missing from PostgreSQL" but a translation bug proper: the
+target is right, the escaping is broken. Fixed by removing the extra
+quotes — `position('abc' in p_nm)`. Keep in mind that `CHARINDEX` has a
+third argument (the position to start searching from) which has no direct
+counterpart in `position()` and is ported via `substring()`. Implemented:
+`ora2pg_gap_report/detectors/mssql_charindex.py`.

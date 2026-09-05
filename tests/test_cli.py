@@ -1000,7 +1000,7 @@ def test_main_explain_falls_back_to_a_github_link_when_docs_are_not_packaged(mon
     # docs/research/ isn't shipped in the installed wheel (see
     # gap_registry.py's module docstring) -- simulate that by making the
     # lookup return None, the same as it would for a real pip install.
-    monkeypatch.setattr(cli, "research_doc_path", lambda gap: None)
+    monkeypatch.setattr(cli, "research_doc_path", lambda gap, lang="ru": None)
     exit_code = main(["--explain", "GAP-023"])
     captured = capsys.readouterr()
     assert exit_code == 0
@@ -1686,3 +1686,24 @@ def test_the_short_flags_mean_the_same_as_the_long_ones(tmp_path):
     main([str(SAMPLES / "logger.pkb"), "--format", "markdown", "--output", str(out_long),
           "--lang", "en"])
     assert out_short.read_text(encoding="utf-8") == out_long.read_text(encoding="utf-8")
+
+
+def test_explain_says_when_the_research_doc_is_not_in_the_asked_for_language(capsys):
+    # --explain printed English metadata and then a Russian document with
+    # nothing in between to say so. Translating docs/research/ takes a
+    # while; being straight about what the reader is looking at does not.
+    exit_code = main(["--explain", "GAP-046", "--lang", "en"])
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "the document below is in Russian" in out
+
+
+def test_explain_says_nothing_extra_when_the_doc_is_in_the_right_language(capsys):
+    from ora2pg_gap_report.gap_registry import gap_by_number, research_doc_is_translated
+
+    gap = gap_by_number("046")
+    assert gap is not None
+    assert research_doc_is_translated(gap, "ru")
+    main(["--explain", "GAP-046", "--lang", "ru"])
+    out = capsys.readouterr().out
+    assert "перевод" not in out

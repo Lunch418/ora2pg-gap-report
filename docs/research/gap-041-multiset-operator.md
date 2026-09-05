@@ -1,12 +1,12 @@
-# GAP-041: операторы над коллекциями — `MULTISET`, `MEMBER OF`, `SUBMULTISET`
+# GAP-041: collection operators — `MULTISET`, `MEMBER OF`, `SUBMULTISET`
 
-Oracle feature: работа с вложенными таблицами и `VARRAY` как со
-множествами прямо в SQL — объединение/пересечение/разность коллекций,
-проверка вхождения элемента, проверка подмножества, а также идиома
-`CAST(MULTISET(SELECT ...) AS <collection_type>)` для сбора результата
-подзапроса в коллекцию.
+Oracle feature: treating nested tables and `VARRAY`s as sets directly in
+SQL — union, intersection and difference of collections, membership
+tests, subset tests, and the `CAST(MULTISET(SELECT ...) AS
+<collection_type>)` idiom for collecting a subquery's result into a
+collection.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE VIEW v_multiset AS
@@ -15,7 +15,7 @@ FROM basket_data
 WHERE 5 MEMBER OF col_a;
 ```
 
-## Вывод ora2pg (v25.0, `-t VIEW`)
+## ora2pg output (v25.0, `-t VIEW`)
 
 ```sql
 CREATE OR REPLACE VIEW v_multiset AS SELECT id, col_a MULTISET
@@ -25,12 +25,12 @@ FROM basket_data
 WHERE 5 MEMBER OF col_a;
 ```
 
-Скопировано как есть (ora2pg лишь переносит `UNION` на отдельную строку,
-разрывая конструкцию — но не конвертирует её).
+Copied as written (ora2pg only moves the `UNION` onto its own line,
+breaking the construct apart — it does not convert it).
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16:
+Confirmed against a real PostgreSQL 16:
 
 ```
 ERROR:  syntax error at or near "col_b"
@@ -38,25 +38,25 @@ LINE 3:  col_b AS merged
          ^
 ```
 
-Отдельно проверено — все конструкции этого семейства ведут себя
-одинаково (копируются дословно, падают при загрузке):
+Checked separately — every construct in this family behaves the same way
+(copied verbatim, fails at load):
 
 - `CAST(MULTISET(SELECT ...) AS num_list_t)` →
   `ERROR: syntax error at or near "SELECT"`
 - `col_a SUBMULTISET OF col_b` →
   `ERROR: syntax error at or near "SUBMULTISET"`
-- `MULTISET INTERSECT` — переносится дословно так же.
+- `MULTISET INTERSECT` — carried over verbatim in the same way.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/multiset_operator.py`. Ручная переработка
-под модель массивов PostgreSQL: `CAST(MULTISET(...))` → `ARRAY(SELECT
-...)`, `MULTISET UNION` → `||`, `MEMBER OF` → `= ANY(...)`,
-`SUBMULTISET OF` → `<@`.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/multiset_operator.py`. Manual rework onto
+PostgreSQL's array model: `CAST(MULTISET(...))` → `ARRAY(SELECT ...)`,
+`MULTISET UNION` → `||`, `MEMBER OF` → `= ANY(...)`, `SUBMULTISET OF` →
+`<@`.
 
-Отдельно от `collection_type` (GAP-021): тот про объявление типа
-коллекции (`CREATE TYPE ... AS TABLE OF`), этот — про операторы над
-значениями коллекций в запросах.
+Kept separate from `collection_type` (GAP-021): that one is about
+declaring a collection type (`CREATE TYPE ... AS TABLE OF`), this one
+about operators over collection values in queries.

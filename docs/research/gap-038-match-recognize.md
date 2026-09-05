@@ -1,11 +1,11 @@
-# GAP-038: `MATCH_RECOGNIZE` — сопоставление строк с шаблоном
+# GAP-038: `MATCH_RECOGNIZE` — row pattern matching
 
-Oracle feature: `MATCH_RECOGNIZE` (12c+) — поиск последовательностей строк,
-соответствующих шаблону-регулярке, прямо в SQL: разбиение на разделы,
-упорядочивание, объявление переменных шаблона (`DEFINE`), вычисление
-значений по найденному совпадению (`MEASURES`).
+Oracle feature: `MATCH_RECOGNIZE` (12c+) — finding sequences of rows that
+match a regular-expression-like pattern, directly in SQL: partitioning,
+ordering, declaring pattern variables (`DEFINE`), and computing values
+from a match (`MEASURES`).
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE VIEW v_price_runs AS
@@ -22,7 +22,7 @@ MATCH_RECOGNIZE (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-t VIEW`)
+## ora2pg output (v25.0, `-t VIEW`)
 
 ```sql
 CREATE OR REPLACE VIEW v_price_runs AS SELECT *
@@ -38,13 +38,13 @@ MATCH_RECOGNIZE(
 );
 ```
 
-Конструкция скопирована в вывод как есть — ora2pg не пытается её
-конвертировать и не предупреждает о ней.
+The construct is copied into the output as written — ora2pg neither tries
+to convert it nor warns about it.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16 — падает при загрузке
-сгенерированного DDL:
+Confirmed against a real PostgreSQL 16 — it fails while loading the
+generated DDL:
 
 ```
 ERROR:  syntax error at or near "BY"
@@ -52,14 +52,14 @@ LINE 4:   PARTITION BY symbol
                     ^
 ```
 
-У PostgreSQL нет row pattern matching ни в каком виде — ни на уровне
-синтаксиса, ни расширением из коробки.
+PostgreSQL has no row pattern matching in any form — neither in the syntax
+nor through an extension out of the box.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/match_recognize.py`. Ручная переработка:
-оконные функции (`LAG`/`LEAD` над разделом) с последующей фильтрацией,
-либо рекурсивный CTE — прямой замены одной конструкцией не существует.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/match_recognize.py`. Manual rework: window
+functions (`LAG`/`LEAD` over the partition) followed by filtering, or a
+recursive CTE — there is no single-construct replacement.

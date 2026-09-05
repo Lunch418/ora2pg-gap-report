@@ -1,80 +1,82 @@
-# GAP-001: `PRAGMA AUTONOMOUS_TRANSACTION` — недооценка стоимости в package body
+# GAP-001: `PRAGMA AUTONOMOUS_TRANSACTION` — cost underestimated in a package body
 
-Oracle feature: `PRAGMA AUTONOMOUS_TRANSACTION` — помечает
-процедуру/функцию как выполняющуюся в отдельной, независимой транзакции.
+Oracle feature: `PRAGMA AUTONOMOUS_TRANSACTION` marks a procedure or
+function as running in a separate, independent transaction.
 
-## Что здесь на самом деле не так
+## What is actually wrong here
 
-Это самая контринтуитивная находка проекта: **ora2pg реально
-конвертирует** эту прагму — не "не переносит". По умолчанию он генерирует
-dblink-обёртку: функция переименовывается в `<имя>_atx`, `COMMIT` внутри
-неё убирается, а вызывающий код получает функцию-прокси, вызывающую
-`<имя>_atx` через `dblink()` в отдельном соединении. Подтверждено живым
-прогоном на `logger.pkb` — для каждой процедуры с `pragma
-autonomous_transaction;` в выводе реально появляется рабочая
-dblink-обёртка.
+This is the project's most counterintuitive finding: **ora2pg really does
+convert** this pragma — it is not a case of "doesn't carry it over". By
+default it generates a dblink wrapper: the function is renamed to
+`<name>_atx`, the `COMMIT` inside it is removed, and the calling code gets
+a proxy function that invokes `<name>_atx` through `dblink()` on a
+separate connection. Confirmed by a live run on `logger.pkb` — a working
+dblink wrapper really does appear in the output for every procedure
+carrying `pragma autonomous_transaction;`.
 
-Проблема не в конвертации, а в **оценке стоимости**. `%UNCOVERED_SCORE` в
-ora2pg содержит вес `'PRAGMA' => 3`, который должен добавляться при виде
-`PRAGMA AUTONOMOUS_TRANSACTION`. Но для функций **внутри package body**
-стоимость считается только по части текста **после** `BEGIN`
-(`Ora2Pg/Oracle.pm::_lookup_function`, `split(/\bBEGIN\b/i, $plsql, 2)`), а
-`PRAGMA AUTONOMOUS_TRANSACTION;` синтаксически всегда стоит в
-декларативной секции — **до** `BEGIN`. Эта часть текста для пакетных
-функций в `estimate_cost` просто никогда не передаётся.
+The problem is not the conversion, it is the **cost estimate**. ora2pg's
+`%UNCOVERED_SCORE` contains the weight `'PRAGMA' => 3`, which is supposed
+to be added when `PRAGMA AUTONOMOUS_TRANSACTION` is seen. But for
+functions **inside a package body** the cost is computed only from the
+text **after** `BEGIN` (`Ora2Pg/Oracle.pm::_lookup_function`,
+`split(/\bBEGIN\b/i, $plsql, 2)`), while `PRAGMA AUTONOMOUS_TRANSACTION;`
+syntactically always sits in the declarative section — **before** `BEGIN`.
+For package functions that part of the text is simply never handed to
+`estimate_cost`.
 
-Подтверждено эмпирически: в реальном выводе конвертации `logger.pkb` для
-`logger.save_global_context` (функция, для которой ora2pg сам сгенерировал
-dblink-обёртку, то есть точно "увидел" прагму) итоговая оценка стоимости
-не содержит строку `PRAGMA` в разбивке вообще, хотя вес для неё задан. Из
-9 вхождений `pragma` в `logger.pkb` ни одно не отражено в стоимости ни в
-одном отчёте по функциям пакета. Контрольная проверка: тот же `CONNECT BY`
-внутри тела функции (после `BEGIN`) корректно учитывается в стоимости —
-подтверждает, что причина именно в позиции конструкции относительно
-`BEGIN`, а не в том, что `PRAGMA` не ищется вовсе.
+Confirmed empirically: in the real conversion output for `logger.pkb`, the
+final cost estimate for `logger.save_global_context` — a function for
+which ora2pg itself generated a dblink wrapper, so it definitely "saw" the
+pragma — contains no `PRAGMA` line in its breakdown at all, even though a
+weight is defined for it. Of the 9 occurrences of `pragma` in
+`logger.pkb`, not one is reflected in the cost in any of the package's
+per-function reports. Control check: the same `CONNECT BY` inside a
+function body (after `BEGIN`) is counted correctly — confirming the cause
+is the construct's position relative to `BEGIN`, not that `PRAGMA` is
+never looked for.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ora2pg реально конвертирует конструкцию, но систематически недооценивает
-её трудоёмкость/риск в `SHOW_REPORT` и `--estimate_cost` для пакетных
-функций. При этом сам факт "перенос" здесь на практике означает: код
-начинает вызывать другую БД через `dblink`, с ручной настройкой connection
-string — сетевая зависимость между процедурами, которая может быть
-неприемлема в контуре с жёсткими требованиями к изоляции. `SHOW_REPORT` в
-лучшем случае покажет заниженную цифру, в худшем — не покажет вообще
-ничего специфичного для этой конструкции.
+ora2pg genuinely converts the construct, but systematically underestimates
+its effort and risk in `SHOW_REPORT` and `--estimate_cost` for package
+functions. And "carried over" here means, in practice: the code starts
+calling another database through `dblink`, with a connection string to be
+configured by hand — a network dependency between procedures that may be
+unacceptable in an environment with strict isolation requirements.
+`SHOW_REPORT` will at best show an understated number, and at worst show
+nothing specific to this construct at all.
 
 **Reproducible: YES.** Ora2Pg version: 25.0 (commit `cc2c434f`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Не "не переносится", а "переносится, но
-недооценивается и создаёт архитектурную зависимость, о которой цифра
-стоимости не предупреждает".
+**Gap confirmed.** Not "isn't carried over", but "is carried over, yet
+underestimated, and creates an architectural dependency the cost figure
+gives no warning about".
 
-Реализовано: `ora2pg_gap_report/detectors/autonomous_tx.py`.
+Implemented in `ora2pg_gap_report/detectors/autonomous_tx.py`.
 
-## Почему только PACKAGE BODY
+## Why PACKAGE BODY only
 
-Перепроверено на ora2pg 25.0 (2026-09-05), четыре прогона
-`--estimate_cost` на минимальных примерах:
+Re-measured against ora2pg 25.0 (2026-09-05), four `--estimate_cost` runs
+on minimal examples:
 
-| источник | с `PRAGMA` | без `PRAGMA` | доплата |
+| source | with `PRAGMA` | without `PRAGMA` | difference |
 |---|---|---|---|
 | `PACKAGE BODY` | 6 units | 6 units | **0** |
 | standalone `PROCEDURE` | 4.2 units | 4.0 units | 0.2 |
 
-В обоих случаях ora2pg генерирует один и тот же обходной путь: `CREATE
-EXTENSION dblink`, строку подключения, которую нужно заполнить руками, и
-вызов `dblink()` на каждое обращение. Но в package body он не берёт за
-это ничего — оценка совпадает до единицы с той же процедурой без
-`PRAGMA`. Это и есть зарегистрированный gap.
+In both cases ora2pg generates the same workaround: `CREATE EXTENSION
+dblink`, a connection string to be filled in by hand, and a `dblink()`
+call on every invocation. But inside a package body it charges nothing for
+it — the estimate matches the same procedure without the `PRAGMA` to the
+unit. That is the registered gap.
 
-Для standalone-процедуры оценка всё-таки растёт. 0.2 units — это одна
-минута при дефолтных 5 мин/unit, и для «поставить расширение, настроить
-строку подключения и принять сетевой round-trip» этого явно мало. Но
-«мало» — это суждение, а «ноль» — факт, и в реестр по методологии
-проекта попадает только воспроизведённая поломка. Поэтому детектор
-намеренно не срабатывает на standalone-routine; если ora2pg когда-нибудь
-перестанет считать и там, это будет отдельный gap с собственным
-воспроизведением.
+For a standalone procedure the estimate does go up. 0.2 units is one
+minute at the default 5 min/unit, and for "install an extension, configure
+a connection string, and accept a network round trip" that is clearly too
+little. But "too little" is a judgement and "nothing" is a fact, and by
+this project's methodology only a reproduced breakage enters the registry.
+So the detector deliberately does not fire on a standalone routine; if
+ora2pg ever stops counting there too, that will be a separate gap with its
+own reproduction.

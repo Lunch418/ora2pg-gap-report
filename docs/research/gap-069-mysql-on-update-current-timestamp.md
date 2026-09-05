@@ -1,10 +1,10 @@
 # GAP-069: `DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`
 
-MySQL/MariaDB feature: `ON UPDATE CURRENT_TIMESTAMP` — часть `DEFAULT`
-у `TIMESTAMP`/`DATETIME`-столбца, авто-обновляющая значение на каждый
-`UPDATE` строки (классический шаблон `updated_at`).
+MySQL/MariaDB feature: `ON UPDATE CURRENT_TIMESTAMP` — part of the
+`DEFAULT` on a `TIMESTAMP`/`DATETIME` column, auto-refreshing the value
+on every `UPDATE` of the row (the classic `updated_at` pattern).
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE sessions (
@@ -14,7 +14,7 @@ CREATE TABLE sessions (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-m -t TABLE`)
+## ora2pg output (v25.0, `-m -t TABLE`)
 
 ```sql
 CREATE TABLE sessions (
@@ -25,14 +25,14 @@ CREATE TABLE sessions (
 ALTER TABLE sessions ADD PRIMARY KEY (id);
 ```
 
-`ON UPDATE CURRENT_TIMESTAMP` копируется в вывод дословно, прямо внутри
-`DEFAULT`. У `DEFAULT` в PostgreSQL нет такого синтаксиса вообще —
-`DEFAULT` описывает только значение при вставке, а не поведение при
-обновлении.
+`ON UPDATE CURRENT_TIMESTAMP` is copied into the output verbatim, right
+inside the `DEFAULT`. PostgreSQL's `DEFAULT` has no such syntax at all —
+`DEFAULT` describes only the value used on insert, never behaviour on
+update.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16:
+Confirmed on a real PostgreSQL 16:
 
 ```
 ERROR:  syntax error at or near "ON"
@@ -40,16 +40,16 @@ LINE 4: ...hout time zone NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE ...
                                                              ^
 ```
 
-`CREATE TABLE` падает немедленно, при загрузке схемы.
+`CREATE TABLE` fails immediately, at schema load.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high.** Аналога `ON UPDATE
-CURRENT_TIMESTAMP` в PostgreSQL действительно нет — переносится либо на
-триггер `BEFORE UPDATE`, выставляющий `NEW.<столбец> = now()`, либо (в
-достаточно новых версиях PostgreSQL, для конкретного случая) на
-`GENERATED ALWAYS`. Реализовано:
+**Gap confirmed, severity high.** PostgreSQL genuinely has no
+counterpart to `ON UPDATE CURRENT_TIMESTAMP` — it is ported either to a
+`BEFORE UPDATE` trigger setting `NEW.<column> = now()`, or (on recent
+enough PostgreSQL versions, for the specific case) to `GENERATED
+ALWAYS`. Implemented:
 `ora2pg_gap_report/detectors/mysql_on_update_current_timestamp.py`.

@@ -1,10 +1,10 @@
-# GAP-072: `FULLTEXT KEY`/`FULLTEXT INDEX` внутри `CREATE TABLE`
+# GAP-072: `FULLTEXT KEY`/`FULLTEXT INDEX` inside `CREATE TABLE`
 
-MySQL/MariaDB feature: `FULLTEXT KEY <имя> (<столбцы>)` — полнотекстовый
-индекс, объявляемый прямо в списке столбцов `CREATE TABLE` (наравне с
+MySQL/MariaDB feature: `FULLTEXT KEY <name> (<columns>)` — a full-text
+index declared right in the `CREATE TABLE` column list (alongside
 `PRIMARY KEY`/`UNIQUE KEY`).
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE articles (
@@ -15,7 +15,7 @@ CREATE TABLE articles (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-m -t TABLE`)
+## ora2pg output (v25.0, `-m -t TABLE`)
 
 ```sql
 CREATE TABLE articles (
@@ -27,15 +27,15 @@ CREATE TABLE articles (
 ALTER TABLE articles ADD PRIMARY KEY (id);
 ```
 
-`FULLTEXT KEY ft_body (title, body)` не распознаётся как индекс вообще:
-имя индекса (`ft_body`) и список столбцов (`title, body`) теряются
-целиком, а сами слова `fulltext KEY` остаются в выводе на месте, где
-ожидалось очередное определение столбца — как будто `fulltext` это имя
-нового столбца, а `KEY` — его тип.
+`FULLTEXT KEY ft_body (title, body)` is not recognized as an index at
+all: the index name (`ft_body`) and the column list (`title, body`) are
+lost entirely, while the words `fulltext KEY` themselves stay in the
+output in the position where another column definition was expected — as
+if `fulltext` were the name of a new column and `KEY` its type.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16:
+Confirmed on a real PostgreSQL 16:
 
 ```
 ERROR:  type "key" does not exist
@@ -43,17 +43,17 @@ LINE 5:  fulltext KEY
                   ^
 ```
 
-`CREATE TABLE` падает немедленно, при загрузке схемы.
+`CREATE TABLE` fails immediately, at schema load.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high.** У PostgreSQL нет прямого аналога
-MySQL `FULLTEXT`, но эквивалент строится через `tsvector`/`GIN`.
-Столбцы полнотекстового индекса видны в исходном `FULLTEXT KEY (...)`
-и восстанавливаются вручную: `CREATE INDEX ... USING gin
-(to_tsvector('...', title || ' ' || body))` после `CREATE TABLE` (с
-удалённой строкой `fulltext KEY`). Реализовано:
+**Gap confirmed, severity high.** PostgreSQL has no direct counterpart
+to MySQL `FULLTEXT`, but the equivalent is built with `tsvector`/`GIN`.
+The full-text index columns are visible in the source `FULLTEXT KEY
+(...)` and are restored by hand: `CREATE INDEX ... USING gin
+(to_tsvector('...', title || ' ' || body))` after the `CREATE TABLE`
+(with the `fulltext KEY` line removed). Implemented:
 `ora2pg_gap_report/detectors/mysql_fulltext_index.py`.

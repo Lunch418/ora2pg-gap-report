@@ -84,6 +84,20 @@ class GapEntry:
     # gap-{number}-{slug}.md, so continuing the numbering costs nothing
     # while a GAP-MY-/GAP-MS- scheme would have touched all of it.
     dialect: str = "oracle"
+    # The date this gap's finding was actually recorded against a real
+    # ora2pg run, as ISO yyyy-mm-dd -- taken from when its research doc
+    # was written, which is the record of that run. Not "still true
+    # today": nothing here is re-verified automatically, and
+    # ora2pg_version above says which ora2pg it was true of. The pair
+    # matters together, and cli.py warns when the installed ora2pg is a
+    # different version from the one a finding is being reported against.
+    # No default on purpose -- a gap without a verification date would be
+    # a claim with no evidence behind it, and defaulting one in would
+    # make that invisible. kw_only so a required field can still follow
+    # the defaulted ones above without reordering the four positional
+    # arguments every entry already passes (Python 3.10+, which this
+    # project requires).
+    last_verified: str = dataclasses.field(kw_only=True)
 
     # Deliberately NOT here: verification.py's VERIFICATION_MODE, and
     # messages.py's MESSAGES/REMEDIATION_HINTS. They are keyed by
@@ -110,6 +124,18 @@ class GapEntry:
 # "semantic": nothing ever raises an error, at any stage. Behavior is
 #   just silently different from Oracle, forever, unless someone
 #   specifically goes looking for it.
+def verified_ora2pg_versions() -> frozenset[str]:
+    """Every ora2pg version any gap in the registry was confirmed against.
+
+    A set rather than one value because nothing forces the registry to be
+    single-version -- ora2pg_version is per-gap precisely so a gap
+    confirmed on a later release doesn't require restating the other 104.
+    Today they all share one value; a caller comparing an installed
+    version against this must handle more.
+    """
+    return frozenset(gap.ora2pg_version for gap in GAPS)
+
+
 FAILURE_STAGES = ("conversion", "deployment", "runtime", "semantic")
 
 # The only two gaps whose finding isn't about a code-shape/runtime problem
@@ -127,176 +153,140 @@ GAPS: tuple[GapEntry, ...] = (
     # underestimating migration *cost*, not about broken generated code,
     # same reason it's a verification.py special case (see that module's
     # own comment on this detector).
-    GapEntry("001", "autonomous_tx", "autonomous-transaction", ("test_autonomous_tx.py", "test_autonomous_tx_edge_cases.py"), severity="high"),
-    GapEntry("002", "merge_delete_clause", "merge-delete-clause", ("test_merge_delete_clause.py",), severity="high", failure_stage="runtime"),
-    GapEntry("003", "bulk_collect", "bulk-collect-forall", ("test_bulk_collect.py",), severity="high", failure_stage="runtime"),
+    GapEntry("001", "autonomous_tx", "autonomous-transaction", ("test_autonomous_tx.py", "test_autonomous_tx_edge_cases.py"), severity="high", last_verified="2026-08-14"),
+    GapEntry("002", "merge_delete_clause", "merge-delete-clause", ("test_merge_delete_clause.py",), severity="high", failure_stage="runtime", last_verified="2026-08-14"),
+    GapEntry("003", "bulk_collect", "bulk-collect-forall", ("test_bulk_collect.py",), severity="high", failure_stage="runtime", last_verified="2026-08-14"),
     GapEntry(
-        "004", "compound_triggers", "compound-trigger", ("test_compound_triggers.py",), severity="high", failure_stage="semantic"
-    ),
-    GapEntry("005", "connect_by", "connect-by-level", ("test_connect_by.py",), severity="high", failure_stage="runtime"),
-    GapEntry("006", "database_link", "database-link", ("test_database_link.py",), severity="high", failure_stage="runtime"),
-    GapEntry("007", "model_clause", "model-clause", ("test_model_clause.py",), severity="high", failure_stage="runtime"),
-    GapEntry("008", "pivot_clause", "pivot-unpivot", ("test_pivot_clause.py",), severity="high", failure_stage="runtime"),
+        "004", "compound_triggers", "compound-trigger", ("test_compound_triggers.py",), severity="high", failure_stage="semantic", last_verified="2026-08-14"),
+    GapEntry("005", "connect_by", "connect-by-level", ("test_connect_by.py",), severity="high", failure_stage="runtime", last_verified="2026-08-14"),
+    GapEntry("006", "database_link", "database-link", ("test_database_link.py",), severity="high", failure_stage="runtime", last_verified="2026-08-14"),
+    GapEntry("007", "model_clause", "model-clause", ("test_model_clause.py",), severity="high", failure_stage="runtime", last_verified="2026-08-14"),
+    GapEntry("008", "pivot_clause", "pivot-unpivot", ("test_pivot_clause.py",), severity="high", failure_stage="runtime", last_verified="2026-08-14"),
     # object_type: failure_stage left unset for the same class of reason
     # as autonomous_tx -- its finding is that --estimate_cost/SHOW_REPORT
     # returns *no* number at all for TYPE objects (not a broken/silent
     # runtime behavior), see docs/research/gap-009-object-type.md.
-    GapEntry("009", "object_type", "object-type", ("test_object_type.py",), severity="high"),
-    GapEntry("010", "with_function", "with-function", ("test_with_function.py",), severity="high", failure_stage="runtime"),
-    GapEntry("011", "flashback_query", "flashback-query", ("test_flashback_query.py",), severity="high", failure_stage="runtime"),
-    GapEntry("012", "global_temp_table", "global-temp-table", ("test_global_temp_table.py",), severity="high", failure_stage="semantic"),
-    GapEntry("013", "table_partitioning", "table-partitioning", ("test_table_partitioning.py",), severity="high", failure_stage="semantic"),
-    GapEntry("014", "connect_by_nocycle", "connect-by-nocycle", ("test_connect_by_nocycle.py",), severity="high", failure_stage="deployment"),
-    GapEntry("015", "context_object", "context", ("test_context_object.py",), severity="medium", failure_stage="semantic"),
-    GapEntry("016", "insert_all", "insert-all", ("test_insert_all.py",), severity="high", failure_stage="runtime"),
-    GapEntry("017", "json_table", "json-table", ("test_json_table.py",), severity="high", failure_stage="runtime"),
-    GapEntry("018", "external_table", "external-table", ("test_external_table.py",), severity="high", failure_stage="semantic"),
-    GapEntry("019", "sql_macro", "sql-macro", ("test_sql_macro.py",), severity="high", failure_stage="runtime"),
-    GapEntry("020", "invisible_column", "invisible-column", ("test_invisible_column.py",), severity="high", failure_stage="semantic"),
+    GapEntry("009", "object_type", "object-type", ("test_object_type.py",), severity="high", last_verified="2026-08-14"),
+    GapEntry("010", "with_function", "with-function", ("test_with_function.py",), severity="high", failure_stage="runtime", last_verified="2026-08-14"),
+    GapEntry("011", "flashback_query", "flashback-query", ("test_flashback_query.py",), severity="high", failure_stage="runtime", last_verified="2026-08-14"),
+    GapEntry("012", "global_temp_table", "global-temp-table", ("test_global_temp_table.py",), severity="high", failure_stage="semantic", last_verified="2026-08-15"),
+    GapEntry("013", "table_partitioning", "table-partitioning", ("test_table_partitioning.py",), severity="high", failure_stage="semantic", last_verified="2026-08-15"),
+    GapEntry("014", "connect_by_nocycle", "connect-by-nocycle", ("test_connect_by_nocycle.py",), severity="high", failure_stage="deployment", last_verified="2026-08-15"),
+    GapEntry("015", "context_object", "context", ("test_context_object.py",), severity="medium", failure_stage="semantic", last_verified="2026-08-15"),
+    GapEntry("016", "insert_all", "insert-all", ("test_insert_all.py",), severity="high", failure_stage="runtime", last_verified="2026-08-15"),
+    GapEntry("017", "json_table", "json-table", ("test_json_table.py",), severity="high", failure_stage="runtime", last_verified="2026-08-15"),
+    GapEntry("018", "external_table", "external-table", ("test_external_table.py",), severity="high", failure_stage="semantic", last_verified="2026-08-15"),
+    GapEntry("019", "sql_macro", "sql-macro", ("test_sql_macro.py",), severity="high", failure_stage="runtime", last_verified="2026-08-15"),
+    GapEntry("020", "invisible_column", "invisible-column", ("test_invisible_column.py",), severity="high", failure_stage="semantic", last_verified="2026-08-15"),
     GapEntry(
-        "021", "collection_type", "collection-type", ("test_collection_type.py",), severity="high", failure_stage="deployment"
-    ),
-    GapEntry("022", "cross_apply", "cross-apply", ("test_cross_apply.py",), severity="high", failure_stage="runtime"),
-    GapEntry("023", "oracle_text", "oracle-text", ("test_oracle_text.py",), severity="high", failure_stage="runtime"),
-    GapEntry("024", "recursive_with", "recursive-with", ("test_recursive_with.py",), severity="high", failure_stage="runtime"),
-    GapEntry("025", "invisible_index", "invisible-index", ("test_invisible_index.py",), severity="medium", failure_stage="semantic"),
+        "021", "collection_type", "collection-type", ("test_collection_type.py",), severity="high", failure_stage="deployment", last_verified="2026-08-15"),
+    GapEntry("022", "cross_apply", "cross-apply", ("test_cross_apply.py",), severity="high", failure_stage="runtime", last_verified="2026-08-15"),
+    GapEntry("023", "oracle_text", "oracle-text", ("test_oracle_text.py",), severity="high", failure_stage="runtime", last_verified="2026-08-15"),
+    GapEntry("024", "recursive_with", "recursive-with", ("test_recursive_with.py",), severity="high", failure_stage="runtime", last_verified="2026-08-15"),
+    GapEntry("025", "invisible_index", "invisible-index", ("test_invisible_index.py",), severity="medium", failure_stage="semantic", last_verified="2026-08-15"),
     GapEntry(
-        "026", "read_only_table", "read-only-table", ("test_read_only_table.py",), severity="high", failure_stage="semantic"
-    ),
-    GapEntry("027", "materialized_view_log", "materialized-view-log", ("test_materialized_view_log.py",), severity="high", failure_stage="semantic"),
+        "026", "read_only_table", "read-only-table", ("test_read_only_table.py",), severity="high", failure_stage="semantic", last_verified="2026-08-15"),
+    GapEntry("027", "materialized_view_log", "materialized-view-log", ("test_materialized_view_log.py",), severity="high", failure_stage="semantic", last_verified="2026-08-15"),
     GapEntry(
-        "028", "identity_column", "identity-column", ("test_identity_column.py",), severity="high", failure_stage="deployment"
-    ),
-    GapEntry("029", "rowid_type", "rowid-urowid", ("test_rowid_type.py",), severity="high", failure_stage="runtime"),
-    GapEntry("030", "sequence_cycle", "sequence-cycle", ("test_sequence_cycle.py",), severity="high", failure_stage="runtime"),
+        "028", "identity_column", "identity-column", ("test_identity_column.py",), severity="high", failure_stage="deployment", last_verified="2026-08-15"),
+    GapEntry("029", "rowid_type", "rowid-urowid", ("test_rowid_type.py",), severity="high", failure_stage="runtime", last_verified="2026-08-17"),
+    GapEntry("030", "sequence_cycle", "sequence-cycle", ("test_sequence_cycle.py",), severity="high", failure_stage="runtime", last_verified="2026-08-17"),
     GapEntry(
-        "031", "default_on_null", "default-on-null", ("test_default_on_null.py",), severity="high", failure_stage="deployment"
-    ),
-    GapEntry("032", "public_synonym", "public-synonym", ("test_public_synonym.py",), severity="high", failure_stage="deployment"),
+        "031", "default_on_null", "default-on-null", ("test_default_on_null.py",), severity="high", failure_stage="deployment", last_verified="2026-08-17"),
+    GapEntry("032", "public_synonym", "public-synonym", ("test_public_synonym.py",), severity="high", failure_stage="deployment", last_verified="2026-08-17"),
     GapEntry(
-        "033", "virtual_column", "virtual-column", ("test_virtual_column.py",), severity="medium", failure_stage="semantic"
-    ),
-    GapEntry("034", "nested_subprogram", "nested-subprogram", ("test_nested_subprogram.py",), severity="high", failure_stage="runtime"),
+        "033", "virtual_column", "virtual-column", ("test_virtual_column.py",), severity="medium", failure_stage="semantic", last_verified="2026-08-17"),
+    GapEntry("034", "nested_subprogram", "nested-subprogram", ("test_nested_subprogram.py",), severity="high", failure_stage="runtime", last_verified="2026-08-17"),
     GapEntry(
         "035",
         "conditional_compilation",
         "conditional-compilation",
         ("test_conditional_compilation.py",),
-        severity="high", failure_stage="runtime",
-    ),
-    GapEntry("036", "package_state", "package-state", ("test_package_state.py",), severity="high", failure_stage="runtime"),
+        severity="high", failure_stage="runtime", last_verified="2026-08-17"),
+    GapEntry("036", "package_state", "package-state", ("test_package_state.py",), severity="high", failure_stage="runtime", last_verified="2026-08-17"),
     GapEntry(
         "037",
         "index_organized_table",
         "index-organized-table",
         ("test_index_organized_table.py",),
-        severity="medium", failure_stage="semantic",
-    ),
+        severity="medium", failure_stage="semantic", last_verified="2026-08-17"),
 GapEntry(
-        "038", "match_recognize", "match-recognize", ("test_match_recognize.py",), severity="high", failure_stage="deployment"
-    ),
+        "038", "match_recognize", "match-recognize", ("test_match_recognize.py",), severity="high", failure_stage="deployment", last_verified="2026-08-27"),
     GapEntry(
         "039",
         "connect_by_pseudocolumn",
         "connect-by-pseudocolumn",
         ("test_connect_by_pseudocolumn.py",),
         severity="high",
-        failure_stage="deployment",
-    ),
+        failure_stage="deployment", last_verified="2026-08-27"),
     GapEntry(
-        "040", "keep_dense_rank", "keep-dense-rank", ("test_keep_dense_rank.py",), severity="high", failure_stage="deployment"
-    ),
+        "040", "keep_dense_rank", "keep-dense-rank", ("test_keep_dense_rank.py",), severity="high", failure_stage="deployment", last_verified="2026-08-27"),
     GapEntry(
-        "041", "multiset_operator", "multiset-operator", ("test_multiset_operator.py",), severity="high", failure_stage="deployment"
-    ),
+        "041", "multiset_operator", "multiset-operator", ("test_multiset_operator.py",), severity="high", failure_stage="deployment", last_verified="2026-08-27"),
     GapEntry(
-        "042", "sample_clause", "sample-clause", ("test_sample_clause.py",), severity="high", failure_stage="deployment"
-    ),
+        "042", "sample_clause", "sample-clause", ("test_sample_clause.py",), severity="high", failure_stage="deployment", last_verified="2026-08-27"),
     GapEntry(
-        "043", "accessible_by", "accessible-by", ("test_accessible_by.py",), severity="high", failure_stage="deployment"
-    ),
+        "043", "accessible_by", "accessible-by", ("test_accessible_by.py",), severity="high", failure_stage="deployment", last_verified="2026-08-27"),
     GapEntry(
-        "044", "local_time_zone", "local-time-zone", ("test_local_time_zone.py",), severity="high", failure_stage="semantic"
-    ),
+        "044", "local_time_zone", "local-time-zone", ("test_local_time_zone.py",), severity="high", failure_stage="semantic", last_verified="2026-08-27"),
     GapEntry(
-        "045", "temporal_validity", "temporal-validity", ("test_temporal_validity.py",), severity="high", failure_stage="deployment"
-    ),
+        "045", "temporal_validity", "temporal-validity", ("test_temporal_validity.py",), severity="high", failure_stage="deployment", last_verified="2026-08-27"),
     GapEntry(
-        "046", "bitmap_index", "bitmap-index", ("test_bitmap_index.py",), severity="high", failure_stage="deployment"
-    ),
+        "046", "bitmap_index", "bitmap-index", ("test_bitmap_index.py",), severity="high", failure_stage="deployment", last_verified="2026-08-27"),
     GapEntry(
-        "047", "object_table", "object-table", ("test_object_table.py",), severity="high", failure_stage="semantic"
-    ),
+        "047", "object_table", "object-table", ("test_object_table.py",), severity="high", failure_stage="semantic", last_verified="2026-08-27"),
     GapEntry(
-        "048", "ignore_nulls", "ignore-nulls", ("test_ignore_nulls.py",), severity="high", failure_stage="deployment"
-    ),
-    GapEntry("049", "nlssort", "nlssort", ("test_nlssort.py",), severity="high", failure_stage="deployment"),
+        "048", "ignore_nulls", "ignore-nulls", ("test_ignore_nulls.py",), severity="high", failure_stage="deployment", last_verified="2026-08-28"),
+    GapEntry("049", "nlssort", "nlssort", ("test_nlssort.py",), severity="high", failure_stage="deployment", last_verified="2026-08-28"),
     GapEntry(
-        "050", "long_raw_type", "long-raw-type", ("test_long_raw_type.py",), severity="high", failure_stage="runtime"
-    ),
+        "050", "long_raw_type", "long-raw-type", ("test_long_raw_type.py",), severity="high", failure_stage="runtime", last_verified="2026-08-28"),
     GapEntry(
-        "051", "anydata_type", "anydata-type", ("test_anydata_type.py",), severity="high", failure_stage="deployment"
-    ),
+        "051", "anydata_type", "anydata-type", ("test_anydata_type.py",), severity="high", failure_stage="deployment", last_verified="2026-08-28"),
     GapEntry(
-        "052", "system_trigger", "system-trigger", ("test_system_trigger.py",), severity="high", failure_stage="deployment"
-    ),
+        "052", "system_trigger", "system-trigger", ("test_system_trigger.py",), severity="high", failure_stage="deployment", last_verified="2026-08-28"),
     # trigger_follows: "runtime", not "deployment" -- the clause lands
     # *inside* the generated function body, so check_function_bodies=false
     # defers it past CREATE FUNCTION/CREATE TRIGGER and it only breaks on
     # the first row the trigger fires for. Confirmed that way round by a
     # real INSERT, not assumed (see the gap's own research doc).
     GapEntry(
-        "053", "trigger_follows", "trigger-follows", ("test_trigger_follows.py",), severity="high", failure_stage="runtime"
-    ),
+        "053", "trigger_follows", "trigger-follows", ("test_trigger_follows.py",), severity="high", failure_stage="runtime", last_verified="2026-08-28"),
     GapEntry(
-        "054", "table_collection", "table-collection", ("test_table_collection.py",), severity="high", failure_stage="deployment"
-    ),
+        "054", "table_collection", "table-collection", ("test_table_collection.py",), severity="high", failure_stage="deployment", last_verified="2026-08-28"),
     GapEntry(
-        "055", "cursor_expression", "cursor-expression", ("test_cursor_expression.py",), severity="high", failure_stage="deployment"
-    ),
+        "055", "cursor_expression", "cursor-expression", ("test_cursor_expression.py",), severity="high", failure_stage="deployment", last_verified="2026-08-28"),
     GapEntry(
-        "056", "for_update_wait", "for-update-wait", ("test_for_update_wait.py",), severity="high", failure_stage="deployment"
-    ),
+        "056", "for_update_wait", "for-update-wait", ("test_for_update_wait.py",), severity="high", failure_stage="deployment", last_verified="2026-08-28"),
     GapEntry(
-        "057", "rownum_dml", "rownum-dml", ("test_rownum_dml.py",), severity="high", failure_stage="deployment"
-    ),
+        "057", "rownum_dml", "rownum-dml", ("test_rownum_dml.py",), severity="high", failure_stage="deployment", last_verified="2026-08-28"),
     GapEntry(
-        "058", "to_date_rr", "to-date-rr", ("test_to_date_rr.py",), severity="high", failure_stage="semantic"
-    ),
+        "058", "to_date_rr", "to-date-rr", ("test_to_date_rr.py",), severity="high", failure_stage="semantic", last_verified="2026-08-28"),
     # authid_clause: the first and so far only gap whose failure_stage is
     # "conversion" -- the stage FAILURE_STAGES has defined since the
     # taxonomy was introduced but which nothing had ever landed in (see
     # docs/failure-stage-notes.md). Nothing fails at deploy or run time
     # because the routine never reaches the output at all.
     GapEntry(
-        "059", "authid_clause", "authid-clause", ("test_authid_clause.py",), severity="high", failure_stage="conversion"
-    ),
+        "059", "authid_clause", "authid-clause", ("test_authid_clause.py",), severity="high", failure_stage="conversion", last_verified="2026-08-28"),
     GapEntry(
-        "060", "pragma_exception_init", "pragma-exception-init", ("test_pragma_exception_init.py",), severity="high", failure_stage="runtime"
-    ),
+        "060", "pragma_exception_init", "pragma-exception-init", ("test_pragma_exception_init.py",), severity="high", failure_stage="runtime", last_verified="2026-08-28"),
     GapEntry(
-        "061", "subtype_range", "subtype-range", ("test_subtype_range.py",), severity="high", failure_stage="deployment"
-    ),
+        "061", "subtype_range", "subtype-range", ("test_subtype_range.py",), severity="high", failure_stage="deployment", last_verified="2026-08-28"),
     GapEntry(
-        "062", "alt_quote_literal", "alt-quote-literal", ("test_alt_quote_literal.py",), severity="high", failure_stage="runtime"
-    ),
+        "062", "alt_quote_literal", "alt-quote-literal", ("test_alt_quote_literal.py",), severity="high", failure_stage="runtime", last_verified="2026-08-28"),
     GapEntry(
-        "063", "goto_statement", "goto-statement", ("test_goto_statement.py",), severity="high", failure_stage="runtime"
-    ),
+        "063", "goto_statement", "goto-statement", ("test_goto_statement.py",), severity="high", failure_stage="runtime", last_verified="2026-08-28"),
     GapEntry(
-        "064", "cursor_rowtype", "cursor-rowtype", ("test_cursor_rowtype.py",), severity="high", failure_stage="runtime"
-    ),
-    GapEntry("065", "wm_concat", "wm-concat", ("test_wm_concat.py",), severity="high", failure_stage="runtime"),
+        "064", "cursor_rowtype", "cursor-rowtype", ("test_cursor_rowtype.py",), severity="high", failure_stage="runtime", last_verified="2026-08-28"),
+    GapEntry("065", "wm_concat", "wm-concat", ("test_wm_concat.py",), severity="high", failure_stage="runtime", last_verified="2026-08-28"),
     GapEntry(
-        "066", "read_only_view", "read-only-view", ("test_read_only_view.py",), severity="high", failure_stage="semantic"
-    ),
+        "066", "read_only_view", "read-only-view", ("test_read_only_view.py",), severity="high", failure_stage="semantic", last_verified="2026-08-28"),
     # sdo_geometry: the only "medium" of this batch -- ora2pg picks the
     # right target type (PostGIS geometry) and merely omits the
     # CREATE EXTENSION line it needs, so one line fixes it, unlike the
     # rest of the batch where the construct has to be rewritten.
     GapEntry(
-        "067", "sdo_geometry", "sdo-geometry", ("test_sdo_geometry.py",), severity="medium", failure_stage="deployment"
-    ),
+        "067", "sdo_geometry", "sdo-geometry", ("test_sdo_geometry.py",), severity="medium", failure_stage="deployment", last_verified="2026-08-28"),
     # First MySQL-dialect batch (ora2pg -m), same numbering sequence as
     # every Oracle gap above it -- see GapEntry.dialect's own comment for
     # why this project uses one registry/one sequence rather than
@@ -312,8 +302,7 @@ GapEntry(
         ("test_mysql_enum_type.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "069",
         "mysql_on_update_current_timestamp",
@@ -321,8 +310,7 @@ GapEntry(
         ("test_mysql_on_update_current_timestamp.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "070",
         "mysql_on_duplicate_key_update",
@@ -330,8 +318,7 @@ GapEntry(
         ("test_mysql_on_duplicate_key_update.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "071",
         "mysql_signal",
@@ -339,8 +326,7 @@ GapEntry(
         ("test_mysql_signal.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "072",
         "mysql_fulltext_index",
@@ -348,8 +334,7 @@ GapEntry(
         ("test_mysql_fulltext_index.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     # Second MySQL batch. Two things this batch made visible that the
     # first one didn't: ora2pg's MySQL side breaks on constructs that are
     # not exotic at all (a bare KEY index clause is what mysqldump emits
@@ -363,8 +348,7 @@ GapEntry(
         ("test_mysql_key_index.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "074",
         "mysql_spatial_index",
@@ -372,8 +356,7 @@ GapEntry(
         ("test_mysql_spatial_index.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "075",
         "mysql_limit_comma",
@@ -381,8 +364,7 @@ GapEntry(
         ("test_mysql_limit_comma.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "076",
         "mysql_replace_into",
@@ -390,8 +372,7 @@ GapEntry(
         ("test_mysql_replace_into.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "077",
         "mysql_insert_ignore",
@@ -399,8 +380,7 @@ GapEntry(
         ("test_mysql_insert_ignore.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "078",
         "mysql_prepare_from",
@@ -408,8 +388,7 @@ GapEntry(
         ("test_mysql_prepare_from.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "079",
         "mysql_last_insert_id",
@@ -417,8 +396,7 @@ GapEntry(
         ("test_mysql_last_insert_id.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     # auto_increment_start is "runtime" rather than "semantic" on purpose:
     # nothing errors while the schema loads, but the very first INSERT
     # after the data is migrated fails on the primary key -- a real
@@ -430,8 +408,7 @@ GapEntry(
         ("test_mysql_auto_increment_start.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "081",
         "mysql_date_format",
@@ -439,8 +416,7 @@ GapEntry(
         ("test_mysql_date_format.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "082",
         "mysql_foreign_key",
@@ -448,8 +424,7 @@ GapEntry(
         ("test_mysql_foreign_key.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "083",
         "mysql_zero_date",
@@ -457,8 +432,7 @@ GapEntry(
         ("test_mysql_zero_date.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "084",
         "mysql_declare_handler",
@@ -466,8 +440,7 @@ GapEntry(
         ("test_mysql_declare_handler.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     GapEntry(
         "085",
         "mysql_collate",
@@ -475,8 +448,7 @@ GapEntry(
         ("test_mysql_collate.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     # mysql_set_type: the one medium of this batch. Unlike ENUM
     # (GAP-068), which breaks the schema load outright, SET converts into
     # a working text column, existing values survive verbatim, and
@@ -489,8 +461,7 @@ GapEntry(
         ("test_mysql_set_type.py",),
         severity="medium",
         failure_stage="semantic",
-        dialect="mysql",
-    ),
+        dialect="mysql", last_verified="2026-09-01"),
     # MSSQL (T-SQL / SQL Server) batch, ora2pg -M. Two findings shape
     # this whole set. First, the file-based path (-M -i <file>) never
     # strips T-SQL's bracket-quoted identifiers, which SSMS emits for
@@ -508,8 +479,7 @@ GapEntry(
         ("test_mssql_bracket_identifier.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "088",
         "mssql_newid_default",
@@ -517,8 +487,7 @@ GapEntry(
         ("test_mssql_newid_default.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "089",
         "mssql_update_set",
@@ -526,8 +495,7 @@ GapEntry(
         ("test_mssql_update_set.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "090",
         "mssql_identity_column",
@@ -535,8 +503,7 @@ GapEntry(
         ("test_mssql_identity_column.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "091",
         "mssql_parameterless_procedure",
@@ -544,8 +511,7 @@ GapEntry(
         ("test_mssql_parameterless_procedure.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "092",
         "mssql_if_statement",
@@ -553,8 +519,7 @@ GapEntry(
         ("test_mssql_if_statement.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "093",
         "mssql_raiserror",
@@ -562,8 +527,7 @@ GapEntry(
         ("test_mssql_raiserror.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "094",
         "mssql_try_catch",
@@ -571,8 +535,7 @@ GapEntry(
         ("test_mssql_try_catch.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "095",
         "mssql_top_clause",
@@ -580,8 +543,7 @@ GapEntry(
         ("test_mssql_top_clause.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "096",
         "mssql_scope_identity",
@@ -589,8 +551,7 @@ GapEntry(
         ("test_mssql_scope_identity.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "097",
         "mssql_output_clause",
@@ -598,8 +559,7 @@ GapEntry(
         ("test_mssql_output_clause.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "098",
         "mssql_iif",
@@ -607,8 +567,7 @@ GapEntry(
         ("test_mssql_iif.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "099",
         "mssql_datediff",
@@ -616,8 +575,7 @@ GapEntry(
         ("test_mssql_datediff.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "100",
         "mssql_charindex",
@@ -625,8 +583,7 @@ GapEntry(
         ("test_mssql_charindex.py",),
         severity="high",
         failure_stage="runtime",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "101",
         "mssql_filtered_index",
@@ -634,8 +591,7 @@ GapEntry(
         ("test_mssql_filtered_index.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "102",
         "mssql_foreign_key",
@@ -643,8 +599,7 @@ GapEntry(
         ("test_mssql_foreign_key.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "103",
         "mssql_collation",
@@ -652,8 +607,7 @@ GapEntry(
         ("test_mssql_collation.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "104",
         "mssql_computed_column",
@@ -661,8 +615,7 @@ GapEntry(
         ("test_mssql_computed_column.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
     GapEntry(
         "105",
         "mssql_rowversion",
@@ -670,8 +623,7 @@ GapEntry(
         ("test_mssql_rowversion.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mssql",
-    ),
+        dialect="mssql", last_verified="2026-09-01"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

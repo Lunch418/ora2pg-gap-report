@@ -72,6 +72,7 @@ Exit code: 0 if every gap's artifacts check out, 1 if any is missing.
 """
 
 import ast
+import datetime
 import re
 import sys
 from pathlib import Path
@@ -115,7 +116,9 @@ _DETECTORS_LINE_RE = re.compile(r"^├── detectors/\s*$")
 # a digits-only pattern here would fail exactly the way this whole check
 # exists to prevent.
 _GAP_REGISTRY_ROW_RE = re.compile(
-    r"^\| GAP-(\d{3}) \|.*\| (high|medium|low) \| confirmed \| ([\d.]+) \| ([\d.]+) \|", re.MULTILINE
+    r"^\| GAP-(\d{3}) \|.*\| (high|medium|low) \| confirmed \| ([\d.]+) \| ([\d.]+) \| "
+    r"(\d{4}-\d{2}-\d{2}) \|",
+    re.MULTILINE,
 )
 
 # Matches a `severity="high"`-shaped literal anywhere in a detector's own
@@ -305,19 +308,21 @@ def check_architecture_doc_parity() -> list[str]:
     return problems
 
 
-def _confirmed_gap_versions_in_text(registry_md_text: str) -> dict[str, tuple[str, str, str]]:
+def _confirmed_gap_versions_in_text(
+    registry_md_text: str,
+) -> dict[str, tuple[str, str, str, str]]:
     return {
-        number: (severity, ora2pg_version, postgresql_version)
-        for number, severity, ora2pg_version, postgresql_version in _GAP_REGISTRY_ROW_RE.findall(
-            registry_md_text
-        )
+        number: (severity, ora2pg_version, postgresql_version, last_verified)
+        for number, severity, ora2pg_version, postgresql_version, last_verified
+        in _GAP_REGISTRY_ROW_RE.findall(registry_md_text)
     }
 
 
 def check_gap_registry_md_parity() -> list[str]:
-    """docs/research/GAP_REGISTRY.md's Severity/ora2pg/PostgreSQL columns
-    must match gap_registry.py's own severity/ora2pg_version/
-    postgresql_version fields for every gap the table marks 'confirmed'
+    """docs/research/GAP_REGISTRY.md's Severity/ora2pg/PostgreSQL/
+    Проверено columns must match gap_registry.py's own severity/
+    ora2pg_version/postgresql_version/last_verified fields for every gap
+    the table marks 'confirmed'
     -- the Python fields are the canonical source (GapEntry's own
     docstring says so), the table is a human-facing restatement, and
     this only flags an actual mismatch between the two, not a missing
@@ -333,7 +338,7 @@ def check_gap_registry_md_parity() -> list[str]:
     for gap in GAPS:
         if gap.number not in confirmed_rows:
             continue
-        row_severity, row_ora2pg, row_postgresql = confirmed_rows[gap.number]
+        row_severity, row_ora2pg, row_postgresql, row_verified = confirmed_rows[gap.number]
         if row_severity != gap.severity:
             problems.append(
                 f"GAP-{gap.number}: docs/research/GAP_REGISTRY.md указывает severity "
@@ -344,6 +349,11 @@ def check_gap_registry_md_parity() -> list[str]:
                 f"GAP-{gap.number}: docs/research/GAP_REGISTRY.md указывает ora2pg "
                 f"{row_ora2pg}/PostgreSQL {row_postgresql}, а gap_registry.py — ora2pg "
                 f"{gap.ora2pg_version}/PostgreSQL {gap.postgresql_version}"
+            )
+        if row_verified != gap.last_verified:
+            problems.append(
+                f"GAP-{gap.number}: docs/research/GAP_REGISTRY.md указывает дату "
+                f"проверки {row_verified}, а gap_registry.py — {gap.last_verified}"
             )
     return problems
 
@@ -392,6 +402,34 @@ def check_i18n_translations_parity() -> list[str]:
         problems.append(
             f"messages.py: REMEDIATION_HINTS['{orphan}'] names no detector on disk"
         )
+    return problems
+
+
+def check_last_verified_dates() -> list[str]:
+    """Every gap's last_verified is a real ISO date, and not in the future.
+
+    It is the evidence line under every claim this tool makes: a finding
+    says "ora2pg does X", and last_verified plus ora2pg_version say when
+    that was actually observed and against what. A malformed date would
+    render as-is into --explain and the reports, and a future one would
+    mean somebody typed a year wrong -- both quietly turn the evidence
+    into decoration."""
+    problems = []
+    today = datetime.date.today()
+    for gap in GAPS:
+        try:
+            when = datetime.date.fromisoformat(gap.last_verified)
+        except ValueError:
+            problems.append(
+                f"gap_registry.py: GAP-{gap.number} last_verified "
+                f"'{gap.last_verified}' is not an ISO yyyy-mm-dd date"
+            )
+            continue
+        if when > today:
+            problems.append(
+                f"gap_registry.py: GAP-{gap.number} last_verified "
+                f"{gap.last_verified} is in the future"
+            )
     return problems
 
 
@@ -573,6 +611,7 @@ def main() -> int:
     all_problems.extend(check_i18n_translations_parity())
     all_problems.extend(check_messages_cover_every_detector())
     all_problems.extend(check_verification_mode_parity())
+    all_problems.extend(check_last_verified_dates())
     all_problems.extend(check_scan_loop_registration_parity())
     all_problems.extend(check_failure_stage_values())
     all_problems.extend(check_gap_severity_matches_detector_source())
@@ -583,7 +622,8 @@ def main() -> int:
             "✓ Всё чисто: у каждого gap'а есть research-документ, детектор, позитивный и "
             "guard-тест, docs/ARCHITECTURE.md не разошёлся со списком детекторов на диске, "
             "версии в GAP_REGISTRY.md совпадают с gap_registry.py, у каждого детектора "
-            "оба перевода в messages.py (и текст находки, и совет), у каждого детектора есть запись в "
+            "оба перевода в messages.py (и текст находки, и совет), у каждого gap'а есть валидная "
+            "дата проверки, у каждого детектора есть запись в "
             "verification.py, каждый детектор с диска реально зарегистрирован в "
             "своём диалекте в core.py, у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
             "задан валидный failure_stage, у каждого gap'а severity в реестре совпадает "

@@ -23,7 +23,7 @@ SPEC = DetectorSpec(
     pattern=_FOREIGN_KEY_RE,
     strategy=TABLE_COLUMNS,
     snippet='FOREIGN KEY',
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_mysql_foreign_keys = build(SPEC, mysql_lex)

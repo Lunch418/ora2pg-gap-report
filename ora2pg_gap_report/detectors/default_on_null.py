@@ -35,7 +35,7 @@ SPEC = DetectorSpec(
     pattern=_DEFAULT_ON_NULL_RE,
     strategy=TABLE_STATEMENT,
     snippet=lambda m: re.sub(r"\s+", " ", m.group(0).strip()),
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_default_on_null_usage = build(SPEC, plsql_lex)

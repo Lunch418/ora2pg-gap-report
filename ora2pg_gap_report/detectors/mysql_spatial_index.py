@@ -22,7 +22,7 @@ SPEC = DetectorSpec(
     pattern=_SPATIAL_RE,
     strategy=TABLE_COLUMNS,
     snippet=lambda m: m.group(0).upper(),
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_mysql_spatial_indexes = build(SPEC, mysql_lex)

@@ -24,7 +24,7 @@ SPEC = DetectorSpec(
     pattern=_FULLTEXT_RE,
     strategy=TABLE_COLUMNS,
     snippet=lambda m: m.group(0).upper(),
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_mysql_fulltext_indexes = build(SPEC, mysql_lex)

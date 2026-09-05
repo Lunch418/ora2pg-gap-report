@@ -1,7 +1,8 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import line_at, mask_strings_and_comments, qualified_name_pattern
+from .. import plsql_lex
+from ..plsql_lex import qualified_name_pattern
+from ..detector_spec import DetectorSpec, MATCH_NAMED, build
 
 _CREATE_TYPE_PREFIX = r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:EDITIONABLE\s+|NONEDITIONABLE\s+)?TYPE"
 # VARYING ARRAY is Oracle's documented synonym for VARRAY in this clause
@@ -12,33 +13,27 @@ _COLLECTION_TYPE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DOC = """Detect Oracle collection type declarations (CREATE TYPE ... AS/IS
+TABLE OF / VARRAY(n) OF). Unlike object types (object_type.py /
+GAP-009), which ora2pg at least copies through with an explicit
+'Unsupported' marker, collection types vanish from the output
+entirely with no marker at all -- only a DEBUG-level log line. Any
+table using the type as a column type then fails outright on DDL
+load, since the type was never created. See
+docs/research/gap-021-collection-type.md.
 
-def find_collection_types(source: str) -> list[Finding]:
-    """Detect Oracle collection type declarations (CREATE TYPE ... AS/IS
-    TABLE OF / VARRAY(n) OF). Unlike object types (object_type.py /
-    GAP-009), which ora2pg at least copies through with an explicit
-    'Unsupported' marker, collection types vanish from the output
-    entirely with no marker at all -- only a DEBUG-level log line. Any
-    table using the type as a column type then fails outright on DDL
-    load, since the type was never created. See
-    docs/research/gap-021-collection-type.md.
+object_name is the type's own name (declared at schema level, never
+nested inside a package/routine) -- same reasoning as object_type.py
+for skipping enclosing_object_name()."""
 
-    object_name is the type's own name (declared at schema level, never
-    nested inside a package/routine) -- same reasoning as object_type.py
-    for skipping enclosing_object_name()."""
-    clean = mask_strings_and_comments(source)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="collection_type",
+    dialect="oracle",
+    severity="high",
+    pattern=_COLLECTION_TYPE_RE,
+    strategy=MATCH_NAMED,
+    snippet='CREATE TYPE ... TABLE OF / VARRAY OF',
+)
 
-    for m in _COLLECTION_TYPE_RE.finditer(clean):
-        findings.append(
-            Finding(
-                detector="collection_type",
-                severity="high",
-                object_name=m.group(1).upper(),
-                line=line_at(clean, m.start()),
-                snippet="CREATE TYPE ... TABLE OF / VARRAY OF",
-                message_id="collection_type",
-            )
-        )
-
-    return findings
+find_collection_types = build(SPEC, plsql_lex)
+find_collection_types.__doc__ = _DOC

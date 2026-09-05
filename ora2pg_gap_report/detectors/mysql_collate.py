@@ -23,7 +23,7 @@ SPEC = DetectorSpec(
     pattern=_COLLATE_RE,
     strategy=TABLE_COLUMNS,
     snippet=lambda m: m.group(0),
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_mysql_collations = build(SPEC, mysql_lex)

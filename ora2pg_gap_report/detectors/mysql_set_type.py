@@ -22,7 +22,7 @@ SPEC = DetectorSpec(
     pattern=_SET_RE,
     strategy=TABLE_COLUMNS,
     snippet='SET(...)',
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_mysql_set_columns = build(SPEC, mysql_lex)

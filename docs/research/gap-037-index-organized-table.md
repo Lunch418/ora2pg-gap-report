@@ -1,14 +1,13 @@
-# GAP-037: `ORGANIZATION INDEX` (индекс-организованная таблица) отбрасывается
+# GAP-037: `ORGANIZATION INDEX` (index-organized table) is dropped
 
-Oracle feature: `CREATE TABLE ... ORGANIZATION INDEX` — индекс-
-организованная таблица (IOT). Данные физически хранятся в структуре
-самого первичного ключа, а не в отдельной куче со ссылками на неё из
-индекса — для таблиц, доступ к которым идёт почти исключительно по
-первичному ключу (кэши, справочники, таблицы-словари), это осознанный
-выбор конкретной архитектуры хранения: нет отдельного поиска
-"индекс → куча" на каждый доступ.
+Oracle feature: `CREATE TABLE ... ORGANIZATION INDEX` — an index-organized
+table (IOT). The data is stored physically inside the primary key's own
+structure rather than in a separate heap referenced from the index. For
+tables accessed almost exclusively by primary key (caches, reference data,
+dictionary tables) this is a deliberate choice of a specific storage
+architecture: there is no separate "index → heap" lookup on every access.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE lookup_cache (
@@ -18,7 +17,7 @@ CREATE TABLE lookup_cache (
 ) ORGANIZATION INDEX;
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE TABLE lookup_cache (
@@ -28,31 +27,29 @@ CREATE TABLE lookup_cache (
 ALTER TABLE lookup_cache ADD PRIMARY KEY (cache_key);
 ```
 
-Секция `ORGANIZATION INDEX` пропадает без следа. Таблица конвертируется
-как обычная куча с отдельным индексом по первичному ключу —
-корректно с точки зрения ограничений целостности (уникальность
-`cache_key` по-прежнему гарантирована), но не то же самое хранение.
+The `ORGANIZATION INDEX` clause disappears without trace. The table is
+converted as an ordinary heap with a separate primary-key index — correct
+with respect to integrity constraints (`cache_key` uniqueness is still
+guaranteed), but not the same storage.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Не синтаксическая ошибка и не потеря данных — `CREATE TABLE` и
-`ALTER TABLE ... ADD PRIMARY KEY` выполняются без проблем на реальном
-PostgreSQL 16, таблица работает корректно. Теряется архитектурная
-характеристика хранения: у IOT нет отдельной кучи вообще — доступ по
-первичному ключу это один переход по структуре индекса, а не поиск в
-индексе с последующим переходом в кучу. PostgreSQL поддерживает
-декларативное секционирование и множество видов индексов, но
-настоящих индекс-организованных таблиц (данные физически внутри
-структуры индекса) у него нет — обычный `PRIMARY KEY` в PostgreSQL
-всегда создаёт отдельный индекс над отдельной кучей. Для
-производительность-чувствительных таблиц-кэшей, изначально
-спроектированных как IOT именно ради этого свойства, тихая потеря
-архитектуры хранения — не поломка функциональности, но повод
-перепроверить производительность на реальной нагрузке после миграции.
+Neither a syntax error nor data loss — the `CREATE TABLE` and `ALTER TABLE
+... ADD PRIMARY KEY` run without trouble on a real PostgreSQL 16, and the
+table works correctly. What is lost is an architectural storage property:
+an IOT has no separate heap at all — a primary-key access is one traversal
+of the index structure, not an index lookup followed by a heap fetch.
+PostgreSQL supports declarative partitioning and many index types, but it
+has no true index-organized tables (data physically inside the index
+structure) — a `PRIMARY KEY` in PostgreSQL always creates a separate index
+over a separate heap. For performance-sensitive cache tables originally
+designed as IOTs for exactly this property, the silent loss of the storage
+architecture is not a functional break, but it is a reason to re-check
+performance under real load after migration.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
+**Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/index_organized_table.py`.

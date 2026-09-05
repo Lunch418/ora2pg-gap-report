@@ -1,17 +1,16 @@
-# GAP-033: Виртуальный столбец теряет защиту от явного присваивания (`ORA-54016`)
+# GAP-033: a virtual column loses its protection against explicit assignment (`ORA-54016`)
 
 Oracle feature: `<column> [<type>] [GENERATED ALWAYS] AS (<expr>)
-[VIRTUAL]` — вычисляемый столбец. И `GENERATED ALWAYS`, и завершающее
-`VIRTUAL` у Oracle необязательны — самая короткая форма выглядит как
-`total_value AS (item_id * quantity + net_value)`. Помимо вычисления
-значения, Oracle дополнительно гарантирует на уровне сервера, что в
-такой столбец нельзя явно ничего записать: любая попытка передать
-значение в `INSERT`/`UPDATE` для виртуального столбца падает с
-`ORA-54016` ещё до выполнения — это защита от программных ошибок
-(случайного или намеренного, "для унификации кода", присваивания
-вычисляемому столбцу).
+[VIRTUAL]` — a computed column. Both `GENERATED ALWAYS` and the trailing
+`VIRTUAL` are optional in Oracle — the shortest form looks like
+`total_value AS (item_id * quantity + net_value)`. Beyond computing the
+value, Oracle additionally guarantees at server level that nothing can be
+written into such a column explicitly: any attempt to pass a value for a
+virtual column in an `INSERT`/`UPDATE` fails with `ORA-54016` before
+execution — a guard against programming mistakes (assigning to a computed
+column by accident, or deliberately "to keep the code uniform").
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE employees (
@@ -22,7 +21,7 @@ CREATE TABLE employees (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`)
 
 ```sql
 CREATE TABLE employees (
@@ -46,25 +45,25 @@ CREATE TRIGGER virt_col_employees_trigger
         EXECUTE PROCEDURE fct_virt_col_employees_trigger();
 ```
 
-Сам расчёт ora2pg переносит корректно — не через нативный `GENERATED
-ALWAYS AS (...) STORED` PostgreSQL 12+, а через `BEFORE INSERT OR
-UPDATE`-триггер, который пересчитывает значение сам. На первый взгляд
-эквивалентно. Проверено также для обеих сокращённых форм — `... NUMBER
-GENERATED ALWAYS AS (a+b)` (без `VIRTUAL`) и `total_value AS (item_id *
-quantity + net_value)` (совсем без `GENERATED ALWAYS`, притом ora2pg
-сам подставляет тип `text` с предупреждением "Virtual column ... has no
-data type defined") — обе конвертируются в тот же паттерн триггера, с
-той же потерей защиты ниже.
+ora2pg carries the computation itself over correctly — not through
+PostgreSQL 12+'s native `GENERATED ALWAYS AS (...) STORED`, but through a
+`BEFORE INSERT OR UPDATE` trigger that recomputes the value itself. At
+first glance equivalent. Also checked for both shortened forms — `...
+NUMBER GENERATED ALWAYS AS (a+b)` (no `VIRTUAL`) and `total_value AS
+(item_id * quantity + net_value)` (no `GENERATED ALWAYS` at all, where
+ora2pg substitutes the type `text` itself with the warning "Virtual column
+... has no data type defined") — both convert into the same trigger
+pattern, with the same loss of protection described below.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Разница — не в вычисленном значении, а в защите от явного присваивания.
-Подтверждено на реальном PostgreSQL 16:
+The difference is not in the computed value but in the protection against
+explicit assignment. Confirmed against a real PostgreSQL 16:
 
 ```sql
 INSERT INTO employees (emp_id, salary, bonus, total_comp)
 VALUES (1, 100, 50, 999999);
--- INSERT 0 1  -- прошло успешно, без единой ошибки
+-- INSERT 0 1  -- succeeded, with no error at all
 
 SELECT * FROM employees;
 --  emp_id | salary | bonus | total_comp
@@ -72,19 +71,19 @@ SELECT * FROM employees;
 --       1 |    100 |    50 |        150
 ```
 
-В Oracle тот же `INSERT` с явным `total_comp => 999999` гарантированно
-завершился бы `ORA-54016` ещё до попытки что-либо записать. После
-миграции — тихо принимается, триггер молча подменяет переданное
-значение на вычисленное, без предупреждения и без ошибки. Итоговое
-значение в столбце корректно (`150`), поэтому это не потеря данных — но
-теряется ранняя диагностика: код, который по ошибке (или для
-унификации логики со столбцами, не являющимися виртуальными) передаёт
-значение в вычисляемый столбец, в Oracle был бы пойман сразу же на
-тестировании, а после миграции проходит незамеченным.
+On Oracle that same `INSERT` with an explicit `total_comp => 999999` would
+have failed with `ORA-54016` before writing anything. After migration it
+is quietly accepted, and the trigger silently replaces the supplied value
+with the computed one, without a warning and without an error. The final
+value in the column is correct (`150`), so this is not data loss — but
+early diagnosis is lost: code that passes a value into a computed column
+by mistake (or to keep its logic uniform with non-virtual columns) would
+have been caught immediately in testing on Oracle, and goes unnoticed
+after migration.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
+**Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/virtual_column.py`.

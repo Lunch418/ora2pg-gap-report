@@ -1,12 +1,12 @@
-# GAP-030: `CREATE SEQUENCE ... CYCLE` теряет секцию `CYCLE`
+# GAP-030: `CREATE SEQUENCE ... CYCLE` loses the `CYCLE` clause
 
-Oracle feature: `CREATE SEQUENCE ... CYCLE` — после достижения
-`MAXVALUE` (или `MINVALUE` для убывающей последовательности) `NEXTVAL`
-не завершается ошибкой, а начинает счёт заново с `MINVALUE`. Обычная
-практика для последовательностей с ограниченным диапазоном значений
-(коды состояний, номера слотов, циклические идентификаторы партий).
+Oracle feature: `CREATE SEQUENCE ... CYCLE` — once `MAXVALUE` is reached
+(or `MINVALUE` for a descending sequence), `NEXTVAL` does not fail but
+starts counting again from `MINVALUE`. Common practice for sequences over
+a bounded range of values (status codes, slot numbers, cyclic batch
+identifiers).
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE SEQUENCE seq_small
@@ -18,22 +18,22 @@ CREATE SEQUENCE seq_small
   ORDER;
 ```
 
-## Вывод ora2pg (v25.0, `-t SEQUENCE`)
+## ora2pg output (v25.0, `-t SEQUENCE`)
 
 ```sql
 CREATE SEQUENCE seq_small INCREMENT 1 NO MINVALUE MAXVALUE 3 START 1;
 ```
 
-Секция `CYCLE` пропадает без следа (`ORDER`/`NOCACHE` тоже не
-переносятся, но это RAC-специфичная и производительностная семантика
-без аналога и без последствий для корректности — не то же самое, что
-`CYCLE`).
+The `CYCLE` clause disappears without trace. (`ORDER`/`NOCACHE` are not
+carried over either, but those are RAC-specific and performance semantics
+with no analogue and no consequence for correctness — not the same thing
+as `CYCLE`.)
 
-## Наблюдаемая проблема
+## Observed problem
 
-Не синтаксическая ошибка — `CREATE SEQUENCE` выполняется без проблем, и
-последовательность нормально работает, пока не будет исчерпан её
-диапазон. Подтверждено на реальном PostgreSQL 16:
+Not a syntax error — the `CREATE SEQUENCE` runs without trouble, and the
+sequence works normally until its range is exhausted. Confirmed against a
+real PostgreSQL 16:
 
 ```sql
 SELECT nextval('seq_small'), nextval('seq_small'), nextval('seq_small');
@@ -43,18 +43,17 @@ SELECT nextval('seq_small');
 -- ERROR:  nextval: reached maximum value of sequence "seq_small" (3)
 ```
 
-В Oracle тот же четвёртый вызов `NEXTVAL` вернул бы `1` и продолжил
-работу бесконечно. После миграции последовательность работает
-идентично оригиналу ровно до момента исчерпания диапазона — который
-может наступить через месяцы после переноса, в проде, а не на
-тестировании. Отказ проявляется как `ERROR` при следующей вставке
-(INSERT с DEFAULT nextval(...) или явным вызовом), то есть ровно там,
-где приложение ожидало, что последовательность работает так же, как в
-Oracle.
+On Oracle that same fourth `NEXTVAL` would have returned `1` and carried
+on indefinitely. After migration the sequence behaves identically to the
+original right up to the moment its range runs out — which may be months
+after the migration, in production rather than in testing. The failure
+surfaces as an `ERROR` on the next insert (an `INSERT` with `DEFAULT
+nextval(...)` or an explicit call), exactly where the application expected
+the sequence to behave as it did on Oracle.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
+**Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/sequence_cycle.py`.

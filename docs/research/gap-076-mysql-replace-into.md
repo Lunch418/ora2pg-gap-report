@@ -1,9 +1,9 @@
 # GAP-076: `REPLACE INTO`
 
-MySQL/MariaDB feature: вставить строку, а если строка с таким же
-уникальным ключом уже есть — удалить её и вставить новую.
+MySQL/MariaDB feature: insert a row, and if a row with the same unique
+key already exists, delete it and insert the new one.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE cache1 (k VARCHAR(50) PRIMARY KEY, v INT);
@@ -13,7 +13,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-m -t PROCEDURE`)
+## ora2pg output (v25.0, `-m -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE put_cache (IN p_k varchar(50), p_v integer) AS $body$
@@ -25,30 +25,30 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Скопировано дословно, без какого-либо преобразования.
+Copied verbatim, with no conversion whatsoever.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Загрузка проходит чисто (`check_function_bodies = false` в выводе
-ora2pg). При разборе тела на реальном PostgreSQL 16:
+The load goes through cleanly (`check_function_bodies = false` in
+ora2pg's output). When the body is parsed on a real PostgreSQL 16:
 
 ```
 ERROR:  "cache1" is not a known variable
 ```
 
-PostgreSQL разбирает `REPLACE` как начало присваивания переменной, а не
-как оператор — своего `REPLACE INTO` у него нет.
+PostgreSQL parses `REPLACE` as the start of a variable assignment rather
+than as a statement — it has no `REPLACE INTO` of its own.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.**
-Переписывается на `INSERT ... ON CONFLICT (<ключ>) DO UPDATE SET ...`,
-но перевод не дословный: `REPLACE` именно удаляет старую строку и
-вставляет новую, поэтому по ней срабатывают `ON DELETE`-триггеры и
-каскадные удаления дочерних строк, а не перечисленные в запросе столбцы
-получают значения по умолчанию, а не сохраняют прежние. `ON CONFLICT DO
-UPDATE` ведёт себя ровно наоборот. Реализовано:
+**Gap confirmed, severity high, failure_stage runtime.** Rewritten to
+`INSERT ... ON CONFLICT (<key>) DO UPDATE SET ...`, but the translation
+is not literal: `REPLACE` really does delete the old row and insert a new
+one, so it fires `ON DELETE` triggers and cascading deletes of child
+rows, and columns not listed in the statement get their default values
+rather than keeping their previous ones. `ON CONFLICT DO UPDATE` behaves
+exactly the opposite way. Implemented:
 `ora2pg_gap_report/detectors/mysql_replace_into.py`.

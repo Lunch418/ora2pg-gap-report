@@ -38,7 +38,7 @@ ora2pg_gap_report/
 │                               # аргументом EXECUTE IMMEDIATE, сопоставление блоков
 │                               # BEGIN/CASE/IF/LOOP...END, разбор идентификаторов —
 │                               # используется всеми детекторами
-├── oracle_connector.py         # живая выгрузка PACKAGE BODY/TRIGGER через DBMS_METADATA.GET_DDL
+├── oracle_connector.py         # живая выгрузка схемы (13 типов объектов) через DBMS_METADATA.GET_DDL
 ├── oracle_export.py            # консольная команда ora2pg-gap-export
 ├── detectors/
 │   ├── autonomous_tx.py           # PRAGMA AUTONOMOUS_TRANSACTION в PACKAGE BODY

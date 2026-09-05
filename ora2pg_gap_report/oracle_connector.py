@@ -18,14 +18,17 @@ line by line — it's the same approach `expdp` uses under the hood, and it
 produces DDL text you could hand to ora2pg directly, matching the
 DBMS_METADATA-based offline workflow described in docs/ARCHITECTURE.md.
 
-Required privileges on the target schema: SELECT on ALL_OBJECTS and
-ALL_TRIGGERS (or the USER_ equivalents when connecting as the schema
-owner), and EXECUTE on DBMS_METADATA (granted via SELECT_CATALOG_ROLE in
-most environments).
+Required privileges on the target schema: SELECT on ALL_OBJECTS (or the
+USER_ equivalent when connecting as the schema owner) and EXECUTE on
+DBMS_METADATA (granted via SELECT_CATALOG_ROLE in most environments).
+Everything is discovered through ALL_OBJECTS -- triggers used to be
+listed from ALL_TRIGGERS, which needed a second grant for a set
+ALL_OBJECTS already contains.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from pathlib import Path
 from types import ModuleType
@@ -66,40 +69,104 @@ def connect(dsn: str, user: str, password: str) -> oracledb.Connection:
     return oracledb_module.connect(user=user, password=password, dsn=dsn)
 
 
-_LIST_PACKAGE_BODIES_SQL = """
+@dataclasses.dataclass(frozen=True)
+class ExportableType:
+    """One Oracle object type this module can discover and export.
+
+    Three names for the same thing, because Oracle uses three: what
+    ALL_OBJECTS calls it, what DBMS_METADATA.GET_DDL wants as its first
+    argument (underscored, and sometimes narrower -- 'PACKAGE_SPEC'
+    rather than 'PACKAGE', which would return spec and body together),
+    and the file suffix the export writes.
+    """
+
+    dictionary_type: str
+    metadata_type: str
+    suffix: str
+
+
+# Every type below is one this project's own detectors need to see. The
+# original export covered PACKAGE BODY and TRIGGER only, which meant a
+# live export was invisible to the whole schema-level half of the
+# detectors -- CREATE TABLE clauses, indexes, sequences, synonyms,
+# standalone routines, types -- and nothing said so at the point where
+# someone would notice. Ordered so a reader sees code objects first,
+# then schema objects.
+EXPORTABLE_TYPES: tuple[ExportableType, ...] = (
+    ExportableType("PACKAGE BODY", "PACKAGE_BODY", ".pkb.sql"),
+    # The spec, separately from the body: ACCESSIBLE BY, SUBTYPE ranges
+    # and collection/object type declarations live there, not in the body.
+    ExportableType("PACKAGE", "PACKAGE_SPEC", ".pks.sql"),
+    ExportableType("TRIGGER", "TRIGGER", ".trg.sql"),
+    ExportableType("PROCEDURE", "PROCEDURE", ".prc.sql"),
+    ExportableType("FUNCTION", "FUNCTION", ".fnc.sql"),
+    ExportableType("TYPE", "TYPE_SPEC", ".typ.sql"),
+    ExportableType("TYPE BODY", "TYPE_BODY", ".tyb.sql"),
+    ExportableType("VIEW", "VIEW", ".vw.sql"),
+    ExportableType("MATERIALIZED VIEW", "MATERIALIZED_VIEW", ".mv.sql"),
+    ExportableType("TABLE", "TABLE", ".tab.sql"),
+    ExportableType("INDEX", "INDEX", ".idx.sql"),
+    ExportableType("SEQUENCE", "SEQUENCE", ".seq.sql"),
+    ExportableType("SYNONYM", "SYNONYM", ".syn.sql"),
+)
+
+# Deliberately absent, so the next reader doesn't assume they were
+# forgotten:
+#   - MATERIALIZED VIEW LOG. GET_DDL takes the *master table's* name for
+#     this type, not the log's own (the log appears in ALL_OBJECTS as a
+#     TABLE called MLOG$_...), so it needs a different calling convention
+#     than every other row above rather than one more entry.
+#   - CONTEXT and DATABASE LINK. Neither is a schema object, so neither
+#     is in ALL_OBJECTS at all; they live in ALL_CONTEXT and
+#     ALL_DB_LINKS, which are separate queries.
+# Both are exportable by hand through get_ddl(), which takes any type
+# GET_DDL accepts.
+
+_LIST_OBJECTS_SQL = """
     SELECT object_name
     FROM all_objects
-    WHERE object_type = 'PACKAGE BODY'
+    WHERE object_type = :object_type
       AND owner = :owner
+      AND generated = 'N'
+      AND subobject_name IS NULL
+      AND object_name NOT LIKE 'BIN$%'
     ORDER BY object_name
 """
 # Deliberately no `status = 'VALID'` filter: INVALID in Oracle's dictionary
 # usually just means "needs recompiling" (a missing grant, a dependency
-# that was touched) — the DDL source is still real code that will need
+# that was touched) -- the DDL source is still real code that will need
 # migrating regardless. Silently skipping it would make this migration-
 # planning tool under-report gaps for exactly the kind of not-pristine
 # schema it's built for.
-
-_LIST_TRIGGERS_SQL = """
-    SELECT trigger_name
-    FROM all_triggers
-    WHERE owner = :owner
-    ORDER BY trigger_name
-"""
+#
+# The three filters that ARE here all exclude rows that are not objects
+# anyone wrote: `generated = 'N'` drops system-named indexes and
+# nested-table storage tables, `subobject_name IS NULL` drops the
+# per-partition rows a partitioned table contributes (the table itself is
+# already listed once), and the BIN$ exclusion drops the recycle bin.
+# Exporting any of them would mean DDL nobody is migrating, and for the
+# recycle bin, DDL for objects that have been dropped.
 
 _GET_DDL_SQL = "SELECT DBMS_METADATA.GET_DDL(:object_type, :name, :owner) FROM dual"
 
 
-def list_package_bodies(conn: oracledb.Connection, owner: str) -> list[str]:
+def list_objects(conn: oracledb.Connection, owner: str, dictionary_type: str) -> list[str]:
+    """Names of `owner`'s objects of one ALL_OBJECTS object_type."""
     with conn.cursor() as cursor:
-        cursor.execute(_LIST_PACKAGE_BODIES_SQL, owner=owner.upper())
+        cursor.execute(
+            _LIST_OBJECTS_SQL,
+            object_type=dictionary_type.upper(),
+            owner=owner.upper(),
+        )
         return [row[0] for row in cursor]
+
+
+def list_package_bodies(conn: oracledb.Connection, owner: str) -> list[str]:
+    return list_objects(conn, owner, "PACKAGE BODY")
 
 
 def list_triggers(conn: oracledb.Connection, owner: str) -> list[str]:
-    with conn.cursor() as cursor:
-        cursor.execute(_LIST_TRIGGERS_SQL, owner=owner.upper())
-        return [row[0] for row in cursor]
+    return list_objects(conn, owner, "TRIGGER")
 
 
 def get_ddl(conn: oracledb.Connection, object_type: str, name: str, owner: str) -> str:
@@ -149,42 +216,55 @@ def _unique_output_path(output_dir: Path, stem: str, suffix: str) -> Path:
     return candidate
 
 
-def export_schema(conn: oracledb.Connection, owner: str, output_dir: Path) -> list[Path]:
-    """Export every PACKAGE BODY and TRIGGER in `owner`'s schema as one
-    .sql file per object into output_dir. Returns the written paths — feed
-    them straight into `ora2pg-gap-report`.
+def export_schema(
+    conn: oracledb.Connection,
+    owner: str,
+    output_dir: Path,
+    *,
+    types: tuple[ExportableType, ...] = EXPORTABLE_TYPES,
+    errors: list[tuple[str, str, Exception]] | None = None,
+) -> list[Path]:
+    """Export `owner`'s schema as one .sql file per object into
+    output_dir. Returns the written paths -- feed them straight into
+    `ora2pg-gap-report`.
+
+    Covers every type in EXPORTABLE_TYPES by default; pass `types` to
+    narrow it (exporting only PACKAGE BODY and TRIGGER on a schema with
+    a hundred thousand tables, say). Everything discovered is a real,
+    user-written object: see _LIST_OBJECTS_SQL for what is filtered out
+    and why.
 
     One file per object (not one combined dump) so a partial re-export
     after a schema change only touches the objects that changed, and so a
     single broken object doesn't block collecting the rest.
 
-    Only auto-discovers and exports these two object types — standalone
-    procedures/functions, views, materialized views, and object types are
-    not listed or exported automatically, even though get_ddl() itself
-    (see above) accepts any DBMS_METADATA object type and would happily
-    export them one at a time if a caller asked for them by name. A
-    schema whose logic lives outside PACKAGE BODY/TRIGGER (standalone
-    functions in particular) needs its DDL gathered another way before
-    the detectors can see it — this project's own detectors would still
-    analyze such a file correctly if it were fed in, the gap is purely in
-    what this function discovers on its own."""
+    `errors` is opt-in isolation, the same contract scan_source() uses:
+    pass a list and an object whose GET_DDL raises is skipped, its
+    (metadata type, name, exception) landing in `errors` instead of
+    aborting the export. Leave it None and the exception propagates, as
+    it always did. This matters more here than it looks: GET_DDL raises
+    ORA-31603 for an object the connected user can see in ALL_OBJECTS but
+    lacks the privilege to read the DDL of, which on a real schema is
+    routine rather than exceptional -- and losing an entire export to one
+    such object is the opposite of what the per-file design is for."""
     output_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
 
-    for name in list_package_bodies(conn, owner):
-        ddl = get_ddl(conn, "PACKAGE_BODY", name, owner)
-        if not ddl:
-            continue
-        path = _unique_output_path(output_dir, _safe_stem(name), ".pkb.sql")
-        path.write_text(ddl, encoding="utf-8")
-        written.append(path)
-
-    for name in list_triggers(conn, owner):
-        ddl = get_ddl(conn, "TRIGGER", name, owner)
-        if not ddl:
-            continue
-        path = _unique_output_path(output_dir, _safe_stem(name), ".trg.sql")
-        path.write_text(ddl, encoding="utf-8")
-        written.append(path)
+    for object_type in types:
+        for name in list_objects(conn, owner, object_type.dictionary_type):
+            try:
+                ddl = get_ddl(conn, object_type.metadata_type, name, owner)
+            except Exception as exc:
+                if errors is None:
+                    raise
+                errors.append((object_type.metadata_type, name, exc))
+                continue
+            if not ddl:
+                # Listed but no DDL: dropped between the list call and
+                # this one, or a type GET_DDL declines to render.
+                continue
+            path = _unique_output_path(output_dir, _safe_stem(name), object_type.suffix)
+            path.write_text(ddl, encoding="utf-8")
+            written.append(path)
 
     return written

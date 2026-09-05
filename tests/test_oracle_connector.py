@@ -7,16 +7,28 @@ PKG_BODY_ROW = ("LOGGER",)
 TRIGGER_ROW = ("TRG_AUDIT",)
 
 
-def _schema_provider(package_bodies=(), triggers=(), ddl_by_key=None):
+def _schema_provider(package_bodies=(), triggers=(), ddl_by_key=None, objects=None,
+                     ddl_errors=()):
+    """A fake schema. `objects` maps an ALL_OBJECTS object_type to the
+    names it holds; `package_bodies`/`triggers` are shorthand for the two
+    types every test used before the export covered more than those.
+
+    Dispatches on the object_type bind rather than on the SQL text: there
+    is one listing query now, so the bind is the only thing that
+    distinguishes one call from another.
+    """
     ddl_by_key = ddl_by_key or {}
+    by_type = dict(objects or {})
+    by_type.setdefault("PACKAGE BODY", list(package_bodies))
+    by_type.setdefault("TRIGGER", list(triggers))
 
     def provider(sql, binds):
-        if "PACKAGE BODY" in sql:
-            return [(name,) for name in package_bodies]
-        if "all_triggers" in sql:
-            return [(name,) for name in triggers]
+        if "all_objects" in sql:
+            return [(name,) for name in by_type.get(binds["object_type"], ())]
         if "DBMS_METADATA" in sql:
             key = (binds["object_type"], binds["name"], binds["owner"])
+            if key in ddl_errors:
+                raise RuntimeError(f"ORA-31603: object {binds['name']} not found")
             value = ddl_by_key.get(key)
             return [(value,)] if value is not None else [(None,)]
         raise AssertionError(f"unexpected SQL in fake: {sql}")
@@ -30,9 +42,10 @@ def test_list_package_bodies_binds_owner_not_string_formats_it():
 
     assert names == ["LOGGER", "UTIL_PKG"]
     sql, binds = conn.calls[0]
-    assert binds == {"owner": "HR"}
-    # the owner value must travel as a bind, never interpolated into SQL
+    assert binds == {"owner": "HR", "object_type": "PACKAGE BODY"}
+    # both values must travel as binds, never interpolated into SQL
     assert "HR" not in sql
+    assert "PACKAGE BODY" not in sql
 
 
 def test_list_package_bodies_does_not_filter_by_status():
@@ -53,7 +66,7 @@ def test_list_triggers_binds_owner():
 
     assert names == ["TRG_AUDIT"]
     _, binds = conn.calls[0]
-    assert binds == {"owner": "HR"}
+    assert binds == {"owner": "HR", "object_type": "TRIGGER"}
 
 
 def test_get_ddl_reads_a_lob_locator():
@@ -160,6 +173,144 @@ def test_export_schema_disambiguates_filename_collisions(tmp_path):
 
     assert len(written) == 2
     assert len({p.name for p in written}) == 2  # distinct filenames, nothing overwritten
+
+
+def test_export_schema_covers_schema_level_objects_not_just_code(tmp_path):
+    # The point of EXPORTABLE_TYPES: before it, a live export produced
+    # only PACKAGE BODY and TRIGGER files, so every schema-level detector
+    # -- table clauses, indexes, sequences, synonyms, standalone routines,
+    # types -- saw an empty schema and reported nothing.
+    conn = FakeConnection(
+        _schema_provider(
+            objects={
+                "TABLE": ["employees"],
+                "INDEX": ["idx_emp_gender"],
+                "SEQUENCE": ["emp_seq"],
+                "SYNONYM": ["emp"],
+                "TYPE": ["addr_t"],
+                "PROCEDURE": ["do_thing"],
+                "FUNCTION": ["calc"],
+                "VIEW": ["v_emp"],
+                "PACKAGE": ["logger"],
+            },
+            ddl_by_key={
+                ("TABLE", "EMPLOYEES", "HR"): "CREATE TABLE employees (id NUMBER) READ ONLY;",
+                ("INDEX", "IDX_EMP_GENDER", "HR"): "CREATE BITMAP INDEX idx_emp_gender ON employees (gender);",
+                ("SEQUENCE", "EMP_SEQ", "HR"): "CREATE SEQUENCE emp_seq CYCLE;",
+                ("SYNONYM", "EMP", "HR"): "CREATE PUBLIC SYNONYM emp FOR hr.employees;",
+                ("TYPE_SPEC", "ADDR_T", "HR"): "CREATE TYPE addr_t AS OBJECT (city VARCHAR2(50));",
+                ("PROCEDURE", "DO_THING", "HR"): "CREATE PROCEDURE do_thing AS BEGIN NULL; END;",
+                ("FUNCTION", "CALC", "HR"): "CREATE FUNCTION calc RETURN NUMBER AS BEGIN RETURN 1; END;",
+                ("VIEW", "V_EMP", "HR"): "CREATE VIEW v_emp AS SELECT * FROM employees WITH READ ONLY;",
+                ("PACKAGE_SPEC", "LOGGER", "HR"): "CREATE PACKAGE logger AS END;",
+            },
+        )
+    )
+    written = oracle_connector.export_schema(conn, "hr", tmp_path / "export")
+
+    assert {p.name for p in written} == {
+        "logger.pks.sql", "do_thing.prc.sql", "calc.fnc.sql", "addr_t.typ.sql",
+        "v_emp.vw.sql", "employees.tab.sql", "idx_emp_gender.idx.sql",
+        "emp_seq.seq.sql", "emp.syn.sql",
+    }
+
+
+def test_export_schema_output_is_actually_scannable(tmp_path):
+    # End to end on the part that matters: DDL this exporter writes must
+    # be something the detectors then find gaps in. A table exported with
+    # no findings would mean the export and the detectors disagree about
+    # what Oracle DDL looks like.
+    from ora2pg_gap_report.core import scan_source
+
+    ddl = "CREATE TABLE employees (id NUMBER) READ ONLY;"
+    conn = FakeConnection(
+        _schema_provider(
+            objects={"TABLE": ["employees"]},
+            ddl_by_key={("TABLE", "EMPLOYEES", "HR"): ddl},
+        )
+    )
+    written = oracle_connector.export_schema(conn, "hr", tmp_path / "export")
+    findings = scan_source(written[0].read_text(encoding="utf-8"))
+
+    assert "read_only_table" in {f.detector for f in findings}
+
+
+def test_export_schema_can_be_narrowed_to_some_types(tmp_path):
+    conn = FakeConnection(
+        _schema_provider(
+            objects={"TABLE": ["employees"], "TRIGGER": ["trg_audit"]},
+            ddl_by_key={
+                ("TABLE", "EMPLOYEES", "HR"): "CREATE TABLE employees (id NUMBER);",
+                ("TRIGGER", "TRG_AUDIT", "HR"): "CREATE TRIGGER trg_audit ...",
+            },
+        )
+    )
+    only_triggers = tuple(
+        t for t in oracle_connector.EXPORTABLE_TYPES if t.dictionary_type == "TRIGGER"
+    )
+    written = oracle_connector.export_schema(
+        conn, "hr", tmp_path / "export", types=only_triggers
+    )
+    assert {p.name for p in written} == {"trg_audit.trg.sql"}
+
+
+def test_export_schema_skips_system_generated_and_recycled_objects(tmp_path):
+    # Not filtered in Python but in the query, so this asserts on the SQL:
+    # ALL_OBJECTS carries system-named indexes, per-partition rows and the
+    # recycle bin, none of which anyone is migrating.
+    conn = FakeConnection(_schema_provider())
+    oracle_connector.list_objects(conn, "hr", "TABLE")
+    sql, _ = conn.calls[0]
+    assert "generated = 'N'" in sql
+    assert "subobject_name IS NULL" in sql
+    assert "BIN$" in sql
+
+
+def test_export_schema_still_exports_invalid_objects(tmp_path):
+    # INVALID usually means "needs recompiling", not "not real code".
+    conn = FakeConnection(_schema_provider())
+    oracle_connector.list_objects(conn, "hr", "PACKAGE BODY")
+    sql, _ = conn.calls[0]
+    assert "STATUS" not in sql.upper()
+
+
+def test_export_schema_isolates_one_objects_failure_when_asked(tmp_path):
+    # GET_DDL raises ORA-31603 for an object visible in ALL_OBJECTS whose
+    # DDL the connected user may not read -- routine on a real schema.
+    # Losing the whole export to it defeats the per-file design.
+    conn = FakeConnection(
+        _schema_provider(
+            objects={"TABLE": ["forbidden", "readable"]},
+            ddl_by_key={("TABLE", "READABLE", "HR"): "CREATE TABLE readable (id NUMBER);"},
+            ddl_errors={("TABLE", "FORBIDDEN", "HR")},
+        )
+    )
+    errors: list[tuple[str, str, Exception]] = []
+    written = oracle_connector.export_schema(
+        conn, "hr", tmp_path / "export", errors=errors
+    )
+
+    assert {p.name for p in written} == {"readable.tab.sql"}
+    # The name as ALL_OBJECTS listed it -- that is what identifies the
+    # object to whoever reads the error, not the uppercased bind value.
+    assert [(t, n) for t, n, _ in errors] == [("TABLE", "forbidden")]
+
+
+def test_export_schema_propagates_a_failure_when_errors_is_not_passed(tmp_path):
+    # The original contract, unchanged for every caller that doesn't opt in.
+    conn = FakeConnection(
+        _schema_provider(
+            objects={"TABLE": ["forbidden"]},
+            ddl_errors={("TABLE", "FORBIDDEN", "HR")},
+        )
+    )
+    with pytest.raises(RuntimeError, match="ORA-31603"):
+        oracle_connector.export_schema(conn, "hr", tmp_path / "export")
+
+
+def test_every_exportable_type_has_a_distinct_suffix():
+    suffixes = [t.suffix for t in oracle_connector.EXPORTABLE_TYPES]
+    assert len(suffixes) == len(set(suffixes))
 
 
 def test_connect_raises_a_clear_error_when_oracledb_is_missing(monkeypatch):

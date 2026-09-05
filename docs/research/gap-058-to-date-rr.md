@@ -1,9 +1,9 @@
-# GAP-058: формат `RR` в `TO_DATE` — молча неверные даты
+# GAP-058: the `RR` format in `TO_DATE` — silently wrong dates
 
-Oracle feature: `RR` — код двузначного года с «поворотным» правилом:
-00-49 читается как 20xx, 50-99 как 19xx.
+Oracle feature: `RR` — a two-digit year code with a pivot rule: 00-49 is
+read as 20xx, 50-99 as 19xx.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 SELECT TO_DATE('85-06-01', 'RR-MM-DD') AS d1,
@@ -11,22 +11,21 @@ SELECT TO_DATE('85-06-01', 'RR-MM-DD') AS d1,
   FROM dual;
 ```
 
-В Oracle это 1985-06-01 и 2015-06-01.
+On Oracle these are 1985-06-01 and 2015-06-01.
 
-## Вывод ora2pg (v25.0, `-t QUERY`)
+## ora2pg output (v25.0, `-t QUERY`)
 
 ```sql
 SELECT to_date('85-06-01','RR-MM-DD') AS d1,
        to_date('15-06-01','RR-MM-DD') AS d2;
 ```
 
-`RR` оставлен в строке формата как есть.
+`RR` is left in the format string as written.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ошибки нет вообще — ни на загрузке, ни на выполнении. Запрос
-отрабатывает и возвращает результат. Подтверждено на реальном
-PostgreSQL 16:
+There is no error at all — neither at load nor at execution. The query
+runs and returns a result. Confirmed against a real PostgreSQL 16:
 
 ```
       d1       |      d2
@@ -35,12 +34,12 @@ PostgreSQL 16:
 (1 row)
 ```
 
-Обе даты — первый год **до нашей эры** вместо 1985 и 2015. PostgreSQL
-не знает кода `RR` и не ругается на него. Проверен и `RRRR` — результат
-такой же (`0001-06-01 BC`), поэтому детектор помечает оба кода.
+Both dates are year 1 **BC**, instead of 1985 and 2015. PostgreSQL does
+not know the `RR` code and does not complain about it. `RRRR` was checked
+too — the same result (`0001-06-01 BC`), so the detector flags both codes.
 
-Отдельно стоит отметить асимметрию в самом ora2pg. В `TO_CHAR` он `RR`
-на `YY` заменяет:
+Worth noting separately is an asymmetry in ora2pg itself. In `TO_CHAR` it
+does replace `RR` with `YY`:
 
 ```sql
 SELECT TO_CHAR(hired, 'RR') AS rr_year FROM employees;
@@ -49,26 +48,27 @@ SELECT TO_CHAR(hired, 'RR') AS rr_year FROM employees;
 SELECT TO_CHAR(hired, 'YY') AS rr_year FROM employees;
 ```
 
-а в `TO_DATE` — нет. Для `TO_CHAR` замена, к слову, безобидна: на
-выводе `RR` и `YY` дают одно и то же, правило «поворота» работает
-только на разборе входной строки. То есть ora2pg заменяет там, где это
-не нужно, и не заменяет там, где нужно.
+but in `TO_DATE` it does not. For `TO_CHAR`, incidentally, the replacement
+is harmless: on output `RR` and `YY` produce the same thing, since the
+pivot rule applies only when parsing an input string. So ora2pg
+substitutes where it is not needed and does not substitute where it is.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/to_date_rr.py`. Это один из двух
-детекторов, работающих поверх `mask_comments_only()`: искомый текст —
-сама строка формата, и обычная маскировка литералов его бы стёрла.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/to_date_rr.py`. This is one of the two
+detectors working over `mask_comments_only()`: the text being searched for
+is the format string itself, and ordinary literal masking would erase it.
 
-Ручная переработка: заменить `RR` на явный четырёхзначный `YYYY` с
-приведением входных данных.
+Manual rework: replace `RR` with an explicit four-digit `YYYY` and adjust
+the input data accordingly.
 
-**`YY` здесь не эквивалент**, хотя на первый взгляд кажется им — и это
-стоит проверить отдельно, потому что ошибка тихая. Пороги у правил
-разные. Проверено на реальном PostgreSQL 16:
+**`YY` is not an equivalent here**, though at first glance it looks like
+one — and this is worth checking separately, because the error is silent.
+The two rules have different thresholds. Confirmed against a real
+PostgreSQL 16:
 
 ```sql
 SELECT to_date('49-06-01','YY-MM-DD') AS yy49,
@@ -83,18 +83,18 @@ SELECT to_date('49-06-01','YY-MM-DD') AS yy49,
  2049-06-01 | 2050-06-01 | 2069-06-01 | 1970-06-01 | 1985-06-01
 ```
 
-| Диапазон | Oracle `RR` | PostgreSQL `YY` | Совпадает |
+| Range | Oracle `RR` | PostgreSQL `YY` | Match |
 |---|---|---|---|
-| 00-49 | 20xx | 20xx | да |
-| 50-69 | **19xx** | **20xx** | **нет, разница ровно 100 лет** |
-| 70-99 | 19xx | 19xx | да |
+| 00-49 | 20xx | 20xx | yes |
+| 50-69 | **19xx** | **20xx** | **no — exactly 100 years apart** |
+| 70-99 | 19xx | 19xx | yes |
 
-То есть `'65'` по Oracle `RR` — это 1965 год, а по `YY` в PostgreSQL —
-2065. Механическая замена `RR` → `YY` чинит явную поломку (1 год до
-нашей эры) и оставляет вместо неё тихую, на подмножестве данных. Для
-дат рождения, исторических записей и любых данных середины XX века это
-как раз тот диапазон, который расходится.
+So `'65'` is 1965 under Oracle's `RR` and 2065 under PostgreSQL's `YY`. A
+mechanical `RR` → `YY` substitution fixes the loud breakage (year 1 BC)
+and replaces it with a quiet one, on a subset of the data. For dates of
+birth, historical records, and any mid-twentieth-century data, that is
+exactly the range that diverges.
 
-Из-за того что ошибки не возникает ни в исходном, ни в «починенном»
-варианте, этот gap особенно опасен: расхождение обнаруживается только по
-неверным данным.
+Because no error is raised in either the original or the "fixed" variant,
+this gap is especially dangerous: the divergence surfaces only as wrong
+data.

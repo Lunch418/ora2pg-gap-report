@@ -1,10 +1,10 @@
 # GAP-070: `INSERT ... ON DUPLICATE KEY UPDATE`
 
-MySQL/MariaDB feature: `ON DUPLICATE KEY UPDATE` — upsert-конструкция:
-если вставка конфликтует с уникальным ключом/`PRIMARY KEY`, обновить
-существующую строку вместо ошибки.
+MySQL/MariaDB feature: `ON DUPLICATE KEY UPDATE` — an upsert construct:
+if the insert conflicts with a unique key/`PRIMARY KEY`, update the
+existing row instead of raising an error.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE counters (
@@ -19,7 +19,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-m -t PROCEDURE`)
+## ora2pg output (v25.0, `-m -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE bump (IN p_id integer) AS $body$
@@ -32,15 +32,15 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Весь оператор `ON DUPLICATE KEY UPDATE` копируется в тело процедуры
-дословно, без какого-либо преобразования в `ON CONFLICT`.
+The whole `ON DUPLICATE KEY UPDATE` statement is copied into the
+procedure body verbatim, with no conversion to `ON CONFLICT` whatsoever.
 
-## Наблюдаемая проблема
+## Observed problem
 
-`CREATE PROCEDURE` проходит без ошибок — ora2pg выставляет в своём
-выводе `check_function_bodies = false`, поэтому тело не разбирается на
-загрузке. Падение происходит при первом же реальном вызове, подтверждено
-на реальном PostgreSQL 16:
+`CREATE PROCEDURE` succeeds without error — ora2pg sets
+`check_function_bodies = false` in its own output, so the body is not
+parsed at load time. The failure happens on the very first real call,
+confirmed on a real PostgreSQL 16:
 
 ```
 =# CALL bump(1);
@@ -52,16 +52,16 @@ QUERY:  INSERT INTO counters(id, hits) VALUES (p_id, 1)
 CONTEXT:  PL/pgSQL function bump(integer) line 3 at SQL statement
 ```
 
-Загрузка самой схемы (`CREATE TABLE`, `CREATE PROCEDURE`) при этом
-проходит чисто — на этом этапе ошибку заметить нельзя, только на
-реальном вызове.
+Loading the schema itself (`CREATE TABLE`, `CREATE PROCEDURE`) goes
+through cleanly — at that stage the error cannot be noticed at all, only
+on a real call.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.** У `INSERT`
-в PostgreSQL нет такого синтаксиса вообще — переписывается на `INSERT
-... ON CONFLICT (<уникальный_ключ>) DO UPDATE SET ...`. Реализовано:
+**Gap confirmed, severity high, failure_stage runtime.** PostgreSQL's
+`INSERT` has no such syntax at all — it is rewritten to `INSERT ... ON
+CONFLICT (<unique_key>) DO UPDATE SET ...`. Implemented:
 `ora2pg_gap_report/detectors/mysql_on_duplicate_key_update.py`.

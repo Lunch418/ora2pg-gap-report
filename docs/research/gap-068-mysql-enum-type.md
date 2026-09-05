@@ -1,14 +1,14 @@
-# GAP-068: `ENUM(...)` — ссылка на несуществующий тип
+# GAP-068: `ENUM(...)` — reference to a type that is never created
 
-Первый gap из партии MySQL/MariaDB-исследования: ora2pg поддерживает
-MySQL как источник напрямую, через `-m`/`--mysql`, и работает файлово
-(`-i <file>`, без живого подключения к MySQL) точно так же, как
-Oracle-режим (`-t <TYPE> -i <file>`).
+The first gap from the MySQL/MariaDB research batch: ora2pg supports
+MySQL as a source directly, via `-m`/`--mysql`, and works file-based
+(`-i <file>`, no live MySQL connection) exactly the way the Oracle mode
+does (`-t <TYPE> -i <file>`).
 
-MySQL/MariaDB feature: `ENUM(...)` — перечислимый тип, объявляемый
-прямо в определении столбца.
+MySQL/MariaDB feature: `ENUM(...)` — an enumerated type declared inline
+in the column definition.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE orders (
@@ -17,7 +17,7 @@ CREATE TABLE orders (
 );
 ```
 
-## Вывод ora2pg (v25.0, `-m -t TABLE`)
+## ora2pg output (v25.0, `-m -t TABLE`)
 
 ```sql
 CREATE TABLE orders (
@@ -27,18 +27,19 @@ CREATE TABLE orders (
 ALTER TABLE orders ADD PRIMARY KEY (id);
 ```
 
-ora2pg синтезирует под ENUM именованный PostgreSQL-тип
-`orders_status_t` и подставляет это имя в определение столбца — сам
-подход правильный (PostgreSQL действительно поддерживает `CREATE TYPE
-... AS ENUM (...)`), но оператор `CREATE TYPE orders_status_t AS ENUM
-('new','paid','shipped','cancelled');`, которым этот тип должен быть
-объявлен, в вывод не попадает вообще. В исходном коде `lib/Ora2Pg.pm`
-есть плейсхолдер `#ORA2PGENUM#`, который должен заменяться на
-сгенерированный `CREATE TYPE` — здесь замена не происходит.
+For the ENUM, ora2pg synthesizes a named PostgreSQL type
+`orders_status_t` and substitutes that name into the column definition.
+The approach itself is right (PostgreSQL does support `CREATE TYPE
+... AS ENUM (...)`), but the statement that would have to declare that
+type — `CREATE TYPE orders_status_t AS ENUM
+('new','paid','shipped','cancelled');` — never makes it into the output
+at all. The source of `lib/Ora2Pg.pm` contains an `#ORA2PGENUM#`
+placeholder meant to be replaced by the generated `CREATE TYPE`; here the
+substitution does not happen.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16:
+Confirmed on a real PostgreSQL 16:
 
 ```
 ERROR:  type "orders_status_t" does not exist
@@ -46,22 +47,22 @@ LINE 3:  status ORDERS_STATUS_T NOT NULL DEFAULT 'new'
                 ^
 ```
 
-`CREATE TABLE` падает немедленно, при загрузке схемы — до какого-либо
-`INSERT`/вызова процедуры.
+`CREATE TABLE` fails immediately, at schema load — before any `INSERT`
+or procedure call.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high.** Значения перечисления при этом
-нигде не теряются — они видны прямо в исходном `ENUM(...)`, — так что
-исправление механическое: вставить недостающий `CREATE TYPE
-<таблица>_<столбец>_t AS ENUM (...)` перед `CREATE TABLE` для каждого
-ENUM-столбца. Severity здесь high, а не medium (как у похожего по духу
-`sdo_geometry`/GAP-067), потому что там отображение типа выбрано верно
-и не хватает одной универсальной строки `CREATE EXTENSION postgis`,
-одинаковой для любой таблицы; здесь же для каждого ENUM-столбца нужен
-свой собственный `CREATE TYPE` со своим набором значений — не одна
-универсальная строка, а по одной вставке на каждый столбец. Реализовано:
+**Gap confirmed, severity high.** No enumeration values are lost along
+the way — they are visible right there in the source `ENUM(...)` — so
+the fix is mechanical: insert the missing `CREATE TYPE
+<table>_<column>_t AS ENUM (...)` ahead of the `CREATE TABLE` for every
+ENUM column. Severity here is high rather than medium (unlike the
+spiritually similar `sdo_geometry`/GAP-067) because there the type
+mapping is chosen correctly and only one universal `CREATE EXTENSION
+postgis` line is missing, identical for any table; here every ENUM
+column needs its own `CREATE TYPE` with its own set of values — not one
+universal line, but one insertion per column. Implemented:
 `ora2pg_gap_report/detectors/mysql_enum_type.py`.

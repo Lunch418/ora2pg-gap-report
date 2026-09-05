@@ -1,10 +1,10 @@
-# GAP-080: `AUTO_INCREMENT=<n>` — стартовое значение счётчика теряется
+# GAP-080: `AUTO_INCREMENT=<n>` — the counter's start value is lost
 
-MySQL/MariaDB feature: опция таблицы `AUTO_INCREMENT=<n>` — следующее
-значение, которое выдаст счётчик. В дампе непустой таблицы `mysqldump`
-всегда пишет её, и она всегда больше максимального существующего `id`.
+MySQL/MariaDB feature: the table option `AUTO_INCREMENT=<n>` — the next
+value the counter will hand out. `mysqldump` always writes it for a
+non-empty table, and it is always greater than the largest existing `id`.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE invoices (
@@ -13,7 +13,7 @@ CREATE TABLE invoices (
 ) ENGINE=InnoDB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8mb4;
 ```
 
-## Вывод ora2pg (v25.0, `-m -t TABLE`)
+## ora2pg output (v25.0, `-m -t TABLE`)
 
 ```sql
 CREATE TABLE invoices (
@@ -23,37 +23,38 @@ CREATE TABLE invoices (
 ALTER TABLE invoices ADD PRIMARY KEY (id);
 ```
 
-Сам столбец перенесён правильно — `AUTO_INCREMENT` стал `serial`. А вот
-стартового значения нет: во всём файле ни одной строки `ALTER SEQUENCE
-... RESTART WITH`, ни одного `setval()` (проверено `grep`).
+The column itself is ported correctly — `AUTO_INCREMENT` became
+`serial`. The start value, however, is gone: nowhere in the whole file is
+there an `ALTER SEQUENCE ... RESTART WITH` or a `setval()` (verified with
+`grep`).
 
-## Наблюдаемая проблема
+## Observed problem
 
-Схема загружается без единой ошибки. Последовательность начинает отсчёт
-с 1 — то есть с значений, которые в перенесённых данных уже заняты.
-Первая же вставка после миграции данных падает на нарушении первичного
-ключа, и так до тех пор, пока счётчик не догонит реальные данные.
+The schema loads without a single error. The sequence starts counting
+from 1 — that is, from values already taken in the migrated data. The
+first insert after the data migration fails on a primary-key violation,
+and keeps failing until the counter catches up with the real data.
 
-Обратите внимание: если данные не переносить, ошибки не будет вообще —
-поэтому gap незаметен на прогоне «только схема» и проявляется ровно
-тогда, когда миграцию считают состоявшейся.
+Note: if the data is not migrated, there is no error at all — which is
+why the gap is invisible on a schema-only run and shows up exactly when
+the migration is considered done.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.** Стадия
-именно runtime, а не semantic: молчаливого расхождения тут нет, есть
-конкретная ошибка в конкретный момент — на первой вставке. Чинится
-одной строкой на таблицу после загрузки данных:
+**Gap confirmed, severity high, failure_stage runtime.** The stage is
+runtime rather than semantic: there is no silent divergence here, there
+is a concrete error at a concrete moment — on the first insert. Fixed
+with one line per table after the data is loaded:
 
 ```sql
 SELECT setval(pg_get_serial_sequence('invoices', 'id'),
               (SELECT max(id) FROM invoices));
 ```
 
-Реализовано: `ora2pg_gap_report/detectors/mysql_auto_increment_start.py`
-— детектор помечает только опцию таблицы (`AUTO_INCREMENT=<n>`, со
-знаком равенства), но не атрибут столбца `AUTO_INCREMENT`, который
-переносится корректно.
+Implemented: `ora2pg_gap_report/detectors/mysql_auto_increment_start.py`
+— the detector flags only the table option (`AUTO_INCREMENT=<n>`, with
+the equals sign), not the column attribute `AUTO_INCREMENT`, which is
+ported correctly.

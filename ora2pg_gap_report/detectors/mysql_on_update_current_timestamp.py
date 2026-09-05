@@ -24,7 +24,7 @@ SPEC = DetectorSpec(
     pattern=_ON_UPDATE_RE,
     strategy=TABLE_COLUMNS,
     snippet='ON UPDATE CURRENT_TIMESTAMP',
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_mysql_on_update_current_timestamp = build(SPEC, mysql_lex)

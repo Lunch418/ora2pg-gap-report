@@ -1,7 +1,8 @@
 import re
 
-from ..models import Finding
-from ..mssql_lex import line_at, mask_strings_and_comments, normalize_name
+from .. import mssql_lex
+from ..mssql_lex import normalize_name
+from ..detector_spec import DetectorSpec, MATCH_NAMED, build
 
 # A CREATE statement whose object name (or its schema qualifier) is
 # bracket-delimited. Deliberately anchored to the CREATE, not to every
@@ -18,26 +19,22 @@ _BRACKETED_CREATE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_DOC = """Detect bracket-delimited identifiers on T-SQL CREATE statements.
+ora2pg -M's file-based path never strips them -- the brackets end up
+inside the generated identifier, and inside type names -- so the DDL
+fails to load. One finding per CREATE, not per bracket. See
+docs/research/gap-087-mssql-bracket-identifier.md."""
 
-def find_mssql_bracket_identifiers(source: str) -> list[Finding]:
-    """Detect bracket-delimited identifiers on T-SQL CREATE statements.
-    ora2pg -M's file-based path never strips them -- the brackets end up
-    inside the generated identifier, and inside type names -- so the DDL
-    fails to load. One finding per CREATE, not per bracket. See
-    docs/research/gap-087-mssql-bracket-identifier.md."""
-    clean = mask_strings_and_comments(source)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="mssql_bracket_identifier",
+    dialect="mssql",
+    severity="high",
+    pattern=_BRACKETED_CREATE_RE,
+    strategy=MATCH_NAMED,
+    snippet=lambda m: f"CREATE {m.group(1).upper()} {m.group(2)}",
+    normalize_object_name=normalize_name,
+    name_group=2,
+)
 
-    for m in _BRACKETED_CREATE_RE.finditer(clean):
-        findings.append(
-            Finding(
-                detector="mssql_bracket_identifier",
-                severity="high",
-                object_name=normalize_name(m.group(2)).upper(),
-                line=line_at(clean, m.start()),
-                snippet=f"CREATE {m.group(1).upper()} {m.group(2)}",
-                message_id="mssql_bracket_identifier",
-            )
-        )
-
-    return findings
+find_mssql_bracket_identifiers = build(SPEC, mssql_lex)
+find_mssql_bracket_identifiers.__doc__ = _DOC

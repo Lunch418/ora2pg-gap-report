@@ -26,7 +26,7 @@ SPEC = DetectorSpec(
     pattern=_LONG_RAW_RE,
     strategy=TABLE_COLUMNS,
     snippet='LONG RAW',
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_long_raw_columns = build(SPEC, plsql_lex)

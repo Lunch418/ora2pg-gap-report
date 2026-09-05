@@ -22,8 +22,8 @@ SPEC = DetectorSpec(
     pattern=_PATTERN_RE,
     strategy=TABLE_COLUMNS,
     snippet=lambda m: m.group(0),
-    table_pattern=_TABLE_RE,
-    normalize_table_name=normalize_name,
+    statement_pattern=_TABLE_RE,
+    normalize_object_name=normalize_name,
 )
 
 find_mssql_collations = build(SPEC, mssql_lex)

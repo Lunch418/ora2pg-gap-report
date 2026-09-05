@@ -31,10 +31,31 @@ duplication did:
   statement, bounded by statement_end(). For table-level clauses that sit
   outside the column list.
 
-Detectors whose logic is genuinely their own -- the seven that need
-several passes, or a condition the pattern can't express -- stay
-hand-written. A factory that grew a flag for each of those would end up
-less readable than the code it replaced.
+- `match_named`: search the whole masked source, and take the object's
+  name from the match itself. For standalone schema-level DDL -- CREATE
+  BITMAP INDEX, CREATE TYPE, CREATE CONTEXT -- where there is no
+  enclosing routine to attribute to and the failing object is the one
+  being created.
+
+- `statement_clause`: find each statement that `statement_pattern`
+  introduces (which also names the object), search its text for the
+  clause, and report at most one finding per statement, at the clause.
+  For properties a statement either has or doesn't -- ORGANIZATION
+  INDEX, INVISIBLE, READ ONLY: a second match inside the same statement
+  restates the same fact rather than being a second problem.
+
+Roughly a third of the detectors stay hand-written, and should. They are
+the ones whose logic is genuinely their own: several passes over the
+source (package_state walks a package's declarations, then its body),
+a name built from more than the match (nested_subprogram reports
+OUTER.INNER), more than one message from one scan (bulk_collect emits
+three), or a condition no pattern expresses (mssql_parameterless_
+procedure has to look at the routine's header text between the name and
+the AS to see whether any parameter is declared). A factory that grew a
+flag for each of those would end up less readable than the code it
+replaced -- so the rule for a new detector is: if it fits a strategy as
+it stands, write a spec; if making it fit would mean adding a flag,
+write the function.
 """
 
 from __future__ import annotations
@@ -48,8 +69,14 @@ from .models import Finding
 # Every spec's `strategy`. Named rather than free-form so a typo is a
 # KeyError at import time, not a detector that silently finds nothing.
 ENCLOSING = "enclosing"
+MATCH_NAMED = "match_named"
 TABLE_COLUMNS = "table_columns"
 TABLE_STATEMENT = "table_statement"
+STATEMENT_CLAUSE = "statement_clause"
+
+# The strategies that scan a statement found by `statement_pattern`
+# rather than the whole source, and therefore require one.
+_STATEMENT_SCOPED = (TABLE_COLUMNS, TABLE_STATEMENT, STATEMENT_CLAUSE)
 
 # Which masked view to search. The three views differ in what they blank
 # out -- see each lexer's own docstrings; the choice is per-detector and
@@ -96,17 +123,30 @@ class DetectorSpec:
     # Required by the two table strategies, meaningless to `enclosing`:
     # the pattern that finds the CREATE TABLE whose name becomes
     # object_name, capturing that name in group 1.
-    table_pattern: re.Pattern[str] | None = None
-    # Applied to the captured table name before it becomes object_name --
+    statement_pattern: re.Pattern[str] | None = None
+    # Applied to the captured name before it becomes object_name --
     # dialects quote identifiers differently (backticks, brackets), and
-    # the lexer that knows how is the dialect's own.
-    normalize_table_name: Callable[[str], str] | None = None
+    # the lexer that knows how is the dialect's own. Uppercasing happens
+    # after, unconditionally, so object_name is comparable across
+    # detectors regardless of how the source spelled it.
+    normalize_object_name: Callable[[str], str] | None = None
+    # Which group of the naming match holds the object's name. Group 1
+    # for all but one detector, which needs the pattern's own shape to
+    # put it elsewhere.
+    name_group: int = 1
 
     def __post_init__(self) -> None:
-        if self.strategy not in (ENCLOSING, TABLE_COLUMNS, TABLE_STATEMENT):
+        if self.strategy not in (
+            ENCLOSING, MATCH_NAMED, TABLE_COLUMNS, TABLE_STATEMENT, STATEMENT_CLAUSE
+        ):
             raise ValueError(f"{self.name}: unknown strategy {self.strategy!r}")
-        if self.strategy != ENCLOSING and self.table_pattern is None:
-            raise ValueError(f"{self.name}: strategy {self.strategy!r} needs a table_pattern")
+        if self.strategy in _STATEMENT_SCOPED and self.statement_pattern is None:
+            raise ValueError(f"{self.name}: strategy {self.strategy!r} needs a statement_pattern")
+        if self.strategy not in _STATEMENT_SCOPED and self.statement_pattern is not None:
+            raise ValueError(
+                f"{self.name}: strategy {self.strategy!r} scans the whole source, so a "
+                "statement_pattern would be silently ignored"
+            )
 
     @property
     def resolved_message_id(self) -> str:
@@ -154,11 +194,54 @@ def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
             for m in spec.pattern.finditer(searched)
         ]
 
+    def find_match_named(source: str) -> list[Finding]:
+        searched = search_fn(source)
+        anchor = anchor_fn(source) if spec.anchor_mask != spec.search_mask else searched
+        return [
+            Finding(
+                detector=spec.name,
+                severity=spec.severity,
+                object_name=_object_name(spec, m),
+                line=line_at(anchor, m.start()),
+                snippet=_snippet_for(spec, m),
+                message_id=spec.resolved_message_id,
+            )
+            for m in spec.pattern.finditer(searched)
+        ]
+
+    def find_statement_clause(source: str) -> list[Finding]:
+        clean = search_fn(source)
+        findings: list[Finding] = []
+        assert spec.statement_pattern is not None  # guaranteed by __post_init__
+        heads = list(spec.statement_pattern.finditer(clean))
+        for i, head in enumerate(heads):
+            # Bounded by the next statement head as well as by the
+            # terminator: DBMS_METADATA.GET_DDL emits no ';' by default,
+            # and without this bound an unterminated statement would
+            # swallow the rest of the file and claim a later statement's
+            # clause as its own.
+            next_start = heads[i + 1].start() if i + 1 < len(heads) else None
+            end = lex.statement_end(clean, head.end(), next_start)  # type: ignore[attr-defined]
+            clause = spec.pattern.search(clean[head.end() : end])
+            if clause is None:
+                continue
+            findings.append(
+                Finding(
+                    detector=spec.name,
+                    severity=spec.severity,
+                    object_name=_object_name(spec, head),
+                    line=line_at(clean, head.end() + clause.start()),
+                    snippet=_snippet_for(spec, clause),
+                    message_id=spec.resolved_message_id,
+                )
+            )
+        return findings
+
     def find_in_table_columns(source: str) -> list[Finding]:
         clean = search_fn(source)
         findings: list[Finding] = []
-        assert spec.table_pattern is not None  # guaranteed by __post_init__
-        for table in spec.table_pattern.finditer(clean):
+        assert spec.statement_pattern is not None  # guaranteed by __post_init__
+        for table in spec.statement_pattern.finditer(clean):
             span = lex.table_column_definition_list(clean, table.end())  # type: ignore[attr-defined]
             if span is None:
                 # CREATE TABLE ... AS SELECT: no column-definition list to
@@ -171,7 +254,7 @@ def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
                     Finding(
                         detector=spec.name,
                         severity=spec.severity,
-                        object_name=_table_name(spec, table),
+                        object_name=_object_name(spec, table),
                         line=line_at(clean, open_pos + 1 + m.start()),
                         snippet=_snippet_for(spec, m),
                         message_id=spec.resolved_message_id,
@@ -182,8 +265,8 @@ def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
     def find_in_table_statement(source: str) -> list[Finding]:
         clean = search_fn(source)
         findings: list[Finding] = []
-        assert spec.table_pattern is not None
-        tables = list(spec.table_pattern.finditer(clean))
+        assert spec.statement_pattern is not None
+        tables = list(spec.statement_pattern.finditer(clean))
         for i, table in enumerate(tables):
             # Bounded by the next CREATE TABLE as well as by the statement
             # terminator: an unterminated statement would otherwise swallow
@@ -196,7 +279,7 @@ def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
                     Finding(
                         detector=spec.name,
                         severity=spec.severity,
-                        object_name=_table_name(spec, table),
+                        object_name=_object_name(spec, table),
                         line=line_at(clean, table.end() + m.start()),
                         snippet=_snippet_for(spec, m),
                         message_id=spec.resolved_message_id,
@@ -206,8 +289,10 @@ def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
 
     impl = {
         ENCLOSING: find_enclosing,
+        MATCH_NAMED: find_match_named,
         TABLE_COLUMNS: find_in_table_columns,
         TABLE_STATEMENT: find_in_table_statement,
+        STATEMENT_CLAUSE: find_statement_clause,
     }[spec.strategy]
     impl.__name__ = f"find_{spec.name}"
     impl.__qualname__ = impl.__name__
@@ -222,8 +307,10 @@ def build(spec: DetectorSpec, lex: object) -> Callable[[str], list[Finding]]:
     return impl
 
 
-def _table_name(spec: DetectorSpec, table: re.Match[str]) -> str:
-    name = table.group(1)
-    if spec.normalize_table_name is not None:
-        name = spec.normalize_table_name(name)
+def _object_name(spec: DetectorSpec, match: re.Match[str]) -> str:
+    """The object a finding is attributed to, taken from the match that
+    names it."""
+    name = match.group(spec.name_group)
+    if spec.normalize_object_name is not None:
+        name = spec.normalize_object_name(name)
     return name.upper()

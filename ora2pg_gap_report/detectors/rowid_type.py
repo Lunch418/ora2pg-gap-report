@@ -55,7 +55,7 @@ SPEC = DetectorSpec(
     pattern=_ROWID_COLUMN_RE,
     strategy=TABLE_COLUMNS,
     snippet=lambda m: re.sub(r"\s+", " ", m.group(0).strip()),
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_rowid_types = build(SPEC, plsql_lex)

@@ -49,7 +49,7 @@ SPEC = DetectorSpec(
     pattern=_AS_EXPR_OPEN_RE,
     strategy=TABLE_COLUMNS,
     snippet='AS (...)',
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_virtual_columns = build(SPEC, plsql_lex)

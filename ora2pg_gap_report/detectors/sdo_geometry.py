@@ -26,7 +26,7 @@ SPEC = DetectorSpec(
     pattern=_SDO_GEOMETRY_RE,
     strategy=TABLE_COLUMNS,
     snippet='SDO_GEOMETRY',
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_sdo_geometry_columns = build(SPEC, plsql_lex)

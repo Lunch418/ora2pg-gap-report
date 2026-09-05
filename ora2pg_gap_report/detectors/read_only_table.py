@@ -1,7 +1,8 @@
 import re
 
-from ..models import Finding
-from ..plsql_lex import line_at, mask_strings_and_comments, qualified_name_pattern, statement_end
+from .. import plsql_lex
+from ..plsql_lex import qualified_name_pattern
+from ..detector_spec import DetectorSpec, STATEMENT_CLAUSE, build
 
 _TABLE_RE = re.compile(
     qualified_name_pattern(r"CREATE\s+TABLE"),
@@ -14,48 +15,34 @@ _TABLE_RE = re.compile(
 # the words.
 _READ_ONLY_RE = re.compile(r'(?<!")\bREAD\s+ONLY\b(?!")', re.IGNORECASE)
 
+_DOC = """Detect Oracle's CREATE TABLE ... READ ONLY. ora2pg drops the
+clause entirely, so the table becomes an ordinary writable one --
+not a syntax error, but a silent loss of a server-enforced integrity
+guarantee (Oracle would reject any DML against it with ORA-12081).
+See docs/research/gap-026-read-only-table.md.
 
-def find_read_only_tables(source: str) -> list[Finding]:
-    """Detect Oracle's CREATE TABLE ... READ ONLY. ora2pg drops the
-    clause entirely, so the table becomes an ordinary writable one --
-    not a syntax error, but a silent loss of a server-enforced integrity
-    guarantee (Oracle would reject any DML against it with ORA-12081).
-    See docs/research/gap-026-read-only-table.md.
+object_name is the table's own name (schema-level DDL) -- same
+reasoning as table_partitioning.py/external_table.py for skipping
+enclosing_object_name().
 
-    object_name is the table's own name (schema-level DDL) -- same
-    reasoning as table_partitioning.py/external_table.py for skipping
-    enclosing_object_name().
+Statement scoping uses statement_end() -- up to the next ';', or the
+start of the next CREATE TABLE if there's no ';' (DBMS_METADATA.GET_DDL's
+default output has none) -- not just "next ';' or end of file", which
+would otherwise misattribute a later table's own READ ONLY clause to
+an earlier, unterminated one. The reported line is the actual READ
+ONLY token's line, not the statement's opening CREATE TABLE line --
+real tables are often multi-line, and pointing at the wrong line
+sends the reader to the wrong place in the file."""
 
-    Statement scoping uses statement_end() -- up to the next ';', or the
-    start of the next CREATE TABLE if there's no ';' (DBMS_METADATA.GET_DDL's
-    default output has none) -- not just "next ';' or end of file", which
-    would otherwise misattribute a later table's own READ ONLY clause to
-    an earlier, unterminated one. The reported line is the actual READ
-    ONLY token's line, not the statement's opening CREATE TABLE line --
-    real tables are often multi-line, and pointing at the wrong line
-    sends the reader to the wrong place in the file."""
-    clean = mask_strings_and_comments(source)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="read_only_table",
+    dialect="oracle",
+    severity="high",
+    pattern=_READ_ONLY_RE,
+    strategy=STATEMENT_CLAUSE,
+    snippet='READ ONLY',
+    statement_pattern=_TABLE_RE,
+)
 
-    table_matches = list(_TABLE_RE.finditer(clean))
-    for i, m in enumerate(table_matches):
-        next_start = table_matches[i + 1].start() if i + 1 < len(table_matches) else None
-        stmt_end = statement_end(clean, m.end(), next_start)
-        statement = clean[m.end() : stmt_end]
-
-        read_only_match = _READ_ONLY_RE.search(statement)
-        if read_only_match is None:
-            continue
-
-        findings.append(
-            Finding(
-                detector="read_only_table",
-                severity="high",
-                object_name=m.group(1).upper(),
-                line=line_at(clean, m.end() + read_only_match.start()),
-                snippet="READ ONLY",
-                message_id="read_only_table",
-            )
-        )
-
-    return findings
+find_read_only_tables = build(SPEC, plsql_lex)
+find_read_only_tables.__doc__ = _DOC

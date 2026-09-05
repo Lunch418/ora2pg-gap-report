@@ -41,6 +41,56 @@ the evidence behind every confirmed gap (research doc, real ora2pg
 output, expected/actual, tests, including guard tests against false
 positives).
 
+## Writing the detector itself
+
+Once a gap is confirmed, most detectors are a spec rather than a
+function. `ora2pg_gap_report/detector_spec.py` holds the shared scanning
+code; a detector module declares what varies and calls `build()`:
+
+```python
+SPEC = DetectorSpec(
+    name="read_only_table",
+    dialect="oracle",
+    severity="high",
+    pattern=_READ_ONLY_RE,
+    strategy=STATEMENT_CLAUSE,
+    snippet="READ ONLY",
+    statement_pattern=_TABLE_RE,
+)
+
+find_read_only_tables = build(SPEC, plsql_lex)
+```
+
+There are five strategies, because detectors really do scan in five
+different ways:
+
+| strategy | scans | attributes the finding to |
+|---|---|---|
+| `ENCLOSING` | the whole masked source | the routine containing the match |
+| `MATCH_NAMED` | the whole masked source | the object the match itself names |
+| `TABLE_COLUMNS` | each `CREATE TABLE`'s column-definition list | the table |
+| `TABLE_STATEMENT` | each `CREATE TABLE`'s whole statement | the table (once per match) |
+| `STATEMENT_CLAUSE` | each statement `statement_pattern` finds | that statement (at most once) |
+
+`search_mask` picks which masked view the pattern runs over — use
+`MASK_DYNAMIC_SQL_VISIBLE` when the construct also matters inside an
+`EXECUTE IMMEDIATE` literal. `anchor_mask` stays at its default: line
+numbers and routine names come from the fully masked view, which is the
+one that indexes them correctly.
+
+About a third of the detectors are still plain functions, and should be.
+Write a function rather than a spec when the detector needs more than one
+pass over the source, builds its object name from more than the match,
+emits more than one message, or tests a condition no pattern expresses.
+The rule of thumb: if it fits a strategy as it stands, write a spec; if
+making it fit would mean adding a flag to `DetectorSpec`, write the
+function.
+
+Either way the message text lives in `ora2pg_gap_report/messages.py`,
+keyed by the detector's own name, with both `ru` and `en`. `doctor.py`
+checks that every detector's message id exists and that no message is
+left orphaned.
+
 ## Registry integrity (doctor)
 
 The registry (`ora2pg_gap_report/gap_registry.py`) and the file layout

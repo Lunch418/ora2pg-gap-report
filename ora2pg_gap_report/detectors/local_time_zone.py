@@ -39,7 +39,7 @@ SPEC = DetectorSpec(
     pattern=_LTZ_COLUMN_RE,
     strategy=TABLE_COLUMNS,
     snippet=lambda m: re.sub(r"\s+", " ", m.group(0).strip().upper()),
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_local_time_zone_columns = build(SPEC, plsql_lex)

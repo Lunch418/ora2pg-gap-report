@@ -28,7 +28,7 @@ SPEC = DetectorSpec(
     pattern=_ANYDATA_RE,
     strategy=TABLE_COLUMNS,
     snippet=lambda m: m.group(1).upper(),
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_anydata_columns = build(SPEC, plsql_lex)

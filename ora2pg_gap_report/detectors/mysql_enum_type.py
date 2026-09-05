@@ -23,7 +23,7 @@ SPEC = DetectorSpec(
     pattern=_ENUM_RE,
     strategy=TABLE_COLUMNS,
     snippet='ENUM(...)',
-    table_pattern=_TABLE_RE,
+    statement_pattern=_TABLE_RE,
 )
 
 find_mysql_enum_columns = build(SPEC, mysql_lex)

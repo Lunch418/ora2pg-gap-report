@@ -1,11 +1,11 @@
-# GAP-082: `FOREIGN KEY` выбрасывается целиком
+# GAP-082: `FOREIGN KEY` is dropped entirely
 
-MySQL/MariaDB feature: внешний ключ, объявляемый в списке столбцов
-`CREATE TABLE`.
+MySQL/MariaDB feature: a foreign key declared in the `CREATE TABLE`
+column list.
 
-## Минимальный пример
+## Minimal example
 
-В том виде, в каком его пишет `mysqldump`:
+As `mysqldump` writes it:
 
 ```sql
 CREATE TABLE `customers` (
@@ -20,7 +20,7 @@ CREATE TABLE `orders2` (
 ) ENGINE=InnoDB;
 ```
 
-## Вывод ora2pg (v25.0, `-m -t TABLE`)
+## ora2pg output (v25.0, `-m -t TABLE`)
 
 ```sql
 CREATE TABLE orders2 (
@@ -30,16 +30,15 @@ CREATE TABLE orders2 (
 ALTER TABLE orders2 ADD PRIMARY KEY (id);
 ```
 
-Строк `FOREIGN KEY` во всём сгенерированном файле — ноль (проверено
-`grep -c`). Ни внутри `CREATE TABLE`, ни отдельным `ALTER TABLE` после
-него. То же самое для формы без имени ограничения (`FOREIGN KEY (pid)
-REFERENCES parent7 (id)`) — тоже ноль.
+`FOREIGN KEY` lines in the whole generated file: zero (verified with
+`grep -c`). Neither inside the `CREATE TABLE` nor as a separate `ALTER
+TABLE` after it. Same for the form without a constraint name (`FOREIGN
+KEY (pid) REFERENCES parent7 (id)`) — also zero.
 
-## Это не «выгружается отдельным типом экспорта»
+## This is not "exported by a separate export type"
 
-Проверено: отдельного типа экспорта под внешние ключи у ora2pg нет.
-Полный список поддерживаемых значений `-t` (из сообщения самого
-ora2pg 25.0):
+Verified: ora2pg has no separate export type for foreign keys. The full
+list of supported `-t` values (from ora2pg 25.0's own message):
 
 ```
 QUERY, LOAD, SCRIPT, TABLE, VIEW, GRANT, TRIGGER, FUNCTION, PROCEDURE,
@@ -48,27 +47,27 @@ SHOW_COLUMN, SHOW_ENCODING, INSERT, COPY, TEST, TEST_COUNT, TEST_VIEW,
 TEST_DATA
 ```
 
-Ни `FKEY`, ни `CONSTRAINT` в нём нет — попытка `-t FKEY` завершается
+Neither `FKEY` nor `CONSTRAINT` is in it — trying `-t FKEY` ends with
 `FATAL: Unknown export type`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Ошибки не будет ни на загрузке, ни потом: схема поднимется, приложение
-заработает, и ссылочная целостность просто перестанет существовать —
-вместе с каскадными удалениями, если они были. Заметить это можно
-только по последствиям: осиротевшие строки, которые база раньше не
-позволяла создать.
+There will be no error at load or afterwards: the schema comes up, the
+application runs, and referential integrity simply ceases to exist —
+along with the cascading deletes, if there were any. The only way to
+notice is by the consequences: orphaned rows the database used to
+prevent.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage semantic.** По классу
-это ровно то, что README называет «архитектурно значимой потерей»:
-гарантия, объявленная в определении объекта, исчезает бесследно —
-родственно GAP-066 (`WITH READ ONLY`) и GAP-026 (`READ ONLY` на
-таблице). Восстанавливается вручную: `ALTER TABLE <таблица> ADD
-CONSTRAINT <имя> FOREIGN KEY (<столбцы>) REFERENCES <родитель>
-(<столбцы>) ON DELETE ...` после загрузки всех таблиц. Реализовано:
+**Gap confirmed, severity high, failure_stage semantic.** By class this
+is exactly what the README calls an "architecturally significant loss": a
+guarantee declared in the object definition disappears without a trace —
+akin to GAP-066 (`WITH READ ONLY`) and GAP-026 (`READ ONLY` on a table).
+Restored by hand: `ALTER TABLE <table> ADD CONSTRAINT <name> FOREIGN KEY
+(<columns>) REFERENCES <parent> (<columns>) ON DELETE ...` after all
+tables are loaded. Implemented:
 `ora2pg_gap_report/detectors/mysql_foreign_key.py`.

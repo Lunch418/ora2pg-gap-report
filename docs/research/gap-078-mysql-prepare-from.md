@@ -1,9 +1,9 @@
-# GAP-078: `PREPARE <имя> FROM <строка>`
+# GAP-078: `PREPARE <name> FROM <string>`
 
-MySQL/MariaDB feature: подготовка динамического SQL в хранимой
-процедуре (в связке с `EXECUTE` и `DEALLOCATE PREPARE`).
+MySQL/MariaDB feature: preparing dynamic SQL inside a stored procedure
+(paired with `EXECUTE` and `DEALLOCATE PREPARE`).
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE t25 (id INT PRIMARY KEY);
@@ -16,7 +16,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-m -t PROCEDURE`)
+## ora2pg output (v25.0, `-m -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE p25 () AS $body$
@@ -34,30 +34,30 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Пользовательскую переменную `@s` ora2pg аккуратно превратил в обычную
-переменную PL/pgSQL, а сам оператор `PREPARE ... FROM` оставил как был.
+ora2pg neatly turned the user variable `@s` into an ordinary PL/pgSQL
+variable, but left the `PREPARE ... FROM` statement exactly as it was.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Загрузка проходит чисто (`check_function_bodies = false` в выводе
-ora2pg). При разборе тела на реальном PostgreSQL 16:
+The load goes through cleanly (`check_function_bodies = false` in
+ora2pg's output). When the body is parsed on a real PostgreSQL 16:
 
 ```
 ERROR:  syntax error at or near "FROM"
 ```
 
-Оператор `PREPARE` в PostgreSQL есть, но синтаксис другой — `PREPARE
-<имя> AS <запрос>`, — и запрос задаётся текстом самого SQL, а не
-строковой переменной.
+PostgreSQL does have a `PREPARE` statement, but the syntax differs —
+`PREPARE <name> AS <query>` — and the query is given as literal SQL, not
+as a string variable.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.** Правильная
-цель переписывания — не `PREPARE` PostgreSQL, а `EXECUTE <строка>`
-внутри PL/pgSQL: это штатный способ выполнить собранный в переменной
-SQL, параметры передаются через `USING`, и это же снимает риск
-SQL-инъекции при склейке строки. Реализовано:
+**Gap confirmed, severity high, failure_stage runtime.** The right
+rewrite target is not PostgreSQL's `PREPARE` but `EXECUTE <string>`
+inside PL/pgSQL: that is the standard way to run SQL assembled in a
+variable, parameters are passed via `USING`, and the same mechanism
+removes the SQL-injection risk of string concatenation. Implemented:
 `ora2pg_gap_report/detectors/mysql_prepare_from.py`.

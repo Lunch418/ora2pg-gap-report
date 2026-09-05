@@ -1,9 +1,9 @@
 # GAP-079: `LAST_INSERT_ID()`
 
-MySQL/MariaDB feature: функция, возвращающая значение `AUTO_INCREMENT`,
-выданное последней вставкой в текущем соединении.
+MySQL/MariaDB feature: the function returning the `AUTO_INCREMENT` value
+produced by the most recent insert on the current connection.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE t26 (id INT PRIMARY KEY AUTO_INCREMENT, v INT);
@@ -14,7 +14,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-m -t PROCEDURE`)
+## ora2pg output (v25.0, `-m -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE p26 () AS $body$
@@ -27,13 +27,13 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Вызов скопирован дословно.
+The call is copied verbatim.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Загрузка проходит чисто: и `CREATE TABLE`, и `CREATE PROCEDURE`
-выполняются без ошибок. Падение — на реальном вызове, подтверждено на
-живом PostgreSQL 16:
+The load goes through cleanly: both `CREATE TABLE` and `CREATE
+PROCEDURE` run without error. The failure comes on a real call,
+confirmed on a live PostgreSQL 16:
 
 ```
 =# CALL p26();
@@ -46,14 +46,13 @@ HINT:  No function matches the given name and argument types.
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MySQL (`ora2pg -m`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.** Лучший
-вариант переписывания — `INSERT ... RETURNING <столбец> INTO
-<переменная>`: значение берётся прямо из выполненной вставки, без
-обращения к состоянию сессии. `currval()`/`lastval()` тоже работают, но
-у `lastval()` своя тонкость — он относится к последней использованной
-последовательности вообще, а не к конкретной таблице, поэтому в
-процедуре, вставляющей в несколько таблиц, легко получить чужое
-значение. Реализовано:
+**Gap confirmed, severity high, failure_stage runtime.** The best
+rewrite is `INSERT ... RETURNING <column> INTO <variable>`: the value
+comes straight from the insert that was executed, with no reliance on
+session state. `currval()`/`lastval()` work too, but `lastval()` has a
+subtlety of its own — it refers to the last sequence used at all, not to
+a particular table, so in a procedure that inserts into several tables it
+is easy to get the wrong value. Implemented:
 `ora2pg_gap_report/detectors/mysql_last_insert_id.py`.

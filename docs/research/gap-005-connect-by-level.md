@@ -1,15 +1,15 @@
-# GAP-005: `CONNECT BY` — баг подстановки `LEVEL` в сгенерированном `WITH RECURSIVE`
+# GAP-005: `CONNECT BY` — a `LEVEL` substitution bug in the generated `WITH RECURSIVE`
 
-Oracle feature: `START WITH ... CONNECT BY PRIOR ...` (иерархические
-запросы) с `LEVEL`/`SYS_CONNECT_BY_PATH`.
+Oracle feature: `START WITH ... CONNECT BY PRIOR ...` (hierarchical
+queries) with `LEVEL`/`SYS_CONNECT_BY_PATH`.
 
-## Что здесь на самом деле не так
+## What is actually wrong here
 
-Подтверждено запуском на синтетическом, честно помеченном как
-синтетический fixture (`hierarchy_demo_pkg`, обёртка над каноническим
-Oracle EMP/DEPT-запросом внутри реального пакета с `REF CURSOR`). Ora2pg
-**реально конвертирует** `START WITH ... CONNECT BY PRIOR ...
-SYS_CONNECT_BY_PATH` в рабочий `WITH RECURSIVE`-CTE:
+Confirmed by a run against a synthetic fixture, honestly labelled as
+synthetic (`hierarchy_demo_pkg`, a wrapper around the canonical Oracle
+EMP/DEPT query inside a real package with a `REF CURSOR`). ora2pg **really
+does convert** `START WITH ... CONNECT BY PRIOR ... SYS_CONNECT_BY_PATH`
+into a working `WITH RECURSIVE` CTE:
 
 ```sql
 WITH RECURSIVE cte AS (
@@ -21,35 +21,37 @@ SELECT employee_id,manager_id,(c.level+1) AS depth,c.org_path || '/' || last_nam
 ) SELECT * FROM cte;
 ```
 
-`LEVEL` превращён в счётчик глубины, `SYS_CONNECT_BY_PATH` — в конкатенацию
-строк, `START WITH`/`CONNECT BY PRIOR` — в анкер и рекурсивный JOIN.
-Механически это рабочий SQL, и стоимость учтена корректно (единственный из
-пяти изначально проверенных классов, где `estimate_cost` не занижает).
+`LEVEL` has become a depth counter, `SYS_CONNECT_BY_PATH` string
+concatenation, and `START WITH`/`CONNECT BY PRIOR` an anchor plus a
+recursive join. Mechanically this is working SQL, and the cost is counted
+correctly — the only one of the five originally examined classes where
+`estimate_cost` does not understate.
 
-Однако конвертация шаблонная и хрупкая: `(c.level+1)` — в CTE нет колонки
-`level`, это баг подстановки regex-based конвертера, который взял
-литеральное имя `LEVEL` и не подставил алиас `depth` из первой ветки
-`UNION`. Сгенерированный SQL в буквальном виде не выполнится в PostgreSQL
-без ручной правки (`c.level` → `c.depth`). Также конвертер не умеет более
-сложные варианты: `CONNECT BY NOCYCLE`, множественные условия, `ORDER
-SIBLINGS BY`, `CONNECT_BY_ROOT`, `CONNECT_BY_ISLEAF` — не покрыты ни одним
-регулярным выражением в `PLSQL.pm`.
+The conversion is templated and brittle, though: `(c.level+1)` refers to a
+`level` column the CTE does not have. This is a substitution bug in the
+regex-based converter, which took the literal name `LEVEL` and failed to
+substitute the `depth` alias from the first `UNION` branch. The generated
+SQL will not run on PostgreSQL as written without a manual fix (`c.level`
+→ `c.depth`). The converter also cannot handle the more complex variants:
+`CONNECT BY NOCYCLE`, multiple conditions, `ORDER SIBLINGS BY`,
+`CONNECT_BY_ROOT`, `CONNECT_BY_ISLEAF` — none of these are covered by any
+regex in `PLSQL.pm`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-`CONNECT BY` — единственный класс, где базовая оценка стоимости не
-занижена. Но сама конвертация не безошибочна даже для базового случая —
-здесь ценность не "мы видим то, что ora2pg не видит вообще", а "мы
-предупреждаем, что даже при ненулевой оценённой стоимости сгенерированный
-SQL нужно обязательно вручную вычитывать".
+`CONNECT BY` is the one class where the baseline cost estimate is not
+understated. But the conversion itself is not error-free even for the
+basic case — the value here is not "we see what ora2pg does not see at
+all", it is "we warn that even with a non-zero estimated cost, the
+generated SQL has to be read through by hand".
 
 **Reproducible: YES.** Ora2Pg version: 25.0 (commit `cc2c434f`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён**, но нетипичный по механизму: единственный из детекторов
-проекта, который анализирует не исходный Oracle-код, а сгенерированный
-ora2pg вывод — соответственно, единственный, которому для проверки нужен
-установленный `ora2pg` (флаг `--check-connect-by`).
+**Gap confirmed**, but atypical in mechanism: the only detector in the
+project that analyses ora2pg's generated output rather than the original
+Oracle source — and therefore the only one that needs `ora2pg` installed
+to run (the `--check-connect-by` flag).
 
-Реализовано: `ora2pg_gap_report/detectors/connect_by.py`.
+Implemented in `ora2pg_gap_report/detectors/connect_by.py`.

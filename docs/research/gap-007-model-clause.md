@@ -1,12 +1,12 @@
-# GAP-007: `MODEL` clause
+# GAP-007: the `MODEL` clause
 
 Oracle feature: `SELECT ... MODEL PARTITION BY (...) DIMENSION BY (...)
-MEASURES (...) RULES (...)` — spreadsheet-стиль вычислений внутри SQL
-(прогнозы, накопительные расчёты). Реже встречается, чем остальные gap'ы
-этого проекта — в основном в финансовой отчётности/аналитике, но там, где
-встречается, обычно центральный, а не периферийный кусок логики.
+MEASURES (...) RULES (...)` — spreadsheet-style computation inside SQL
+(forecasts, running calculations). Rarer than the other gaps in this
+project — mostly in financial reporting and analytics — but where it does
+appear it is usually central to the logic rather than peripheral.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 SELECT product_id, quarter, sales
@@ -20,34 +20,34 @@ MODEL
   );
 ```
 
-## Вывод ora2pg (v25.0, `-t PACKAGE`)
+## ora2pg output (v25.0, `-t PACKAGE`)
 
-Конструкция полностью не тронута — `MODEL`/`PARTITION BY`/`DIMENSION
-BY`/`MEASURES`/`RULES` копируются как есть.
+The construct is left entirely untouched — `MODEL`/`PARTITION
+BY`/`DIMENSION BY`/`MEASURES`/`RULES` are all copied as written.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16: `CREATE PROCEDURE` проходит без
-ошибки, падает при первом вызове:
+Confirmed against a real PostgreSQL 16: `CREATE PROCEDURE` succeeds
+without error and fails on the first call:
 
 ```
 ERROR:  syntax error at or near "PARTITION"
 ```
 
-В отличие от большинства других gap'ов проекта, у `MODEL` **нет прямого
-архитектурного эквивалента** в PostgreSQL вообще — ни через расширение, ни
-через синтаксическую замену. Единственный путь — переписать логику на
-оконные функции (`LAG`/`LEAD`/`SUM() OVER (...)`) или рекурсивные CTE, что
-требует понимания бизнес-смысла правил `RULES`, а не механической
-подстановки.
+Unlike most of the project's other gaps, `MODEL` has **no direct
+architectural equivalent** in PostgreSQL at all — not through an extension,
+not through a syntactic substitution. The only path is rewriting the logic
+with window functions (`LAG`/`LEAD`/`SUM() OVER (...)`) or recursive CTEs,
+which requires understanding what the `RULES` mean for the business rather
+than a mechanical substitution.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реже встречается на практике, чем остальные детекторы
-проекта, но однозначен и архитектурно самый "тяжёлый" — нет пути
-автоматической конвертации даже в принципе, только ручной редизайн
-запроса.
+**Gap confirmed.** Encountered less often in practice than the project's
+other detectors, but unambiguous and architecturally the heaviest — there
+is no automatic conversion path even in principle, only a manual redesign
+of the query.
 
-Реализовано: `ora2pg_gap_report/detectors/model_clause.py`.
+Implemented in `ora2pg_gap_report/detectors/model_clause.py`.

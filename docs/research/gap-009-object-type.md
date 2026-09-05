@@ -1,16 +1,16 @@
-# GAP-009: `CREATE TYPE ... AS OBJECT` / `TYPE BODY` — вне оценки трудозатрат вообще
+# GAP-009: `CREATE TYPE ... AS OBJECT` / `TYPE BODY` — outside the effort estimate entirely
 
-Oracle feature: объектный тип (`CREATE TYPE name AS OBJECT (атрибуты,
-MEMBER-методы)` + отдельно `CREATE TYPE BODY` с реализацией методов) —
-Oracle-специфичное ООП поверх SQL.
+Oracle feature: an object type (`CREATE TYPE name AS OBJECT (attributes,
+MEMBER methods)` plus a separate `CREATE TYPE BODY` with the method
+implementations) — Oracle-specific OOP layered over SQL.
 
-## Что здесь на самом деле не так
+## What is actually wrong here
 
-Этот gap отличается от остальных в проекте по характеру. Не "ora2pg тихо
-портит код", а "ora2pg вообще не пытается оценить стоимость такого
-объекта".
+This gap differs in character from the others in the project. It is not
+"ora2pg silently mangles the code" but "ora2pg does not attempt to
+estimate the cost of such an object at all".
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE TYPE point_t AS OBJECT (
@@ -28,37 +28,37 @@ END;
 /
 ```
 
-## Вывод ora2pg (v25.0, `-t TYPE`)
+## ora2pg output (v25.0, `-t TYPE`)
 
-Ora2pg честно помечает вывод: `-- Unsupported, please edit to match
-PostgreSQL syntax`, и копирует Oracle-синтаксис как есть под этой пометкой.
-Это само по себе не находка — это уже явное предупреждение от самого
-ora2pg.
+ora2pg marks the output honestly: `-- Unsupported, please edit to match
+PostgreSQL syntax`, and copies the Oracle syntax as written under that
+note. That in itself is not the finding — it is already an explicit
+warning from ora2pg.
 
-Находка в другом: прогон `ora2pg -t TYPE -i ... --estimate_cost` **не
-возвращает вообще ничего** — ни строки отчёта, ни цифры стоимости. У
-`--estimate_cost` (судя по коду и по прямому прогону) нет механизма
-оценки для объектов типа `TYPE` вообще — он рассчитан только на
+The finding is elsewhere: running `ora2pg -t TYPE -i ... --estimate_cost`
+**returns nothing at all** — no report line, no cost figure. Judging by
+the code and by a direct run, `--estimate_cost` has no estimation
+mechanism for `TYPE` objects whatsoever; it is built only for
 `PACKAGE`/`TRIGGER`/`FUNCTION`/`PROCEDURE`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Схема с существенным использованием объектных Oracle-типов (что типично
-для более старых, ООП-ориентированных enterprise-кодовых баз) получит
-**нулевой** вклад в оценку трудозатрат от `--estimate_cost`/`SHOW_REPORT`
-за эти объекты — не заниженную оценку, а полное отсутствие какой-либо
-цифры. При этом сама миграция объектных типов с методами — одна из самых
-трудоёмких задач в принципе: у PostgreSQL нет объектных типов с
-методами, только composite types (структуры данных без поведения) —
-переписывание требует архитектурного решения (`composite type` +
-отдельные функции, вызываемые explicit, а не через `obj.method()`), не
-просто синтаксической замены.
+A schema making substantial use of Oracle object types — typical of older,
+OOP-oriented enterprise codebases — will get a **zero** contribution to the
+effort estimate from `--estimate_cost`/`SHOW_REPORT` for those objects:
+not an understated figure, but the complete absence of any figure. And
+migrating object types with methods is one of the most labour-intensive
+tasks there is: PostgreSQL has no object types with methods, only composite
+types (data structures without behaviour), so rewriting requires an
+architectural decision (a `composite type` plus separate functions called
+explicitly, not through `obj.method()`), not just a syntactic
+substitution.
 
-**Reproducible: YES** (по коду и по прогону `--estimate_cost`, вернувшему
-пустой результат). Ora2Pg version: 25.0.
+**Reproducible: YES** (from the code, and from an `--estimate_cost` run
+that returned an empty result). Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён**, но не в духе "ora2pg врёт", а в духе "ora2pg молчит
-там, где стоило бы предупредить громче всего". Реализовано:
+**Gap confirmed**, though not in the spirit of "ora2pg lies" so much as
+"ora2pg is silent exactly where it should be loudest". Implemented in
 `ora2pg_gap_report/detectors/object_type.py`.

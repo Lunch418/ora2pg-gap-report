@@ -1,18 +1,18 @@
-# GAP-004: `COMPOUND TRIGGER` — тихий провал файлового парсера
+# GAP-004: `COMPOUND TRIGGER` — a silent file-parser failure
 
-Oracle feature: `COMPOUND TRIGGER` — триггер с четырьмя именованными
-секциями (`BEFORE STATEMENT`/`BEFORE EACH ROW`/`AFTER EACH ROW`/`AFTER
-STATEMENT`) вместо одного `BEGIN...END` тела.
+Oracle feature: `COMPOUND TRIGGER` — a trigger with four named sections
+(`BEFORE STATEMENT`/`BEFORE EACH ROW`/`AFTER EACH ROW`/`AFTER STATEMENT`)
+instead of a single `BEGIN...END` body.
 
-## Что здесь на самом деле не так
+## What is actually wrong here
 
-Самая сильная, наиболее однозначно подтверждённая находка проекта — и
-единственная, где реальный запуск дал бинарный "не найдено" результат, а
-не "найдено, но неточно".
+The project's strongest and most unambiguously confirmed finding — and the
+only one where a real run produced a binary "not found" result rather than
+"found, but inaccurate".
 
-На реальном файле с синтаксически корректным `COMPOUND TRIGGER`
-(`Apress/modern-oracle-database-programming`, `tr_constructors_cti`, все 4
-секции):
+On a real file containing a syntactically correct `COMPOUND TRIGGER`
+(`Apress/modern-oracle-database-programming`, `tr_constructors_cti`, all
+four sections):
 
 ```
 ora2pg -t TRIGGER -i compound_trigger_apress.sql --estimate_cost ...
@@ -20,45 +20,46 @@ ora2pg -t TRIGGER -i compound_trigger_apress.sql --estimate_cost ...
 -- Nothing found of type TRIGGER
 ```
 
-Контрольный запуск на классическом простом триггере (`BEFORE INSERT OR
-UPDATE ... FOR EACH ROW BEGIN ... END`) из того же прогона — `1/1
-triggers`, корректная конвертация. Не проблема окружения — конкретный,
-воспроизводимый провал парсера именно на составных триггерах.
+The control run in the same session, on a classic simple trigger (`BEFORE
+INSERT OR UPDATE ... FOR EACH ROW BEGIN ... END`), reported `1/1 triggers`
+and converted correctly. This is not an environment problem — it is a
+specific, reproducible parser failure on compound triggers.
 
-**Причина (по коду):** `read_trigger_from_file()` (`Ora2Pg.pm`, ~строка
-3868) разбирает тело триггера двумя жёсткими regex, оба из которых
-требуют, чтобы сразу после `ON <table>` шло `FOR EACH ROW/STATEMENT`,
-затем опционально `WHEN (...)`, а затем непосредственно `BEGIN`/`DECLARE`.
-`COMPOUND TRIGGER` не содержит ни `FOR EACH ROW` на верхнем уровне
-(тайминг задаётся отдельно в каждой из четырёх секций), ни единственного
-`BEGIN` сразу после объявления. Ни один regex не рассчитан на эту форму →
-триггер целиком выпадает из результата, без единого предупреждения.
+**Cause (from the code):** `read_trigger_from_file()` (`Ora2Pg.pm`, around
+line 3868) parses a trigger body with two rigid regexes, both of which
+require `FOR EACH ROW/STATEMENT` to follow `ON <table>` immediately, then
+an optional `WHEN (...)`, and then `BEGIN`/`DECLARE` directly. A
+`COMPOUND TRIGGER` has neither `FOR EACH ROW` at the top level (the timing
+is given separately inside each of the four sections) nor a single `BEGIN`
+right after the declaration. Neither regex accounts for this shape, so the
+trigger drops out of the result entirely, without a single warning.
 
-**Оговорка (не подтверждено запуском, только по коду):** в живом режиме
-(подключение к Oracle, не файловый вход) сам объект-триггер будет учтён в
-счётчике `SHOW_REPORT` `TRIGGER: number/invalid` — этот счётчик берётся из
-каталога `ALL_OBJECTS`/`ALL_TRIGGERS` напрямую, а не через файловый
-regex-парсер. То есть число объектов в `SHOW_REPORT` не покажет проблему.
-По структуре `export_trigger()` (`Ora2Pg.pm:5975+`) крайне вероятно, что и
-в live-режиме конвертация тела даёт синтаксически неверный или тихо
-испорченный код (нет проверки "это compound trigger, обработай иначе"
-нигде в кодовой базе).
+**Caveat (not confirmed by a run, from the code only):** in live mode
+(connected to Oracle rather than reading a file) the trigger object itself
+will be counted in `SHOW_REPORT`'s `TRIGGER: number/invalid` counter — that
+counter comes straight from the `ALL_OBJECTS`/`ALL_TRIGGERS` catalog, not
+through the file regex parser. So the object count in `SHOW_REPORT` will
+not reveal the problem. Judging by the structure of `export_trigger()`
+(`Ora2Pg.pm:5975+`), it is highly likely that live mode also produces
+syntactically invalid or silently mangled code for the body — there is no
+"this is a compound trigger, handle it differently" check anywhere in the
+codebase.
 
-## Наблюдаемая проблема
+## Observed problem
 
-`COMPOUND TRIGGER` не "переносится некорректно" — он полностью выпадает
-из файлового режима ora2pg без единого предупреждения. Метрика "number of
-triggers / invalid triggers" в `SHOW_REPORT` не покажет вообще ничего
-подозрительного, потому что она берётся из каталога Oracle, а не из
-попытки конвертации. Ровно тот тип разрыва, который обнаруживается
-постфактум, когда уже сломалось в проде.
+A `COMPOUND TRIGGER` is not "converted incorrectly" — it disappears from
+ora2pg's file mode completely, without a single warning. The "number of
+triggers / invalid triggers" metric in `SHOW_REPORT` shows nothing
+suspicious at all, because it comes from the Oracle catalog rather than
+from an attempted conversion. Exactly the kind of gap that gets discovered
+after the fact, once something has already broken in production.
 
-**Reproducible: YES** (файловый режим). Live-режим — по коду, не
-подтверждено живым прогоном на момент этого исследования. Ora2Pg version:
-25.0 (commit `cc2c434f`).
+**Reproducible: YES** (file mode). Live mode: from the code, not confirmed
+by a live run at the time of this research. Ora2Pg version: 25.0 (commit
+`cc2c434f`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён**, причём сильнее, чем изначально предполагалось.
+**Gap confirmed**, and more strongly than originally assumed.
 
-Реализовано: `ora2pg_gap_report/detectors/compound_triggers.py`.
+Implemented in `ora2pg_gap_report/detectors/compound_triggers.py`.

@@ -105,7 +105,18 @@ jobs:
           perl Makefile.PL
           make
           sudo make install
+          # `make install` ships ora2pg.conf.dist and leaves putting it in
+          # place to the packager. Without /etc/ora2pg/ora2pg.conf, ora2pg
+          # exits 1 on every invocation -- which is how this job found that
+          # our own error message showed nothing at all in that case, since
+          # ora2pg writes the FATAL line to stdout rather than stderr.
+          sudo install -Dm644 /etc/ora2pg/ora2pg.conf.dist /etc/ora2pg/ora2pg.conf
           ora2pg --version
+          # Prove the binary actually runs before the tests assert on what
+          # it produces, so a broken install fails here with ora2pg's own
+          # message instead of inside a test assertion.
+          ora2pg -t PACKAGE -i docs/research/samples/logger.pkb \
+            --estimate_cost -o /tmp/smoke.sql -b /tmp
 
       - name: Install package (dev extras)
         run: pip install -e ".[dev]"

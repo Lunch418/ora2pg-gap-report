@@ -1,0 +1,324 @@
+# Аудит реестра: доказательная база по каждому из подтверждённых gap'ов
+
+Этот документ — не новое исследование, а проверка того, что уже
+задокументировано в [`GAP_REGISTRY.md`](GAP_REGISTRY.md): для каждого
+подтверждённого gap'а здесь сведено воедино, что конкретно доказывает
+его существование и что доказывает отсутствие ложных срабатываний у
+соответствующего детектора.
+
+Критерии проверки (по одному разу для каждого GAP-NNN):
+
+1. **Research-документ** — существует, содержит минимальный
+   воспроизводимый пример.
+2. **Реальный вывод ora2pg** — не гипотеза "наверное не сработает", а
+   буквальный вывод `ora2pg -t ... -o ...` на этом примере.
+3. **Expected vs Actual** — что должно было получиться в PostgreSQL и что
+   получилось на самом деле; для большинства gap'ов это буквальная ошибка
+   реального PostgreSQL 16 при загрузке/вызове сгенерированного кода.
+4. **Детектор** — файл в `ora2pg_gap_report/detectors/`, с присвоенным
+   severity.
+5. **Регрессионные тесты** — количество тестов и сколько из них —
+   guard-тесты на ложное срабатывание (посчитано программно: тест
+   классифицируется как guard, если содержит `== []` — «на этом входе
+   находок быть не должно» — а не просто по названию функции).
+
+Числа тестов в этом документе получены прогоном скрипта по актуальному
+дереву тестов, а не подсчитаны вручную — см. «Как перепроверить» внизу.
+
+## Сводная таблица
+
+| GAP | Детектор | Sev | Doc §§ полны | ora2pg output | PG error/поведение | Тесты (всего/guard) | Проверено на реальном открытом коде |
+|---|---|---|---|---|---|---|---|
+| 001 | `autonomous_tx` | high | ✅ | ✅ (`logger.pkb`, dblink-обёртка) | н/д — это баг оценки стоимости, не синтаксиса | 16 / 3 (`test_autonomous_tx.py` + `test_autonomous_tx_edge_cases.py`) | да — `test_real_open_source_utplsql_test_helper_is_attributed` встраивает реальный фрагмент `main_helper.pkb`, `test_real_open_source_utplsql_hidden_pragma_inside_dynamic_sql_is_found` — скрытую в динамическом SQL `PRAGMA` из `run_helper.pkb`, оба из `utPLSQL` |
+| 002 | `merge_delete_clause` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "WHERE"` | 5 / 3 | нет |
+| 003 | `bulk_collect` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "IS"` | 12 / 5 | да — `test_local_collection_type_in_a_package_spec_is_attributed_not_unknown` (`amazon_aws_s3_pkg.pks`, `alexandria-plsql-utils`), `test_real_open_source_utplsql_bulk_collect_into_is_attributed` (`main_helper.pkb`, `utPLSQL`) и `test_real_open_source_utplsql_bulk_collect_hidden_inside_dynamic_sql_is_found` — скрытый в динамическом SQL `BULK COLLECT INTO` из `coverage_helper.pkb` (`utPLSQL`) |
+| 004 | `compound_triggers` | high | ✅ | ✅ (`-- Nothing found of type TRIGGER`) | н/д — триггер целиком выпадает из вывода ora2pg | 5 / 3 | нет |
+| 005 | `connect_by` | high | ✅ | ✅ (сгенерированный `WITH RECURSIVE`) | ✅ `c.level` не существует в CTE | 11 / 3 | нет (детектор анализирует вывод ora2pg, не исходный код — не применимо к сканированию исходников напрямую) |
+| 006 | `database_link` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "@"` | 5 / 3 | нет |
+| 007 | `model_clause` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "PARTITION"` | 5 / 3 | нет |
+| 008 | `pivot_clause` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "("` | 6 / 2 | нет |
+| 009 | `object_type` | high | ✅ | ✅ (`--estimate_cost` вернул 0 строк) | н/д — пробел в оценке стоимости, не в синтаксисе | 7 / 2 | да — `test_real_open_source_object_type_is_flagged` (`t_soap_envelope.pks`, `alexandria-plsql-utils`) и `test_real_open_source_utplsql_object_types_are_flagged` (`demo_equal_matcher.sql`, `utPLSQL`) |
+| 010 | `with_function` | high | ✅ | ✅ | ✅ `ERROR: syntax error at end of input` (структура блока разрушена) | 4 / 1 | да — `test_real_open_source_excelgen_with_function_is_flagged` встраивает реальный `WITH FUNCTION get_xlsx(...)` из тестового набора `mbleron/ExcelGen` |
+| 011 | `flashback_query` | high | ✅ | ✅ (искажённый `statement_timestamp()`) | ✅ `ERROR: syntax error at or near "timestamp"` | 4 / 1 | нет |
+| 012 | `global_temp_table` | high | ✅ | ✅ | ✅ строка пережила `COMMIT` вопреки Oracle-семантике | 6 / 2 | да — `test_real_open_source_utplsql_global_temp_table_is_flagged` встраивает реальную таблицу `ut_compound_data_diff_tmp` из `utPLSQL` |
+| 013 | `table_partitioning` | high | ✅ | ✅ | н/д — секции молча пропадают, не ошибка | 10 / 4 | да — `test_real_oracle_sample_schema_sales_table_is_flagged` встраивает реальную таблицу `SALES` из официальной Oracle SH-схемы (`db-sample-schemas`) |
+| 014 | `connect_by_nocycle` | high | ✅ | ✅ (`WITH RECURSIVE` до `DECLARE`) | ✅ `ERROR` на этапе компиляции тела | 4 / 1 | нет |
+| 015 | `context_object` | medium | ✅ | ✅ (только DEBUG-строка в логе) | н/д — конструкция пропадает без следа | 3 / 1 | нет |
+| 016 | `insert_all` | high | ✅ | ✅ | ✅ `ERROR: "big_orders" is not a known variable` | 5 / 2 | нет |
+| 017 | `json_table` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "COLUMNS"` | 5 / 3 | да — `test_json_table_inside_a_view_is_attributed_not_unknown` (в `tests/test_cli.py`) встраивает реальный `product_reviews` view из `db-sample-schemas` |
+| 018 | `external_table` | high | ✅ | ✅ | н/д — секция пропадает, таблица создаётся пустой | 4 / 1 | нет |
+| 019 | `sql_macro` | high | ✅ | ✅ | ✅ `ERROR: argument of WHERE must be type boolean` | 3 / 1 | нет |
+| 020 | `invisible_column` | high | ✅ | ✅ | ✅ столбец появился в `SELECT *` вопреки Oracle-семантике | 8 / 2 | нет |
+| 021 | `collection_type` | high | ✅ | ✅ (`[DEBUG] unhandled line`) | ✅ `ERROR: type "phone_list_t" does not exist` | 8 / 3 | да — `test_real_open_source_utplsql_collection_type_is_flagged` встраивает реальный тип `demo_departments` из `utPLSQL` |
+| 022 | `cross_apply` | high | ✅ | ✅ | ✅ `ERROR: syntax error at or near "APPLY"` | 3 / 1 | нет |
+| 023 | `oracle_text` | high | ✅ | ✅ | ✅ `ERROR: function contains(text, unknown) does not exist` | 12 / 4 | да — `test_real_oracle_sample_schema_index_is_flagged` встраивает реальный индекс `sup_text_idx` из официальной Oracle SH-схемы (`db-sample-schemas`) |
+| 024 | `recursive_with` | high | ✅ | ✅ | ✅ `ERROR: relation "tree" does not exist` (нужен `WITH RECURSIVE`) | 8 / 5 | нет |
+| 025 | `invisible_index` | medium | ✅ | ✅ | н/д — оптимизатор молча начинает учитывать индекс | 8 / 3 | нет |
+| 026 | `read_only_table` | high | ✅ | ✅ | ✅ INSERT прошёл там, где Oracle гарантированно блокирует его (ORA-12081) | 7 / 3 | нет |
+| 027 | `materialized_view_log` | high | ✅ | ✅ (`[DEBUG] unhandled line`) | н/д — журнал пропадает без следа | 3 / 2 | нет |
+| 028 | `identity_column` | high | ✅ | ✅ (лишняя пара скобок в выводе) | ✅ `ERROR: syntax error at or near "("` | 5 / 2 | нет |
+| 029 | `rowid_type` | high | ✅ | ✅ (`ROWID`/`UROWID` → `oid`) | ✅ `ERROR: invalid input syntax for type oid` при INSERT реального значения | 11 / 4 | нет |
+| 030 | `sequence_cycle` | high | ✅ | ✅ (секция `CYCLE` пропадает) | ✅ `ERROR: nextval: reached maximum value of sequence` после исчерпания диапазона | 6 / 2 | нет |
+| 031 | `default_on_null` | high | ✅ | ✅ (`ON NULL` копируется как есть) | ✅ `ERROR: syntax error at or near "ON"` уже на CREATE TABLE | 7 / 2 | нет |
+| 032 | `public_synonym` | high | ✅ | ✅ (переписан в `CREATE VIEW` без схемы) | ✅ `ERROR: relation ... does not exist` при совпадении имён | 8 / 1 | нет |
+| 033 | `virtual_column` | medium | ✅ | ✅ (переписан в столбец + триггер) | н/д — значение корректно, теряется только защита от явного присваивания | 8 / 4 | нет |
+| 034 | `nested_subprogram` | high | ✅ | ✅ (тело искажено, вложенность расплющена) | ✅ `ERROR: syntax error at or near "BEGIN"` на первом вызове | 9 / 3 | да — `test_real_open_source_logger_nested_procedure_inside_conditional_compilation_is_flagged` (`get_cgi_env`/`append_cgi_env`, `Logger`; сканирование полного файла реально находит 5 таких пар) |
+| 035 | `conditional_compilation` | high | ✅ | ✅ (`$IF`/`$THEN`/`$ELSE`/`$END` копируются как есть) | ✅ `ERROR: syntax error at or near "$"` на первом вызове | 6 / 2 | да — `test_real_open_source_logger_assert_procedure_is_flagged` (`assert`, `Logger`; сканирование полного файла реально находит 229 таких директив) |
+| 036 | `package_state` | high | ✅ | ✅ (`set_config`/`current_setting` без приведения типа/`missing_ok`) | ✅ `ERROR: function set_config(unknown, bigint, boolean) does not exist` | 13 / 4 | да — `test_real_open_source_logger_package_variables_are_flagged` (`g_log_id`/`g_running_timers`/`g_in_plugin_error`, `Logger`) |
+| 037 | `index_organized_table` | medium | ✅ | ✅ (переписан в кучу + отдельный индекс) | н/д — ограничения целостности сохраняются, теряется только архитектура хранения | 7 / 3 | нет |
+| 038 | `match_recognize` | high | ✅ | ✅ (копируется дословно) | ✅ `ERROR: syntax error at or near "BY"` при загрузке | 4 / 2 | нет |
+| 039 | `connect_by_pseudocolumn` | high | ✅ | ✅ (`CONNECT_BY_ROOT`/`ISLEAF`/`ISCYCLE` переносятся дословно в сгенерированный CTE) | ✅ `ERROR: syntax error at or near "AS"` / `column "connect_by_iscycle" does not exist` | 4 / 2 | нет |
+| 040 | `keep_dense_rank` | high | ✅ | ✅ (копируется дословно) | ✅ `ERROR: syntax error at or near "("` | 4 / 2 | нет |
+| 041 | `multiset_operator` | high | ✅ | ✅ (все четыре формы копируются дословно) | ✅ `ERROR: syntax error at or near "col_b"` / `"SELECT"` / `"SUBMULTISET"` | 5 / 1 | да — `test_real_utplsql_multiset_union_all_is_flagged` (`ut_suite_builder.pkb`, `utPLSQL`; полное сканирование корпуса даёт 52 находки) |
+| 042 | `sample_clause` | high | ✅ | ✅ (копируется дословно, в `TABLESAMPLE` не переписывается) | ✅ `ERROR: syntax error at or near "10"` | 4 / 2 | нет |
+| 043 | `accessible_by` | high | ✅ | ✅ (копируется в заголовок сгенерированной функции) | ✅ `ERROR: syntax error at or near "ACCESSIBLE"` | 4 / 2 | нет |
+| 044 | `local_time_zone` | high | ✅ | ✅ (`ts_ltz timestamp` — без часового пояса) | н/д — ошибки нет никогда; проверено на живом PG, что пересчёт в TZ сессии пропадает | 5 / 2 | да — `test_real_oracle_sample_schema_orders_table_is_flagged` (`order_entry/cord_v3.sql`, `db-sample-schemas`) |
+| 045 | `temporal_validity` | high | ✅ | ✅ (обрубок `period FOR` в списке столбцов) | ✅ `ERROR: syntax error at or near "FOR"` | 4 / 2 | нет |
+| 046 | `bitmap_index` | high | ✅ | ✅ (`CREATE INDEX ... USING gin(...)`) | ✅ `ERROR: data type character varying has no default operator class for access method "gin"` | 5 / 1 | да — `test_real_oracle_sample_schema_star_schema_bitmap_indexes_are_flagged` (`sales_history/sh_populate.sql`, `db-sample-schemas`; 15 находок при сканировании) |
+| 047 | `object_table` | high | ✅ | ✅ (`OF` становится именем столбца, PK теряется) | н/д — при существующем типе загрузка проходит молча, таблица структурно неверна | 6 / 2 | да — `test_real_utplsql_object_table_line_points_at_the_of_keyword_not_create_table` (`ut_suite_cache.sql`, `utPLSQL`) и `categories_tab` из `db-sample-schemas` |
+
+**47/47 по каждому из первых пяти критериев.** Отдельная колонка —
+проверка на реальном открытом коде: 9 детекторов (`autonomous_tx`,
+`bulk_collect`, `object_type`, `global_temp_table`, `table_partitioning`,
+`json_table`, `collection_type`, `oracle_text`, `with_function`) реально
+сработали при сканировании 247 298 строк открытого кода (точный свежий
+подсчёт по всем семи репозиториям вместе на момент этой проверки, каждый
+— свежий `git clone --depth 1`, не сумма отдельных, ранее запомненных
+чисел по каждому репозиторию) из семи независимых проектов —
+`mortenbra/alexandria-plsql-utils`, `oracle-samples/db-sample-schemas`,
+`utPLSQL/utPLSQL` (фреймворк юнит-тестирования PL/SQL),
+`OraOpenSource/Logger`, `method5/plsql_lexer` (лексер/токенизатор
+PL/SQL — с нестандартными расширениями файлов `.plsql`/`.bdy`/`.spc`,
+переданными явно, не через рекурсивный обход директории по
+расширениям), `mbleron/ExcelGen` (генератор Excel-файлов) и
+`osalvador/tePLSQL` (шаблонизатор с активным использованием
+`EXECUTE IMMEDIATE`) — и для каждого из этих девяти в дереве тестов
+лежит постоянный регрессионный тест, встраивающий реальный фрагмент того
+самого исходника (не гипотетический пример), так что находка остаётся
+проверяемой в любой момент, а не только "было замечено в сессии
+однажды". Расширение корпуса с четырёх проектов до семи не выявило ни
+одного некорректного срабатывания и ни одного падения — включая два
+файла (`ExcelGen.pkb`, `plsql_parser.bdy`), где `EXECUTE IMMEDIATE`
+реально строит код динамически (вплоть до создания временной функции с
+шаблонной подстановкой имени схемы), ни разу не спровоцировав ложную
+атрибуцию: ни один из этих динамически создаваемых объектов не попал в
+индекс контейнеров как настоящий (в этих двух конкретных случаях внутри
+динамического кода не оказалось самой конструкции ни одного детектора —
+подтверждает отсутствие падений/порчи данных, не добавляет новую
+находку). Из более раннего расширения (два проекта → четыре) осталась
+уже задокументированная честная граница применимости —
+`object_name='UNKNOWN'` на анонимном `declare...begin...end;`-блоке без
+имени (install-скрипт, не выгрузка `DBMS_METADATA.GET_DDL`), закреплено
+тестом
+`test_real_open_source_logger_install_script_anonymous_block_is_unknown_not_a_crash`
+в `tests/test_bulk_collect.py`.
+
+Отдельно от расширения корпуса: 14 детекторов, использующих общий индекс
+атрибуции (`bulk_collect`, `connect_by_nocycle`, `cross_apply`,
+`database_link`, `flashback_query`, `insert_all`, `json_table`,
+`merge_delete_clause`, `model_clause`, `oracle_text`, `pivot_clause`,
+`recursive_with`, `sql_macro`, `with_function`), и отдельно
+`autonomous_tx` теперь видят целевую конструкцию, даже если она построена
+динамически внутри `EXECUTE IMMEDIATE` — на этом же корпусе нашлись и
+подтвердились ровно два новых реальных случая: скрытая `PRAGMA
+AUTONOMOUS_TRANSACTION` и скрытый `BULK COLLECT INTO`, оба в `utPLSQL`,
+оба верно приписаны реальной процедуре в статическом дереве исходников
+(не вымышленному объекту, существующему только в момент выполнения) —
+см. раздел «Конструкции, спрятанные в динамическом SQL» в
+`docs/ARCHITECTURE.md` для дизайна и
+`tests/test_plsql_lex.py`/`tests/test_autonomous_tx.py`/
+`tests/test_bulk_collect.py` для регрессионных тестов на настоящих
+фрагментах.
+
+Остальные детекторы не встретили свою целевую конструкцию ни в одном из
+этих семи корпусов — ожидаемо: часть этих конструкций (`SQL_MACRO`,
+`CREATE CONTEXT`, `INVISIBLE`-столбцы и -индексы, `ORGANIZATION
+EXTERNAL`, `CONNECT BY NOCYCLE`, `CROSS APPLY`, нативная рекурсивная
+`WITH` без `RECURSIVE`, `READ ONLY`-таблицы, `MATERIALIZED VIEW LOG`,
+`IDENTITY` с опциями) — редкие, специфичные фичи Oracle, которые
+статистически маловероятно встретить даже в семи открытых проектах.
+Для них "доказательство отсутствия ложных срабатываний" — это
+целенаправленные unit-тесты на известные коллизионные сценарии
+(партиционированный outer join, оконные функции, GRANT-списки,
+комментарии/строки, вложенные
+локальные объявления и т.д.), а не статистика по большому корпусу.
+
+## Что именно значит «Doc §§ полны» для GAP-001/004/005
+
+Эти три документа используют другую структуру заголовков (`## Что здесь
+на самом деле не так` вместо отдельных `## Минимальный пример` / `##
+Вывод ora2pg`) — они написаны раньше, до того как сложился текущий
+шаблон. Содержательно там есть всё то же самое (минимальный пример,
+реальный вывод ora2pg, `Reproducible: YES`, версия ora2pg, вердикт) —
+проверено построчным чтением при подготовке этого аудита, не
+автоматической проверкой по названиям заголовков.
+
+## Как перепроверить это самостоятельно
+
+```sh
+pytest -v                                    # см. точное число ниже
+ruff check ora2pg_gap_report/ tests/          # без замечаний
+python3 scripts/audit_gap_test_counts.py      # пересчитать колонку "Тесты (всего/guard)" таблицы выше
+```
+
+На момент последнего обновления этого документа: **387 тестов** (386
+проходят, 1 намеренно пропущен — требует установленный `ora2pg`,
+см. `--check-connect-by`). Колонка "Тесты (всего/guard)" в таблице выше —
+не ручной подсчёт, а буквальный вывод `scripts/audit_gap_test_counts.py`
+на момент последнего обновления этого файла; при добавлении новых тестов
+достаточно перезапустить скрипт и обновить таблицу его выводом.
+
+Живая перепроверка конкретного gap'а на реальном PostgreSQL — по шагам
+конкретного `docs/research/gap-NNN-*.md`: команда `ora2pg`, вывод, затем
+`psql -f` и `CALL`/`SELECT`, с точно теми же результатами, что
+задокументированы (`ora2pg` 25.0 и PostgreSQL 16 использовались во всех
+случаях в этом реестре).
+
+
+## Проверка корпусом для GAP-038..047
+
+Партия GAP-038..047 проверялась отдельным прогоном по **3 из 7**
+репозиториев корпуса (`utPLSQL/utPLSQL`,
+`mortenbra/alexandria-plsql-utils`, `oracle-samples/db-sample-schemas`),
+свежий `git clone --depth 1` каждого — **209 793 строки**, 511 файлов.
+Это намеренно меньший охват, чем полные 247 298 строк по семи
+репозиториям выше: остальные четыре в этот прогон не входили, и
+записывать его как эквивалент полного было бы неверно.
+
+Результат: **0 падений**, сработали 4 из 10 новых детекторов, все
+находки проверены глазами и оказались настоящими конструкциями, не
+ложными срабатываниями:
+
+| Детектор | Находок | Где |
+|---|---|---|
+| `multiset_operator` | 52 | `utPLSQL` — активно использует коллекции |
+| `bitmap_index` | 15 | `db-sample-schemas/sales_history` — учебная звёздная схема |
+| `object_table` | 2 | `utPLSQL/ut_suite_cache.sql`, `db-sample-schemas/oc_cre.sql` |
+| `local_time_zone` | 1 | `db-sample-schemas/order_entry/cord_v3.sql` |
+
+Прогон дополнительно вскрыл реальный баг атрибуции, который не поймали
+синтетические тесты: `object_table` указывал строку `CREATE TABLE`
+вместо строки самого `OF`, когда между ними стоит комментарий (в
+`ut_suite_cache.sql` — лицензионный заголовок на 13 строк).
+Исправлено, регрессионный тест построен на этой же реальной форме.
+
+
+## Партия GAP-048..067 (вторая волна)
+
+Тот же метод и тот же стенд: реальный `ora2pg 25.0` + реальный
+PostgreSQL 16, по каждому кандидату — минимальный пример Oracle, прогон
+`ora2pg`, загрузка сгенерированного вывода в живую базу. Каждый gap
+имеет собственный research-документ с фактическим выводом обеих команд.
+
+Отдельно стоит записать, что **отклонено** — чтобы реестр не выглядел
+так, будто подтверждается всё подряд. Проверено и признано корректно
+конвертируемым (то есть gap'ом не является):
+
+| Кандидат | Что показал прогон |
+|---|---|
+| `(+)` — старый синтаксис внешнего соединения | корректно переписывается в `LEFT OUTER JOIN`, выполняется |
+| `ORDER SIBLINGS BY` | корректно переписывается в рекурсивный CTE с массивом-иерархией; порядок братьев на реальных данных верный |
+| `SYS_GUID()` | корректно, причём ora2pg сам выводит `CREATE EXTENSION "uuid-ossp"` |
+| `NUMTODSINTERVAL` / `NUMTOYMINTERVAL` | корректно, значения на выходе верные |
+| `SELECT UNIQUE` | корректно переписывается в `SELECT DISTINCT` |
+| `SYS_REFCURSOR` | корректно переписывается в `REFCURSOR` |
+| `NOCOPY` | отбрасывается, но это лишь подсказка компилятору — поведение не меняется |
+| `LONG` (символьный) | корректно отображается в `text` |
+| `INTERVAL YEAR TO MONTH` / `DAY TO SECOND` | отображается в `interval`, наблюдаемого расхождения не показал |
+| `ENABLE ROW MOVEMENT`, `ROW ARCHIVAL`, `SCALE`/`ORDER` у последовательности | оговорки отбрасываются, наблюдаемого отказа или расхождения не показали |
+| `FORALL ... SAVE EXCEPTIONS` | реальный gap, но уже покрыт GAP-003 (`bulk_collect` ловит `FORALL`) |
+| `VARRAY` / nested table в объявлении типа | реальный gap, но уже покрыт GAP-021 (`collection_type`) |
+
+Ни один из 20 подтверждённых кандидатов не пересекается с уже
+существующими 47 детекторами — проверено прогоном текущего сканера по
+всем исходникам-примерам до реализации (все 20 дали `NONE`).
+
+### Повторный прогон по корпусу
+
+Все 20 новых детекторов прогнаны по реальному открытому Oracle-коду:
+`utPLSQL`, `alexandria-plsql-utils`, `db-sample-schemas`, `Logger` —
+**766 файлов, 229 787 строк, 0 падений**. Сработали 12 детекторов из 20;
+все находки проверены глазами по исходникам и оказались настоящими
+конструкциями:
+
+| Детектор | Находок | Где |
+|---|---|---|
+| `alt_quote_literal` | 706 | `utPLSQL` — `q'[...]'` используется повсеместно |
+| `table_collection` | 267 | `utPLSQL`, `alexandria` — `from table(...)` |
+| `to_date_rr` | 211 | `db-sample-schemas/order_entry` — `'DD-MON-RR HH.MI.SS.FF AM'` в INSERT'ах |
+| `authid_clause` | 50 | `utPLSQL` — почти каждый package spec |
+| `pragma_exception_init` | 44 | `utPLSQL`, `Logger` |
+| `goto_statement` | 3 | `alexandria/csv_util_pkg.pkb` |
+| `cursor_rowtype` | 2 | `utPLSQL/ut_suite_manager.pkb` |
+| `subtype_range` | 2 | `utPLSQL/ut_utils.pks` |
+| `sdo_geometry` | 2 | `db-sample-schemas/order_entry` |
+| `system_trigger` | 1 | `utPLSQL/ut_trigger_annotation_parsing.trg` |
+| `cursor_expression` | 1 | `alexandria/demos/string_util_pkg_demo.sql` |
+| `read_only_view` | 1 | `db-sample-schemas/human_resources/hr_create.sql` |
+
+По девяти из них регрессионные тесты построены прямо на этих реальных
+формах (а не на синтетических), включая многострочный `TO_TIMESTAMP` из
+`pord_v3.sql`, где строка формата стоит на следующей строке после
+значения.
+
+Два результата стоит выделить отдельно:
+
+- **`authid_clause` на `utPLSQL`.** 50 находок — это практически весь
+  публичный API проекта. Каждый такой пакет ora2pg выбрасывает из вывода
+  целиком, молча. Для проекта такого размера это означает, что от схемы
+  после конвертации не остаётся почти ничего, и узнать об этом можно
+  только по факту.
+- **`to_date_rr` на собственных примерах Oracle.** 211 находок в
+  `db-sample-schemas` — это INSERT'ы с датами. Они загрузятся без единой
+  ошибки и дадут 1 год до нашей эры.
+
+Восемь детекторов на корпусе не сработали (`anydata_type`,
+`for_update_wait`, `ignore_nulls`, `long_raw_type`, `nlssort`,
+`rownum_dml`, `trigger_follows`, `wm_concat`). Это не показатель их
+ненужности и не повод их убрать: каждый подтверждён на реальном прогоне
+`ora2pg` + PostgreSQL в своём research-документе, просто эти конструкции
+не встречаются в четырёх конкретных открытых проектах. Записано здесь
+явно, чтобы не создавалось впечатления, будто корпус подтверждает все
+двадцать.
+
+### Проверка самих рекомендаций
+
+Отдельным проходом проверено то, что обычно не проверяют: не «есть ли
+gap», а **работает ли совет, который мы даём по каждому gap'у**. Каждый
+рекомендуемый фрагмент выполнен на реальном PostgreSQL 16.
+
+Проход не был формальностью — он нашёл настоящую ошибку в уже
+написанном тексте GAP-058. Там было сказано, что `RR` можно заменить на
+`YY`, потому что «у PostgreSQL то же правило». Правило другое:
+
+| Диапазон | Oracle `RR` | PostgreSQL `YY` |
+|---|---|---|
+| 00-49 | 20xx | 20xx |
+| 50-69 | 19xx | **20xx** |
+| 70-99 | 19xx | 19xx |
+
+То есть совет менял громкую поломку (1 год до нашей эры на каждой
+строке) на тихую — на подмножестве данных, ровно в диапазоне дат
+рождения и записей середины XX века. Исправлено во всех местах
+(сообщение детектора, оба варианта короткой подсказки, английский
+перевод, research-документ), добавлен guard-тест, который не даёт
+формулировке вернуться.
+
+Остальные рекомендации выполнены и работают как заявлено:
+
+| Gap | Что проверялось | Результат |
+|---|---|---|
+| 049 | существует ли рекомендуемое имя сортировки | `de-DE-x-icu` есть; про `de_DE.utf8` в тексте оговорено «зависит от сборки с ICU» |
+| 051 | текст ошибки для короткого написания | ровно `type "anydata" does not exist`, как и записано в документе |
+| 052 | `CREATE EVENT TRIGGER ... ON ddl_command_end` | создаётся и срабатывает на DDL |
+| 053 | «триггеры срабатывают в алфавитном порядке имён» | подтверждено: `t10_first` отработал раньше `t20_second`, хотя создан позже — то есть совет про именование действительно работает |
+| 056 | `SET LOCAL lock_timeout = '5 s'` | принимается, значение видно в `SHOW` |
+| 061 | `CREATE DOMAIN ... CHECK (VALUE BETWEEN 1 AND 100)` | создаётся, значение приводится |
+| 062 | `$q$it's a test$q$` | работает, экранировать ничего не нужно |
+| 064 | `RECORD` вместо `<курсор>%ROWTYPE` | `FETCH` в `RECORD` из курсора отрабатывает |
+| 065 | `string_agg(col, ',' ORDER BY col)` | работает, порядок детерминированный |
+| 066 | `REVOKE INSERT ON <view>` | запись действительно блокируется: `permission denied for view` |
+
+Не проверено на стенде только `CREATE EXTENSION postgis` (GAP-067) —
+PostGIS в этом окружении не установлен, и в документе это сказано прямо,
+а не выдано за проверенное.

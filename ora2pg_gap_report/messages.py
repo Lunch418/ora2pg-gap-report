@@ -3531,3 +3531,1072 @@ def text(message_id: str, lang: str = "ru") -> str:
     """
     message = MESSAGES[message_id]
     return message.en if lang == "en" else message.ru
+
+# --- Remediation hints ---------------------------------------------------
+# One short imperative line per detector for the report's "recommended
+# actions" section -- a compact index into the full explanation above, not
+# new advice. Here rather than split across terminal_report.py (ru) and
+# i18n.py (en) for the same reason MESSAGES is: two files holding the two
+# halves of one sentence drift, and the drift is invisible until someone
+# reads the report in the language that lost.
+
+
+REMEDIATION_HINTS: dict[str, Message] = {
+    "autonomous_tx": Message(
+        ru=(
+            'Проверить dblink-перенос вручную — сетевая зависимость может быть '
+            'неприемлема в изолированном контуре'
+        ),
+        en=(
+            'Review the dblink migration by hand — the network dependency may be '
+            'unacceptable in an isolated environment'
+        ),
+    ),
+    "compound_triggers": Message(
+        ru=(
+            'Разбить на отдельные обычные триггеры (BEFORE/AFTER × STATEMENT/ROW) с общим'
+            ' состоянием через таблицу'
+        ),
+        en=(
+            'Split into separate ordinary triggers (BEFORE/AFTER × STATEMENT/ROW) sharing'
+            ' state via a table'
+        ),
+    ),
+    "dbms_utl_calls": Message(
+        ru=(
+            'Переписать вручную или подключить расширение orafce, если для вызова там '
+            'есть эквивалент'
+        ),
+        en=(
+            'Rewrite by hand, or use the orafce extension if it has an equivalent for '
+            'this call'
+        ),
+    ),
+    "connect_by": Message(
+        ru='Заменить LEVEL на настоящую колонку-счётчик в сгенерированном WITH RECURSIVE',
+        en='Replace LEVEL with a real counter column in the generated WITH RECURSIVE',
+    ),
+    "merge_delete_clause": Message(
+        ru=(
+            'Разбить MERGE на две ветки WHEN MATCHED со взаимоисключающими условиями '
+            'вместо DELETE WHERE'
+        ),
+        en=(
+            'Split the MERGE into two WHEN MATCHED branches with mutually exclusive '
+            'conditions instead of DELETE WHERE'
+        ),
+    ),
+    "bulk_collect": Message(
+        ru=(
+            'Переписать TYPE/BULK COLLECT на массив PostgreSQL (type[]) или временную '
+            'таблицу, FORALL — на цикл или UNNEST()'
+        ),
+        en=(
+            'Rewrite TYPE/BULK COLLECT as a PostgreSQL array (type[]) or a temporary '
+            'table; rewrite FORALL as a loop or UNNEST()'
+        ),
+    ),
+    "database_link": Message(
+        ru=(
+            'Настроить postgres_fdw/dblink с реальными connection-параметрами удалённой '
+            'базы вместо @dblink_name'
+        ),
+        en=(
+            "Set up postgres_fdw/dblink with the remote database's real connection "
+            'parameters instead of @dblink_name'
+        ),
+    ),
+    "model_clause": Message(
+        ru=(
+            'Переписать вручную на оконные функции или рекурсивные CTE — прямого '
+            'эквивалента MODEL в PostgreSQL нет'
+        ),
+        en=(
+            'Rewrite by hand using window functions or recursive CTEs — PostgreSQL has no'
+            ' direct MODEL equivalent'
+        ),
+    ),
+    "pivot_clause": Message(
+        ru=(
+            'Переписать на условную агрегацию (FILTER/CASE WHEN) или расширение tablefunc'
+            ' (crosstab())'
+        ),
+        en=(
+            'Rewrite as conditional aggregation (FILTER/CASE WHEN) or the tablefunc '
+            'extension (crosstab())'
+        ),
+    ),
+    "object_type": Message(
+        ru=(
+            'Переписать на composite type + отдельные функции — у PostgreSQL нет '
+            'объектных типов с методами'
+        ),
+        en=(
+            'Rewrite as a composite type plus separate functions — PostgreSQL has no '
+            'object types with methods'
+        ),
+    ),
+    "with_function": Message(
+        ru=(
+            'Вынести встроенную функцию в обычную функцию/процедуру PostgreSQL вручную — '
+            'ora2pg ломает структуру запроса'
+        ),
+        en=(
+            'Manually move the inline function out into an ordinary PostgreSQL '
+            "function/procedure — ora2pg breaks the query's structure"
+        ),
+    ),
+    "flashback_query": Message(
+        ru=(
+            'Спроектировать отдельный механизм истории/аудита — прямого эквивалента AS OF'
+            ' в PostgreSQL нет'
+        ),
+        en=(
+            'Design a separate history/audit mechanism — PostgreSQL has no direct AS OF '
+            'equivalent'
+        ),
+    ),
+    "global_temp_table": Message(
+        ru=(
+            "Добавить 'ON COMMIT DELETE ROWS' вручную в определение временной таблицы — "
+            'ora2pg теряет секцию ON COMMIT'
+        ),
+        en=(
+            "Add 'ON COMMIT DELETE ROWS' to the temporary table definition by hand — "
+            'ora2pg drops the ON COMMIT section'
+        ),
+    ),
+    "table_partitioning": Message(
+        ru=(
+            'Пересоздать партиции вручную (CREATE TABLE ... PARTITION OF ...) — ora2pg '
+            'отбрасывает секционирование полностью'
+        ),
+        en=(
+            'Recreate the partitions by hand (CREATE TABLE ... PARTITION OF ...) — ora2pg'
+            ' drops partitioning entirely'
+        ),
+    ),
+    "connect_by_nocycle": Message(
+        ru=(
+            'Полностью переписать вручную на WITH RECURSIVE — конвертация NOCYCLE/ORDER '
+            'SIBLINGS BY разваливает структуру блока'
+        ),
+        en=(
+            'Rewrite fully by hand as WITH RECURSIVE — converting NOCYCLE/ORDER SIBLINGS '
+            "BY breaks the block's structure"
+        ),
+    ),
+    "context_object": Message(
+        ru=(
+            'Переписать на current_setting()/set_config() или Row-Level Security (CREATE '
+            'POLICY) — прямого аналога CREATE CONTEXT нет'
+        ),
+        en=(
+            'Rewrite using current_setting()/set_config() or Row-Level Security (CREATE '
+            "POLICY) — there's no direct CREATE CONTEXT equivalent"
+        ),
+    ),
+    "insert_all": Message(
+        ru=(
+            'Разбить на набор отдельных INSERT INTO ... SELECT ... — по одному на каждую '
+            'ветку WHEN/INTO'
+        ),
+        en=(
+            'Split into a set of separate INSERT INTO ... SELECT ... statements, one per '
+            'WHEN/INTO branch'
+        ),
+    ),
+    "json_table": Message(
+        ru=(
+            'Переписать на jsonb_to_recordset()/jsonb_array_elements() с явным '
+            'приведением типов'
+        ),
+        en=(
+            'Rewrite using jsonb_to_recordset()/jsonb_array_elements() with explicit type'
+            ' casts'
+        ),
+    ),
+    "external_table": Message(
+        ru=(
+            'Настроить foreign table через file_fdw (или fdw под нужный формат) — ora2pg '
+            'превращает её в обычную таблицу'
+        ),
+        en=(
+            'Set up a foreign table via file_fdw (or an fdw for the format needed) — '
+            'ora2pg turns it into an ordinary table'
+        ),
+    ),
+    "sql_macro": Message(
+        ru=(
+            'Встроить логику макроса как обычное условие/подзапрос прямо в вызывающий код'
+            ' — SQL_MACRO конвертируется в обычную функцию'
+        ),
+        en=(
+            "Inline the macro's logic as an ordinary condition/subquery directly in the "
+            'calling code — SQL_MACRO converts to an ordinary function'
+        ),
+    ),
+    "invisible_column": Message(
+        ru=(
+            'Явно перечислять столбцы в SELECT/INSERT там, где скрытие было важно — '
+            'PostgreSQL не имеет аналога INVISIBLE'
+        ),
+        en=(
+            'Explicitly list columns in SELECT/INSERT wherever the hiding mattered — '
+            'PostgreSQL has no INVISIBLE equivalent'
+        ),
+    ),
+    "collection_type": Message(
+        ru=(
+            'Переписать на встроенный массив (datatype[]) или отдельную связанную таблицу'
+            ' — ora2pg полностью теряет объявление коллекционного типа'
+        ),
+        en=(
+            'Rewrite as a built-in array (datatype[]) or a separate linked table — ora2pg'
+            ' drops the collection type declaration entirely'
+        ),
+    ),
+    "cross_apply": Message(
+        ru=(
+            'Переписать на JOIN LATERAL (...) ON true / LEFT JOIN LATERAL (...) ON true —'
+            ' синтаксиса APPLY в PostgreSQL нет'
+        ),
+        en=(
+            'Rewrite as JOIN LATERAL (...) ON true / LEFT JOIN LATERAL (...) ON true — '
+            'PostgreSQL has no APPLY syntax'
+        ),
+    ),
+    "oracle_text": Message(
+        ru=(
+            'Переписать на tsvector/tsquery + GIN-индекс (to_tsvector/@@) — ora2pg теряет'
+            ' INDEXTYPE и не переносит CONTAINS/CATSEARCH/MATCHES'
+        ),
+        en=(
+            'Rewrite using tsvector/tsquery plus a GIN index (to_tsvector/@@) — ora2pg '
+            "drops INDEXTYPE and doesn't migrate CONTAINS/CATSEARCH/MATCHES"
+        ),
+    ),
+    "recursive_with": Message(
+        ru=(
+            'Добавить ключевое слово RECURSIVE вручную (и при наличии CYCLE — переставить'
+            ' её после тела CTE и добавить обязательную секцию USING)'
+        ),
+        en=(
+            'Add the RECURSIVE keyword by hand (and, if CYCLE is present, move it after '
+            'the CTE body and add the mandatory USING clause)'
+        ),
+    ),
+    "invisible_index": Message(
+        ru=(
+            'Проверить, действительно ли индекс должен быть скрыт от оптимизатора — '
+            'PostgreSQL не имеет аналога INVISIBLE для индексов'
+        ),
+        en=(
+            'Check whether the index genuinely needs to stay hidden from the optimizer — '
+            'PostgreSQL has no INVISIBLE equivalent for indexes'
+        ),
+    ),
+    "read_only_table": Message(
+        ru=(
+            'Настроить REVOKE INSERT/UPDATE/DELETE от всех ролей или BEFORE-триггер, '
+            'отклоняющий DML — ora2pg теряет секцию READ ONLY'
+        ),
+        en=(
+            'Set up REVOKE INSERT/UPDATE/DELETE from all roles, or a BEFORE trigger that '
+            'rejects DML — ora2pg drops the READ ONLY section'
+        ),
+    ),
+    "materialized_view_log": Message(
+        ru=(
+            'Спроектировать обновление материализованных представлений через полный '
+            'REFRESH MATERIALIZED VIEW — у PostgreSQL нет инкрементального FAST REFRESH'
+        ),
+        en=(
+            'Design materialized view refreshes around a full REFRESH MATERIALIZED VIEW —'
+            ' PostgreSQL has no incremental FAST REFRESH'
+        ),
+    ),
+    "identity_column": Message(
+        ru=(
+            'Убрать лишнюю внешнюю пару скобок вокруг опций последовательности вручную — '
+            'баг подстановки ora2pg, не пропуск конвертации'
+        ),
+        en=(
+            'Remove the extra outer pair of parentheses around the sequence options by '
+            'hand — an ora2pg substitution bug, not a skipped conversion'
+        ),
+    ),
+    "rowid_type": Message(
+        ru=(
+            'Вручную выбрать подходящий тип (обычно text) для столбца, который ora2pg '
+            'сконвертировал из ROWID/UROWID в oid'
+        ),
+        en=(
+            'Manually pick a suitable type (usually text) for any column ora2pg converted'
+            ' from ROWID/UROWID to oid'
+        ),
+    ),
+    "sequence_cycle": Message(
+        ru=(
+            'Добавить CYCLE вручную в CREATE SEQUENCE, если циклическое поведение '
+            'действительно нужно'
+        ),
+        en=(
+            'Add CYCLE back into CREATE SEQUENCE by hand if wraparound behavior is '
+            'actually needed'
+        ),
+    ),
+    "default_on_null": Message(
+        ru=(
+            'Переписать вручную на BEFORE-триггер или GENERATED ALWAYS AS (COALESCE(...))'
+            ' STORED — прямого аналога DEFAULT ... ON NULL в PostgreSQL нет'
+        ),
+        en=(
+            'Manually rewrite as a BEFORE trigger or GENERATED ALWAYS AS (COALESCE(...)) '
+            'STORED — PostgreSQL has no DEFAULT ... ON NULL equivalent'
+        ),
+    ),
+    "public_synonym": Message(
+        ru=(
+            'Вручную квалифицировать целевую таблицу схемой в определении '
+            'сгенерированного VIEW'
+        ),
+        en="Manually schema-qualify the target table in the generated VIEW's definition",
+    ),
+    "virtual_column": Message(
+        ru=(
+            'Учитывать, что сгенерированный триггер молча отбрасывает любое явно '
+            'присвоенное столбцу значение — добавить проверку на уровне приложения, если '
+            'эта защита важна'
+        ),
+        en=(
+            'Be aware the generated trigger silently discards any value explicitly '
+            'assigned to the column — add application-level validation if that protection'
+            ' matters'
+        ),
+    ),
+    "conditional_compilation": Message(
+        ru=(
+            'Вручную развернуть нужную ветку в обычный код (или обычный IF для решения во'
+            ' время выполнения) — препроцессора условной компиляции в PostgreSQL нет'
+        ),
+        en=(
+            'Manually unroll the needed branch into ordinary code (or an ordinary IF for '
+            'a runtime decision) — PostgreSQL has no conditional-compilation preprocessor'
+        ),
+    ),
+    "nested_subprogram": Message(
+        ru=(
+            'Вручную вынести вложенную логику в отдельную функцию/процедуру PostgreSQL '
+            'верхнего уровня'
+        ),
+        en=(
+            'Manually move the nested logic out into a separate, top-level PostgreSQL '
+            'function/procedure'
+        ),
+    ),
+    "package_state": Message(
+        ru=(
+            'Добавить явное приведение типа к set_config() и missing_ok => true к '
+            'current_setting(), либо спроектировать состояние иначе (временная таблица, '
+            'параметр приложения)'
+        ),
+        en=(
+            'Add an explicit ::text cast to set_config() and missing_ok => true to '
+            'current_setting(), or design the state differently (a temp table, an '
+            'application parameter)'
+        ),
+    ),
+    "index_organized_table": Message(
+        ru=(
+            'Перепроверить производительность на реальной нагрузке — у PostgreSQL нет '
+            'настоящих индекс-организованных таблиц, конвертированная таблица — обычная '
+            'куча с отдельным индексом'
+        ),
+        en=(
+            'Re-check performance under real load — PostgreSQL has no true '
+            'index-organized tables, the converted table is an ordinary heap with a '
+            'separate index'
+        ),
+    ),
+    "match_recognize": Message(
+        ru=(
+            'Переписать на оконные функции (LAG/LEAD над разделом) с фильтрацией или на '
+            'рекурсивный CTE — прямого аналога row pattern matching в PostgreSQL нет'
+        ),
+        en=(
+            'Rewrite using window functions (LAG/LEAD over the partition) plus filtering,'
+            ' or a recursive CTE — PostgreSQL has no row pattern matching equivalent'
+        ),
+    ),
+    "connect_by_pseudocolumn": Message(
+        ru=(
+            'Корень ветки протащить дополнительным столбцом рекурсивного CTE, признак '
+            'листа — через NOT EXISTS, признак цикла — через секцию CYCLE (PostgreSQL '
+            '14+)'
+        ),
+        en=(
+            'Carry the branch root through an extra recursive-CTE column, compute the '
+            "leaf flag with a NOT EXISTS subquery, and the cycle flag with the CTE's own "
+            'CYCLE clause (PostgreSQL 14+)'
+        ),
+    ),
+    "keep_dense_rank": Message(
+        ru=(
+            'Переписать на оконную функцию FIRST_VALUE/LAST_VALUE с той же ORDER BY '
+            'внутри OVER, либо на DISTINCT ON, либо на агрегат с FILTER'
+        ),
+        en=(
+            'Rewrite as a FIRST_VALUE/LAST_VALUE window function with the same ORDER BY '
+            'inside OVER, or as DISTINCT ON, or as an aggregate with FILTER'
+        ),
+    ),
+    "multiset_operator": Message(
+        ru=(
+            'Перевести на модель массивов PostgreSQL: CAST(MULTISET(...)) → ARRAY(SELECT '
+            '...), MULTISET UNION → ||, MEMBER OF → = ANY(...), SUBMULTISET OF → <@'
+        ),
+        en=(
+            "Move to PostgreSQL's array model: CAST(MULTISET(...)) → ARRAY(SELECT ...), "
+            'MULTISET UNION → ||, MEMBER OF → = ANY(...), SUBMULTISET OF → <@'
+        ),
+    ),
+    "sample_clause": Message(
+        ru=(
+            'Заменить на TABLESAMPLE: SAMPLE (n) → TABLESAMPLE BERNOULLI (n), SAMPLE '
+            'BLOCK (n) → TABLESAMPLE SYSTEM (n)'
+        ),
+        en=(
+            'Replace with TABLESAMPLE: SAMPLE (n) → TABLESAMPLE BERNOULLI (n), SAMPLE '
+            'BLOCK (n) → TABLESAMPLE SYSTEM (n)'
+        ),
+    ),
+    "accessible_by": Message(
+        ru=(
+            'Прямого аналога нет — вынести подпрограмму в отдельную схему и ограничить '
+            'доступ через GRANT/REVOKE (защита на уровне ролей, а не вызывающих '
+            'подпрограмм)'
+        ),
+        en=(
+            'No direct equivalent — move the subprogram into its own schema and restrict '
+            'it with GRANT/REVOKE (role-level protection, not per-calling-subprogram)'
+        ),
+    ),
+    "local_time_zone": Message(
+        ru=(
+            'Заменить тип столбца на timestamptz — именно он воспроизводит пересчёт в '
+            'часовой пояс сессии, который делает Oracle LTZ'
+        ),
+        en=(
+            'Change the column type to timestamptz — that is the type that reproduces the'
+            " session-time-zone conversion Oracle's LTZ performs"
+        ),
+    ),
+    "temporal_validity": Message(
+        ru=(
+            'Развернуть в обычную пару timestamp-столбцов с фильтрацией в запросах, либо '
+            'в тип tstzrange с ограничением-исключением при контроле пересечений'
+        ),
+        en=(
+            'Expand into an ordinary pair of timestamp columns filtered in queries, or a '
+            'tstzrange column with an exclusion constraint if overlap control is needed'
+        ),
+    ),
+    "bitmap_index": Message(
+        ru=(
+            'Заменить на обычный btree (планировщик сам комбинирует их через bitmap scan)'
+            ' либо на gin с явным классом операторов из расширения btree_gin'
+        ),
+        en=(
+            'Replace with a plain btree (the planner combines several of them via bitmap '
+            'scan on its own) or with gin plus an explicit operator class from btree_gin'
+        ),
+    ),
+    "object_table": Message(
+        ru=(
+            'Развернуть объектную таблицу в обычную: отдельный столбец на каждый атрибут '
+            'типа плюс явные ограничения'
+        ),
+        en=(
+            'Expand the object table into an ordinary one: a separate column per type '
+            'attribute plus explicit constraints'
+        ),
+    ),
+    "ignore_nulls": Message(
+        ru=(
+            'Эмулировать вручную: группирующий ключ через count(col) FILTER (WHERE col IS'
+            ' NOT NULL) плюс first_value внутри группы, либо боковой подзапрос'
+        ),
+        en=(
+            'Emulate it by hand: a grouping key from count(col) FILTER (WHERE col IS NOT '
+            'NULL) plus first_value within the group, or a lateral subquery'
+        ),
+    ),
+    "nlssort": Message(
+        ru=(
+            'Сопоставить имя сортировки Oracle с реальной локалью PostgreSQL (GERMAN → '
+            '"de-DE-x-icu" или "de_DE.utf8") и при необходимости создать её через CREATE '
+            'COLLATION'
+        ),
+        en=(
+            'Map the Oracle sort name onto a real PostgreSQL locale (GERMAN → '
+            '"de-DE-x-icu" or "de_DE.utf8") and create it with CREATE COLLATION if needed'
+        ),
+    ),
+    "long_raw_type": Message(
+        ru=(
+            'Поправить тип столбца на bytea — это и есть собственное документированное '
+            'отображение ora2pg для LONG RAW'
+        ),
+        en=(
+            "Change the column type to bytea — which is ora2pg's own documented mapping "
+            'for LONG RAW'
+        ),
+    ),
+    "anydata_type": Message(
+        ru=(
+            'Переразметить столбец в jsonb либо разнести на несколько типизированных '
+            'столбцов с признаком типа'
+        ),
+        en=(
+            'Remodel the column as jsonb, or split it into several typed columns plus a '
+            'discriminator'
+        ),
+    ),
+    "system_trigger": Message(
+        ru=(
+            'DDL-события перевести на событийные триггеры PostgreSQL (CREATE EVENT '
+            'TRIGGER), LOGON/LOGOFF/SERVERERROR — на журналирование сервера или логику '
+            'приложения'
+        ),
+        en=(
+            'Move DDL events onto PostgreSQL event triggers (CREATE EVENT TRIGGER); '
+            'LOGON/LOGOFF/SERVERERROR belong in server logging or application logic '
+            'instead'
+        ),
+    ),
+    "trigger_follows": Message(
+        ru=(
+            'Убрать оговорку, нужный порядок обеспечить именованием триггеров (PostgreSQL'
+            ' вызывает их в алфавитном порядке) либо слиянием в один триггер'
+        ),
+        en=(
+            'Drop the clause and get the order you need from trigger names (PostgreSQL '
+            'fires them alphabetically) or by merging the triggers into one'
+        ),
+    ),
+    "table_collection": Message(
+        ru=(
+            'Заменить на unnest(...) для массива или на обычный вызов set-returning '
+            'функции во FROM — в зависимости от того, чем стала сама коллекция'
+        ),
+        en=(
+            'Replace with unnest(...) for an array, or a plain set-returning function '
+            'call in FROM — depending on what the collection itself became'
+        ),
+    ),
+    "cursor_expression": Message(
+        ru=(
+            'Заменить на соединение с агрегацией дочерних строк (array_agg/json_agg) либо'
+            ' на отдельную функцию, возвращающую refcursor'
+        ),
+        en=(
+            'Replace with a join that aggregates the child rows (array_agg/json_agg), or '
+            'with a separate function returning refcursor'
+        ),
+    ),
+    "for_update_wait": Message(
+        ru=(
+            'Убрать WAIT n и выставить таймаут на уровне сессии: SET LOCAL lock_timeout ='
+            " 'n s' перед SELECT ... FOR UPDATE"
+        ),
+        en=(
+            'Drop WAIT n and set the timeout at session level instead: SET LOCAL '
+            "lock_timeout = 'n s' before SELECT ... FOR UPDATE"
+        ),
+    ),
+    "rownum_dml": Message(
+        ru=(
+            'Переписать через подзапрос по первичному ключу — DELETE FROM t WHERE id IN '
+            '(SELECT id FROM t WHERE ... ORDER BY ... LIMIT n)'
+        ),
+        en=(
+            'Rewrite through a primary-key subquery — DELETE FROM t WHERE id IN (SELECT '
+            'id FROM t WHERE ... ORDER BY ... LIMIT n)'
+        ),
+    ),
+    "to_date_rr": Message(
+        ru=(
+            'Заменить RR на явный четырёхзначный YYYY с приведением входных данных — '
+            'PostgreSQL кода RR не знает и молча выдаёт 0001 год до нашей эры, а YY не '
+            'эквивалент: его порог 69/70 против 49/50 у Oracle RR'
+        ),
+        en=(
+            'Replace RR with an explicit four-digit YYYY after normalising the input — '
+            'PostgreSQL does not know RR (it silently returns year 1 BC), and YY is not '
+            "an equivalent: it pivots at 69/70, Oracle's RR at 49/50"
+        ),
+    ),
+    "authid_clause": Message(
+        ru=(
+            'Убрать оговорку из исходника перед конвертацией (иначе объект пропадёт '
+            'целиком) и дописать в готовую функцию SECURITY DEFINER или SECURITY INVOKER'
+        ),
+        en=(
+            'Remove the clause from the source before converting (otherwise the whole '
+            'routine is dropped) and add SECURITY DEFINER or SECURITY INVOKER to the '
+            'generated function'
+        ),
+    ),
+    "pragma_exception_init": Message(
+        ru=(
+            'Сопоставить каждый номер ORA с настоящим кодом PostgreSQL и заменить '
+            "подставленный '50001' на него (например unique_violation вместо -1)"
+        ),
+        en=(
+            'Map each ORA number onto the real PostgreSQL code and replace the '
+            "substituted '50001' with it (for instance unique_violation instead of -1)"
+        ),
+    ),
+    "subtype_range": Message(
+        ru=(
+            'Заменить RANGE lo .. hi на проверку: CREATE DOMAIN ... CHECK (VALUE BETWEEN '
+            'lo AND hi)'
+        ),
+        en=(
+            'Replace RANGE lo .. hi with a check: CREATE DOMAIN ... CHECK (VALUE BETWEEN '
+            'lo AND hi)'
+        ),
+    ),
+    "alt_quote_literal": Message(
+        ru=(
+            'Заменить на долларовые кавычки PostgreSQL ($q$...$q$) или на обычный литерал'
+            ' с удвоенными апострофами'
+        ),
+        en=(
+            'Replace with PostgreSQL dollar quoting ($q$...$q$) or with an ordinary '
+            'literal using doubled apostrophes'
+        ),
+    ),
+    "goto_statement": Message(
+        ru=(
+            'Переписать на управляющие конструкции: переход назад — на LOOP/CONTINUE, '
+            'переход вперёд — на IF/ELSE или вложенный блок с EXIT'
+        ),
+        en=(
+            'Rewrite with control structures: a backward jump becomes LOOP/CONTINUE, a '
+            'forward jump becomes IF/ELSE or a nested block with EXIT'
+        ),
+    ),
+    "cursor_rowtype": Message(
+        ru=(
+            'Объявить переменную как RECORD — в PL/pgSQL она принимает строку любого '
+            'курсора, и FETCH работает без изменений'
+        ),
+        en=(
+            'Declare the variable as RECORD — in PL/pgSQL it accepts a row from any '
+            'cursor, and FETCH works unchanged'
+        ),
+    ),
+    "wm_concat": Message(
+        ru=(
+            "Заменить на string_agg(col, ',' ORDER BY col) — порядок стоит задать явно, "
+            'WM_CONCAT его не гарантировал'
+        ),
+        en=(
+            "Replace with string_agg(col, ',' ORDER BY col) — make the order explicit, "
+            'since WM_CONCAT never guaranteed one'
+        ),
+    ),
+    "read_only_view": Message(
+        ru=(
+            'Вернуть запрет записи явно: REVOKE INSERT, UPDATE, DELETE ON <view> либо '
+            'триггер INSTEAD OF, возбуждающий исключение'
+        ),
+        en=(
+            'Restore the write ban explicitly: REVOKE INSERT, UPDATE, DELETE ON <view>, '
+            'or an INSTEAD OF trigger that raises an exception'
+        ),
+    ),
+    "sdo_geometry": Message(
+        ru=(
+            'Добавить CREATE EXTENSION postgis перед загрузкой схемы (ora2pg её не '
+            'выводит) и отдельно проверить перенос самих значений'
+        ),
+        en=(
+            'Add CREATE EXTENSION postgis before loading the schema (ora2pg does not emit'
+            ' it) and check the value migration itself separately'
+        ),
+    ),
+    "mysql_enum_type": Message(
+        ru=(
+            'Вставить недостающий CREATE TYPE <таблица>_<столбец>_t AS ENUM (...) перед '
+            'CREATE TABLE — значения уже видны в исходном ENUM(...)'
+        ),
+        en=(
+            'Insert the missing CREATE TYPE <table>_<column>_t AS ENUM (...) before '
+            'CREATE TABLE -- the values are already visible in the source ENUM(...)'
+        ),
+    ),
+    "mysql_on_update_current_timestamp": Message(
+        ru='Перенести на триггер BEFORE UPDATE, выставляющий NEW.<столбец> = now()',
+        en='Move it to a BEFORE UPDATE trigger that sets NEW.<column> = now()',
+    ),
+    "mysql_on_duplicate_key_update": Message(
+        ru='Переписать на INSERT ... ON CONFLICT (<уникальный_ключ>) DO UPDATE SET ...',
+        en='Rewrite as INSERT ... ON CONFLICT (<unique key>) DO UPDATE SET ...',
+    ),
+    "mysql_signal": Message(
+        ru=(
+            "Переписать на RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>', MESSAGE = "
+            "'<текст>'"
+        ),
+        en=(
+            "Rewrite as RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>', MESSAGE = "
+            "'<text>'"
+        ),
+    ),
+    "mysql_fulltext_index": Message(
+        ru=(
+            "Восстановить вручную: CREATE INDEX ... USING gin (to_tsvector('...', ...)) "
+            'после CREATE TABLE, столбцы видны в исходном FULLTEXT KEY (...)'
+        ),
+        en=(
+            "Rebuild it by hand: CREATE INDEX ... USING gin (to_tsvector('...', ...)) "
+            'after CREATE TABLE -- the columns are visible in the source FULLTEXT KEY '
+            '(...)'
+        ),
+    ),
+    "mysql_key_index": Message(
+        ru=(
+            'Переписать в CREATE INDEX <имя> ON <таблица> (<столбцы>) после CREATE TABLE '
+            '— синоним INDEX ora2pg переносит корректно, ломается только написание KEY'
+        ),
+        en=(
+            'Rewrite as CREATE INDEX <name> ON <table> (<columns>) after CREATE TABLE -- '
+            'ora2pg carries the INDEX synonym over correctly, only the KEY spelling '
+            'breaks'
+        ),
+    ),
+    "mysql_spatial_index": Message(
+        ru=(
+            'Восстановить как CREATE INDEX ... USING gist (<столбец>) поверх PostGIS-типа'
+            ' и отдельно проверить сам тип столбца'
+        ),
+        en=(
+            'Rebuild as CREATE INDEX ... USING gist (<column>) over a PostGIS type, and '
+            'check the column type itself separately'
+        ),
+    ),
+    "mysql_limit_comma": Message(
+        ru=(
+            'Переписать на LIMIT <количество> OFFSET <смещение> — порядок аргументов '
+            'обратный, механическая замена запятой даст другую страницу'
+        ),
+        en=(
+            'Rewrite as LIMIT <count> OFFSET <offset> -- the argument order is reversed, '
+            'so mechanically swapping the comma returns a different page'
+        ),
+    ),
+    "mysql_replace_into": Message(
+        ru=(
+            'Переписать на INSERT ... ON CONFLICT DO UPDATE, сверив разницу: REPLACE '
+            'удаляет строку и потому запускает ON DELETE-каскады'
+        ),
+        en=(
+            'Rewrite as INSERT ... ON CONFLICT DO UPDATE, checking the difference: '
+            'REPLACE deletes the row and therefore fires ON DELETE cascades'
+        ),
+    ),
+    "mysql_insert_ignore": Message(
+        ru=(
+            'Переписать на INSERT ... ON CONFLICT DO NOTHING, проверив, какие именно '
+            'ошибки глушились — IGNORE шире'
+        ),
+        en=(
+            'Rewrite as INSERT ... ON CONFLICT DO NOTHING, after working out which errors'
+            ' were actually being swallowed -- IGNORE is broader'
+        ),
+    ),
+    "mysql_prepare_from": Message(
+        ru=(
+            'Переписать на EXECUTE <строка> USING ... в PL/pgSQL — PostgreSQL-овский '
+            'PREPARE ... AS здесь не подходит'
+        ),
+        en=(
+            "Rewrite as EXECUTE <string> USING ... in PL/pgSQL -- PostgreSQL's own "
+            'PREPARE ... AS does not fit here'
+        ),
+    ),
+    "mysql_last_insert_id": Message(
+        ru=(
+            'Переписать на INSERT ... RETURNING <столбец> INTO <переменная>; lastval() '
+            'относится к последней последовательности вообще, а не к таблице'
+        ),
+        en=(
+            'Rewrite as INSERT ... RETURNING <column> INTO <variable>; lastval() refers '
+            'to the last sequence used at all, not to a table'
+        ),
+    ),
+    "mysql_auto_increment_start": Message(
+        ru=(
+            'После загрузки данных выставить счётчик: SELECT '
+            "setval(pg_get_serial_sequence('<таблица>','<столбец>'), (SELECT "
+            'max(<столбец>) FROM <таблица>))'
+        ),
+        en=(
+            'After loading the data, set the counter: SELECT '
+            "setval(pg_get_serial_sequence('<table>','<column>'), (SELECT max(<column>) "
+            'FROM <table>))'
+        ),
+    ),
+    "mysql_date_format": Message(
+        ru=(
+            "Переписать на to_char(<дата>, 'YYYY-MM-DD HH24:MI:SS') и сверить каждый "
+            'спецификатор — ошибки не будет, вернётся молча не то'
+        ),
+        en=(
+            "Rewrite as to_char(<date>, 'YYYY-MM-DD HH24:MI:SS') and check every "
+            'specifier -- there is no error, it just silently returns the wrong thing'
+        ),
+    ),
+    "mysql_foreign_key": Message(
+        ru=(
+            'Восстановить вручную: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... '
+            'REFERENCES ... после загрузки всех таблиц'
+        ),
+        en=(
+            'Restore by hand: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... '
+            'REFERENCES ... once all the tables are loaded'
+        ),
+    ),
+    "mysql_zero_date": Message(
+        ru=(
+            "Переносить '0000-00-00' в NULL, а не в подставленную ora2pg дату 1970-01-01;"
+            ' проверить заодно сами данные, а не только DEFAULT'
+        ),
+        en=(
+            "Migrate '0000-00-00' to NULL rather than to the 1970-01-01 ora2pg "
+            'substitutes; check the data itself as well, not just the DEFAULT'
+        ),
+    ),
+    "mysql_declare_handler": Message(
+        ru=(
+            'Восстановить обработку ошибок блоком BEGIN ... EXCEPTION WHEN ... END; для '
+            'NOT FOUND — через проверку FOUND, а не EXCEPTION'
+        ),
+        en=(
+            'Restore the error handling with a BEGIN ... EXCEPTION WHEN ... END block; '
+            'for NOT FOUND use a FOUND check rather than an EXCEPTION'
+        ),
+    ),
+    "mysql_collate": Message(
+        ru=(
+            'Вернуть правило сравнения явно: COLLATE с ICU-правилом, тип citext или '
+            'lower() с обеих сторон сравнения'
+        ),
+        en=(
+            'Bring the comparison rule back explicitly: COLLATE with an ICU rule, the '
+            'citext type, or lower() on both sides of the comparison'
+        ),
+    ),
+    "mysql_set_type": Message(
+        ru=(
+            'Добавить CHECK-ограничение на допустимые значения (или вынести в отдельную '
+            'таблицу связей) — ora2pg оставляет просто text без проверки'
+        ),
+        en=(
+            'Add a CHECK constraint on the allowed values (or move them into a link '
+            'table) -- ora2pg leaves plain text with no validation at all'
+        ),
+    ),
+    "mssql_bracket_identifier": Message(
+        ru=(
+            'Снять квадратные скобки с имён в скрипте до конвертации (или выгружать через'
+            ' живое подключение к SQL Server — там ora2pg их убирает сам)'
+        ),
+        en=(
+            'Strip the square brackets from names in the script before converting (or '
+            'export through a live SQL Server connection, where ora2pg removes them '
+            'itself)'
+        ),
+    ),
+    "mssql_newid_default": Message(
+        ru=(
+            'Добавить CREATE EXTENSION IF NOT EXISTS "uuid-ossp" перед загрузкой схемы '
+            'либо перейти на встроенную gen_random_uuid()'
+        ),
+        en=(
+            'Add CREATE EXTENSION IF NOT EXISTS "uuid-ossp" before loading the schema, or'
+            ' switch to the built-in gen_random_uuid()'
+        ),
+    ),
+    "mssql_update_set": Message(
+        ru=(
+            'Вернуть обычный SQL: UPDATE <таблица> SET <столбец> = <значение> — ora2pg '
+            'превращает SET в присваивание := и ломает каждый UPDATE'
+        ),
+        en=(
+            'Restore ordinary SQL: UPDATE <table> SET <column> = <value> -- ora2pg turns '
+            'the SET into a := assignment and breaks every UPDATE'
+        ),
+    ),
+    "mssql_identity_column": Message(
+        ru=(
+            'Заменить на GENERATED BY DEFAULT AS IDENTITY (или serial) и выставить '
+            'счётчик по максимуму перенесённых данных'
+        ),
+        en=(
+            'Replace with GENERATED BY DEFAULT AS IDENTITY (or serial) and set the '
+            'counter from the maximum of the migrated data'
+        ),
+    ),
+    "mssql_parameterless_procedure": Message(
+        ru='Удалить из готового кода пустой блок DECLARE с одинокой точкой с запятой',
+        en='Delete the empty DECLARE block with its lone semicolon from the generated code',
+    ),
+    "mssql_if_statement": Message(
+        ru='Переписать в полную форму PL/pgSQL: IF <условие> THEN <операторы>; END IF;',
+        en="Rewrite in PL/pgSQL's full form: IF <condition> THEN <statements>; END IF;",
+    ),
+    "mssql_raiserror": Message(
+        ru=(
+            "Переписать на RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>'; severity из "
+            'RAISERROR — это уровень сообщения, а не код'
+        ),
+        en=(
+            "Rewrite as RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>'; RAISERROR's "
+            'severity is a message level, not an error code'
+        ),
+    ),
+    "mssql_try_catch": Message(
+        ru=(
+            'Переписать на BEGIN ... EXCEPTION WHEN OTHERS THEN ... END; ERROR_MESSAGE() '
+            '— это SQLERRM, ERROR_NUMBER() — SQLSTATE'
+        ),
+        en=(
+            'Rewrite as BEGIN ... EXCEPTION WHEN OTHERS THEN ... END; ERROR_MESSAGE() '
+            'becomes SQLERRM, ERROR_NUMBER() becomes SQLSTATE'
+        ),
+    ),
+    "mssql_top_clause": Message(
+        ru=(
+            'Переписать на LIMIT <n>; при TOP без ORDER BY порядок так и останется '
+            'неопределённым, задайте его явно'
+        ),
+        en=(
+            'Rewrite as LIMIT <n>; with TOP and no ORDER BY the row order stays just as '
+            'undefined, so make it explicit'
+        ),
+    ),
+    "mssql_scope_identity": Message(
+        ru=(
+            'Переписать на INSERT ... RETURNING <столбец> INTO <переменная> — заодно '
+            'проверьте, что сам IDENTITY не потерялся (GAP-090)'
+        ),
+        en=(
+            'Rewrite as INSERT ... RETURNING <column> INTO <variable> -- and check the '
+            'IDENTITY itself survived (GAP-090)'
+        ),
+    ),
+    "mssql_output_clause": Message(
+        ru=(
+            'Переписать на RETURNING <столбец>; учтите, что RETURNING не различает '
+            'INSERTED и DELETED'
+        ),
+        en=(
+            'Rewrite as RETURNING <column>; note that RETURNING does not distinguish '
+            'INSERTED from DELETED'
+        ),
+    ),
+    "mssql_iif": Message(
+        ru='Переписать на CASE WHEN <условие> THEN ... ELSE ... END',
+        en='Rewrite as CASE WHEN <condition> THEN ... ELSE ... END',
+    ),
+    "mssql_datediff": Message(
+        ru=(
+            'Переписать через вычитание дат/EXTRACT(EPOCH ...); помните, что DATEDIFF '
+            'считает пересечённые границы, а не полные интервалы'
+        ),
+        en=(
+            'Rewrite with date subtraction/EXTRACT(EPOCH ...); remember DATEDIFF counts '
+            'boundaries crossed, not whole intervals'
+        ),
+    ),
+    "mssql_charindex": Message(
+        ru=(
+            "Снять лишние кавычки в сгенерированном position(''x'' in ...) — должно быть "
+            "position('x' in ...)"
+        ),
+        en=(
+            "Remove the extra quotes from the generated position(''x'' in ...) -- it "
+            "should read position('x' in ...)"
+        ),
+    ),
+    "mssql_filtered_index": Message(
+        ru=(
+            'Перенести оператор дословно после загрузки схемы: в PostgreSQL частичные '
+            'индексы с WHERE есть и синтаксис тот же'
+        ),
+        en=(
+            'Carry the statement over as-is after the schema loads: PostgreSQL has '
+            'partial indexes with WHERE and the same syntax'
+        ),
+    ),
+    "mssql_foreign_key": Message(
+        ru=(
+            'Восстановить вручную: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... '
+            'REFERENCES ... после загрузки всех таблиц'
+        ),
+        en=(
+            'Restore by hand: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... '
+            'REFERENCES ... once all the tables are loaded'
+        ),
+    ),
+    "mssql_collation": Message(
+        ru=(
+            'Заменить citext на text с явным COLLATE нужной чувствительности — для '
+            '_CS_-правил подмена на citext меняет смысл на противоположный'
+        ),
+        en=(
+            'Replace citext with text plus an explicit COLLATE of the right sensitivity '
+            '-- for a _CS_ rule, citext inverts the meaning'
+        ),
+    ),
+    "mssql_computed_column": Message(
+        ru=(
+            'Заменить тип столбца на тот, что реально считает выражение, а лучше '
+            'перенести на GENERATED ALWAYS AS (...) STORED'
+        ),
+        en=(
+            'Give the column the type its expression actually computes, or better, move '
+            'it to GENERATED ALWAYS AS (...) STORED'
+        ),
+    ),
+    "mssql_rowversion": Message(
+        ru=(
+            'Вернуть самообновление триггером BEFORE UPDATE либо перейти на системный '
+            'столбец xmin — иначе оптимистичная блокировка молча перестаёт работать'
+        ),
+        en=(
+            'Restore self-updating with a BEFORE UPDATE trigger, or switch to the system '
+            'xmin column -- otherwise optimistic locking silently stops working'
+        ),
+    ),
+}
+
+
+def remediation_hint(detector: str, lang: str = "ru") -> str | None:
+    """One short imperative line for `detector`, or None if it has none.
+
+    Unlike text(), a missing entry is not an error: the report falls back
+    to a generic "see the explanation below" line, which is the right
+    answer for a detector added through terminal_report directly rather
+    than through cli.py's registered list. A missing *finding* message is
+    a wiring bug; a missing hint is just a detector nobody wrote a
+    one-liner for.
+    """
+    hint = REMEDIATION_HINTS.get(detector)
+    if hint is None:
+        return None
+    return hint.en if lang == "en" and hint.en else hint.ru

@@ -243,7 +243,7 @@ def test_every_detector_registered_in_cli_has_a_remediation_hint():
     # ниже" line in the Рекомендации section instead of a real hint --
     # this test makes that an explicit failure instead of a silent gap.
     from ora2pg_gap_report import core
-    from ora2pg_gap_report.terminal_report import _REMEDIATION_HINT
+    from ora2pg_gap_report import messages
 
     for detector_fn in core._ORACLE_DETECTORS + core._MYSQL_DETECTORS:
         result = detector_fn("")  # empty source: no findings, just need the shape
@@ -258,7 +258,7 @@ def test_every_detector_registered_in_cli_has_a_remediation_hint():
     registered_names = set(core.detector_names(dialect=None)) | {
         "connect_by"
     }  # opt-in via --check-connect-by, not in any dialect's own tuple
-    assert registered_names <= set(_REMEDIATION_HINT.keys())
+    assert registered_names <= set(messages.REMEDIATION_HINTS)
 
 
 def test_render_empty_findings_in_english():

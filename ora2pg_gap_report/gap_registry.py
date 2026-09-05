@@ -85,6 +85,14 @@ class GapEntry:
     # while a GAP-MY-/GAP-MS- scheme would have touched all of it.
     dialect: str = "oracle"
 
+    # Deliberately NOT here: verification.py's VERIFICATION_MODE, and
+    # messages.py's MESSAGES/REMEDIATION_HINTS. They are keyed by
+    # detector, and detectors outnumber gaps -- dbms_utl_calls is a
+    # classifier with no GAP-NNN of its own. Pulling them in would mean
+    # inventing a gap for it or special-casing it out, and a registry
+    # with one documented exception is what drifts. See verification.py's
+    # own "Why this isn't a GapEntry field".
+
 
 # "conversion": only visible in ora2pg's own conversion run/log (a debug
 #   line, or an omitted/undercounted object) -- no gap in the registry

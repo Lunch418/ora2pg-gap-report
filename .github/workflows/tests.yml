@@ -115,8 +115,12 @@ jobs:
           # Prove the binary actually runs before the tests assert on what
           # it produces, so a broken install fails here with ora2pg's own
           # message instead of inside a test assertion.
+          # -o is a *filename*, joined onto -b; passing a path here makes
+          # ora2pg try to open /tmp//tmp/smoke.sql. run_estimate_cost()
+          # gets this right (it passes out_path.name); this line did not.
           ora2pg -t PACKAGE -i docs/research/samples/logger.pkb \
-            --estimate_cost -o /tmp/smoke.sql -b /tmp
+            --estimate_cost -o smoke.sql -b /tmp
+          test -s /tmp/smoke.sql
 
       - name: Install package (dev extras)
         run: pip install -e ".[dev]"

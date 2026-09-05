@@ -1,10 +1,10 @@
-# GAP-018: `CREATE TABLE ... ORGANIZATION EXTERNAL` — секция полностью отбрасывается
+# GAP-018: `CREATE TABLE ... ORGANIZATION EXTERNAL` — the clause is dropped entirely
 
-Oracle feature: внешняя таблица (`ORGANIZATION EXTERNAL`) — таблица, чьи
-данные физически хранятся не в БД, а во внешнем файле (обычно через
-`ORACLE_LOADER`), и читаются оттуда при каждом обращении.
+Oracle feature: an external table (`ORGANIZATION EXTERNAL`) — a table whose
+data lives physically outside the database, in an external file (usually
+through `ORACLE_LOADER`), and is read from there on every access.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE TABLE ext_orders (
@@ -23,7 +23,7 @@ ORGANIZATION EXTERNAL (
 REJECT LIMIT UNLIMITED;
 ```
 
-## Вывод ora2pg (v25.0, `-t TABLE`, и отдельно `--estimate_cost -t TABLE`)
+## ora2pg output (v25.0, `-t TABLE`, and separately `--estimate_cost -t TABLE`)
 
 ```sql
 CREATE TABLE ext_orders (
@@ -32,33 +32,32 @@ CREATE TABLE ext_orders (
 ) ;
 ```
 
-Вся секция `ORGANIZATION EXTERNAL` (`TYPE`/`DEFAULT DIRECTORY`/
-`ACCESS PARAMETERS`/`LOCATION`/`REJECT LIMIT`) исчезает без следа —
-таблица создаётся как обычная, физически хранимая. Ни ошибки, ни
-предупреждения — включая `--estimate_cost`, который тоже никак не
-отмечает эту таблицу.
+The whole `ORGANIZATION EXTERNAL` clause (`TYPE`/`DEFAULT
+DIRECTORY`/`ACCESS PARAMETERS`/`LOCATION`/`REJECT LIMIT`) disappears
+without trace — the table is created as an ordinary, physically stored
+one. No error, no warning — including from `--estimate_cost`, which
+likewise records nothing about this table.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Это не синтаксическая ошибка — `CREATE TABLE` выполняется без проблем.
-Но результат принципиально другой: единственный источник данных этой
-таблицы (внешний файл) исчезает полностью. Таблица создаётся пустой и
-никогда не подхватит содержимое `orders.csv` — а поскольку `CREATE
-TABLE` не падает и не предупреждает, при реальной миграции это легко
-не заметить, пока приложение не начнёт получать пустые результаты там,
-где раньше были строки из файла.
+This is not a syntax error — the `CREATE TABLE` runs without trouble. But
+the result is fundamentally different: this table's only data source (the
+external file) is gone completely. The table is created empty and will
+never pick up the contents of `orders.csv` — and since `CREATE TABLE`
+neither fails nor warns, it is easy to miss during a real migration, until
+the application starts getting empty results where the file's rows used to
+be.
 
-Ближайший эквивалент в PostgreSQL — foreign table через `file_fdw` (или
-конкретный fdw под нужный формат) — настраивается вручную, полностью
-отдельным путём от обычного `CREATE TABLE`.
+The nearest equivalent in PostgreSQL is a foreign table through `file_fdw`
+(or a specific fdw for the format in question), configured by hand along a
+path entirely separate from an ordinary `CREATE TABLE`.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/external_table.py`. Поиск
-`ORGANIZATION EXTERNAL` ограничен текстом конкретного `CREATE TABLE`
-(до его завершающей `;`) — тот же подход, что и в
-`table_partitioning.py`, чтобы не приписать находку случайной
-несвязанной таблице по файлу.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/external_table.py`. The search for
+`ORGANIZATION EXTERNAL` is confined to the text of one `CREATE TABLE` (up
+to its terminating `;`) — the same approach as in `table_partitioning.py`,
+so a finding is not attributed to some unrelated table in the file.

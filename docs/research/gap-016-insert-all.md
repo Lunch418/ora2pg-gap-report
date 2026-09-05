@@ -1,11 +1,11 @@
-# GAP-016: `INSERT ALL` / `INSERT FIRST` — многотабличная вставка
+# GAP-016: `INSERT ALL` / `INSERT FIRST` — multi-table insert
 
-Oracle feature: `INSERT ALL`/`INSERT FIRST` — многотабличная вставка,
-условная (`WHEN ... THEN INTO ...`) или безусловная (несколько `INTO`
-подряд без `WHEN`), одним запросом распределяющая строки источника по
-нескольким целевым таблицам.
+Oracle feature: `INSERT ALL`/`INSERT FIRST` — a multi-table insert, either
+conditional (`WHEN ... THEN INTO ...`) or unconditional (several `INTO`
+clauses in a row with no `WHEN`), distributing the source rows across
+several target tables in one statement.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE PROCEDURE split_orders AS
@@ -22,16 +22,16 @@ END;
 /
 ```
 
-## Вывод ora2pg (v25.0, `-t PACKAGE`)
+## ora2pg output (v25.0, `-t PACKAGE`)
 
-Конструкция копируется как есть, без единого изменения — ни `INSERT ALL`,
-ни секции `INTO`/`WHEN` не переписаны.
+The construct is copied as written, with no change at all — neither
+`INSERT ALL` nor the `INTO`/`WHEN` clauses are rewritten.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16: `CREATE PROCEDURE` проходит без
-ошибки (`check_function_bodies = false`), но падает уже на этапе
-компиляции тела при первом `CALL`:
+Confirmed against a real PostgreSQL 16: `CREATE PROCEDURE` succeeds without
+error (`check_function_bodies = false`), but fails at the body's
+compilation stage on the first `CALL`:
 
 ```
 ERROR:  "big_orders" is not a known variable
@@ -39,17 +39,17 @@ LINE 5:                 INTO big_orders(order_id, amount)
                              ^
 ```
 
-PL/pgSQL интерпретирует `INTO таблица` как форму `SELECT ... INTO
-переменная` (используемую для присваивания результата запроса
-PL/pgSQL-переменной), а не как ветку многотабличной вставки — у
-PostgreSQL нет синтаксиса многотабличного `INSERT` вообще.
+PL/pgSQL reads `INTO table` as a form of `SELECT ... INTO variable` — the
+construct used to assign a query result to a PL/pgSQL variable — rather
+than as a branch of a multi-table insert. PostgreSQL has no multi-table
+`INSERT` syntax at all.
 
 **Reproducible: YES.** Ora2Pg version: 25.0.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/insert_all.py`. Флагует и `INSERT ALL`, и
-`INSERT FIRST`, включая безусловный вариант без `WHEN` — единственное
-требование — наличие `INTO` в разумном окне после ключевого слова
-(что верно для любого реального многотабличного `INSERT`).
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/insert_all.py`. Both `INSERT ALL` and `INSERT
+FIRST` are flagged, including the unconditional variant with no `WHEN` —
+the only requirement is an `INTO` within a reasonable window after the
+keyword, which holds for any real multi-table `INSERT`.

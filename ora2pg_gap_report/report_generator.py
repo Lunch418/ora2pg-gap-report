@@ -2,6 +2,9 @@ import csv
 import html
 import io
 import json
+import textwrap
+from collections.abc import Iterable, Iterator
+from typing import IO
 from dataclasses import asdict, fields
 from pathlib import PurePath
 from urllib.parse import quote
@@ -22,6 +25,83 @@ SARIF_SCHEMA_URI = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/maste
 _TOOL_INFORMATION_URI = "https://github.com/Lunch418/ora2pg-gap-report"
 
 _SARIF_LEVEL = {"high": "error", "medium": "warning", "low": "note"}
+
+
+# Stands in for the big array while the surrounding document is encoded.
+# A NUL-delimited sentinel because it has to be something no real value in
+# a report can be: object names, snippets and messages all come from
+# scanned source, and a plausible-looking marker could in principle appear
+# there. json escapes NUL as \u0000, so the encoded token is unambiguous.
+_ARRAY_PLACEHOLDER = "\u0000ora2pg-gap-report:array\u0000"
+
+
+def _stream_json_with_array(
+    document: object, items: Iterable[object], stream: IO[str]
+) -> None:
+    """Write `document` -- in which _ARRAY_PLACEHOLDER stands where a
+    large array belongs -- as json.dumps(..., ensure_ascii=False,
+    indent=2) would with that array in place, without ever holding it.
+
+    _stream_json() below removes the join buffer but not the list being
+    encoded, and for a report that list is the remaining multiplier: one
+    dict per finding, with nested objects in SARIF's case. Encoding the
+    surrounding document once and then each item on its own bounds
+    serialization at one item at a time, whatever the scan's size.
+
+    The framing -- indentation, separators, escaping -- comes from the
+    stdlib encoder rather than from braces written by hand here: the
+    document is encoded with the placeholder in it, then cut open at the
+    token. The array's own indentation is read back off the line the
+    placeholder landed on, so this works wherever in the document that
+    is, which SARIF needs (its results array sits four levels down).
+    """
+    framed = json.dumps(document, ensure_ascii=False, indent=2)
+    token = json.dumps(_ARRAY_PLACEHOLDER, ensure_ascii=False)
+    if framed.count(token) != 1:
+        # Everything in `document` besides the placeholder comes from this
+        # project's own registries, so this cannot happen today -- which is
+        # exactly why it is worth asserting rather than assuming: splitting
+        # on the wrong occurrence would produce a plausible-looking but
+        # wrong document instead of an error.
+        raise ValueError(
+            f"expected exactly one array placeholder, found {framed.count(token)}"
+        )
+    opening, closing = framed.split(token, 1)
+    stream.write(opening)
+
+    # The '[' takes the placeholder's place mid-line, so its items are
+    # indented two past that line's own indentation, and the ']' returns
+    # to it -- exactly what the encoder would have produced.
+    last_line = opening.rsplit("\n", 1)[-1]
+    array_indent = " " * (len(last_line) - len(last_line.lstrip(" ")))
+    item_indent = array_indent + "  "
+
+    wrote_any = False
+    for item in items:
+        stream.write("[\n" if not wrote_any else ",\n")
+        wrote_any = True
+        stream.write(
+            textwrap.indent(json.dumps(item, ensure_ascii=False, indent=2), item_indent)
+        )
+    stream.write(f"\n{array_indent}]" if wrote_any else "[]")
+    stream.write(closing)
+
+
+def _stream_json(payload: object, stream: IO[str]) -> None:
+    """Write `payload` as JSON to `stream` without ever building the whole
+    document as one string.
+
+    json.dumps() is literally "".join(iterencode(o)), and for a report of
+    any size that join is the single largest allocation in the process:
+    the encoder produces a few million short chunks, each a separate str
+    object, and the list holding them costs several times the output it
+    represents. Measured on an 1,800-file scan, --format sarif peaked at
+    690 MB to produce a 107 MB document. Writing the same chunks straight
+    out as they are produced is byte-for-byte the same document -- it is
+    the same encoder -- at a fraction of the memory.
+    """
+    for chunk in json.JSONEncoder(ensure_ascii=False, indent=2).iterencode(payload):
+        stream.write(chunk)
 
 
 def _enrich(f: Finding) -> dict:
@@ -60,12 +140,20 @@ def to_json(findings: list[Finding], lang: str = "ru") -> str:
     two shapes apart, and a version they can branch on is a better way to
     say that than making them sniff for a leading '['.
     """
-    payload = {
+    buffer = io.StringIO()
+    write_json(findings, buffer, lang=lang)
+    return buffer.getvalue()
+
+
+def write_json(findings: list[Finding], stream: IO[str], lang: str = "ru") -> None:
+    """to_json()'s output, written straight to `stream`. Same bytes; see
+    _stream_json() for why the difference matters on a large scan."""
+    document = {
         "schema_version": REPORT_SCHEMA_VERSION,
         "messages": message_map(findings, lang),
-        "findings": [_enrich(f) for f in findings],
+        "findings": _ARRAY_PLACEHOLDER,
     }
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    _stream_json_with_array(document, (_enrich(f) for f in findings), stream)
 
 
 def to_verification_json(
@@ -139,7 +227,14 @@ def to_csv(findings: list[Finding], lang: str = "ru") -> str:
     added to Finding doesn't silently reopen the same formula-injection
     hole (see _csv_safe's own docstring)."""
     buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=_CSV_FIELDNAMES, lineterminator="\n")
+    write_csv(findings, buffer, lang=lang)
+    return buffer.getvalue()
+
+
+def write_csv(findings: list[Finding], stream: IO[str], lang: str = "ru") -> None:
+    """to_csv()'s output, written straight to `stream` -- csv.writer was
+    always incremental, it was only ever pointed at a StringIO."""
+    writer = csv.DictWriter(stream, fieldnames=_CSV_FIELDNAMES, lineterminator="\n")
     writer.writeheader()
     for f in findings:
         # message_id stays (a stable key to group on), and the prose it
@@ -147,17 +242,22 @@ def to_csv(findings: list[Finding], lang: str = "ru") -> str:
         # person, and an id alone tells them nothing.
         row = {**_enrich(f), "message": messages.text(f.message_id, lang)}
         writer.writerow({k: _csv_safe(v) for k, v in row.items()})
-    return buffer.getvalue()
 
 
 def to_markdown(findings: list[Finding], lang: str = "ru") -> str:
-    if not findings:
-        return i18n.t(lang, "md_no_findings")
+    buffer = io.StringIO()
+    write_markdown(findings, buffer, lang=lang)
+    return buffer.getvalue()
 
-    lines = [
-        i18n.t(lang, "md_table_header"),
-        "|---|---|---|---|---|---|---|---|",
-    ]
+
+def write_markdown(findings: list[Finding], stream: IO[str], lang: str = "ru") -> None:
+    """to_markdown()'s output, written a row at a time."""
+    if not findings:
+        stream.write(i18n.t(lang, "md_no_findings"))
+        return
+
+    stream.write(i18n.t(lang, "md_table_header") + "\n")
+    stream.write("|---|---|---|---|---|---|---|---|\n")
     for f in findings:
         source_file = f.source_file.replace("|", "\\|")
         object_name = f.object_name.replace("|", "\\|")
@@ -166,11 +266,10 @@ def to_markdown(findings: list[Finding], lang: str = "ru") -> str:
         gap_number, failure_stage = gap_metadata(f.detector)
         gap_cell = f"GAP-{gap_number}" if gap_number else "—"
         stage_cell = i18n.t(lang, f"failure_stage_short_{failure_stage}") if failure_stage else "—"
-        lines.append(
+        stream.write(
             f"| {source_file} | `{object_name}` | {f.line} | {f.severity} "
-            f"| `{snippet}` | {message} | {gap_cell} | {stage_cell} |"
+            f"| `{snippet}` | {message} | {gap_cell} | {stage_cell} |\n"
         )
-    return "\n".join(lines) + "\n"
 
 
 _HTML_SEVERITY_CLASS = {"high": "sev-high", "medium": "sev-medium", "low": "sev-low"}
@@ -198,6 +297,12 @@ _HTML_STYLE = """
 
 
 def to_html(findings: list[Finding], lang: str = "ru") -> str:
+    buffer = io.StringIO()
+    write_html(findings, buffer, lang=lang)
+    return buffer.getvalue()
+
+
+def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> None:
     """Self-contained HTML report (inline CSS only, no external resources
     -- this project's other formats are all designed to work in an
     air-gapped/closed-network setting, see README's "Установка без
@@ -206,41 +311,18 @@ def to_html(findings: list[Finding], lang: str = "ru") -> str:
     estimate as the Markdown/terminal header, same "uncalibrated
     heuristic, not a measurement" caveat -- see effort_estimator.py's
     docstring for why no other score (a "readiness %", a risk level) is
-    invented here either."""
+    invented here either.
+
+    Written a row at a time like the other formats. The summary above the
+    table needs the counts before any row is emitted, but those come from
+    summarize_by_severity() over findings that are already in memory --
+    it never needed the rendered rows."""
     counts = summarize_by_severity(findings)
     counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
     lo, hi = estimate_hours(findings)
-
-    rows = []
-    for f in findings:
-        sev_class = _HTML_SEVERITY_CLASS.get(f.severity, "")
-        gap_number, failure_stage = gap_metadata(f.detector)
-        gap_cell = f"GAP-{gap_number}" if gap_number else "—"
-        stage_cell = html.escape(i18n.t(lang, f"failure_stage_short_{failure_stage}")) if failure_stage else "—"
-        rows.append(
-            f'<tr class="{sev_class}">'
-            f"<td>{html.escape(f.source_file)}</td>"
-            f'<td class="mono">{html.escape(f.object_name)}</td>'
-            f"<td>{f.line}</td>"
-            f'<td><span class="badge">{html.escape(f.severity)}</span></td>'
-            f'<td class="mono">{html.escape(f.snippet)}</td>'
-            f"<td>{html.escape(messages.text(f.message_id, lang))}</td>"
-            f'<td class="mono">{gap_cell}</td>'
-            f"<td>{stage_cell}</td>"
-            "</tr>"
-        )
-
-    if findings:
-        table = (
-            "<table>\n<thead><tr>"
-            f"{i18n.t(lang, 'html_table_header')}"
-            "</tr></thead>\n<tbody>\n" + "\n".join(rows) + "\n</tbody>\n</table>"
-        )
-    else:
-        table = f'<p class="empty">{i18n.t(lang, "html_no_findings")}</p>'
-
     html_lang = "en" if lang == "en" else "ru"
-    return f"""<!doctype html>
+
+    stream.write(f"""<!doctype html>
 <html lang="{html_lang}">
 <head>
 <meta charset="utf-8">
@@ -253,10 +335,48 @@ def to_html(findings: list[Finding], lang: str = "ru") -> str:
 <p>{i18n.t(lang, "html_findings_found", n=len(findings), counts=html.escape(counts_text))}</p>
 <p class="caveat">{i18n.t(lang, "html_effort_caveat", lo=lo, hi=hi)}</p>
 </div>
-{table}
+""")
+
+    if not findings:
+        stream.write(f'<p class="empty">{i18n.t(lang, "html_no_findings")}</p>')
+    else:
+        stream.write(
+            "<table>\n<thead><tr>"
+            f"{i18n.t(lang, 'html_table_header')}"
+            "</tr></thead>\n<tbody>\n"
+        )
+        for i, f in enumerate(findings):
+            sev_class = _HTML_SEVERITY_CLASS.get(f.severity, "")
+            gap_number, failure_stage = gap_metadata(f.detector)
+            gap_cell = f"GAP-{gap_number}" if gap_number else "—"
+            stage_cell = (
+                html.escape(i18n.t(lang, f"failure_stage_short_{failure_stage}"))
+                if failure_stage
+                else "—"
+            )
+            # The separator goes before each row but the first, the way
+            # "\n".join() put it there -- a trailing newline instead would
+            # change the document.
+            if i:
+                stream.write("\n")
+            stream.write(
+                f'<tr class="{sev_class}">'
+                f"<td>{html.escape(f.source_file)}</td>"
+                f'<td class="mono">{html.escape(f.object_name)}</td>'
+                f"<td>{f.line}</td>"
+                f'<td><span class="badge">{html.escape(f.severity)}</span></td>'
+                f'<td class="mono">{html.escape(f.snippet)}</td>'
+                f"<td>{html.escape(messages.text(f.message_id, lang))}</td>"
+                f'<td class="mono">{gap_cell}</td>'
+                f"<td>{stage_cell}</td>"
+                "</tr>"
+            )
+        stream.write("\n</tbody>\n</table>")
+
+    stream.write("""
 </body>
 </html>
-"""
+""")
 
 
 def _sarif_rule_id(detector: str, message_id: str) -> str:
@@ -345,9 +465,12 @@ def _sarif_location(f: Finding) -> dict:
     return {"physicalLocation": physical_location}
 
 
-def to_sarif(
-    findings: list[Finding], tool_version: str = "unknown", lang: str = "ru"
-) -> str:
+def write_sarif(
+    findings: list[Finding],
+    stream: IO[str],
+    tool_version: str = "unknown",
+    lang: str = "ru",
+) -> None:
     """SARIF 2.1.0 (https://sarifweb.azurewebsites.net/), for GitHub/GitLab
     code scanning integrations. One rule per distinct (detector, message)
     pair actually present among `findings` (not all detectors/messages
@@ -359,15 +482,14 @@ def to_sarif(
         if rule_id not in rules_by_id:
             rules_by_id[rule_id] = _sarif_rule(f.detector, f.message_id, lang)
 
-    results = [
-        {
-            "ruleId": _sarif_rule_id(f.detector, f.message_id),
-            "level": _SARIF_LEVEL.get(f.severity, "warning"),
-            "message": {"text": messages.text(f.message_id, lang)},
-            "locations": [_sarif_location(f)],
-        }
-        for f in findings
-    ]
+    def results() -> Iterator[dict]:
+        for f in findings:
+            yield {
+                "ruleId": _sarif_rule_id(f.detector, f.message_id),
+                "level": _SARIF_LEVEL.get(f.severity, "warning"),
+                "message": {"text": messages.text(f.message_id, lang)},
+                "locations": [_sarif_location(f)],
+            }
 
     sarif = {
         "$schema": SARIF_SCHEMA_URI,
@@ -382,8 +504,18 @@ def to_sarif(
                         "rules": [rules_by_id[rule_id] for rule_id in sorted(rules_by_id)],
                     }
                 },
-                "results": results,
+                "results": _ARRAY_PLACEHOLDER,
             }
         ],
     }
-    return json.dumps(sarif, ensure_ascii=False, indent=2)
+    _stream_json_with_array(sarif, results(), stream)
+
+
+def to_sarif(
+    findings: list[Finding], tool_version: str = "unknown", lang: str = "ru"
+) -> str:
+    """write_sarif()'s output as a string. See that function -- on a large
+    scan this is the format the streaming version matters most for."""
+    buffer = io.StringIO()
+    write_sarif(findings, buffer, tool_version=tool_version, lang=lang)
+    return buffer.getvalue()

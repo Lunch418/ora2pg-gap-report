@@ -1,8 +1,9 @@
-# GAP-092: `IF` не дописывается до формы PL/pgSQL
+# GAP-092: `IF` is not completed into PL/pgSQL form
 
-MSSQL feature: `IF` — условный оператор T-SQL, в двух формах: с блоком `BEGIN ... END` и без него.
+MSSQL feature: `IF` — the T-SQL conditional statement, in two forms: with
+a `BEGIN ... END` block and without one.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE PROCEDURE dbo.if_blk @x int AS
@@ -14,7 +15,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-M -t PROCEDURE`)
+## ora2pg output (v25.0, `-M -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE dbo.if_blk (p_x integer) AS $body$
@@ -28,20 +29,21 @@ END;
 $body$
 ```
 
-Слово `THEN` подставлено правильно, а вот закрывающее `END` так и
-осталось `END` вместо `END IF`.
+The `THEN` keyword is inserted correctly, but the closing `END` stayed
+`END` instead of `END IF`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Загрузка проходит чисто — ora2pg выставляет в своём выводе
-`check_function_bodies = false`, поэтому тело не разбирается. При
-разборе тела на реальном PostgreSQL 16:
+The load goes through cleanly — ora2pg sets `check_function_bodies =
+false` in its own output, so the body is not parsed. When the body is
+parsed on a real PostgreSQL 16:
 
 ```
 ERROR:  syntax error at or near "END"
 ```
 
-Вторая форма, без блока, ломается иначе — там не подставляется и `THEN`:
+The second form, without a block, breaks differently — there `THEN` is
+not inserted either:
 
 ```sql
 CREATE PROCEDURE dbo.if_nb @x int AS
@@ -58,10 +60,10 @@ ERROR:  missing "THEN" at end of SQL expression
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.** Обе формы
-сломаны, но по-разному, поэтому детектор намеренно не пытается их
-различать: правится всё равно одинаково — переписыванием в полную форму
-PL/pgSQL, `IF <условие> THEN <операторы>; END IF;`. Реализовано:
-`ora2pg_gap_report/detectors/mssql_if_statement.py`.
+**Gap confirmed, severity high, failure_stage runtime.** Both forms are
+broken, but in different ways, so the detector deliberately makes no
+attempt to distinguish them: the fix is the same either way — rewriting
+into the full PL/pgSQL form, `IF <condition> THEN <statements>; END IF;`.
+Implemented: `ora2pg_gap_report/detectors/mssql_if_statement.py`.

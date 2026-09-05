@@ -1,8 +1,9 @@
-# GAP-093: `RAISERROR` / `THROW` копируются как есть
+# GAP-093: `RAISERROR` / `THROW` are copied as-is
 
-MSSQL feature: `RAISERROR` и `THROW` — операторы возбуждения ошибки в T-SQL.
+MSSQL feature: `RAISERROR` and `THROW` — the T-SQL error-raising
+statements.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE PROCEDURE dbo.check_amt @amt int AS
@@ -12,7 +13,7 @@ BEGIN
 END;
 ```
 
-## Вывод ora2pg (v25.0, `-M -t PROCEDURE`)
+## ora2pg output (v25.0, `-M -t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE dbo.check_amt (p_amt integer) AS $body$
@@ -25,33 +26,32 @@ END;
 $body$
 ```
 
-Оператор скопирован дословно. То же самое происходит с `THROW 50001,
+The statement is copied verbatim. The same happens with `THROW 50001,
 'amount must be positive', 1;`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Загрузка проходит чисто — ora2pg выставляет в своём выводе
-`check_function_bodies = false`, поэтому тело не разбирается. При
-разборе тела на реальном PostgreSQL 16:
+The load goes through cleanly — ora2pg sets `check_function_bodies =
+false` in its own output, so the body is not parsed. When the body is
+parsed on a real PostgreSQL 16:
 
 ```
 ERROR:  missing "THEN" at end of SQL expression
 LINE 5:         RAISERROR('amount must be positive', 16, 1);
 ```
 
-(в этом примере первым срабатывает соседний GAP-092 по `IF`; сам
-`RAISERROR` не существует в PL/pgSQL независимо от него)
+(in this example the neighbouring GAP-092 on `IF` fires first;
+`RAISERROR` itself does not exist in PL/pgSQL regardless)
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16. Source
 dialect: MSSQL (`ora2pg -M`).
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён, severity high, failure_stage runtime.**
-Переписывается на `RAISE EXCEPTION '<текст>' USING ERRCODE =
-'<sqlstate>'`. При переносе стоит помнить о двух вещах: severity в
-`RAISERROR` (второй аргумент) соответствует в PostgreSQL не коду
-ошибки, а уровню сообщения (`RAISE NOTICE`/`WARNING`/`EXCEPTION`), а
-номера ошибок из `THROW` (>= 50000) нужно отобразить на пятизначные
-SQLSTATE самостоятельно. Реализовано:
-`ora2pg_gap_report/detectors/mssql_raiserror.py`.
+**Gap confirmed, severity high, failure_stage runtime.** Rewritten to
+`RAISE EXCEPTION '<text>' USING ERRCODE = '<sqlstate>'`. Two things to
+keep in mind when porting: the severity in `RAISERROR` (the second
+argument) corresponds in PostgreSQL not to an error code but to the
+message level (`RAISE NOTICE`/`WARNING`/`EXCEPTION`), and error numbers
+from `THROW` (>= 50000) have to be mapped to five-character SQLSTATEs by
+hand. Implemented: `ora2pg_gap_report/detectors/mssql_raiserror.py`.

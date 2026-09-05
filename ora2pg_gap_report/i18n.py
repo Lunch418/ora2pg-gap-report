@@ -879,17 +879,28 @@ _UI: dict[str, dict[str, str]] = {
     "tui_scan_btn": {"ru": "Сканировать", "en": "Scan"},
     "tui_add_to_selection_btn": {"ru": "Добавить к выбору", "en": "Add to selection"},
     "tui_clear_selection_btn": {"ru": "Очистить выбор", "en": "Clear selection"},
+    # No "(requires ora2pg)" qualifier in the label: it duplicated what
+    # connect_by_missing_ora2pg already says at the moment it matters
+    # ("... contains CONNECT BY, but ora2pg was not found -- check
+    # skipped"), and the two together did not fit the 80-column row --
+    # the label was clipped mid-word on the right edge. The qualifier
+    # survives where it is actionable: this message, and --help's own
+    # text for --check-connect-by.
     "tui_connect_by_checkbox": {
-        "ru": "Проверить CONNECT BY (требует ora2pg)",
-        "en": "Check CONNECT BY (requires ora2pg)",
+        "ru": "Проверить CONNECT BY",
+        "en": "Check CONNECT BY",
     },
     "tui_baseline_input_placeholder": {
         "ru": "Файл baseline (опционально — сравнить или сверить с ним)",
         "en": "Baseline file (optional -- compare or verify against it)",
     },
+    # Shortened for the same reason -- the long form left the baseline
+    # path input beside it 10 columns wide in Russian. "post-migration
+    # output" is the part that disambiguates the mode; "scan as" was
+    # doing no work the surrounding screen does not already do.
     "tui_verify_checkbox": {
-        "ru": "Режим verify (сканировать как результат после миграции)",
-        "en": "Verify mode (scan as post-migration output)",
+        "ru": "Режим verify (вывод после миграции)",
+        "en": "Verify mode (post-migration output)",
     },
     "tui_status_nothing_selected": {"ru": "Пока ничего не выбрано.", "en": "Nothing selected yet."},
     "tui_status_highlighted": {"ru": "Выделено: {path}", "en": "Highlighted: {path}"},

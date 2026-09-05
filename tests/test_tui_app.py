@@ -705,38 +705,71 @@ async def test_connect_by_checkbox_is_rejected_for_a_non_oracle_dialect(tmp_path
         assert "oracle" in str(app.screen.query_one("#status").content)
 
 
+# The three control rows of the scan screen, checked together below:
+# every widget in a row has to line up with its neighbours and the row
+# has to fit the narrowest terminal this app targets.
+_SCAN_SCREEN_ROWS = ["#controls", "#multi-select-controls", "#baseline-controls"]
+
+
+@pytest.mark.parametrize("row_id", _SCAN_SCREEN_ROWS)
 @pytest.mark.parametrize("lang", ["ru", "en"])
 @pytest.mark.asyncio
-async def test_control_row_widgets_are_all_the_same_height(lang):
-    """The three pickers and the Scan button must line up.
+async def test_scan_screen_row_widgets_are_all_the_same_height(lang, row_id):
+    """Widgets in one row must share a height, or the row looks ragged.
 
-    A Select needs room for its border and its dropdown arrow on top of
-    its longest label; sized to the label alone it does not overflow
-    sideways (which would be obvious) but wraps its text and renders one
-    row TALLER than its neighbours, leaving the row with a ragged bottom
-    edge. Asserting equal heights catches that, where asserting widths
-    would only restate the CSS. Run in both languages because the
-    severity labels differ in length between them -- the first version of
-    these widths was wide enough in Russian and one row too tall in
-    English.
+    A Select sized to its longest label -- ignoring the border and
+    dropdown arrow drawn around it -- does not overflow sideways, which
+    would be obvious. It wraps its own text and renders one row TALLER
+    than its neighbours, leaving a ragged bottom edge under the pickers.
+    Asserting equal heights catches that, where asserting widths would
+    only restate the CSS.
+
+    Both languages, because the labels differ in length between them: the
+    first version of these widths was wide enough in Russian and one row
+    too tall in English.
     """
     app = GapReportApp(start_path=SAMPLES, lang=lang)
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        row = app.screen.query_one("#controls")
+        row = app.screen.query_one(row_id)
         heights = {w.id: w.region.height for w in row.children}
-        assert len(set(heights.values())) == 1, f"ragged control row: {heights}"
+        assert len(set(heights.values())) == 1, f"ragged row {row_id}: {heights}"
+
+
+@pytest.mark.parametrize("row_id", _SCAN_SCREEN_ROWS)
+@pytest.mark.parametrize("lang", ["ru", "en"])
+@pytest.mark.asyncio
+async def test_scan_screen_row_fits_an_eighty_column_terminal(lang, row_id):
+    """Nothing in a row may run past the right edge at 80 columns.
+
+    The other half of the sizing constraint, and its own real defect
+    rather than a hypothetical: the CONNECT BY row used to need 87
+    columns in Russian and 84 in English, so the checkbox label was
+    clipped mid-word with no sign that anything was missing. Textual
+    clips silently, so only a geometry assertion catches this -- it never
+    raises and never looks wrong in a screenshot cropped to the widget.
+    """
+    app = GapReportApp(start_path=SAMPLES, lang=lang)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        row = app.screen.query_one(row_id)
+        widths = {w.id: (w.region.x, w.region.right) for w in row.children}
+        right_edge = max(right for _, right in widths.values())
+        assert right_edge <= 80, f"{row_id} overflows 80 columns ({right_edge}): {widths}"
 
 
 @pytest.mark.parametrize("lang", ["ru", "en"])
 @pytest.mark.asyncio
-async def test_control_row_fits_an_eighty_column_terminal(lang):
-    # The other half of the sizing constraint: widening the pickers until
-    # they stop wrapping must not push the Scan button off the right edge
-    # of the narrowest terminal this app targets.
+async def test_baseline_path_input_is_wide_enough_to_read_a_path_in(lang):
+    """The baseline input shares its row with a checkbox and takes 1fr.
+
+    "Whatever is left" was 10 columns in Russian, because the checkbox
+    beside it is auto-width and its label was long -- an input for a file
+    path that shows ten characters of it. The row still fits 80 columns
+    either way, so only this assertion distinguishes "fits" from "usable".
+    """
     app = GapReportApp(start_path=SAMPLES, lang=lang)
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        row = app.screen.query_one("#controls")
-        right_edge = max(w.region.right for w in row.children)
-        assert right_edge <= 80, f"control row overflows 80 columns: {right_edge}"
+        width = app.screen.query_one("#baseline-input").region.width
+        assert width >= 24, f"baseline input collapsed to {width} columns"

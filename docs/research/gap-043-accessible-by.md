@@ -1,11 +1,11 @@
-# GAP-043: `ACCESSIBLE BY` — белый список вызывающих
+# GAP-043: `ACCESSIBLE BY` — a whitelist of callers
 
-Oracle feature: `ACCESSIBLE BY (...)` (12c+) — подпрограмма объявляется
-доступной только перечисленным пакетам/процедурам/функциям; остальные
-получают ошибку компиляции при попытке вызова. Средство инкапсуляции
-внутри одной схемы, поверх обычных `GRANT`.
+Oracle feature: `ACCESSIBLE BY (...)` (12c+) declares a subprogram
+accessible only to the listed packages, procedures or functions; anything
+else gets a compilation error on trying to call it. A means of
+encapsulation within one schema, layered on top of ordinary `GRANT`s.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE PROCEDURE secret_proc (p_id NUMBER)
@@ -17,7 +17,7 @@ END;
 /
 ```
 
-## Вывод ora2pg (v25.0, `-t PROCEDURE`)
+## ora2pg output (v25.0, `-t PROCEDURE`)
 
 ```sql
 CREATE OR REPLACE PROCEDURE secret_proc (p_id bigint) ACCESSIBLE BY (PACKAGE hr_admin_pkg) AS $body$
@@ -29,12 +29,12 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-Секция перенесена дословно прямо в заголовок функции.
+The clause is carried over verbatim, straight into the function header.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16 — падает при загрузке, то есть
-процедура не создаётся вообще:
+Confirmed against a real PostgreSQL 16 — it fails at load, so the
+procedure is not created at all:
 
 ```
 ERROR:  syntax error at or near "ACCESSIBLE"
@@ -44,11 +44,11 @@ LINE 1: ...TE OR REPLACE PROCEDURE secret_proc (p_id bigint) ACCESSIBLE...
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/accessible_by.py`. Прямого аналога в
-PostgreSQL нет: ограничение «какой именно код может вызвать» не
-выражается. Ближайшее по смыслу — вынести подпрограмму в отдельную схему
-и раздать права `GRANT`/`REVOKE`, что даёт защиту на уровне ролей, а не
-конкретных вызывающих подпрограмм.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/accessible_by.py`. PostgreSQL has no direct
+analogue: a restriction on *which code* may call something cannot be
+expressed. The nearest equivalent in spirit is moving the subprogram into
+a separate schema and managing `GRANT`/`REVOKE`, which gives protection at
+the level of roles rather than of specific calling subprograms.

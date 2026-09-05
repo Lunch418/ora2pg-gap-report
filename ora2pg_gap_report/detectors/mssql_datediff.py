@@ -1,35 +1,22 @@
 import re
 
-from ..models import Finding
-from ..mssql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_strings_and_comments,
-)
+from .. import mssql_lex
+from ..detector_spec import DetectorSpec, build
 
 _PATTERN_RE = re.compile(r"\bDATEDIFF\s*\(", re.IGNORECASE)
 
+_DOC = """Detect T-SQL's DATEDIFF(). ora2pg -M copies it through
+unchanged, even though it does convert DATEADD and DATEPART in the
+same statement, so the routine loads cleanly and fails on its first
+call. See docs/research/gap-099-mssql-datediff.md."""
 
-def find_mssql_datediff(source: str) -> list[Finding]:
-    """Detect T-SQL's DATEDIFF(). ora2pg -M copies it through
-    unchanged, even though it does convert DATEADD and DATEPART in the
-    same statement, so the routine loads cleanly and fails on its first
-    call. See docs/research/gap-099-mssql-datediff.md."""
-    clean = mask_strings_and_comments(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="mssql_datediff",
+    dialect="mssql",
+    severity="high",
+    pattern=_PATTERN_RE,
+    snippet='DATEDIFF(...)',
+)
 
-    for m in _PATTERN_RE.finditer(clean):
-        findings.append(
-            Finding(
-                detector="mssql_datediff",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet="DATEDIFF(...)",
-                message_id="mssql_datediff",
-            )
-        )
-
-    return findings
+find_mssql_datediff = build(SPEC, mssql_lex)
+find_mssql_datediff.__doc__ = _DOC

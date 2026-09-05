@@ -1,36 +1,23 @@
 import re
 
-from ..models import Finding
-from ..mssql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_strings_and_comments,
-)
+from .. import mssql_lex
+from ..detector_spec import DetectorSpec, build
 
 _PATTERN_RE = re.compile(r"\bIIF\s*\(", re.IGNORECASE)
 
+_DOC = """Detect T-SQL's IIF(). ora2pg -M copies the call through
+unchanged -- notably, it does translate the sibling CHARINDEX in the
+same statement, just wrongly (GAP-100) -- and PostgreSQL has no IIF,
+so the routine loads cleanly and fails on its first call. See
+docs/research/gap-098-mssql-iif.md."""
 
-def find_mssql_iif(source: str) -> list[Finding]:
-    """Detect T-SQL's IIF(). ora2pg -M copies the call through
-    unchanged -- notably, it does translate the sibling CHARINDEX in the
-    same statement, just wrongly (GAP-100) -- and PostgreSQL has no IIF,
-    so the routine loads cleanly and fails on its first call. See
-    docs/research/gap-098-mssql-iif.md."""
-    clean = mask_strings_and_comments(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="mssql_iif",
+    dialect="mssql",
+    severity="high",
+    pattern=_PATTERN_RE,
+    snippet='IIF(...)',
+)
 
-    for m in _PATTERN_RE.finditer(clean):
-        findings.append(
-            Finding(
-                detector="mssql_iif",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet="IIF(...)",
-                message_id="mssql_iif",
-            )
-        )
-
-    return findings
+find_mssql_iif = build(SPEC, mssql_lex)
+find_mssql_iif.__doc__ = _DOC

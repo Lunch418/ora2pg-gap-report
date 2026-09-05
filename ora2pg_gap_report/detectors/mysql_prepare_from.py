@@ -1,12 +1,7 @@
 import re
 
-from ..models import Finding
-from ..mysql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_strings_and_comments,
-)
+from .. import mysql_lex
+from ..detector_spec import DetectorSpec, build
 
 # `PREPARE <name> FROM ...`. The FROM keyword is what distinguishes
 # MySQL's spelling from PostgreSQL's own PREPARE (`PREPARE name AS
@@ -14,28 +9,20 @@ from ..mysql_lex import (
 # legitimately contain the latter.
 _PREPARE_FROM_RE = re.compile(r"\bPREPARE\s+\w+\s+FROM\b", re.IGNORECASE)
 
+_DOC = """Detect MySQL/MariaDB's `PREPARE <name> FROM <string>`. PostgreSQL
+spells its own PREPARE differently (`PREPARE name AS query`, taking
+SQL text rather than a string variable), so ora2pg -m's verbatim copy
+fails on the first call with a syntax error at FROM. PL/pgSQL's
+EXECUTE is the actual equivalent. See docs/research/
+gap-078-mysql-prepare-from.md."""
 
-def find_mysql_prepare_from(source: str) -> list[Finding]:
-    """Detect MySQL/MariaDB's `PREPARE <name> FROM <string>`. PostgreSQL
-    spells its own PREPARE differently (`PREPARE name AS query`, taking
-    SQL text rather than a string variable), so ora2pg -m's verbatim copy
-    fails on the first call with a syntax error at FROM. PL/pgSQL's
-    EXECUTE is the actual equivalent. See docs/research/
-    gap-078-mysql-prepare-from.md."""
-    clean = mask_strings_and_comments(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="mysql_prepare_from",
+    dialect="mysql",
+    severity="high",
+    pattern=_PREPARE_FROM_RE,
+    snippet='PREPARE ... FROM',
+)
 
-    for m in _PREPARE_FROM_RE.finditer(clean):
-        findings.append(
-            Finding(
-                detector="mysql_prepare_from",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet="PREPARE ... FROM",
-                message_id="mysql_prepare_from",
-            )
-        )
-
-    return findings
+find_mysql_prepare_from = build(SPEC, mysql_lex)
+find_mysql_prepare_from.__doc__ = _DOC

@@ -1,36 +1,23 @@
 import re
 
-from ..models import Finding
-from ..mysql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_strings_and_comments,
-)
+from .. import mysql_lex
+from ..detector_spec import DetectorSpec, build
 
 _INSERT_IGNORE_RE = re.compile(r"\bINSERT\s+IGNORE\b", re.IGNORECASE)
 
+_DOC = """Detect MySQL/MariaDB's INSERT IGNORE. ora2pg -m copies it through
+unchanged; PostgreSQL has no such INSERT syntax, so the containing
+routine loads cleanly and fails on its first call. ON CONFLICT DO
+NOTHING is narrower than IGNORE, not an exact equivalent. See
+docs/research/gap-077-mysql-insert-ignore.md."""
 
-def find_mysql_insert_ignore(source: str) -> list[Finding]:
-    """Detect MySQL/MariaDB's INSERT IGNORE. ora2pg -m copies it through
-    unchanged; PostgreSQL has no such INSERT syntax, so the containing
-    routine loads cleanly and fails on its first call. ON CONFLICT DO
-    NOTHING is narrower than IGNORE, not an exact equivalent. See
-    docs/research/gap-077-mysql-insert-ignore.md."""
-    clean = mask_strings_and_comments(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="mysql_insert_ignore",
+    dialect="mysql",
+    severity="high",
+    pattern=_INSERT_IGNORE_RE,
+    snippet='INSERT IGNORE',
+)
 
-    for m in _INSERT_IGNORE_RE.finditer(clean):
-        findings.append(
-            Finding(
-                detector="mysql_insert_ignore",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet="INSERT IGNORE",
-                message_id="mysql_insert_ignore",
-            )
-        )
-
-    return findings
+find_mysql_insert_ignore = build(SPEC, mysql_lex)
+find_mysql_insert_ignore.__doc__ = _DOC

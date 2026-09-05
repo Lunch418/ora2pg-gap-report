@@ -1,12 +1,7 @@
 import re
 
-from ..models import Finding
-from ..mssql_lex import (
-    enclosing_object_name,
-    enclosing_object_name_index,
-    line_at,
-    mask_strings_and_comments,
-)
+from .. import mssql_lex
+from ..detector_spec import DetectorSpec, build
 
 # Any T-SQL IF: both shapes below are broken, differently, so the
 # detector deliberately doesn't try to tell them apart. The negative
@@ -21,27 +16,19 @@ from ..mssql_lex import (
 # the safer failure mode than flooding every idempotent script with noise.
 _PATTERN_RE = re.compile(r"\bIF\b(?!\s+(?:NOT\s+)?EXISTS\b)\s+", re.IGNORECASE)
 
+_DOC = """Detect T-SQL IF statements. ora2pg -M mishandles both shapes:
+with a BEGIN/END block it adds THEN but never closes with END IF,
+and without a block it adds no THEN at all. Either way the routine
+loads cleanly and fails on its first call. See docs/research/
+gap-092-mssql-if-statement.md."""
 
-def find_mssql_if_statements(source: str) -> list[Finding]:
-    """Detect T-SQL IF statements. ora2pg -M mishandles both shapes:
-    with a BEGIN/END block it adds THEN but never closes with END IF,
-    and without a block it adds no THEN at all. Either way the routine
-    loads cleanly and fails on its first call. See docs/research/
-    gap-092-mssql-if-statement.md."""
-    clean = mask_strings_and_comments(source)
-    name_index = enclosing_object_name_index(clean)
-    findings: list[Finding] = []
+SPEC = DetectorSpec(
+    name="mssql_if_statement",
+    dialect="mssql",
+    severity="high",
+    pattern=_PATTERN_RE,
+    snippet='IF',
+)
 
-    for m in _PATTERN_RE.finditer(clean):
-        findings.append(
-            Finding(
-                detector="mssql_if_statement",
-                severity="high",
-                object_name=enclosing_object_name(name_index, m.start()),
-                line=line_at(clean, m.start()),
-                snippet="IF",
-                message_id="mssql_if_statement",
-            )
-        )
-
-    return findings
+find_mssql_if_statements = build(SPEC, mssql_lex)
+find_mssql_if_statements.__doc__ = _DOC

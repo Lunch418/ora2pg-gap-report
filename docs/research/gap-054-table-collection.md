@@ -1,27 +1,28 @@
-# GAP-054: оператор `TABLE(...)` во `FROM`
+# GAP-054: the `TABLE(...)` operator in `FROM`
 
-Oracle feature: `TABLE(...)` разворачивает коллекцию (nested table,
-`VARRAY` или результат pipelined-функции) в набор строк прямо во `FROM`.
+Oracle feature: `TABLE(...)` expands a collection (a nested table, a
+`VARRAY`, or the result of a pipelined function) into a set of rows
+directly in `FROM`.
 
-## Минимальный пример
-
-```sql
-SELECT t.column_value
-  FROM TABLE(get_ids(42)) t;
-```
-
-## Вывод ora2pg (v25.0, `-t QUERY`)
+## Minimal example
 
 ```sql
 SELECT t.column_value
   FROM TABLE(get_ids(42)) t;
 ```
 
-Скопировано как есть.
+## ora2pg output (v25.0, `-t QUERY`)
 
-## Наблюдаемая проблема
+```sql
+SELECT t.column_value
+  FROM TABLE(get_ids(42)) t;
+```
 
-Подтверждено на реальном PostgreSQL 16:
+Copied as written.
+
+## Observed problem
+
+Confirmed against a real PostgreSQL 16:
 
 ```
 ERROR:  syntax error at or near "TABLE"
@@ -31,18 +32,18 @@ LINE 2:   FROM TABLE(get_ids(42)) t;
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/table_collection.py`. Детектор требует
-перед `TABLE(` ключевого слова `FROM`/`JOIN`/`APPLY`: слово `TABLE`
-слишком частое в SQL (`CREATE TABLE`, `ALTER TABLE`, `TRUNCATE TABLE`,
-`TYPE t IS TABLE OF`), и без этой привязки ложных срабатываний было бы
-больше, чем настоящих находок.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/table_collection.py`. The detector requires a
+`FROM`/`JOIN`/`APPLY` keyword before `TABLE(`: the word `TABLE` is far too
+common in SQL (`CREATE TABLE`, `ALTER TABLE`, `TRUNCATE TABLE`, `TYPE t IS
+TABLE OF`), and without that anchor there would be more false positives
+than real findings.
 
-Ручная переработка: ближайший аналог — `unnest(...)` для массива или
-обычный вызов set-returning функции во `FROM` (`FROM get_ids(42)`). Но
-подстановка не механическая: она зависит от того, чем в PostgreSQL стала
-сама коллекция — массивом, отдельной таблицей или функцией,
-возвращающей `SETOF`. Про сами объявления таких типов — см.
+Manual rework: the nearest analogue is `unnest(...)` for an array, or an
+ordinary set-returning function call in `FROM` (`FROM get_ids(42)`). But
+the substitution is not mechanical: it depends on what the collection
+itself became in PostgreSQL — an array, a separate table, or a function
+returning `SETOF`. For the declarations of such types, see
 GAP-021/`collection_type.py`.

@@ -1,9 +1,9 @@
-# GAP-053: `FOLLOWS` / `PRECEDES` — порядок срабатывания триггеров
+# GAP-053: `FOLLOWS` / `PRECEDES` — trigger firing order
 
-Oracle feature: оговорка, задающая порядок срабатывания триггеров на
-одном и том же событии одной таблицы.
+Oracle feature: a clause specifying the firing order of triggers on the
+same event of the same table.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE TRIGGER trg_b
@@ -16,7 +16,7 @@ END;
 /
 ```
 
-## Вывод ora2pg (v25.0, `-t TRIGGER`)
+## ora2pg output (v25.0, `-t TRIGGER`)
 
 ```sql
 CREATE OR REPLACE FUNCTION trigger_fct_trg_b() RETURNS trigger AS $BODY$
@@ -32,13 +32,13 @@ CREATE TRIGGER trg_b
 	EXECUTE PROCEDURE trigger_fct_trg_b();
 ```
 
-Ключевое: оговорка не отброшена, а попала **внутрь тела функции** —
-между `AS $BODY$` и `BEGIN`.
+The key point: the clause is not dropped — it ends up **inside the
+function body**, between `AS $BODY$` and `BEGIN`.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Загрузка проходит полностью чисто (ora2pg выставляет в своём выводе
-`check_function_bodies = false`, поэтому тело не разбирается):
+The load succeeds entirely cleanly (ora2pg sets `check_function_bodies =
+false` in its output, so the body is not parsed):
 
 ```
 DROP TRIGGER
@@ -46,8 +46,8 @@ CREATE FUNCTION
 CREATE TRIGGER
 ```
 
-Падение происходит при первом же `INSERT` в таблицу. Подтверждено на
-реальном PostgreSQL 16:
+The failure happens on the very first `INSERT` into the table. Confirmed
+against a real PostgreSQL 16:
 
 ```
 ERROR:  syntax error at or near "FOLLOWS"
@@ -58,22 +58,23 @@ FOLLOWS trg_a
 BEGIN
 ```
 
-То есть ломается не порядок срабатывания триггеров, а вообще любая
-операция вставки в таблицу — это `failure_stage = runtime`, а не
-`deployment`, и проверено это именно так, а не выведено по аналогии.
+So what breaks is not the trigger firing order but every insert into the
+table — this is `failure_stage = runtime`, not `deployment`, and it was
+verified that way rather than inferred by analogy.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/trigger_follows.py`. Детектор ищет
-оговорку только в заголовке триггера (от `CREATE TRIGGER` до первого
-`DECLARE`/`BEGIN`/`CALL`) — там, где её и разрешает грамматика Oracle:
-`FOLLOWS` само по себе вполне обычный идентификатор (`SELECT follows
-FROM t`), и без этого ограничения детектор давал бы ложные срабатывания.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/trigger_follows.py`. The detector looks for
+the clause only in the trigger's header (from `CREATE TRIGGER` to the
+first `DECLARE`/`BEGIN`/`CALL`) — where Oracle's grammar allows it:
+`FOLLOWS` on its own is a perfectly ordinary identifier (`SELECT follows
+FROM t`), and without that restriction the detector would produce false
+positives.
 
-Ручная переработка: в PostgreSQL порядка «по имени предшественника» нет
-— триггеры на одном событии срабатывают в алфавитном порядке имён.
-Оговорку нужно убрать, а нужную последовательность обеспечить
-именованием (`t10_...`, `t20_...`) или слиянием триггеров в один.
+Manual rework: PostgreSQL has no "after this named trigger" ordering —
+triggers on the same event fire in alphabetical order of their names. The
+clause has to go, and the required sequence achieved through naming
+(`t10_...`, `t20_...`) or by merging the triggers into one.

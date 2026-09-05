@@ -48,7 +48,7 @@ ora2pg_gap_report/
 │                               # q-quotes) in two flavors -- safe, and with the EXECUTE
 │                               # IMMEDIATE argument left visible -- BEGIN/CASE/IF/LOOP...END
 │                               # block matching, identifier parsing -- used by every detector
-├── oracle_connector.py         # live PACKAGE BODY/TRIGGER export via DBMS_METADATA.GET_DDL
+├── oracle_connector.py         # live schema export (13 object types) via DBMS_METADATA.GET_DDL
 ├── oracle_export.py            # the ora2pg-gap-export console command
 ├── detectors/
 │   ├── autonomous_tx.py           # PRAGMA AUTONOMOUS_TRANSACTION inside a PACKAGE BODY

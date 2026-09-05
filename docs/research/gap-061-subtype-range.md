@@ -1,8 +1,8 @@
 # GAP-061: `SUBTYPE ... RANGE` → `CREATE DOMAIN ... RANGE`
 
-Oracle feature: подтип PL/SQL с ограничением диапазона значений.
+Oracle feature: a PL/SQL subtype with a range constraint on its values.
 
-## Минимальный пример
+## Minimal example
 
 ```sql
 CREATE OR REPLACE PACKAGE types_pkg IS
@@ -12,7 +12,7 @@ END types_pkg;
 /
 ```
 
-## Вывод ora2pg (v25.0, `-t PACKAGE`)
+## ora2pg output (v25.0, `-t PACKAGE`)
 
 ```sql
 -- Oracle package 'types_pkg' declaration, please edit to match PostgreSQL syntax.
@@ -21,12 +21,12 @@ CREATE DOMAIN types_pkg.short_name AS varchar(30) NOT NULL;
 -- End of Oracle package 'types_pkg' declaration
 ```
 
-Перевод в `CREATE DOMAIN` сам по себе верный, но оговорка `RANGE`
-перенесена дословно.
+Translating to `CREATE DOMAIN` is correct in itself, but the `RANGE`
+clause is carried over verbatim.
 
-## Наблюдаемая проблема
+## Observed problem
 
-Подтверждено на реальном PostgreSQL 16:
+Confirmed against a real PostgreSQL 16:
 
 ```
 ERROR:  syntax error at or near "RANGE"
@@ -34,17 +34,18 @@ LINE 1: CREATE DOMAIN types_pkg.small_int AS integer RANGE 1 .. 100;
                                                      ^
 ```
 
-Второй подтип из того же примера (`SUBTYPE short_name IS VARCHAR2(30)
-NOT NULL`) конвертируется в корректный `CREATE DOMAIN ... NOT NULL` и
-загрузился бы без вопросов — падает именно вариант с `RANGE`. Поэтому
-детектор помечает только его, а ненагруженные подтипы (и вариант с
-`NOT NULL`) намеренно не трогает.
+The second subtype from the same example (`SUBTYPE short_name IS
+VARCHAR2(30) NOT NULL`) converts into a correct `CREATE DOMAIN ... NOT
+NULL` and would have loaded without question — it is specifically the
+`RANGE` variant that fails. So the detector flags only that one and
+deliberately leaves unconstrained subtypes (and the `NOT NULL` variant)
+alone.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16.
 
-## Вердикт
+## Verdict
 
-**Gap подтверждён.** Реализовано:
-`ora2pg_gap_report/detectors/subtype_range.py`. Ручная переработка:
-идея переносится один в один, но другим синтаксисом — через проверку:
-`CREATE DOMAIN small_int AS integer CHECK (VALUE BETWEEN 1 AND 100)`.
+**Gap confirmed.** Implemented in
+`ora2pg_gap_report/detectors/subtype_range.py`. Manual rework: the idea
+carries over one to one, in different syntax — as a check: `CREATE DOMAIN
+small_int AS integer CHECK (VALUE BETWEEN 1 AND 100)`.

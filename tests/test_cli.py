@@ -1759,6 +1759,14 @@ def test_python_dash_m_entry_point_runs_the_cli():
         [sys.executable, "-m", "ora2pg_gap_report", "--help"],
         capture_output=True,
         text=True,
+        # Explicit, like every other decode in this project: text=True
+        # otherwise decodes with the locale default, which is cp1252 on
+        # Windows and cannot read this tool's own UTF-8 output. The suite
+        # turns EncodingWarning into an error under
+        # PYTHONWARNDEFAULTENCODING=1 (see pyproject) to catch exactly
+        # this, so leaving it off fails CI on all five platforms while
+        # passing on an unarmed local run.
+        encoding="utf-8",
         cwd=str(repo_root),
     )
     assert result.returncode == 0, result.stderr

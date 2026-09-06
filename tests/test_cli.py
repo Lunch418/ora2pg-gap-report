@@ -1771,3 +1771,38 @@ def test_python_dash_m_entry_point_runs_the_cli():
     )
     assert result.returncode == 0, result.stderr
     assert "--explain" in result.stdout
+
+
+def test_help_does_not_crash_on_a_console_that_cannot_encode_russian():
+    """`--help` on a legacy Windows code page must print help, not exit 3.
+
+    Runs the real CLI as a subprocess with PYTHONIOENCODING=cp1252, which
+    is what a Western Windows console gives Python. Before the language
+    default learned to check the stream, argparse wrote the Russian help
+    text to that stdout, UnicodeEncodeError propagated to main()'s
+    top-level handler, and the user got "unexpected internal error",
+    exit 3 and an empty stdout from the first command they ran.
+
+    A subprocess is the point: the encoder only exists on a real stream,
+    so an in-process call to main() cannot reproduce this at all.
+    """
+    import os
+    import subprocess
+    import sys
+
+    repo_root = Path(__file__).resolve().parent.parent
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+    env.pop("ORA2PG_GAP_REPORT_LANG", None)
+    result = subprocess.run(
+        [sys.executable, "-m", "ora2pg_gap_report", "--help"],
+        capture_output=True,
+        text=True,
+        # Decode with what the child was told to encode with, not utf-8:
+        # the English help contains an em dash, which is one byte (0x97)
+        # in cp1252 and not valid utf-8 at all.
+        encoding="cp1252",
+        cwd=str(repo_root),
+        env=env,
+    )
+    assert result.returncode == 0, f"exit {result.returncode}, stderr: {result.stderr}"
+    assert "--explain" in result.stdout

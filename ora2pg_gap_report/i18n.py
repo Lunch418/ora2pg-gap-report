@@ -121,6 +121,38 @@ def peek_language(argv: list[str] | None) -> str | None:
     return None
 
 
+# A string with the Cyrillic that every Russian UI string is made of. Used
+# to ask a stream's encoder "could you print this?" without printing it.
+_RUSSIAN_PROBE = "Русский"
+
+
+def stream_can_encode(text: str, stream: object | None = None) -> bool:
+    """Whether `stream`'s encoding can represent `text`.
+
+    Windows consoles default to a legacy code page (cp1252 on a Western
+    install), which has no Cyrillic at all. Writing Russian to one raises
+    UnicodeEncodeError from deep inside whatever is doing the printing --
+    for argparse's --help that surfaced as the CLI's top-level handler
+    reporting an "unexpected internal error" and exiting 3, with an empty
+    stdout, on the very first command a Windows user would run.
+
+    Defaults to sys.stdout, and answers True when there is nothing to ask
+    (no stream, no encoding attribute, a stream that has been replaced by
+    a test harness): the caller's job is to avoid a crash it can foresee,
+    not to second-guess an environment it cannot inspect.
+    """
+    if stream is None:
+        stream = sys.stdout
+    encoding = getattr(stream, "encoding", None)
+    if not encoding:
+        return True
+    try:
+        text.encode(encoding)
+    except (UnicodeEncodeError, LookupError):
+        return False
+    return True
+
+
 def resolve_language(explicit: str | None, *, interactive: bool) -> str:
     """Resolution order: --lang (this run only) > ORA2PG_GAP_REPORT_LANG
     env var (for CI, doesn't persist) > a previously saved --set-lang
@@ -143,7 +175,14 @@ def resolve_language(explicit: str | None, *, interactive: bool) -> str:
         save_language(chosen)
         return chosen
 
-    return "ru"
+    # Russian remains the silent default -- except on a console that
+    # cannot encode it, where printing it does not produce worse output,
+    # it raises. Nobody asked for Russian in this branch (that is what
+    # every branch above is for), so English, which every encoding this
+    # could be represents, is the better answer than a crash. An explicit
+    # choice above is honoured either way: a user who asks for Russian
+    # gets Russian.
+    return "ru" if stream_can_encode(_RUSSIAN_PROBE) else "en"
 
 
 def t(lang: str, key: str, **kwargs: object) -> str:

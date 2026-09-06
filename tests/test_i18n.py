@@ -159,3 +159,50 @@ def test_peek_language_is_silent_on_anything_it_does_not_recognize():
 def test_peek_language_falls_back_to_sys_argv(monkeypatch):
     monkeypatch.setattr("sys.argv", ["prog", "--lang", "en"])
     assert i18n.peek_language(None) == "en"
+
+
+def test_russian_default_falls_back_to_english_when_the_console_cannot_encode_it(monkeypatch):
+    """A Windows console on a Western code page has no Cyrillic at all.
+
+    Writing Russian to one does not degrade, it raises -- and the Russian
+    default was reached without anyone asking for it, so English (which
+    every encoding this could be can represent) beats a crash. Regression
+    test for `--help` exiting 3 with an empty stdout on Windows: argparse
+    wrote the Russian help straight to sys.stdout, the UnicodeEncodeError
+    surfaced at the CLI's top-level handler, and it reported an
+    "unexpected internal error" on the first command a new user runs.
+    """
+    monkeypatch.delenv(i18n._ENV_VAR, raising=False)
+    monkeypatch.setattr(i18n, "get_saved_language", lambda: None)
+
+    class _Cp1252Stream:
+        encoding = "cp1252"
+
+    monkeypatch.setattr(i18n.sys, "stdout", _Cp1252Stream())
+    assert i18n.resolve_language(None, interactive=False) == "en"
+
+    # An explicit choice is still the user's to make: they asked for
+    # Russian, they get Russian. Only the silent default adapts.
+    assert i18n.resolve_language("ru", interactive=False) == "ru"
+
+
+def test_russian_stays_the_default_on_a_utf8_console(monkeypatch):
+    monkeypatch.delenv(i18n._ENV_VAR, raising=False)
+    monkeypatch.setattr(i18n, "get_saved_language", lambda: None)
+
+    class _Utf8Stream:
+        encoding = "utf-8"
+
+    monkeypatch.setattr(i18n.sys, "stdout", _Utf8Stream())
+    assert i18n.resolve_language(None, interactive=False) == "ru"
+
+
+def test_stream_can_encode_says_yes_when_there_is_nothing_to_ask():
+    # pytest replaces sys.stdout with a capture object that may carry no
+    # encoding at all; an unanswerable question must not be read as "no"
+    # and silently switch a developer's language mid-suite.
+    class _NoEncoding:
+        pass
+
+    assert i18n.stream_can_encode("Русский", _NoEncoding()) is True
+    assert i18n.stream_can_encode("Русский", None) is not None

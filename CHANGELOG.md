@@ -42,6 +42,18 @@ patch for fixes to existing ones.
   where it is actionable. See "Fixed" for why they had to shrink.
 
 ### Fixed
+- **`--help` no longer crashed on a Windows console.** Russian is the
+  silent default language, and a Western Windows console has no Cyrillic
+  at all: argparse wrote the Russian help straight to `sys.stdout`, the
+  `UnicodeEncodeError` reached `main()`'s top-level handler, and the
+  first command a new user ran reported an "unexpected internal error"
+  and exited 3 with an empty stdout. The default now checks whether the
+  stream can encode Russian and answers English when it cannot; an
+  explicit `--lang ru`, env var or saved choice is still honoured
+  unchanged. Found by the new `python -m` test, which is the first thing
+  in the suite to run the CLI as a real subprocess -- an in-process
+  `main()` call cannot reproduce it, because the encoder only exists on a
+  real stream.
 - **The TUI scan screen's control rows no longer render ragged, clipped
   or collapsed.** Three defects with one root cause -- widths were
   reasoned about rather than measured:

@@ -1751,23 +1751,27 @@ def test_python_dash_m_entry_point_runs_the_cli():
     being executable at all -- importing it in-process would pass whether
     or not __main__.py exists.
     """
+    import os
     import subprocess
     import sys
 
     repo_root = Path(__file__).resolve().parent.parent
+    # Pin both ends to UTF-8 rather than inheriting the platform's. Two
+    # reasons, both learned from CI: text=True with no encoding= decodes
+    # with the locale default, which the suite makes an error under
+    # PYTHONWARNDEFAULTENCODING=1 (see pyproject); and on Windows the
+    # pipe's default is cp1252, where the child would emit the English
+    # help -- em dash included, one byte there and invalid UTF-8 -- and
+    # the parent could not decode it. What this test is about is whether
+    # the module runs at all, so the encoding should not vary by platform.
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     result = subprocess.run(
         [sys.executable, "-m", "ora2pg_gap_report", "--help"],
         capture_output=True,
         text=True,
-        # Explicit, like every other decode in this project: text=True
-        # otherwise decodes with the locale default, which is cp1252 on
-        # Windows and cannot read this tool's own UTF-8 output. The suite
-        # turns EncodingWarning into an error under
-        # PYTHONWARNDEFAULTENCODING=1 (see pyproject) to catch exactly
-        # this, so leaving it off fails CI on all five platforms while
-        # passing on an unarmed local run.
         encoding="utf-8",
         cwd=str(repo_root),
+        env=env,
     )
     assert result.returncode == 0, result.stderr
     assert "--explain" in result.stdout

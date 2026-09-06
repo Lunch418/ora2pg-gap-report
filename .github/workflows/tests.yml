@@ -129,7 +129,9 @@ jobs:
           # The version this commit actually calls itself, cross-checked
           # against the version the registry records findings against --
           # a pin to the wrong commit would otherwise build quietly.
-          grep -q "VERSION *= *'${ORA2PG_VERSION}'" scripts/ora2pg
+          # In lib/Ora2Pg.pm, which holds the literal ($VERSION = '25.0';);
+          # scripts/ora2pg only re-exports it as $Ora2Pg::VERSION.
+          grep -q "VERSION *= *'${ORA2PG_VERSION}'" lib/Ora2Pg.pm
           perl Makefile.PL
           make
           sudo make install

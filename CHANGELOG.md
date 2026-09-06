@@ -54,12 +54,17 @@ patch for fixes to existing ones.
   head`, or quitting `... | less`, closes the read end while the scan is
   still writing; the resulting `BrokenPipeError` reached `main()`'s
   top-level handler, which told the user to file a GitHub issue and
-  exited 3 for an ordinary shell pipeline. It now exits quietly with 141
-  (128 + SIGPIPE, what a shell reports for a process killed by SIGPIPE),
-  after pointing stdout at `os.devnull` so the interpreter's shutdown
-  flush has somewhere harmless to land instead of printing "Exception
-  ignored in: <_io.TextIOWrapper ...>". 141 is deliberately outside the
-  0/1/2/3 range, all of which describe a scan that ran to completion.
+  exited 3 for an ordinary shell pipeline. It now ends quietly: SIGPIPE is
+  restored to its default disposition (Python sets it to `SIG_IGN` at
+  startup, which is what turns it into an exception), so `... | head`
+  ends the way `cat ... | head` does -- killed by the signal, silently,
+  with the shell reporting 141. Catching the exception could not be made
+  equally quiet: the interpreter still flushes `sys.stdout` at shutdown,
+  and on macOS that printed "Exception ignored in: <_io.TextIOWrapper
+  ...>" even with the fd redirected to `os.devnull`. Windows has no
+  SIGPIPE, so there the handler stays and returns 141 itself. 141 is
+  deliberately outside the 0/1/2/3 range, all of which describe a scan
+  that ran to completion.
 - Internal errors are now reported in the language `--lang` asked for.
   The top-level handler resolved the language from scratch and ignored
   the flag, so `--lang en` printed its crash message in Russian.

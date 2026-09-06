@@ -3,6 +3,7 @@ import dataclasses
 import difflib
 import io
 import os
+import signal
 import sys
 import time
 from collections.abc import Sequence
@@ -662,14 +663,30 @@ def main(argv: list[str] | None = None) -> int:
     SystemExit/KeyboardInterrupt are BaseException, not Exception, so
     argparse's own --help/bad-argument exits and Ctrl-C still work
     exactly as before."""
+    # Restore the default disposition for SIGPIPE, which Python sets to
+    # SIG_IGN at startup so writes to a closed pipe raise BrokenPipeError
+    # instead of killing the process. For a program whose output is meant
+    # to be piped, the default is what people expect: `... | head` ends
+    # the way `cat ... | head` does, killed by the signal, silently, with
+    # the shell reporting 141. Catching the exception instead cannot be
+    # made equally quiet -- the interpreter still flushes sys.stdout at
+    # shutdown, and on macOS that flush printed "Exception ignored in:
+    # <_io.TextIOWrapper name='<stdout>' ...>" even after the fd had been
+    # redirected to os.devnull, which is what CI caught.
+    #
+    # Guarded because Windows has no SIGPIPE at all; there a closed pipe
+    # surfaces as BrokenPipeError and the handler below is what runs.
+    if hasattr(signal, "SIGPIPE"):
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+
     try:
         return _main(argv)
     except BrokenPipeError:
-        # `... | head` and `... | less` (quit early) close the read end
-        # while this process is still writing. That is the reader saying
-        # "I have enough", not a fault here -- reporting it as an
-        # internal error told the user to file a GitHub issue for an
-        # ordinary shell pipeline.
+        # Reached on Windows, which has no SIGPIPE: a closed read end
+        # surfaces here as an exception rather than as a signal. `... |
+        # head` and quitting `... | less` are the reader saying "I have
+        # enough", not a fault here -- reporting it as an internal error
+        # told the user to file a GitHub issue for an ordinary pipeline.
         #
         # Python still flushes stdout at interpreter shutdown, which
         # raises a second BrokenPipeError that nothing can catch and

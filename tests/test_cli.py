@@ -1812,17 +1812,15 @@ def test_help_does_not_crash_on_a_console_that_cannot_encode_russian():
     assert "--explain" in result.stdout
 
 
-def test_a_closed_pipe_is_not_reported_as_a_tool_bug():
-    """`... | head` must exit quietly, not tell the user to file an issue.
+def _run_until_the_reader_closes_the_pipe():
+    """Start a scan, read a few lines, close the pipe on it.
 
-    `head` closes the read end as soon as it has its lines, which reaches
-    this process as BrokenPipeError mid-write. That is the reader saying
-    "enough", not a fault here -- it used to hit main()'s top-level
-    handler and print "this is a bug in the tool ... please report it"
-    with exit 3, for an ordinary shell pipeline.
-
-    Runs a real pipeline in a shell: BrokenPipeError only happens when
-    something actually closes a pipe, so no in-process call reproduces it.
+    Deliberately not `shell=True` with `| head`: Windows has neither
+    `head` nor a POSIX shell, and Windows is the one platform where the
+    BrokenPipeError handler (rather than SIGPIPE) is what runs, so
+    shelling out would skip the case that most needs covering. Closing
+    the read end from here reaches the child the same way `head` exiting
+    does.
     """
     import os
     import subprocess
@@ -1831,46 +1829,58 @@ def test_a_closed_pipe_is_not_reported_as_a_tool_bug():
     repo_root = Path(__file__).resolve().parent.parent
     sample = repo_root / "docs" / "research" / "samples" / "logger.pkb"
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
-    result = subprocess.run(
-        f'"{sys.executable}" -m ora2pg_gap_report "{sample}" --lang en | head -3',
-        shell=True,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
+    child = subprocess.Popen(
+        [sys.executable, "-m", "ora2pg_gap_report", str(sample), "--lang", "en"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         cwd=str(repo_root),
         env=env,
     )
-    # Nothing on stderr at all: neither the "report it" message nor the
-    # "Exception ignored in: <_io.TextIOWrapper ...>" that an unguarded
-    # shutdown flush prints after the fact.
-    assert result.stderr == "", result.stderr
-    assert "report" not in result.stderr.lower()
+    assert child.stdout is not None and child.stderr is not None
+    for _ in range(3):
+        child.stdout.readline()
+    child.stdout.close()
+    stderr = child.stderr.read().decode("utf-8", errors="replace")
+    child.stderr.close()
+    return child.wait(), stderr
 
 
-def test_the_scan_status_of_a_closed_pipe_is_not_a_scan_result_code():
-    # 141 is 128 + SIGPIPE, what a shell reports for a process killed by
-    # SIGPIPE. It must not collide with 0/1/2/3, which all describe a
-    # scan that ran to completion -- 1 especially, which would be
-    # indistinguishable from a --fail-on gate that legitimately failed.
-    import os
-    import subprocess
-    import sys
+def test_a_closed_pipe_is_not_reported_as_a_tool_bug():
+    """`... | head` must end quietly, not tell the user to file an issue.
 
-    repo_root = Path(__file__).resolve().parent.parent
-    sample = repo_root / "docs" / "research" / "samples" / "logger.pkb"
-    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
-    result = subprocess.run(
-        f'"{sys.executable}" -m ora2pg_gap_report "{sample}" --lang en | head -3; '
-        f"exit ${{PIPESTATUS[0]}}",
-        shell=True,
-        executable="/bin/bash",
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        cwd=str(repo_root),
-        env=env,
-    )
-    assert result.returncode == 141, f"got {result.returncode}"
+    The reader closing the pipe reaches the scan as EPIPE mid-write. That
+    is the reader saying "enough", not a fault here -- it used to hit
+    main()'s top-level handler and print "this is a bug in the tool ...
+    please report it" with exit 3, for an ordinary shell pipeline.
+
+    Nothing on stderr at all, which is stricter than "no report-it
+    message" for a reason: the first version of this fix caught the
+    exception and redirected the fd to os.devnull, and macOS still
+    printed "Exception ignored in: <_io.TextIOWrapper ...>" from the
+    interpreter's own shutdown flush. Only asserting the whole stream is
+    empty caught that.
+    """
+    _status, stderr = _run_until_the_reader_closes_the_pipe()
+    assert stderr == "", stderr
+
+
+def test_the_status_of_a_closed_pipe_is_not_a_scan_result_code():
+    """0/1/2/3 all describe a scan that ran to completion; this did not.
+
+    On POSIX the process is killed by SIGPIPE, which Popen reports as a
+    negative signal number and a shell reports as 141 (128 + 13) -- the
+    number README's exit-code table documents. Windows has no SIGPIPE, so
+    the handler returns 141 itself. Either way it must not be 1, which
+    would be indistinguishable from a --fail-on gate that legitimately
+    failed.
+    """
+    import signal
+
+    status, _stderr = _run_until_the_reader_closes_the_pipe()
+    expected = {141}
+    if hasattr(signal, "SIGPIPE"):
+        expected.add(-int(signal.SIGPIPE))
+    assert status in expected, f"got {status}, expected one of {sorted(expected)}"
 
 
 def test_an_internal_error_is_reported_in_the_language_that_was_asked_for(monkeypatch, capsys):

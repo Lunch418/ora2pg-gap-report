@@ -9,6 +9,8 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-06
+
 ### Added
 - `python -m ora2pg_gap_report` now works, alongside the two console
   scripts. Those stay the documented way in; this covers the cases they

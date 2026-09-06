@@ -2,6 +2,7 @@ import argparse
 import dataclasses
 import difflib
 import io
+import errno
 import os
 import signal
 import sys
@@ -651,6 +652,43 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
     return 2 if had_error else 0
 
 
+def _is_closed_pipe(exc: BaseException) -> bool:
+    """Whether `exc` is "the reader closed the pipe" rather than a fault here.
+
+    POSIX raises BrokenPipeError (EPIPE). Windows has no SIGPIPE and does
+    not raise BrokenPipeError for this at all -- a write to a pipe whose
+    reader is gone comes back as a plain OSError with EINVAL, which CI
+    caught by way of the generic handler telling the user to report a bug
+    for `... | head`.
+
+    EINVAL is only read this way on Windows. It is a broad errno that
+    elsewhere means a genuine bad argument, and mistaking one for a
+    closed pipe would silently swallow a real defect.
+    """
+    if isinstance(exc, BrokenPipeError):
+        return True
+    return os.name == "nt" and isinstance(exc, OSError) and exc.errno == errno.EINVAL
+
+
+def _silence_stdout_for_shutdown() -> None:
+    """Point stdout's fd at os.devnull and drain what is buffered.
+
+    Without this the interpreter's own flush at shutdown re-raises on the
+    dead pipe, which it reports as "Exception ignored in:
+    <_io.TextIOWrapper ...>" on stderr and, on Windows, turns into exit
+    code 120 regardless of what main() returned.
+    """
+    try:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        sys.stdout.flush()
+    except (OSError, ValueError):
+        # No usable stdout fd to redirect: already closed, or replaced by
+        # a test harness with an object that has no real descriptor.
+        # Nothing left to protect the shutdown flush from.
+        pass
+
+
 def main(argv: list[str] | None = None) -> int:
     """Thin wrapper around _main(): the one place an exception _main()
     doesn't already isolate (a bug outside the per-file scan loop --
@@ -681,35 +719,23 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         return _main(argv)
-    except BrokenPipeError:
-        # Reached on Windows, which has no SIGPIPE: a closed read end
-        # surfaces here as an exception rather than as a signal. `... |
-        # head` and quitting `... | less` are the reader saying "I have
-        # enough", not a fault here -- reporting it as an internal error
-        # told the user to file a GitHub issue for an ordinary pipeline.
-        #
-        # Python still flushes stdout at interpreter shutdown, which
-        # raises a second BrokenPipeError that nothing can catch and
-        # prints "Exception ignored in: <_io.TextIOWrapper ...>" to
-        # stderr. Pointing the fd at os.devnull first gives that flush
-        # somewhere harmless to land -- the recipe from the "Note on
-        # SIGPIPE" section of Python's own signal docs.
-        try:
-            devnull = os.open(os.devnull, os.O_WRONLY)
-            os.dup2(devnull, sys.stdout.fileno())
-        except OSError:
-            # No usable stdout fd to redirect (already closed, or not a
-            # real file object under a test harness). Nothing to protect
-            # the shutdown flush from, and nothing worth failing over.
-            pass
-        # 128 + SIGPIPE(13), the status a shell reports for a process
-        # killed by SIGPIPE. Not 0/1/2/3: every one of those is already
-        # a documented result of a *completed* scan (see README's exit
-        # code table), and this run did not complete -- its output was
-        # cut off. 1 in particular would be indistinguishable from a
-        # --fail-on gate that legitimately failed.
-        return 141
     except Exception as exc:
+        if _is_closed_pipe(exc):
+            # Reached where SIGPIPE did not already end the process:
+            # Windows, which has no SIGPIPE at all. The reader saying "I
+            # have enough" is not a fault here -- reporting it as an
+            # internal error told the user to file a GitHub issue for an
+            # ordinary pipeline.
+            _silence_stdout_for_shutdown()
+            # 128 + SIGPIPE(13), matching what a shell reports on POSIX
+            # for the same situation, so the documented status is the
+            # same on every platform. Not 0/1/2/3: each of those is a
+            # documented result of a scan that ran to completion (see
+            # README's exit-code table), and this one was cut off. 1 in
+            # particular would be indistinguishable from a --fail-on gate
+            # that legitimately failed.
+            return 141
+
         err_console = Console(stderr=True)
         # Honour --lang for the crash message too. resolve_language(None)
         # ignored the flag the user actually passed, so `--lang en`

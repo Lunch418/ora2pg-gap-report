@@ -62,7 +62,15 @@ patch for fixes to existing ones.
   equally quiet: the interpreter still flushes `sys.stdout` at shutdown,
   and on macOS that printed "Exception ignored in: <_io.TextIOWrapper
   ...>" even with the fd redirected to `os.devnull`. Windows has no
-  SIGPIPE, so there the handler stays and returns 141 itself. 141 is
+  SIGPIPE and, it turns out, does not raise `BrokenPipeError` for this at
+  all: a write to a pipe whose reader is gone comes back as a plain
+  `OSError` with `EINVAL`, which fell through to the generic handler and
+  produced the very "please report it" message this change is about. The
+  closed-pipe check now recognises that case too -- `EINVAL` only on
+  Windows, since elsewhere it means a genuine bad argument -- and returns
+  141 after draining stdout to `os.devnull`, without which the failing
+  shutdown flush made the process exit 120 no matter what `main()`
+  returned. 141 is
   deliberately outside the 0/1/2/3 range, all of which describe a scan
   that ran to completion.
 - Internal errors are now reported in the language `--lang` asked for.

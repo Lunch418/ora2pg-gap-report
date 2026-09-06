@@ -1895,3 +1895,35 @@ def test_an_internal_error_is_reported_in_the_language_that_was_asked_for(monkey
     err = capsys.readouterr().err
     assert "RuntimeError" in err
     assert "internal error" in err.lower(), err
+
+
+def test_a_windows_closed_pipe_is_recognised_even_though_it_is_not_broken_pipe_error(monkeypatch):
+    """Windows reports a write to a closed pipe as EINVAL, not EPIPE.
+
+    It has no SIGPIPE and never raises BrokenPipeError for this, so the
+    signal path and the BrokenPipeError arm both miss it and the generic
+    handler told the user to report a bug for `... | head`. CI caught it;
+    this pins it, since the platform cannot be reached from a Linux run.
+    """
+    import errno
+
+    monkeypatch.setattr(cli.os, "name", "nt")
+    assert cli._is_closed_pipe(OSError(errno.EINVAL, "Invalid argument")) is True
+
+
+def test_einval_is_only_read_as_a_closed_pipe_on_windows(monkeypatch):
+    # EINVAL is broad: off Windows it means a genuine bad argument, and
+    # treating one as a closed pipe would swallow a real defect behind a
+    # silent exit.
+    import errno
+
+    monkeypatch.setattr(cli.os, "name", "posix")
+    assert cli._is_closed_pipe(OSError(errno.EINVAL, "Invalid argument")) is False
+    # EPIPE stays recognised everywhere, by type.
+    assert cli._is_closed_pipe(BrokenPipeError(errno.EPIPE, "Broken pipe")) is True
+
+
+def test_an_ordinary_failure_is_never_mistaken_for_a_closed_pipe(monkeypatch):
+    monkeypatch.setattr(cli.os, "name", "nt")
+    assert cli._is_closed_pipe(RuntimeError("boom")) is False
+    assert cli._is_closed_pipe(FileNotFoundError(2, "No such file")) is False

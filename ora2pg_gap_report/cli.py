@@ -2,6 +2,7 @@ import argparse
 import dataclasses
 import difflib
 import io
+import os
 import sys
 import time
 from collections.abc import Sequence
@@ -663,9 +664,44 @@ def main(argv: list[str] | None = None) -> int:
     exactly as before."""
     try:
         return _main(argv)
+    except BrokenPipeError:
+        # `... | head` and `... | less` (quit early) close the read end
+        # while this process is still writing. That is the reader saying
+        # "I have enough", not a fault here -- reporting it as an
+        # internal error told the user to file a GitHub issue for an
+        # ordinary shell pipeline.
+        #
+        # Python still flushes stdout at interpreter shutdown, which
+        # raises a second BrokenPipeError that nothing can catch and
+        # prints "Exception ignored in: <_io.TextIOWrapper ...>" to
+        # stderr. Pointing the fd at os.devnull first gives that flush
+        # somewhere harmless to land -- the recipe from the "Note on
+        # SIGPIPE" section of Python's own signal docs.
+        try:
+            devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull, sys.stdout.fileno())
+        except OSError:
+            # No usable stdout fd to redirect (already closed, or not a
+            # real file object under a test harness). Nothing to protect
+            # the shutdown flush from, and nothing worth failing over.
+            pass
+        # 128 + SIGPIPE(13), the status a shell reports for a process
+        # killed by SIGPIPE. Not 0/1/2/3: every one of those is already
+        # a documented result of a *completed* scan (see README's exit
+        # code table), and this run did not complete -- its output was
+        # cut off. 1 in particular would be indistinguishable from a
+        # --fail-on gate that legitimately failed.
+        return 141
     except Exception as exc:
         err_console = Console(stderr=True)
-        lang = i18n.resolve_language(None, interactive=False)
+        # Honour --lang for the crash message too. resolve_language(None)
+        # ignored the flag the user actually passed, so `--lang en`
+        # reported its internal errors in Russian. peek_language() is the
+        # same pre-parse lookup _main() uses to build the parser, and it
+        # is all that is available here: this handler exists precisely
+        # for the cases where parsing may not have finished.
+        raw_argv = argv if argv is not None else sys.argv[1:]
+        lang = i18n.resolve_language(i18n.peek_language(raw_argv), interactive=False)
         err_console.print(
             i18n.t(lang, "unexpected_internal_error", exc_type=type(exc).__name__, exc=escape(str(exc)))
         )

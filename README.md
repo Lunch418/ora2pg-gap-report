@@ -523,6 +523,7 @@ a broken run:
 | `1` | `--fail-on` gate failed — findings at or above the threshold |
 | `2` | Bad usage, or some input couldn't be scanned (missing/unreadable file, empty directory, broken baseline) |
 | `3` | Internal error — a bug in this tool, not a migration finding. The scan continues past a crashing detector and still reports everything else, but the run is incomplete and `--save` is skipped |
+| `141` | The reader closed the pipe (`\| head`, quitting `\| less`). Not a scan result at all — output was cut off by the reader, and the tool exits quietly. 128 + SIGPIPE, the status a shell reports for a process killed by SIGPIPE |
 
 Code `3` matters most in CI: an analyzer that crashed used to exit `1`,
 indistinguishable from a gate that had honestly done its job and found

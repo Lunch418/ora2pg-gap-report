@@ -1810,3 +1810,78 @@ def test_help_does_not_crash_on_a_console_that_cannot_encode_russian():
     )
     assert result.returncode == 0, f"exit {result.returncode}, stderr: {result.stderr}"
     assert "--explain" in result.stdout
+
+
+def test_a_closed_pipe_is_not_reported_as_a_tool_bug():
+    """`... | head` must exit quietly, not tell the user to file an issue.
+
+    `head` closes the read end as soon as it has its lines, which reaches
+    this process as BrokenPipeError mid-write. That is the reader saying
+    "enough", not a fault here -- it used to hit main()'s top-level
+    handler and print "this is a bug in the tool ... please report it"
+    with exit 3, for an ordinary shell pipeline.
+
+    Runs a real pipeline in a shell: BrokenPipeError only happens when
+    something actually closes a pipe, so no in-process call reproduces it.
+    """
+    import os
+    import subprocess
+    import sys
+
+    repo_root = Path(__file__).resolve().parent.parent
+    sample = repo_root / "docs" / "research" / "samples" / "logger.pkb"
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    result = subprocess.run(
+        f'"{sys.executable}" -m ora2pg_gap_report "{sample}" --lang en | head -3',
+        shell=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=str(repo_root),
+        env=env,
+    )
+    # Nothing on stderr at all: neither the "report it" message nor the
+    # "Exception ignored in: <_io.TextIOWrapper ...>" that an unguarded
+    # shutdown flush prints after the fact.
+    assert result.stderr == "", result.stderr
+    assert "report" not in result.stderr.lower()
+
+
+def test_the_scan_status_of_a_closed_pipe_is_not_a_scan_result_code():
+    # 141 is 128 + SIGPIPE, what a shell reports for a process killed by
+    # SIGPIPE. It must not collide with 0/1/2/3, which all describe a
+    # scan that ran to completion -- 1 especially, which would be
+    # indistinguishable from a --fail-on gate that legitimately failed.
+    import os
+    import subprocess
+    import sys
+
+    repo_root = Path(__file__).resolve().parent.parent
+    sample = repo_root / "docs" / "research" / "samples" / "logger.pkb"
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    result = subprocess.run(
+        f'"{sys.executable}" -m ora2pg_gap_report "{sample}" --lang en | head -3; '
+        f"exit ${{PIPESTATUS[0]}}",
+        shell=True,
+        executable="/bin/bash",
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=str(repo_root),
+        env=env,
+    )
+    assert result.returncode == 141, f"got {result.returncode}"
+
+
+def test_an_internal_error_is_reported_in_the_language_that_was_asked_for(monkeypatch, capsys):
+    # The top-level handler resolved the language from scratch, ignoring
+    # the --lang the user had just passed, so `--lang en` reported its
+    # internal errors in Russian.
+    def _boom(argv=None):
+        raise RuntimeError("synthetic")
+
+    monkeypatch.setattr(cli, "_main", _boom)
+    assert cli.main(["--lang", "en", "whatever.sql"]) == 3
+    err = capsys.readouterr().err
+    assert "RuntimeError" in err
+    assert "internal error" in err.lower(), err

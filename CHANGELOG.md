@@ -18,6 +18,14 @@ patch for fixes to existing ones.
   `cli.main()`, so both ways in behave identically.
 
 ### Changed
+- CI actions are pinned to commit ids rather than tags (`@v4`/`@v5`), so
+  a moved tag cannot change what runs. ora2pg is fetched by commit id
+  instead of downloading a generated release tarball: a git object id
+  fixes the content by hash, whereas GitHub does not guarantee the bytes
+  of `/archive/refs/tags/*.tar.gz` are stable over time, which is what
+  makes a pinned tarball digest the more fragile of the two options. The
+  build also cross-checks that the pinned commit calls itself the version
+  the registry records its findings against.
 - **Every document in the repository is now English at its base name**,
   with the Russian preserved beside it at `.ru.md` -- the convention
   `ARCHITECTURE.md`/`ARCHITECTURE.ru.md` already used, now applied to all
@@ -42,6 +50,19 @@ patch for fixes to existing ones.
   where it is actionable. See "Fixed" for why they had to shrink.
 
 ### Fixed
+- **A closed pipe is no longer reported as a bug in the tool.** `... |
+  head`, or quitting `... | less`, closes the read end while the scan is
+  still writing; the resulting `BrokenPipeError` reached `main()`'s
+  top-level handler, which told the user to file a GitHub issue and
+  exited 3 for an ordinary shell pipeline. It now exits quietly with 141
+  (128 + SIGPIPE, what a shell reports for a process killed by SIGPIPE),
+  after pointing stdout at `os.devnull` so the interpreter's shutdown
+  flush has somewhere harmless to land instead of printing "Exception
+  ignored in: <_io.TextIOWrapper ...>". 141 is deliberately outside the
+  0/1/2/3 range, all of which describe a scan that ran to completion.
+- Internal errors are now reported in the language `--lang` asked for.
+  The top-level handler resolved the language from scratch and ignored
+  the flag, so `--lang en` printed its crash message in Russian.
 - **`--help` no longer crashed on a Windows console.** Russian is the
   silent default language, and a Western Windows console has no Cyrillic
   at all: argparse wrote the Russian help straight to `sys.stdout`, the

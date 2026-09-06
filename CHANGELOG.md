@@ -7,6 +7,62 @@ The project follows [SemVer](https://semver.org/) in a simplified form
 until it reaches 1.0.0: minor version bumps for new detectors/features,
 patch for fixes to existing ones.
 
+## [Unreleased]
+
+### Added
+- `python -m ora2pg_gap_report` now works, alongside the two console
+  scripts. Those stay the documented way in; this covers the cases they
+  do not reach -- a checkout that was never installed, a `--user` install
+  whose script directory is not on PATH, or a CI step that would rather
+  call the interpreter it just resolved than trust PATH. It delegates to
+  `cli.main()`, so both ways in behave identically.
+
+### Changed
+- **Every document in the repository is now English at its base name**,
+  with the Russian preserved beside it at `.ru.md` -- the convention
+  `ARCHITECTURE.md`/`ARCHITECTURE.ru.md` already used, now applied to all
+  105 gap research documents, `GAP_REGISTRY.md`, `AUDIT.md`,
+  `step0-show-report-baseline.md`, `rejected-hypotheses.md`, the research
+  README, the PR template, the logger example report and the
+  failure_stage notes. Code blocks were carried over untranslated
+  throughout: they are real ora2pg output and real PostgreSQL error text,
+  and translating them would turn evidence into paraphrase.
+  - `GAP_REGISTRY.md`'s data columns are unchanged, so `doctor.py`'s
+    parity check parses the English table exactly as it did the Russian
+    one.
+  - `docs/failure-stage-notes.md`'s distribution table was recomputed
+    against the current registry (it still showed a 67-gap Oracle-only
+    snapshot); the analysis written at that time is marked as not
+    re-examined against the MySQL and MSSQL batches.
+- Two TUI checkbox labels are shorter: "Check CONNECT BY (requires
+  ora2pg)" is now "Check CONNECT BY", and "Verify mode (scan as
+  post-migration output)" is now "Verify mode (post-migration output)".
+  The dropped qualifier duplicated what `connect_by_missing_ora2pg`
+  already says at the moment it matters, and it survives in `--help`
+  where it is actionable. See "Fixed" for why they had to shrink.
+
+### Fixed
+- **The TUI scan screen's control rows no longer render ragged, clipped
+  or collapsed.** Three defects with one root cause -- widths were
+  reasoned about rather than measured:
+  - The three pickers were sized to their longest label, which ignores
+    the border and dropdown arrow a Select draws around it. Undersized, a
+    Select does not overflow sideways; it wraps its own text and renders
+    one row taller than its neighbours, leaving a ragged bottom edge.
+    Widths are now the measured minimum at which each renders at height 3
+    (dialect 12 -> 14, language 13 -> 15, severity 20 -> 22; that last
+    was tall in English only).
+  - The CONNECT BY row needed 87 columns in Russian and 84 in English
+    against an 80-column floor, so the checkbox label was clipped
+    mid-word. Textual clips silently -- nothing raises, and the widget
+    looks correct on its own.
+  - The baseline path input takes `1fr` beside an auto-width checkbox,
+    and "whatever is left" was 10 columns in Russian: an input for a file
+    path showing ten characters of it. It now renders at 30.
+  - All of it is pinned by geometry assertions parametrized over every
+    row of the screen and both languages, plus one that separates "the
+    row fits" from "the input is usable". They fail on the old values.
+
 ## [0.10.0] - 2026-09-02
 
 An external audit of `795d24d` reported five critical and a number of

@@ -1735,3 +1735,31 @@ def test_explain_says_nothing_extra_when_the_doc_is_in_the_right_language(capsys
     assert gap is not None, "expected at least one translated research doc"
     assert main(["--explain", f"GAP-{gap.number}", "--lang", "en"]) == 0
     assert "the document below is in Russian" not in capsys.readouterr().out
+
+
+def test_python_dash_m_entry_point_runs_the_cli():
+    """`python -m ora2pg_gap_report` must work, not just the console script.
+
+    The console scripts are the documented way in, but they are only on
+    PATH after an install; a plain checkout, a --user install whose script
+    directory is not on PATH, or a CI step calling an interpreter it just
+    resolved all reach for `python -m` instead. Without a __main__.py that
+    fails with "cannot be directly executed", which reads as a broken tool
+    rather than "use the other command".
+
+    Runs it as a real subprocess, since what is being tested is the module
+    being executable at all -- importing it in-process would pass whether
+    or not __main__.py exists.
+    """
+    import subprocess
+    import sys
+
+    repo_root = Path(__file__).resolve().parent.parent
+    result = subprocess.run(
+        [sys.executable, "-m", "ora2pg_gap_report", "--help"],
+        capture_output=True,
+        text=True,
+        cwd=str(repo_root),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--explain" in result.stdout

@@ -10,11 +10,15 @@ from ..detector_spec import DetectorSpec, build
 # auto-increment table in existence.
 _AUTO_INCREMENT_START_RE = re.compile(r"\bAUTO_INCREMENT\s*=\s*(\d+)", re.IGNORECASE)
 
-_DOC = """Detect the MySQL `AUTO_INCREMENT=<n>` *table option*. ora2pg -m
-converts the column to serial but drops the starting value, so the
+_DOC = """Detect the MySQL `AUTO_INCREMENT=<n>` *table option*. On the
+file-based path this project scans, ora2pg -m converts the column to
+serial but drops the starting value (it only ever reads it from a live
+INFORMATION_SCHEMA.TABLES query, never from this table option's own
+text, even though the number is sitting right there in the file), so the
 PostgreSQL sequence restarts at 1 and collides with already-migrated
-rows on the first insert. The column attribute `AUTO_INCREMENT`
-(without `=`) converts correctly and is deliberately not flagged. See
+rows on the first insert. A live-database export gets the start value
+right. The column attribute `AUTO_INCREMENT` (without `=`) converts
+correctly and is deliberately not flagged. See
 docs/research/gap-080-mysql-auto-increment-start.md."""
 
 SPEC = DetectorSpec(

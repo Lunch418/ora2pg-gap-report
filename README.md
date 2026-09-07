@@ -164,9 +164,9 @@ table is Oracle-only.
 | `mysql_insert_ignore` | `INSERT IGNORE` — copied verbatim; `ON CONFLICT DO NOTHING` is narrower than what IGNORE actually suppresses |
 | `mysql_prepare_from` | `PREPARE <name> FROM <string>` — PostgreSQL spells its own PREPARE differently (`AS <query>`, not a string variable); PL/pgSQL's `EXECUTE` is the real equivalent |
 | `mysql_last_insert_id` | `LAST_INSERT_ID()` — copied verbatim; no such function in PostgreSQL |
-| `mysql_auto_increment_start` | `AUTO_INCREMENT=<n>` table option — the column becomes `serial` correctly but the starting value is lost, so the sequence restarts at 1 and the first insert after a data migration collides on the primary key |
+| `mysql_auto_increment_start` | `AUTO_INCREMENT=<n>` table option — on the file-based path the column becomes `serial` correctly but the starting value is lost (a live-DB export gets it via `INFORMATION_SCHEMA.TABLES`, which the file-based path never queries), so the sequence restarts at 1 and the first insert after a data migration collides on the primary key |
 | `mysql_date_format` | `DATE_FORMAT(...)` — emitted as a bare row constructor with the `to_char` name missing and `%d` untranslated. Nothing errors at any stage; the query just silently returns a tuple instead of a formatted string |
-| `mysql_foreign_key` | `FOREIGN KEY` — dropped entirely (both the named-CONSTRAINT and bare forms), and ora2pg has no foreign-key export type at all. No error ever: referential integrity and cascades just cease to exist |
+| `mysql_foreign_key` | `FOREIGN KEY` — dropped on the file-based path (both the named-CONSTRAINT and bare forms); ora2pg only reads foreign keys from a live `INFORMATION_SCHEMA` query, with no fallback that parses them out of DDL text, so a live-DB export gets them right while a dump/script file loses them with no error at all |
 | `mysql_zero_date` | `'0000-00-00'` — MySQL's "not set" marker is silently rewritten to a real `'1970-01-01'`, so unfilled-date queries stop matching and reports start showing 1970 as an event |
 | `mysql_declare_handler` | `DECLARE ... HANDLER` — dropped with no `EXCEPTION` block in its place, so a routine's whole error-handling policy disappears: what MySQL swallowed now aborts the caller's transaction |
 | `mysql_collate` | `COLLATE`/`CHARACTER SET` on a column — dropped. MySQL's usual `*_ci` rules are case-insensitive, PostgreSQL's default is not, so queries silently start returning different rows |
@@ -180,7 +180,7 @@ And these nineteen are the T-SQL/SQL Server dialect (`--dialect mssql`,
 | `mssql_bracket_identifier` | `[dbo].[Orders]`, `[Id]`, `[int]` — the brackets SSMS emits for every name are never stripped on the file-based path; they end up inside the generated identifier and inside type names, and the DDL fails to load. The widest-reaching gap of the batch |
 | `mssql_newid_default` | `NEWID()` — mapped onto `uuid_generate_v4()` with no `CREATE EXTENSION "uuid-ossp"` emitted, so `CREATE TABLE` fails to load |
 | `mssql_update_set` | `UPDATE ... SET` — mistaken for T-SQL's variable-assignment `SET`: the keyword is deleted and `=` becomes `:=`, breaking every UPDATE in every procedure |
-| `mssql_identity_column` | `IDENTITY(1,1)` — dropped entirely (no serial, no sequence), so the first ordinary insert fails on NOT NULL |
+| `mssql_identity_column` | `IDENTITY(1,1)` — dropped on the file-based path (no serial, no sequence; same live-query-only mechanism as `mysql_foreign_key`), so the first ordinary insert fails on NOT NULL |
 | `mssql_parameterless_procedure` | A procedure with no parameters gets an unparseable empty `DECLARE ;` block — verified by A/B against the same procedure with a parameter, which comes out clean |
 | `mssql_if_statement` | `IF` — with a `BEGIN/END` block it gets `THEN` but never `END IF`; without one it gets no `THEN` at all |
 | `mssql_raiserror` | `RAISERROR`/`THROW` — copied verbatim; PL/pgSQL has neither |
@@ -192,8 +192,8 @@ And these nineteen are the T-SQL/SQL Server dialect (`--dialect mssql`,
 | `mssql_datediff` | `DATEDIFF()` — copied verbatim, though `DATEADD` and `DATEPART` beside it convert correctly |
 | `mssql_charindex` | `CHARINDEX()` — translated into `position()`, but with the quotes doubled: `position(''abc'' in x)`, which is not valid SQL |
 | `mssql_filtered_index` | `CREATE INDEX ... WHERE` — dropped entirely, even though PostgreSQL has partial indexes with the same syntax (an `INCLUDE` index beside it converts fine) |
-| `mssql_foreign_key` | `FOREIGN KEY` — dropped entirely, exactly as on the MySQL side; no error at any stage |
-| `mssql_collation` | `COLLATE` — dropped, every string column becomes case-insensitive `citext`; for a `_CS_` source collation that inverts comparison behaviour, verified on live data |
+| `mssql_foreign_key` | `FOREIGN KEY` — dropped on the file-based path, same live-query-only mechanism as on the MySQL side; no error at any stage |
+| `mssql_collation` | `COLLATE` — ignored by the `CASE_INSENSITIVE_SEARCH citext` default, which checks a column's base type but never its actual collation, so every string column becomes case-insensitive `citext`; for a `_CS_` source collation that inverts comparison behaviour, verified on live data |
 | `mssql_computed_column` | A computed column (`AS (expr) PERSISTED`) is typed `citext` whatever the expression computes, so a numeric result is stored as text |
 | `mssql_rowversion` | `ROWVERSION` → `bytea`, which never self-updates, so optimistic-locking checks silently stop detecting conflicts |
 

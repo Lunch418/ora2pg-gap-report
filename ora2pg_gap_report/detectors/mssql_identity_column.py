@@ -14,11 +14,15 @@ _TABLE_RE = re.compile(
 # "IDENTITY" as if the column itself had the property.
 _PATTERN_RE = re.compile(r"\bIDENTITY\b\s*(?:\(\s*\d+\s*,\s*\d+\s*\))?", re.IGNORECASE)
 
-_DOC = """Detect T-SQL IDENTITY columns. ora2pg -M drops the property
-entirely -- the column becomes a plain integer with no serial, no
-GENERATED clause and no sequence anywhere in the output -- so an
-INSERT that relied on the server supplying the key fails on the NOT
-NULL constraint. See docs/research/gap-090-mssql-identity-column.md."""
+_DOC = """Detect T-SQL IDENTITY columns. On the file-based path this
+project scans, ora2pg -M drops the property entirely -- the column
+becomes a plain integer with no serial, no GENERATED clause and no
+sequence anywhere in the output -- so an INSERT that relied on the
+server supplying the key fails on the NOT NULL constraint. Same
+mechanism as mysql_foreign_key and mssql_foreign_key: MSSQL.pm's
+_get_identities() only ever queries sys.identity_columns over a live
+connection, with no DDL-text fallback for IDENTITY(seed, increment).
+See docs/research/gap-090-mssql-identity-column.md."""
 
 SPEC = DetectorSpec(
     name="mssql_identity_column",

@@ -10,10 +10,13 @@ _TABLE_RE = re.compile(
 )
 _PATTERN_RE = re.compile(r"\bCOLLATE\s+\w+", re.IGNORECASE)
 
-_DOC = """Detect per-column COLLATE clauses in T-SQL. ora2pg -M drops the
-clause and maps the column onto citext, so a case-SENSITIVE source
-collation silently becomes case-insensitive -- verified on live data.
-See docs/research/gap-103-mssql-collation.md."""
+_DOC = """Detect per-column COLLATE clauses in T-SQL. ora2pg -M's
+CASE_INSENSITIVE_SEARCH option defaults to citext for MSSQL sources and
+checks only a column's base type, never its actual collation, so it
+maps every char/varchar/text column onto citext regardless of the
+COLLATE clause here -- a case-SENSITIVE source collation silently
+becomes case-insensitive, verified on live data. See
+docs/research/gap-103-mssql-collation.md."""
 
 SPEC = DetectorSpec(
     name="mssql_collation",

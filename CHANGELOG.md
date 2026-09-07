@@ -9,6 +9,33 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Fixed
+- **The stated mechanism behind four gaps was wrong** (GAP-082,
+  GAP-102, GAP-080, GAP-090); the detectors and their findings were not.
+  An external review of a draft article reproduced GAP-082
+  (`mysql_foreign_key`) against a live MySQL/MariaDB instead of this
+  project's file-based (`-i`) input and got a foreign key in the output,
+  directly contradicting the doc's claim that `-t` has no export type
+  for foreign keys. It does not need one: `MySQL.pm::_foreign_key()` (and
+  `MSSQL.pm`'s equivalent, plus `_get_identities()` and the
+  `AUTO_INCREMENT`/`INFORMATION_SCHEMA.TABLES` start-value lookup) only
+  ever query the source database live, with no DDL-text fallback, so the
+  file-based path this project scans loses all four regardless of what
+  the export type list contains. Corrected the four research docs, the
+  matching detector docstrings, `GAP_REGISTRY.md` and `README.md` to
+  state the real mechanism and scope the claim to the file-based path;
+  added a live-mode comparison to GAP-082 and GAP-080 confirmed against
+  a real MariaDB instance. The detectors' findings stand: this is what
+  the file-based path this project (and its air-gapped users) work from
+  actually produces, verified before and after.
+- GAP-103 (`mssql_collation`)'s citext substitution is a documented
+  ora2pg option, `CASE_INSENSITIVE_SEARCH`, defaulting to `citext` for
+  MSSQL sources, not an unexplained hardcode; corrected the doc and
+  detector docstring to say so. The finding is unchanged: the option
+  checks a column's base type, never its actual `COLLATE`, so the
+  default still turns a case-sensitive source column into a
+  case-insensitive one with no warning.
+
 ## [0.11.0] - 2026-09-06
 
 ### Added

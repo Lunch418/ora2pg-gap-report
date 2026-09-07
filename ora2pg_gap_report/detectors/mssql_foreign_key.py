@@ -11,9 +11,12 @@ _TABLE_RE = re.compile(
 _PATTERN_RE = re.compile(r"\bFOREIGN\s+KEY\b", re.IGNORECASE)
 
 _DOC = """Detect T-SQL FOREIGN KEY clauses in a CREATE TABLE column
-list. ora2pg -M drops them entirely, with no error at any stage, so
-referential integrity and any ON DELETE cascade silently cease to
-exist. See docs/research/gap-102-mssql-foreign-key.md."""
+list. On the file-based path this project scans, ora2pg -M drops them
+entirely, with no error at any stage, so referential integrity and any
+ON DELETE cascade silently cease to exist -- same mechanism as
+mysql_foreign_key: MSSQL.pm's _foreign_key() only ever queries sys
+catalog views over a live connection, with no DDL-text fallback. See
+docs/research/gap-102-mssql-foreign-key.md."""
 
 SPEC = DetectorSpec(
     name="mssql_foreign_key",

@@ -11,11 +11,15 @@ _TABLE_RE = re.compile(
 _PATTERN_RE = re.compile(r"\bFOREIGN\s+KEY\b", re.IGNORECASE)
 
 _DOC = """Detect T-SQL FOREIGN KEY clauses in a CREATE TABLE column
-list. On the file-based path this project scans, ora2pg -M drops them
-entirely, with no error at any stage, so referential integrity and any
-ON DELETE cascade silently cease to exist -- same mechanism as
-mysql_foreign_key: MSSQL.pm's _foreign_key() only ever queries sys
-catalog views over a live connection, with no DDL-text fallback. See
+list. Whenever the target PG_VERSION is left unset or set to 12 or
+lower -- ora2pg's own default -- ora2pg -M drops them entirely, on a
+file-based scan or a live connection alike, with no error at any stage,
+so referential integrity and any ON DELETE cascade silently cease to
+exist. Same shared-code mechanism as mysql_foreign_key: a Perl
+autovivification accident in Ora2Pg.pm's dialect-agnostic
+_create_unique_keys() makes every referenced table look partitioned to
+_create_foreign_keys(), which then silently skips the constraint.
+Setting PG_VERSION to 13 or higher avoids it. See
 docs/research/gap-102-mssql-foreign-key.md."""
 
 SPEC = DetectorSpec(

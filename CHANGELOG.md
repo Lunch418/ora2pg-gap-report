@@ -10,6 +10,28 @@ patch for fixes to existing ones.
 ## [Unreleased]
 
 ### Fixed
+- **GAP-082 and GAP-102's "corrected" mechanism from the previous entry
+  was itself wrong.** A second reviewer could not reproduce the
+  file-based-path-only explanation at all, on file input or live,
+  across five attempts. Instrumented `lib/Ora2Pg.pm` directly
+  (`perl -d`-style tracing) instead of reading it again, and found the
+  real cause: `_create_unique_keys()`, dialect-agnostic code shared by
+  every source engine, contains `exists
+  $self->{partitions_list}{$table}{refrtable}` — a check meant only to
+  detect partition-by-reference tables, but `exists` on a multi-level
+  hash dereference is a classic Perl trap that silently autovivifies
+  `partitions_list{$table}` for *every* table processed, partitioned or
+  not. `_create_foreign_keys()` later reads that phantom entry as proof
+  the referenced table is partitioned and skips the constraint, but
+  only when `$self->{pg_version} <= 12` — exactly ora2pg's own default
+  (11) for a config that has never had `PG_VERSION` set. Verified across
+  four combinations (file input and a live MariaDB connection, crossed
+  with `PG_VERSION` unset/12 versus 13) and confirmed the same behavior
+  for MSSQL: the trigger is `PG_VERSION`, not the input mode and not the
+  dialect. Rewrote both research docs (English and Russian) and the two
+  detector docstrings again to state this; the finding itself
+  (`FOREIGN KEY` silently missing under default settings) was correct
+  all along, only the "why" kept being wrong.
 - **The stated mechanism behind four gaps was wrong** (GAP-082,
   GAP-102, GAP-080, GAP-090); the detectors and their findings were not.
   An external review of a draft article reproduced GAP-082

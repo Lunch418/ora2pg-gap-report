@@ -11,14 +11,17 @@ _TABLE_RE = re.compile(
 _FOREIGN_KEY_RE = re.compile(r"\bFOREIGN\s+KEY\b", re.IGNORECASE)
 
 _DOC = """Detect MySQL/MariaDB FOREIGN KEY clauses inside a CREATE TABLE
-column list. On the file-based path this project scans (-i <file>, no
-live source database -- what this tool and its offline/air-gapped users
-work from), no FOREIGN KEY appears anywhere in ora2pg's output: MySQL.pm's
-_foreign_key() only ever queries a live INFORMATION_SCHEMA over a real
-DBI connection, with no fallback that parses the clause out of DDL text,
-so referential integrity silently disappears with no error at any stage.
-A live-database export gets this right; the earlier claim that ora2pg
-has no -t export type for foreign keys was wrong and has been corrected.
+column list. Whenever the target PG_VERSION is left unset or set to 12
+or lower -- ora2pg's own default when nobody has edited the config yet --
+no FOREIGN KEY appears anywhere in ora2pg's output, on a file-based scan
+(-i <file>) or a live database connection alike: a Perl autovivification
+accident in Ora2Pg.pm's shared, dialect-agnostic _create_unique_keys()
+makes every referenced table look partitioned to _create_foreign_keys(),
+which then silently skips the constraint. Setting PG_VERSION to 13 or
+higher avoids it; referential integrity otherwise disappears with no
+error at any stage. Two earlier explanations for this finding (no -t
+export type for foreign keys; a file-based-path-only, live-catalog-only
+limitation) were each wrong and have been corrected in turn.
 See docs/research/gap-082-mysql-foreign-key.md."""
 
 SPEC = DetectorSpec(

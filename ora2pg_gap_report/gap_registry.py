@@ -424,7 +424,7 @@ GapEntry(
         ("test_mysql_foreign_key.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mysql", last_verified="2026-09-01"),
+        dialect="mysql", last_verified="2026-09-08"),
     GapEntry(
         "083",
         "mysql_zero_date",
@@ -599,7 +599,7 @@ GapEntry(
         ("test_mssql_foreign_key.py",),
         severity="high",
         failure_stage="semantic",
-        dialect="mssql", last_verified="2026-09-01"),
+        dialect="mssql", last_verified="2026-09-08"),
     GapEntry(
         "103",
         "mssql_collation",

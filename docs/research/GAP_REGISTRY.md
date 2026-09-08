@@ -104,7 +104,7 @@ being after them.
 | GAP-079 | `LAST_INSERT_ID()` — no such function in PostgreSQL | `mysql_last_insert_id` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-079](gap-079-mysql-last-insert-id.md) |
 | GAP-080 | `AUTO_INCREMENT=<n>` — start value lost on the file-based path (live-DB export gets it right) | `mysql_auto_increment_start` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-080](gap-080-mysql-auto-increment-start.md) |
 | GAP-081 | `DATE_FORMAT(...)` — silently returns a tuple instead of a string | `mysql_date_format` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-081](gap-081-mysql-date-format.md) |
-| GAP-082 | `FOREIGN KEY` dropped on the file-based path — no referential integrity left | `mysql_foreign_key` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-082](gap-082-mysql-foreign-key.md) |
+| GAP-082 | `FOREIGN KEY` dropped when PG_VERSION is left at its unset default (<=12) | `mysql_foreign_key` | high | confirmed | 25.0 | 16 | 2026-09-08 | [gap-082](gap-082-mysql-foreign-key.md) |
 | GAP-083 | `'0000-00-00'` silently becomes the real date `'1970-01-01'` | `mysql_zero_date` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-083](gap-083-mysql-zero-date.md) |
 | GAP-084 | `DECLARE ... HANDLER` is dropped — error handling disappears | `mysql_declare_handler` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-084](gap-084-mysql-declare-handler.md) |
 | GAP-085 | `COLLATE`/`CHARACTER SET` is dropped — string comparison changes meaning | `mysql_collate` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-085](gap-085-mysql-collate.md) |
@@ -129,7 +129,7 @@ being after them.
 | GAP-099 | `DATEDIFF()` is copied as-is (`DATEADD`/`DATEPART` are not) | `mssql_datediff` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-099](gap-099-mssql-datediff.md) |
 | GAP-100 | `CHARINDEX()` → `position()` with doubled quotes | `mssql_charindex` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-100](gap-100-mssql-charindex.md) |
 | GAP-101 | A filtered index (`CREATE INDEX ... WHERE`) is dropped | `mssql_filtered_index` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-101](gap-101-mssql-filtered-index.md) |
-| GAP-102 | `FOREIGN KEY` dropped on the file-based path | `mssql_foreign_key` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-102](gap-102-mssql-foreign-key.md) |
+| GAP-102 | `FOREIGN KEY` dropped when PG_VERSION is left at its unset default (<=12) | `mssql_foreign_key` | high | confirmed | 25.0 | 16 | 2026-09-08 | [gap-102](gap-102-mssql-foreign-key.md) |
 | GAP-103 | `COLLATE` ignored, everything becomes case-insensitive `citext` by default | `mssql_collation` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-103](gap-103-mssql-collation.md) |
 | GAP-104 | A computed column gets the type `citext` regardless of the expression | `mssql_computed_column` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-104](gap-104-mssql-computed-column.md) |
 | GAP-105 | `ROWVERSION` → `bytea`, stops updating — optimistic locking breaks | `mssql_rowversion` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-105](gap-105-mssql-rowversion.md) |

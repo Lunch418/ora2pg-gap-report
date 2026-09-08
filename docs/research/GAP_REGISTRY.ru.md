@@ -103,7 +103,7 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-079 | `LAST_INSERT_ID()` — такой функции в PostgreSQL нет | `mysql_last_insert_id` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-079](gap-079-mysql-last-insert-id.md) |
 | GAP-080 | `AUTO_INCREMENT=<n>` — старт теряется на файловом пути (живой экспорт получает его верно) | `mysql_auto_increment_start` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-080](gap-080-mysql-auto-increment-start.md) |
 | GAP-081 | `DATE_FORMAT(...)` — молча возвращает кортеж вместо строки | `mysql_date_format` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-081](gap-081-mysql-date-format.md) |
-| GAP-082 | `FOREIGN KEY` выбрасывается на файловом пути — ссылочной целостности нет | `mysql_foreign_key` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-082](gap-082-mysql-foreign-key.md) |
+| GAP-082 | `FOREIGN KEY` выбрасывается, если PG_VERSION не задан или <=12 | `mysql_foreign_key` | high | confirmed | 25.0 | 16 | 2026-09-08 | [gap-082](gap-082-mysql-foreign-key.md) |
 | GAP-083 | `'0000-00-00'` молча превращается в настоящую дату `'1970-01-01'` | `mysql_zero_date` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-083](gap-083-mysql-zero-date.md) |
 | GAP-084 | `DECLARE ... HANDLER` выбрасывается — обработка ошибок пропадает | `mysql_declare_handler` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-084](gap-084-mysql-declare-handler.md) |
 | GAP-085 | `COLLATE`/`CHARACTER SET` выбрасывается — сравнение строк меняет смысл | `mysql_collate` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-085](gap-085-mysql-collate.md) |
@@ -128,7 +128,7 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-099 | `DATEDIFF()` копируется как есть (`DATEADD`/`DATEPART` — нет) | `mssql_datediff` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-099](gap-099-mssql-datediff.md) |
 | GAP-100 | `CHARINDEX()` → `position()` с удвоенными кавычками | `mssql_charindex` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-100](gap-100-mssql-charindex.md) |
 | GAP-101 | фильтрованный индекс (`CREATE INDEX ... WHERE`) выбрасывается | `mssql_filtered_index` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-101](gap-101-mssql-filtered-index.md) |
-| GAP-102 | `FOREIGN KEY` выбрасывается на файловом пути | `mssql_foreign_key` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-102](gap-102-mssql-foreign-key.md) |
+| GAP-102 | `FOREIGN KEY` выбрасывается, если PG_VERSION не задан или <=12 | `mssql_foreign_key` | high | confirmed | 25.0 | 16 | 2026-09-08 | [gap-102](gap-102-mssql-foreign-key.md) |
 | GAP-103 | `COLLATE` игнорируется, всё становится регистронезависимым `citext` по умолчанию | `mssql_collation` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-103](gap-103-mssql-collation.md) |
 | GAP-104 | вычисляемый столбец получает тип `citext` независимо от выражения | `mssql_computed_column` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-104](gap-104-mssql-computed-column.md) |
 | GAP-105 | `ROWVERSION` → `bytea`, перестаёт обновляться — блокировка ломается | `mssql_rowversion` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-105](gap-105-mssql-rowversion.md) |

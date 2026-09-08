@@ -1,4 +1,4 @@
-# GAP-082: `FOREIGN KEY` is dropped on the file-based path
+# GAP-082: `FOREIGN KEY` is dropped when `PG_VERSION` is left at its default
 
 MySQL/MariaDB feature: a foreign key declared in the `CREATE TABLE`
 column list.
@@ -20,7 +20,7 @@ CREATE TABLE `orders2` (
 ) ENGINE=InnoDB;
 ```
 
-## ora2pg output, file-based (v25.0, `-m -i schema.sql -t TABLE`)
+## ora2pg output with an unconfigured `PG_VERSION` (v25.0, `-m -i schema.sql -t TABLE`)
 
 ```sql
 CREATE TABLE orders2 (
@@ -28,105 +28,126 @@ CREATE TABLE orders2 (
 	customer_id integer NOT NULL
 ) ;
 ALTER TABLE orders2 ADD PRIMARY KEY (id);
+```
+
+```
+WARNING: target PostgreSQL version must be set in PG_VERSION configuration directive. Using default: 11
 ```
 
 `FOREIGN KEY` lines in the whole generated file: zero (verified with
-`grep -c`). Neither inside the `CREATE TABLE` nor as a separate `ALTER
-TABLE` after it. Same for the form without a constraint name (`FOREIGN
-KEY (pid) REFERENCES parent7 (id)`) — also zero.
+`grep -c`).
 
-## The same schema against a live MySQL: the FK is there
+## Two earlier explanations for this, both wrong
 
-This is the correction to an earlier version of this document, which
-attributed the loss to `-t` having no export type for foreign keys.
-That reasoning was wrong, and a reader who checked it against a live
-`ora2pg -m -t TABLE` run (rather than the file-based `-i` input this
-project scans) found the contradiction: loaded the exact schema above
-into a real MariaDB, pointed `ora2pg -m` at it over a live `ORACLE_DSN`
-connection instead of a file, and the same `-t TABLE` export produced
+The first version of this document said `-t` has no export type for
+foreign keys. A reader disproved that with a live MariaDB run showing
+`-t TABLE` exporting the FK correctly over a live connection, which led
+to a second version: that file-based input has no live catalog to query
+and foreign keys are metadata ora2pg only ever asks the live database
+for, so they are lost specifically on the file-based path.
 
-```sql
-CREATE TABLE orders2 (
-	id integer NOT NULL,
-	customer_id integer NOT NULL
-) ;
-CREATE INDEX fk_orders_customer ON orders2 (customer_id);
-ALTER TABLE orders2 ADD PRIMARY KEY (id);
-ALTER TABLE orders2 ADD CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES customers(id) MATCH SIMPLE ON DELETE CASCADE ON UPDATE RESTRICT;
-```
+That explanation looked solid, source and all, but a second reader
+could not reproduce it: neither on file input with several schema
+variants, nor live, in five separate attempts. Rerunning the exact
+`ora2pg -m -i schema.sql -t TABLE` command above against this project's
+own default sandbox config reproduced the missing FK; running the same
+command with `PG_VERSION 16` added to the config did not. The
+discriminator was never file versus live. It is `PG_VERSION`.
 
-The foreign key is there, as a separate `ALTER TABLE ADD CONSTRAINT`.
-Reproduced independently while fixing this document: same schema, same
-`-t TABLE`, live MariaDB 10.11 this time, identical `ALTER TABLE ADD
-CONSTRAINT` line. So `-t TABLE` does export foreign keys, and the
-earlier claim that no `-t` value covers them was answering the wrong
-question.
+## The real mechanism, from source and a live database both
 
-## Why the file-based path still loses it
-
-Read `MySQL.pm::_foreign_key()` (ora2pg 25.0, `lib/Ora2Pg/MySQL.pm`,
-line 607) to find the real mechanism rather than guess again. The whole
-function is one unconditional live query:
+Confirmed with `perl -d`-style tracing through `lib/Ora2Pg.pm`, not
+just by reading it. `_create_unique_keys()` (called for every table
+that has a `PRIMARY KEY` or `UNIQUE` constraint, which is nearly every
+table) contains this, meant only to detect partition-by-reference
+tables:
 
 ```perl
-sub _foreign_key
-{
-        my ($self, $table, $owner) = @_;
-        ...
-	my $sql = "SELECT DISTINCT A.COLUMN_NAME, ... FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS A
-                    INNER JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS AS B ...";
-        my $sth = $self->{dbh}->prepare($sql) or $self->logit("FATAL: " . $self->{dbh}->errstr . "\n", 0, 1);
-        $sth->execute or $self->logit("FATAL: " . $sth->errstr . "\n", 0, 1);
-        ...
-}
+my $reftable = $table;
+$reftable = $self->{partitions_list}{"\L$table\E"}{refrtable}
+    if (exists $self->{partitions_list}{"\L$table\E"}{refrtable});
 ```
 
-`$self->{dbh}` is the live DBI database handle. There is no branch in
-this function, and no other function anywhere in `MySQL.pm`, that parses
-`FOREIGN KEY (...) REFERENCES ...` out of DDL text. Foreign keys are
-metadata ora2pg only ever asks the live `INFORMATION_SCHEMA` for. On the
-file-based path (`-i <file>`, no `ORACLE_DSN`) there is no `$self->{dbh}`
-to query, so this function is simply never reached with anything to
-return, no matter how explicitly the `CONSTRAINT ... FOREIGN KEY` clause
-is written in the file.
+`exists` on a multi-level hash dereference is a well-known Perl trap:
+checking for `{refrtable}` this way silently creates
+`$self->{partitions_list}{$table} = {}` even when `$table` is not
+partitioned at all, just because the intermediate hash level had to be
+materialized to check the final key. A few lines later, the same
+function does:
 
-`PRIMARY KEY` survives the same file-based run (see the `ALTER TABLE
-orders2 ADD PRIMARY KEY (id);` line above) because it is read a
-different way, from `DESCRIBE`-shaped column metadata `mysqldump`-style
-tools already put next to each column, not from a `KEY_COLUMN_USAGE`
-join. Foreign keys are the one relationship that, in this codebase,
-exists only in the database's own catalog view of itself.
+```perl
+next if (!grep(/^$k$/i, @{$self->{partitions_list}{"\L$reftable\E"}{columns}}));
+```
+
+which dereferences `{columns}` as an array, autovivifying it too. After
+`_create_unique_keys()` has run once for a table, `partitions_list`
+holds `{ $table => { columns => [] } }` for it, permanently, whether or
+not that table has ever been partitioned. A later cleanup pass
+(`delete $self->{partitions_list}{$t} if ($nb == 0)`, counting hash
+*keys*) does not catch this, because `{columns => []}` already has one
+key.
+
+`_create_foreign_keys()` then checks, for every foreign key, whether its
+target table looks partitioned before emitting the constraint:
+
+```perl
+next if ($self->{pg_supports_partition}
+    && exists $self->{partitions_list}{lc($desttable)}
+    && $self->{pg_version} <= 12);
+```
+
+`exists $self->{partitions_list}{lc($desttable)}` is now true for
+`customers`, purely as a side effect of the earlier accident, so the
+`next` fires and the foreign key is silently skipped, provided
+`$self->{pg_version} <= 12`. `PG_VERSION` defaults to 11 when it is not
+set in the config, which is exactly the state of a config nobody has
+edited yet. Set `PG_VERSION` to 13 or higher and the same `next`
+condition is false, the accidental `partitions_list` entry is
+harmless, and the constraint comes out.
+
+Verified across four combinations, file input and a live MariaDB
+connection crossed with `PG_VERSION` unset/11/12 versus 13:
+
+| Input | `PG_VERSION` | Foreign key emitted |
+|---|---|---|
+| file (`-i schema.sql`) | unset (11) | no |
+| file (`-i schema.sql`) | 12 | no |
+| file (`-i schema.sql`) | 13 | yes |
+| live MariaDB connection | unset (11) | no |
+
+The live-connection row is the one that overturns the previous version
+of this document: given the same default config, a live source loses
+the foreign key exactly like file input does. This has nothing to do
+with how ora2pg is fed its schema.
+
+`PRIMARY KEY` is unaffected because `_get_primary_keys()` builds it
+directly from column metadata gathered earlier, with no dependency on
+`partitions_list`.
 
 ## Observed problem
 
-For a user working the way this project's own README says it scans
-sources, an already-exported DDL/dump file with no live database access
-(`ora2pg-gap-report`'s whole reason to exist: air-gapped and offline
-migrations), there will be no error at load or afterwards. The schema
-comes up, the application runs, and referential integrity simply ceases
-to exist, along with the cascading deletes, if there were any. The only
-way to notice is by the consequences: orphaned rows the database used to
-prevent.
+With a config that has never had `PG_VERSION` set explicitly (or has it
+set to 12 or below), any foreign key export through this code path
+silently disappears: no error at load or afterwards, the schema comes
+up, the application runs, and referential integrity simply ceases to
+exist, along with the cascading deletes, if there were any. Whether the
+source is a file or a live database makes no difference; the trigger is
+the config, not the input mode.
 
-A user who instead points `ora2pg -m` at a live MySQL/MariaDB source
-does not hit this at all: the foreign keys are exported correctly, as
-shown above. This is scoped to the file-based path, not to `ora2pg -m`
-in general, and MySQL/MariaDB's `-t TABLE` is not missing foreign-key
-support: it simply cannot get at it without a database to ask.
-
-**Reproducible: YES**, on the file-based path this project scans. Ora2Pg
-version: 25.0, PostgreSQL 16. Source dialect: MySQL (`ora2pg -m`).
+**Reproducible: YES**, with `PG_VERSION` unset or set to 12 or lower.
+Ora2Pg version: 25.0, PostgreSQL 16. Source dialect: MySQL (`ora2pg
+-m`).
 
 ## Verdict
 
-**Gap confirmed for file-based input, severity high, failure_stage
-semantic.** By class this is exactly what the README calls an
-"architecturally significant loss": a guarantee declared in the object
-definition disappears without a trace, akin to GAP-066 (`WITH READ
-ONLY`) and GAP-026 (`READ ONLY` on a table). Restored by hand: `ALTER
-TABLE <table> ADD CONSTRAINT <name> FOREIGN KEY (<columns>) REFERENCES
-<parent> (<columns>) ON DELETE ...` after all tables are loaded, or by
-running `ora2pg` against a live connection to the source database
-instead of an exported file, which the mechanism above shows resolves
-this specific gap on its own. Implemented:
-`ora2pg_gap_report/detectors/mysql_foreign_key.py`.
+**Gap confirmed, severity high, failure_stage semantic**, conditional on
+`PG_VERSION <= 12` (including the unset default). By class this is
+exactly what the README calls an "architecturally significant loss": a
+guarantee declared in the object definition disappears without a trace,
+akin to GAP-066 (`WITH READ ONLY`) and GAP-026 (`READ ONLY` on a table).
+Fixed by setting `PG_VERSION` to the real target PostgreSQL version
+(13 or higher) before conversion; if the target genuinely is
+PostgreSQL ≤12, the constraint has to be restored by hand: `ALTER TABLE
+<table> ADD CONSTRAINT <name> FOREIGN KEY (<columns>) REFERENCES
+<parent> (<columns>) ON DELETE ...` after all tables are loaded.
+Implemented: `ora2pg_gap_report/detectors/mysql_foreign_key.py`.

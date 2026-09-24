@@ -1491,38 +1491,42 @@ MESSAGES: dict[str, Message] = {
         ru=(
             "FOREIGN KEY — внешний ключ, объявленный в списке столбцов CREATE "
             "TABLE (в том числе в форме CONSTRAINT <имя> FOREIGN KEY ... "
-            "REFERENCES ... ON DELETE CASCADE, которую выдаёт SSMS). ora2pg (-M) "
-            "выбрасывает его из вывода целиком: строк FOREIGN KEY в "
-            "сгенерированном файле нет ни одной — ни внутри CREATE TABLE, ни "
-            "отдельным ALTER TABLE после него (подтверждено реальным прогоном "
-            "ora2pg 25.0 + PostgreSQL 16, "
-            "docs/research/gap-102-mssql-foreign-key.md). Отдельного типа "
-            "экспорта под внешние ключи у ora2pg нет: в списке поддерживаемых -t "
-            "значений нет ни FKEY, ни CONSTRAINT. Ошибки не будет ни на загрузке, "
-            "ни потом: схема поднимется, приложение заработает, и ссылочная "
-            "целостность просто перестанет существовать — вместе с каскадными "
-            "удалениями. Ровно то же самое ora2pg делает с внешними ключами на "
-            "MySQL-стороне (GAP-082), так что это не особенность одного диалекта. "
-            "Восстанавливается вручную: ALTER TABLE ... ADD CONSTRAINT ... "
-            "FOREIGN KEY ... REFERENCES ... после загрузки всех таблиц."
+            "REFERENCES ... ON DELETE CASCADE, которую выдаёт SSMS). Если в "
+            "конфиге ora2pg не задан PG_VERSION (тогда он равен 11) или задан 12 "
+            "и ниже, ora2pg (-M) выбрасывает его из вывода целиком: ни внутри "
+            "CREATE TABLE, ни отдельным ALTER TABLE после него (подтверждено "
+            "прогоном ora2pg 25.0, docs/research/gap-102-mssql-foreign-key.md). "
+            "Механизм тот же, что на MySQL-стороне (GAP-082), потому что это "
+            "общий для всех диалектов код: проверка exists на вложенном хеше в "
+            "_create_unique_keys() оставляет фантомную запись в partitions_list, "
+            "и _create_foreign_keys() принимает таблицу за партиционированную. "
+            "Ошибки не будет ни на загрузке, ни потом: схема поднимется, "
+            "приложение заработает, и ссылочная целостность просто перестанет "
+            "существовать — вместе с каскадными удалениями. Чинится одной "
+            "строкой в конфиге ora2pg: PG_VERSION с реальной целевой версией, 13 "
+            "или выше. Если цель и правда PostgreSQL 12 и ниже — восстановить "
+            "вручную: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... "
+            "REFERENCES ... после загрузки всех таблиц."
         ),
         en=(
             "FOREIGN KEY -- a foreign key declared in a CREATE TABLE column list "
             "(including the CONSTRAINT <name> FOREIGN KEY ... REFERENCES ... ON "
-            "DELETE CASCADE form that SSMS emits). ora2pg (-M) drops it from the "
-            "output entirely: there is not a single FOREIGN KEY line in the "
-            "generated file -- neither inside CREATE TABLE nor as a separate "
-            "ALTER TABLE after it (confirmed against a real ora2pg 25.0 + "
-            "PostgreSQL 16 run, docs/research/gap-102-mssql-foreign-key.md). "
-            "ora2pg has no separate export type for foreign keys either: its list "
-            "of supported -t values contains neither FKEY nor CONSTRAINT. And no "
+            "DELETE CASCADE form that SSMS emits). When PG_VERSION is not set in "
+            "the ora2pg config (it then defaults to 11) or is set to 12 or lower, "
+            "ora2pg (-M) drops it from the output entirely: neither inside CREATE "
+            "TABLE nor as a separate ALTER TABLE after it (confirmed against an "
+            "ora2pg 25.0 run, docs/research/gap-102-mssql-foreign-key.md). The "
+            "mechanism is the same as on the MySQL side (GAP-082), because this "
+            "is code shared by every dialect: an exists check on a nested hash in "
+            "_create_unique_keys() leaves a phantom partitions_list entry, and "
+            "_create_foreign_keys() then treats the table as partitioned. And no "
             "error appears at load time or later: the schema comes up, the "
             "application runs, and referential integrity simply ceases to exist "
-            "-- along with the cascading deletes. The same ora2pg does exactly "
-            "the same thing to foreign keys on the MySQL side (GAP-082), so this "
-            "is not a quirk of one dialect. Restore it by hand: ALTER TABLE ... "
-            "ADD CONSTRAINT ... FOREIGN KEY ... REFERENCES ... once all the "
-            "tables are loaded."
+            "-- along with the cascading deletes. One line in the ora2pg config "
+            "fixes it: PG_VERSION set to the real target version, 13 or higher. "
+            "If the target really is PostgreSQL 12 or lower, restore it by hand: "
+            "ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... REFERENCES ... "
+            "once all the tables are loaded."
         ),
     ),
     "mssql_identity_column": Message(
@@ -2124,39 +2128,45 @@ MESSAGES: dict[str, Message] = {
         ru=(
             "FOREIGN KEY — внешний ключ, объявленный в списке столбцов CREATE "
             "TABLE (в том числе в форме CONSTRAINT <имя> FOREIGN KEY ... "
-            "REFERENCES ... ON DELETE CASCADE, которую выдаёт mysqldump). ora2pg "
-            "(-m) выбрасывает его из вывода целиком: в сгенерированном файле нет "
-            "ни одной строки FOREIGN KEY — ни в CREATE TABLE, ни отдельным ALTER "
-            "TABLE после него (подтверждено реальным прогоном ora2pg 25.0 + "
-            "PostgreSQL 16, docs/research/gap-082-mysql-foreign-key.md; проверены "
-            "обе формы — и с именем CONSTRAINT, и без него). Отдельного типа "
-            "экспорта под внешние ключи у ora2pg нет: в списке поддерживаемых -t "
-            "значений (TABLE, VIEW, TRIGGER, FUNCTION, PROCEDURE, PARTITION и "
-            "т.д.) нет ни FKEY, ни CONSTRAINT, так что «они выгружаются отдельно» "
-            "— не тот случай. Ошибки при этом не будет ни на загрузке, ни потом: "
-            "схема поднимется, приложение заработает, и ссылочная целостность "
-            "просто перестанет существовать — вместе с каскадными удалениями, "
-            "если они были. Восстанавливается вручную: ALTER TABLE <таблица> ADD "
-            "CONSTRAINT <имя> FOREIGN KEY (<столбцы>) REFERENCES <родитель> "
-            "(<столбцы>) ON DELETE ... после загрузки всех таблиц."
+            "REFERENCES ... ON DELETE CASCADE, которую выдаёт mysqldump). Если в "
+            "конфиге ora2pg не задан PG_VERSION (тогда он равен 11) или задан 12 "
+            "и ниже, ora2pg (-m) выбрасывает его из вывода целиком: ни в CREATE "
+            "TABLE, ни отдельным ALTER TABLE после него. Дело не в файловом входе "
+            "и не в диалекте: проверка exists на вложенном хеше в общем коде "
+            "_create_unique_keys() оставляет на каждую таблицу фантомную запись "
+            "в partitions_list, и _create_foreign_keys() принимает таблицу за "
+            "партиционированную, на которую PostgreSQL до 13 обычный FK не "
+            "разрешает (подтверждено прогонами ora2pg 25.0 и на файле, и на "
+            "живой MariaDB, docs/research/gap-082-mysql-foreign-key.md). Ошибки "
+            "при этом не будет ни на загрузке, ни потом: схема поднимется, "
+            "приложение заработает, и ссылочная целостность просто перестанет "
+            "существовать — вместе с каскадными удалениями, если они были. "
+            "Чинится одной строкой в конфиге ora2pg: PG_VERSION с реальной "
+            "целевой версией, 13 или выше. Если цель и правда PostgreSQL 12 и "
+            "ниже — восстановить вручную: ALTER TABLE <таблица> ADD CONSTRAINT "
+            "<имя> FOREIGN KEY (<столбцы>) REFERENCES <родитель> (<столбцы>) ON "
+            "DELETE ... после загрузки всех таблиц."
         ),
         en=(
             "FOREIGN KEY -- a foreign key declared in a CREATE TABLE column list "
             "(including the CONSTRAINT <name> FOREIGN KEY ... REFERENCES ... ON "
-            "DELETE CASCADE form that mysqldump emits). ora2pg (-m) drops it from "
-            "the output entirely: the generated file contains no FOREIGN KEY line "
-            "at all -- neither inside CREATE TABLE nor as a separate ALTER TABLE "
-            "after it (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
-            "docs/research/gap-082-mysql-foreign-key.md; both forms were tested, "
-            "with and without a CONSTRAINT name). ora2pg has no separate export "
-            "type for foreign keys either: its list of supported -t values "
-            "(TABLE, VIEW, TRIGGER, FUNCTION, PROCEDURE, PARTITION and so on) "
-            "contains neither FKEY nor CONSTRAINT, so \"they are exported "
-            "separately\" is not the explanation here. And no error appears at "
+            "DELETE CASCADE form that mysqldump emits). When PG_VERSION is not set "
+            "in the ora2pg config (it then defaults to 11) or is set to 12 or "
+            "lower, ora2pg (-m) drops it from the output entirely: neither inside "
+            "CREATE TABLE nor as a separate ALTER TABLE after it. The cause is "
+            "neither the file input nor the dialect: an exists check on a nested "
+            "hash in the shared _create_unique_keys() code leaves a phantom "
+            "partitions_list entry for every table, and _create_foreign_keys() "
+            "then treats the referenced table as partitioned, which PostgreSQL "
+            "before 13 does not allow a plain FK to point at (confirmed with "
+            "ora2pg 25.0 runs on both a file and a live MariaDB, "
+            "docs/research/gap-082-mysql-foreign-key.md). And no error appears at "
             "load time or later: the schema comes up, the application runs, and "
             "referential integrity simply ceases to exist -- along with the "
-            "cascading deletes, if there were any. Restore it by hand: ALTER "
-            "TABLE <table> ADD CONSTRAINT <name> FOREIGN KEY (<columns>) "
+            "cascading deletes, if there were any. One line in the ora2pg config "
+            "fixes it: PG_VERSION set to the real target version, 13 or higher. "
+            "If the target really is PostgreSQL 12 or lower, restore it by hand: "
+            "ALTER TABLE <table> ADD CONSTRAINT <name> FOREIGN KEY (<columns>) "
             "REFERENCES <parent> (<columns>) ON DELETE ... once all the tables "
             "are loaded."
         ),
@@ -4362,12 +4372,14 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mysql_foreign_key": Message(
         ru=(
-            'Восстановить вручную: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... '
-            'REFERENCES ... после загрузки всех таблиц'
+            'Задать в конфиге ora2pg PG_VERSION 13 или выше (реальную целевую версию); '
+            'если цель PostgreSQL 12 и ниже, восстановить вручную: ALTER TABLE ... '
+            'ADD CONSTRAINT ... FOREIGN KEY ... REFERENCES ... после загрузки всех таблиц'
         ),
         en=(
-            'Restore by hand: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... '
-            'REFERENCES ... once all the tables are loaded'
+            'Set PG_VERSION 13 or higher (the real target version) in the ora2pg config; '
+            'if the target is PostgreSQL 12 or lower, restore by hand: ALTER TABLE ... '
+            'ADD CONSTRAINT ... FOREIGN KEY ... REFERENCES ... once all the tables are loaded'
         ),
     ),
     "mysql_zero_date": Message(
@@ -4545,12 +4557,14 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mssql_foreign_key": Message(
         ru=(
-            'Восстановить вручную: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... '
-            'REFERENCES ... после загрузки всех таблиц'
+            'Задать в конфиге ora2pg PG_VERSION 13 или выше (реальную целевую версию); '
+            'если цель PostgreSQL 12 и ниже, восстановить вручную: ALTER TABLE ... '
+            'ADD CONSTRAINT ... FOREIGN KEY ... REFERENCES ... после загрузки всех таблиц'
         ),
         en=(
-            'Restore by hand: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... '
-            'REFERENCES ... once all the tables are loaded'
+            'Set PG_VERSION 13 or higher (the real target version) in the ora2pg config; '
+            'if the target is PostgreSQL 12 or lower, restore by hand: ALTER TABLE ... '
+            'ADD CONSTRAINT ... FOREIGN KEY ... REFERENCES ... once all the tables are loaded'
         ),
     ),
     "mssql_collation": Message(

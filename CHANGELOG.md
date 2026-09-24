@@ -9,7 +9,18 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-09-24
+
 ### Fixed
+- **The scanner's own report still printed the disproven explanation.**
+  The corrections below reached the research docs, docstrings, README
+  and registry, but not `messages.py`, so 0.11.0's finding text for
+  `mysql_foreign_key` and `mssql_foreign_key` still told users that
+  ora2pg has no `-t` export type for foreign keys, and its advice only
+  said to restore them by hand. Both now state the real trigger
+  (`PG_VERSION` unset or 12 and lower) and lead with the one-line fix,
+  `PG_VERSION 13` or higher, falling back to a manual `ALTER TABLE`
+  only when the target really is PostgreSQL 12 or lower.
 - **GAP-082 and GAP-102's "corrected" mechanism from the previous entry
   was itself wrong.** A second reviewer could not reproduce the
   file-based-path-only explanation at all, on file input or live,

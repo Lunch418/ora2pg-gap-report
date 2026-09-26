@@ -535,6 +535,26 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
     return 2 if had_error else 0
 
 
+def _write_diff(out_console: Console, diff: str) -> None:
+    """Write a --fix diff as the scanned file's own bytes.
+
+    The diff was built from text decoded with surrogateescape, so it can
+    hold bytes that were never UTF-8 (a cp1251 file's comments); written
+    as text it would fail to encode, and a patch in some other encoding
+    would not apply to the file anyway. Encoding it back the same way
+    gives exactly the bytes `patch`/`git apply` need. A stream with no
+    binary buffer (never stdout, which always has one) gets the text with
+    those bytes replaced, rather than an exception."""
+    data = diff.encode("utf-8", errors="surrogateescape")
+    buffer = getattr(out_console.file, "buffer", None)
+    if buffer is None:
+        out_console.file.write(data.decode("utf-8", errors="replace"))
+        return
+    out_console.file.flush()
+    buffer.write(data)
+    buffer.flush()
+
+
 def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Console, lang: str) -> int:
     """--fix: applies autofix.py's mechanical fixes to `args.paths`, treated
     like --verify's inputs as ora2pg's *generated* PostgreSQL output, not
@@ -585,7 +605,15 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
             had_error = True
             continue
         try:
-            source = path.read_text(encoding="utf-8", errors="replace")
+            # Bytes, decoded so that they come back out unchanged: the
+            # fixers only ever touch ASCII, and anything else in the file
+            # -- a cp1251 comment, a BOM, '\r\n' -- has to survive the
+            # rewrite exactly. surrogateescape carries bytes that are not
+            # UTF-8 through as lone surrogates, and decoding bytes rather
+            # than reading text keeps line endings untranslated. Reading
+            # with errors="replace" used to turn every Cyrillic letter of
+            # a cp1251 file into U+FFFD, permanently, once written back.
+            source = path.read_bytes().decode("utf-8", errors="surrogateescape")
         except OSError as exc:
             err_console.print(
                 i18n.t(lang, "skipped_unreadable", exc=escape(str(exc)), path=escape(str(path)))
@@ -615,7 +643,7 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
 
         if args.write:
             try:
-                write_text_atomic(path, fixed)
+                write_text_atomic(path, fixed, errors="surrogateescape", newline="")
             except OSError as exc:
                 err_console.print(
                     i18n.t(lang, "fix_write_error", path=escape(str(path)), exc=escape(str(exc)))
@@ -642,7 +670,7 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
             # console's underlying file bypasses Rich's layout engine
             # entirely for this one piece of output, which is exactly
             # what a diff needs: byte-for-byte, unwrapped.
-            out_console.file.write("".join(diff))
+            _write_diff(out_console, "".join(diff))
 
     if total_fixes and not args.write:
         # stderr, same reasoning as the status lines above: this hint is

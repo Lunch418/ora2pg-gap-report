@@ -185,6 +185,36 @@ def resolve_language(explicit: str | None, *, interactive: bool) -> str:
     return "ru" if stream_can_encode(_RUSSIAN_PROBE) else "en"
 
 
+# Nouns the reports count, in every form each language needs: Russian
+# picks one of three by the number (1 находка, 2 находки, 5 находок),
+# English one of two. Kept apart from _UI, whose entries are single
+# templates.
+_COUNTED: dict[str, dict[str, tuple[str, ...]]] = {
+    "finding": {"ru": ("находка", "находки", "находок"), "en": ("finding", "findings")},
+    "gap": {"ru": ("тип пробела", "типа пробелов", "типов пробелов"), "en": ("kind of gap", "kinds of gap")},
+    "object": {"ru": ("объект", "объекта", "объектов"), "en": ("object", "objects")},
+    "file": {"ru": ("файл", "файла", "файлов"), "en": ("file", "files")},
+    "hour": {"ru": ("час", "часа", "часов"), "en": ("hour", "hours")},
+}
+
+
+def count(lang: str, noun: str, n: int) -> str:
+    """`n` with `noun` in the grammatical form the number takes:
+    count("ru", "finding", 21) -> "21 находка", count("en", "file", 1)
+    -> "1 file"."""
+    forms = _COUNTED[noun]["en" if lang == "en" else "ru"]
+    if lang == "en":
+        return f"{n} {forms[0] if n == 1 else forms[1]}"
+    last_two, last = n % 100, n % 10
+    if last == 1 and last_two != 11:
+        form = forms[0]
+    elif 2 <= last <= 4 and not 12 <= last_two <= 14:
+        form = forms[1]
+    else:
+        form = forms[2]
+    return f"{n} {form}"
+
+
 def t(lang: str, key: str, **kwargs: object) -> str:
     entry = _UI.get(key)
     if entry is None:
@@ -641,39 +671,63 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "\n## Пояснения\n\n",
         "en": "\n## Explanations\n\n",
     },
-    "html_table_header": {
-        "ru": "<th>Файл</th><th>Объект</th><th>Строка</th><th>Серьёзность</th>"
-        "<th>Фрагмент</th><th>Комментарий</th><th>GAP</th><th>Когда ломается</th>",
-        "en": "<th>File</th><th>Object</th><th>Line</th><th>Severity</th>"
-        "<th>Snippet</th><th>Comment</th><th>GAP</th><th>Fails at</th>",
+    # The HTML report (html_report.py).
+    "report_heading": {
+        "ru": "{source} → PostgreSQL: где сломается перенос",
+        "en": "{source} → PostgreSQL: where the migration breaks",
     },
-    "html_no_findings": {
-        "ru": '<p class="empty">Проблемных конструкций не найдено.</p>',
-        "en": '<p class="empty">No problematic constructs found.</p>',
+    "report_scanned": {"ru": "Просканировано: {files}, {objects}.", "en": "Scanned: {files}, {objects}."},
+    "report_found": {"ru": "Найдено: {findings}, {gaps}.", "en": "Found: {findings}, {gaps}."},
+    "report_rail_label": {"ru": "Когда ломается", "en": "When it breaks"},
+    "stage_conversion_name": {"ru": "Конвертация", "en": "Conversion"},
+    "stage_conversion_desc": {"ru": "объект теряется ещё в ora2pg", "en": "the object is lost inside ora2pg"},
+    "stage_deployment_name": {"ru": "Загрузка схемы", "en": "Schema load"},
+    "stage_deployment_desc": {"ru": "сгенерированный DDL не загружается", "en": "the generated DDL fails to load"},
+    "stage_runtime_name": {"ru": "Выполнение", "en": "Run time"},
+    "stage_runtime_desc": {"ru": "код падает при первом вызове", "en": "the code fails on its first call"},
+    "stage_semantic_name": {"ru": "Молча", "en": "Silently"},
+    "stage_semantic_desc": {"ru": "ошибки нет, меняется поведение", "en": "no error, the behaviour changes"},
+    "stage_none_name": {"ru": "Без стадии", "en": "No stage"},
+    "stage_none_desc": {
+        "ru": "недооценка трудоёмкости и вызовы, которые стоит проверить",
+        "en": "underestimated cost, and calls worth checking",
     },
-    "html_title": {"ru": "Отчёт ora2pg-gap-report", "en": "ora2pg-gap-report report"},
-    "html_h1": {"ru": "Отчёт ora2pg-gap-report", "en": "ora2pg-gap-report report"},
-    "html_findings_found": {
-        "ru": "Найдено проблемных объектов: {n} ({counts})",
-        "en": "Problematic objects found: {n} ({counts})",
+    "report_filter_severity": {"ru": "Критичность", "en": "Severity"},
+    "report_filter_stage": {"ru": "Стадия", "en": "Stage"},
+    "report_filter_all": {"ru": "Все", "en": "All"},
+    "report_gap_why": {"ru": "Почему", "en": "Why"},
+    "report_gap_fix": {"ru": "Что делать", "en": "What to do"},
+    "report_gap_where": {"ru": "Где", "en": "Where"},
+    "report_col_file": {"ru": "Файл", "en": "File"},
+    "report_col_line": {"ru": "Строка", "en": "Line"},
+    "report_col_object": {"ru": "Объект", "en": "Object"},
+    "report_col_snippet": {"ru": "Фрагмент", "en": "Fragment"},
+    "report_effort_label": {"ru": "Ручная доработка", "en": "Manual rework"},
+    "report_effort_range": {"ru": "{lo:g}–{hi:g} ч", "en": "{lo:g}–{hi:g} h"},
+    "report_effort_caveat": {
+        "ru": "неоткалиброванная эвристика по severity, не измерение (см. README.md, «Почему почти всё high»)",
+        "en": "an uncalibrated heuristic based on severity, not a measurement (see README.md, "
+        "\"Why almost everything is `high`\")",
+    },
+    "report_top_objects": {"ru": "Где больше всего находок", "en": "Where the findings concentrate"},
+    "report_gaps_heading": {"ru": "Пробелы", "en": "Gaps"},
+    "report_empty_title": {"ru": "Пробелов не найдено", "en": "No gaps found"},
+    "report_empty_text": {
+        "ru": "Ни одна проверка не сработала на этих файлах. Это не гарантия гладкой миграции: "
+        "инструмент ищет только подтверждённые пробелы ora2pg.",
+        "en": "No check fired on these files. That is not a promise of a smooth migration: the "
+        "tool looks only for confirmed ora2pg gaps.",
+    },
+    "report_footer": {
+        "ru": "ora2pg-gap-report {version}. Каждый пробел подтверждён прогоном ora2pg 25.0 и PostgreSQL 16.",
+        "en": "ora2pg-gap-report {version}. Every gap was confirmed with ora2pg 25.0 and PostgreSQL 16.",
     },
     # The no-findings variants. A clean scan is the ordinary outcome in
     # CI, and the counts breakdown is empty then, so the parenthesised
     # form rendered as "Найдено проблемных объектов: 0 ()".
-    "html_findings_found_none": {
-        "ru": "Найдено проблемных объектов: 0",
-        "en": "Problematic objects found: 0",
-    },
     "markdown_findings_found_none": {
         "ru": "Найдено проблемных объектов: 0\n\n",
         "en": "Problematic objects found: 0\n\n",
-    },
-    "html_effort_caveat": {
-        "ru": "Грубая оценка ручной доработки: {lo:g}–{hi:g} ч. — неоткалиброванная эвристика "
-        "по severity, не измерение (см. README.md, «Почему почти всё high»).",
-        "en": "Rough manual-rework estimate: {lo:g}–{hi:g}h. — an uncalibrated heuristic based "
-        "on severity, not a measurement (see README.md, \"Why almost everything is "
-        "`high`\").",
     },
     "markdown_report_title": {"ru": "# Отчёт ora2pg-gap-report\n\n", "en": "# ora2pg-gap-report report\n\n"},
     "markdown_findings_found": {

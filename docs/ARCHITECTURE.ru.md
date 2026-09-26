@@ -183,6 +183,7 @@ ora2pg_gap_report/
 ├── cli.py                      # консольная команда ora2pg-gap-report
 ├── cli.py                      # консольная команда ora2pg-gap-report
 ├── effort_estimator.py          # грубая эвристика по severity, диапазон часов
+├── html_report.py              # --format html: рельс стадий, каждый пробел один раз, фильтры на CSS
 ├── report_generator.py          # JSON + Markdown (машиночитаемые форматы)
 ├── terminal_report.py           # цветной вывод через rich (единственная зависимость;
 │                               #  библиотеки-детекторов не касается, только CLI)

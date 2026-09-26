@@ -181,6 +181,7 @@ ora2pg_gap_report/
 │                               #  the shared logic between cli.py and tui_app.py
 ├── cli.py                      # the ora2pg-gap-report console command
 ├── effort_estimator.py          # a rough severity-based heuristic, hour range
+├── html_report.py              # --format html: the stage rail, each gap once, CSS-only filters
 ├── report_generator.py          # JSON + Markdown (machine-readable formats)
 ├── terminal_report.py           # colored output via rich (the only dependency;
 │                               #  doesn't touch the detector library, only the CLI)

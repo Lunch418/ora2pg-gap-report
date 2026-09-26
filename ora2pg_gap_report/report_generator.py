@@ -1,5 +1,4 @@
 import csv
-import html
 import io
 import json
 import textwrap
@@ -10,9 +9,8 @@ from pathlib import PurePath
 from urllib.parse import quote
 
 from . import i18n
-from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import gap_by_detector, gap_metadata, research_doc_url
-from . import messages
+from . import html_report, messages
 from .baseline import group_key
 from .models import Finding
 
@@ -320,121 +318,19 @@ def write_markdown(findings: list[Finding], stream: IO[str], lang: str = "ru") -
     _write_markdown_explanations(findings, stream, lang)
 
 
-_HTML_SEVERITY_CLASS = {"high": "sev-high", "medium": "sev-medium", "low": "sev-low"}
-
-_HTML_STYLE = """
-  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 2rem;
-         color: #1a1a1a; background: #ffffff; }
-  h1 { font-size: 1.4rem; }
-  .summary { margin: 1rem 0 1.5rem; padding: 1rem 1.25rem; border: 1px solid #d0d0d0;
-             border-radius: 6px; background: #f7f7f7; }
-  .summary p { margin: 0.25rem 0; }
-  .caveat { color: #555; font-size: 0.9rem; }
-  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
-  th, td { border: 1px solid #d8d8d8; padding: 0.5rem 0.6rem; text-align: left;
-           vertical-align: top; }
-  th { background: #eeeeee; position: sticky; top: 0; }
-  td.mono, th.mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; }
-  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 4px;
-           font-weight: 600; font-size: 0.8rem; color: #ffffff; white-space: nowrap; }
-  .sev-high .badge { background: #b3261e; }
-  .sev-medium .badge { background: #9a6700; }
-  .sev-low .badge { background: #1a5fb4; }
-  .empty { padding: 1rem; color: #555; }
-"""
-
-
 def to_html(findings: list[Finding], lang: str = "ru") -> str:
     buffer = io.StringIO()
     write_html(findings, buffer, lang=lang)
     return buffer.getvalue()
 
 
-def _html_found_line(findings: list[Finding], counts_text: str, lang: str) -> str:
-    """The "N problematic objects (breakdown)" line, without the empty
-    parentheses a clean scan used to produce."""
-    if not counts_text:
-        return i18n.t(lang, "html_findings_found_none")
-    return i18n.t(
-        lang, "html_findings_found", n=len(findings), counts=html.escape(counts_text)
-    )
-
-
 def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> None:
-    """Self-contained HTML report (inline CSS only, no external resources
-    -- this project's other formats are all designed to work in an
-    air-gapped/closed-network setting, see README's "Установка без
-    интернета" section, and there is no reason for this one format alone
-    to require network access to render correctly). Same counts/effort
-    estimate as the Markdown/terminal header, same "uncalibrated
-    heuristic, not a measurement" caveat -- see effort_estimator.py's
-    docstring for why no other score (a "readiness %", a risk level) is
-    invented here either.
-
-    Written a row at a time like the other formats. The summary above the
-    table needs the counts before any row is emitted, but those come from
-    summarize_by_severity() over findings that are already in memory --
-    it never needed the rendered rows."""
-    counts = summarize_by_severity(findings)
-    counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
-    lo, hi = estimate_hours(findings)
-    html_lang = "en" if lang == "en" else "ru"
-
-    stream.write(f"""<!doctype html>
-<html lang="{html_lang}">
-<head>
-<meta charset="utf-8">
-<title>{i18n.t(lang, "html_title")}</title>
-<style>{_HTML_STYLE}</style>
-</head>
-<body>
-<h1>{i18n.t(lang, "html_h1")}</h1>
-<div class="summary">
-<p>{_html_found_line(findings, counts_text, lang)}</p>
-<p class="caveat">{i18n.t(lang, "html_effort_caveat", lo=lo, hi=hi)}</p>
-</div>
-""")
-
-    if not findings:
-        stream.write(f'<p class="empty">{i18n.t(lang, "html_no_findings")}</p>')
-    else:
-        stream.write(
-            "<table>\n<thead><tr>"
-            f"{i18n.t(lang, 'html_table_header')}"
-            "</tr></thead>\n<tbody>\n"
-        )
-        for i, f in enumerate(findings):
-            sev_class = _HTML_SEVERITY_CLASS.get(f.severity, "")
-            gap_number, failure_stage = gap_metadata(f.detector)
-            gap_cell = f"GAP-{gap_number}" if gap_number else "—"
-            stage_cell = (
-                html.escape(i18n.t(lang, f"failure_stage_short_{failure_stage}"))
-                if failure_stage
-                else "—"
-            )
-            # The separator goes before each row but the first, the way
-            # "\n".join() put it there -- a trailing newline instead would
-            # change the document.
-            if i:
-                stream.write("\n")
-            stream.write(
-                f'<tr class="{sev_class}">'
-                f"<td>{html.escape(f.source_file)}</td>"
-                f'<td class="mono">{html.escape(f.object_name)}</td>'
-                f"<td>{f.line}</td>"
-                f'<td><span class="badge">{html.escape(f.severity)}</span></td>'
-                f'<td class="mono">{html.escape(f.snippet)}</td>'
-                f"<td>{html.escape(messages.text(f.message_id, lang))}</td>"
-                f'<td class="mono">{gap_cell}</td>'
-                f"<td>{stage_cell}</td>"
-                "</tr>"
-            )
-        stream.write("\n</tbody>\n</table>")
-
-    stream.write("""
-</body>
-</html>
-""")
+    """Self-contained HTML report; see html_report.py for its design --
+    inline CSS only, no script and nothing fetched from anywhere, for the
+    same closed-network reason as every other format here. Same counts and
+    effort range as the Markdown/terminal header, with the same
+    "uncalibrated heuristic, not a measurement" caveat."""
+    html_report.write_html(findings, stream, lang=lang)
 
 
 def _sarif_rule_id(detector: str, message_id: str) -> str:

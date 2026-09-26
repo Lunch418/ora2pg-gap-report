@@ -1,4 +1,5 @@
 import csv
+import html
 import dataclasses
 import io
 import json
@@ -242,7 +243,8 @@ def test_to_html_shows_gap_and_failure_stage():
     )
     report = to_html([finding])
     assert "GAP-030" in report
-    assert "выполнение" in report
+    assert 'data-stage="runtime"' in report
+    assert "Выполнение" in report
 
 
 def test_to_html_shows_em_dash_for_an_unregistered_detector():
@@ -250,7 +252,9 @@ def test_to_html_shows_em_dash_for_an_unregistered_detector():
         detector="dbms_utl_calls", severity="low", object_name="X", line=1, snippet="x", message_id="dbms_utl_calls"
     )
     report = to_html([finding])
-    assert '<td class="mono">—</td><td>—</td></tr>' in report
+    # No GAP number, and grouped under "no stage" rather than a made-up one.
+    assert '<span class="gap-num">—</span>' in report
+    assert 'data-stage="none"' in report
 
 
 def test_to_html_shows_the_same_uncalibrated_effort_caveat_as_markdown():
@@ -358,13 +362,45 @@ def test_to_markdown_writes_no_explanations_section_when_there_is_nothing_to_exp
 
 def test_to_html_empty_findings_in_english():
     report = to_html([], lang="en")
-    assert "No problematic constructs found." in report
+    assert "No gaps found" in report
     assert 'lang="en"' in report
 
 
 def test_to_html_uses_english_headers_and_title():
     report = to_html([SAMPLE_FINDING], lang="en")
     assert "<th>File</th>" in report
-    assert "ora2pg-gap-report report" in report
+    assert "where the migration breaks" in report
     assert "README.md" in report  # the effort-estimate caveat's citation, not PROJECT_BRIEF.md
     assert "PROJECT_BRIEF" not in report
+
+
+def test_to_html_explains_each_gap_once_however_many_findings_it_has():
+    # The old report repeated the whole 400-600 character explanation in
+    # every row: 389 findings made a 700 KB page of the same paragraphs.
+    findings = [
+        Finding(detector="goto_statement", severity="high", object_name=f"P{i}", line=i,
+                snippet="GOTO x", message_id="goto_statement")
+        for i in range(1, 51)
+    ]
+    report = to_html(findings)
+    explanation = html.escape(messages.text("goto_statement", "ru"))
+    assert report.count(explanation) == 1
+    assert report.count("<tr><td") == 50  # every finding still listed
+    assert "50 находок, 50 объектов" in report
+
+
+def test_to_html_orders_gaps_by_the_stage_a_migration_reaches_first():
+    findings = [
+        Finding(detector=d, severity="high", object_name="X", line=1, snippet="x", message_id=d)
+        for d in ("mysql_temporary_table", "goto_statement", "authid_clause", "default_on_null")
+    ]
+    report = to_html(findings)
+    order = [report.index(f'id="{d}"') for d in ("authid_clause", "default_on_null", "goto_statement")]
+    assert order == sorted(order)  # conversion, deployment, runtime
+    assert report.index('id="goto_statement"') < report.index('id="mysql_temporary_table"')  # then silently
+
+
+def test_to_html_has_no_script_of_any_kind():
+    report = to_html([SAMPLE_FINDING, SAMPLE_FINDING])
+    for marker in ("<script", "onclick", "onsubmit", "onload", "javascript:"):
+        assert marker not in report

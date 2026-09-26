@@ -8,7 +8,7 @@ TRIGGER_ROW = ("TRG_AUDIT",)
 
 
 def _schema_provider(package_bodies=(), triggers=(), ddl_by_key=None, objects=None,
-                     ddl_errors=()):
+                     ddl_errors=(), mview_logs=()):
     """A fake schema. `objects` maps an ALL_OBJECTS object_type to the
     names it holds; `package_bodies`/`triggers` are shorthand for the two
     types every test used before the export covered more than those.
@@ -25,6 +25,8 @@ def _schema_provider(package_bodies=(), triggers=(), ddl_by_key=None, objects=No
     def provider(sql, binds):
         if "all_objects" in sql:
             return [(name,) for name in by_type.get(binds["object_type"], ())]
+        if "all_mview_logs" in sql:
+            return [(name,) for name in mview_logs]
         if "DBMS_METADATA" in sql:
             key = (binds["object_type"], binds["name"], binds["owner"])
             if key in ddl_errors:
@@ -365,3 +367,55 @@ def test_live_integration_smoke(tmp_path):
     with conn:
         written = oracle_connector.export_schema(conn, os.environ["ORACLE_USER"], tmp_path)
     assert isinstance(written, list)
+
+
+def test_a_materialized_view_log_is_exported_by_its_log_table(tmp_path):
+    # Not in ALL_OBJECTS as itself -- the log shows up there only as its
+    # internal MLOG$_ table -- so it has its own listing, from
+    # ALL_MVIEW_LOGS, and GET_DDL takes the log table's name. Without it a
+    # live export never contained an MV log, and GAP-027 could not fire
+    # on one.
+    conn = FakeConnection(
+        _schema_provider(
+            mview_logs=["MLOG$_PRODUCTS"],
+            ddl_by_key={
+                ("MATERIALIZED_VIEW_LOG", "MLOG$_PRODUCTS", "HR"): (
+                    '  CREATE MATERIALIZED VIEW LOG ON "HR"."PRODUCTS"\n'
+                    "  WITH ROWID, SEQUENCE INCLUDING NEW VALUES"
+                ),
+            },
+        )
+    )
+    written = oracle_connector.export_schema(conn, "hr", tmp_path / "export")
+
+    assert [p.name for p in written] == ["mlog$_products.mvl.sql"]
+    assert "MATERIALIZED VIEW LOG ON" in written[0].read_text(encoding="utf-8")
+
+
+def test_the_internal_tables_behind_a_materialized_view_log_are_not_listed_as_tables():
+    # MLOG$_<table>, its I_MLOG$_ index and RUPD$_<table> are Oracle's own
+    # storage for the log, not user DDL; exported as a CREATE TABLE they
+    # were scanned as ordinary tables while the log itself was missing.
+    import re
+
+    def excluded(name):
+        # Evaluate the query's own NOT LIKE ... ESCAPE clauses, the way
+        # Oracle does, rather than looking for substrings in the SQL text.
+        for pattern, esc in re.findall(r"NOT LIKE '([^']*)' ESCAPE '(.)'", oracle_connector._LIST_OBJECTS_SQL):
+            rx, i = "", 0
+            while i < len(pattern):
+                ch = pattern[i]
+                if ch == esc:
+                    rx += re.escape(pattern[i + 1])
+                    i += 2
+                    continue
+                rx += ".*" if ch == "%" else "." if ch == "_" else re.escape(ch)
+                i += 1
+            if re.fullmatch(rx, name):
+                return True
+        return False
+
+    for internal in ("MLOG$_PRODUCTS", "RUPD$_PRODUCTS", "I_MLOG$_PRODUCTS"):
+        assert excluded(internal), internal
+    for real in ("PRODUCTS", "MLOGGER", "I_MLOGS", "RUPDATES"):
+        assert not excluded(real), real

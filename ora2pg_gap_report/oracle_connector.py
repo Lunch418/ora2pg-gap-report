@@ -82,6 +82,10 @@ class ExportableType:
     dictionary_type: str
     metadata_type: str
     suffix: str
+    # Where the names come from, when not from ALL_OBJECTS under
+    # dictionary_type: a query binding :owner and returning one name per
+    # row, the name GET_DDL takes.
+    list_sql: str | None = None
 
 
 # Every type below is one this project's own detectors need to see. The
@@ -107,19 +111,27 @@ EXPORTABLE_TYPES: tuple[ExportableType, ...] = (
     ExportableType("INDEX", "INDEX", ".idx.sql"),
     ExportableType("SEQUENCE", "SEQUENCE", ".seq.sql"),
     ExportableType("SYNONYM", "SYNONYM", ".syn.sql"),
+    # Listed from ALL_MVIEW_LOGS: in ALL_OBJECTS a log appears only as its
+    # internal MLOG$_ table, and GET_DDL takes that table's name. Without
+    # this row a live export never contained an MV log at all -- GAP-027
+    # could only ever fire on hand-written DDL.
+    ExportableType(
+        "MATERIALIZED VIEW LOG",
+        "MATERIALIZED_VIEW_LOG",
+        ".mvl.sql",
+        list_sql="SELECT log_table FROM all_mview_logs WHERE log_owner = :owner ORDER BY log_table",
+    ),
 )
 
 # Deliberately absent, so the next reader doesn't assume they were
 # forgotten:
-#   - MATERIALIZED VIEW LOG. GET_DDL takes the *master table's* name for
-#     this type, not the log's own (the log appears in ALL_OBJECTS as a
-#     TABLE called MLOG$_...), so it needs a different calling convention
-#     than every other row above rather than one more entry.
-#   - CONTEXT and DATABASE LINK. Neither is a schema object, so neither
-#     is in ALL_OBJECTS at all; they live in ALL_CONTEXT and
-#     ALL_DB_LINKS, which are separate queries.
-# Both are exportable by hand through get_ddl(), which takes any type
-# GET_DDL accepts.
+#   - CONTEXT. Not a schema object: it lives in the whole database, and
+#     which schema's package it belongs to is visible only in DBA_CONTEXT
+#     (ALL_CONTEXT lists just the contexts active in the current session),
+#     which an ordinary exporting user cannot read. GET_DDL('CONTEXT',
+#     name) works when someone with the privilege runs it by hand.
+#   - DATABASE LINK. Not in ALL_OBJECTS either; and GAP-006 is about the
+#     @link references in code, which the code objects above already carry.
 
 _LIST_OBJECTS_SQL = """
     SELECT object_name
@@ -129,6 +141,9 @@ _LIST_OBJECTS_SQL = """
       AND generated = 'N'
       AND subobject_name IS NULL
       AND object_name NOT LIKE 'BIN$%'
+      AND object_name NOT LIKE 'MLOG$!_%' ESCAPE '!'
+      AND object_name NOT LIKE 'RUPD$!_%' ESCAPE '!'
+      AND object_name NOT LIKE 'I!_MLOG$!_%' ESCAPE '!'
     ORDER BY object_name
 """
 # Deliberately no `status = 'VALID'` filter: INVALID in Oracle's dictionary
@@ -144,7 +159,11 @@ _LIST_OBJECTS_SQL = """
 # per-partition rows a partitioned table contributes (the table itself is
 # already listed once), and the BIN$ exclusion drops the recycle bin.
 # Exporting any of them would mean DDL nobody is migrating, and for the
-# recycle bin, DDL for objects that have been dropped.
+# recycle bin, DDL for objects that have been dropped. The MLOG$_/RUPD$_
+# tables and I_MLOG$_ indexes are Oracle's own storage behind a
+# materialized view log -- the log itself is exported as its own type,
+# below, and exporting its storage as ordinary tables produced findings
+# about DDL nobody wrote.
 
 _GET_DDL_SQL = "SELECT DBMS_METADATA.GET_DDL(:object_type, :name, :owner) FROM dual"
 
@@ -157,6 +176,16 @@ def list_objects(conn: oracledb.Connection, owner: str, dictionary_type: str) ->
             object_type=dictionary_type.upper(),
             owner=owner.upper(),
         )
+        return [row[0] for row in cursor]
+
+
+def _list_names(conn: oracledb.Connection, owner: str, object_type: ExportableType) -> list[str]:
+    """The names to export for one type: ALL_OBJECTS, or the type's own
+    listing query when it has one."""
+    if object_type.list_sql is None:
+        return list_objects(conn, owner, object_type.dictionary_type)
+    with conn.cursor() as cursor:
+        cursor.execute(object_type.list_sql, owner=owner.upper())
         return [row[0] for row in cursor]
 
 
@@ -260,7 +289,7 @@ def export_schema(
     taken: set[Path] = set()
 
     for object_type in types:
-        for name in list_objects(conn, owner, object_type.dictionary_type):
+        for name in _list_names(conn, owner, object_type):
             try:
                 ddl = get_ddl(conn, object_type.metadata_type, name, owner)
             except Exception as exc:

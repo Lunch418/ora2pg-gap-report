@@ -663,9 +663,10 @@ ora2pg-gap-export --dsn host:1521/ORCLPDB1 --user hr --output-dir dumps/
 ora2pg-gap-report dumps/*.sql
 ```
 
-It exports 13 object types — package specs and bodies, triggers,
+It exports 14 object types — package specs and bodies, triggers,
 standalone procedures and functions, types and type bodies, views,
-materialized views, tables, indexes, sequences and synonyms — one `.sql`
+materialized views and their logs, tables, indexes, sequences and
+synonyms — one `.sql`
 file per object, so the schema-level detectors (table clauses, indexes,
 sequences, synonyms) see as much as the code-level ones do. Narrow it
 with `--types` when a schema is large and only part of it is in scope:

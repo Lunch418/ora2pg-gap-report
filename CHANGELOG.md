@@ -158,6 +158,15 @@ patch for fixes to existing ones.
   applies to the file with `patch`/`git apply` -- before, on such a file
   it could not even be printed.
 
+- **A live export never contained a materialized view log, and exported
+  its storage as ordinary tables.** In ALL_OBJECTS a log appears only as
+  its internal `MLOG$_` table, so `ora2pg-gap-export` wrote that table and
+  its `I_MLOG$_` index as user DDL -- scanned as such -- while GAP-027
+  could never fire on an export. Logs are now exported as their own type,
+  listed from `ALL_MVIEW_LOGS` (`--types materialized-view-log`), and
+  `MLOG$_`, `RUPD$_` and `I_MLOG$_` objects are left out of the table and
+  index listings. Verified against a live Oracle 23ai.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

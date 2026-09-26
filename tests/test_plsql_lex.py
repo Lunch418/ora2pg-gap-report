@@ -314,3 +314,51 @@ def test_enclosing_object_name_index_returns_an_immutable_tuple():
     assert isinstance(index, tuple)
     with pytest.raises(AttributeError):
         index.append((0, "package", "X"))  # type: ignore[attr-defined]
+
+
+def test_a_package_spec_with_thousands_of_declarations_scans_in_linear_time():
+    # _own_is_as() used to search for the next IS/AS all the way to the end
+    # of the file and only then notice a ';' came first, so every one of a
+    # spec's bodiless declarations rescanned the rest of the file: 1,000
+    # declarations took 1.6 s, 4,000 took 24 s (utPLSQL's own
+    # tst_pkg_huge.pks, 2,500 lines, took 1.5 s). The search now stops at
+    # the declaration's own ';'. The bound is ~50x what a linear scan
+    # needs, so it only trips on the quadratic shape, not on a slow runner.
+    import time
+
+    from ora2pg_gap_report.core import scan_source
+
+    source = (
+        "CREATE OR REPLACE PACKAGE p AS\n"
+        + "".join(f"  PROCEDURE proc_{i}(a NUMBER);\n" for i in range(4000))
+        + "END p;\n/\n"
+    )
+    started = time.perf_counter()
+    scan_source(source)
+    assert time.perf_counter() - started < 8.0
+
+
+def test_bounding_the_is_as_search_keeps_forward_declarations_and_bodies_apart():
+    # The speed fix must not change which IS/AS a routine owns: a forward
+    # declaration still has none (its ';' comes first), and the real body
+    # declared later still finds its own.
+    from ora2pg_gap_report.plsql_lex import declare_and_begin, mask_strings_and_comments
+
+    source = (
+        "create or replace package body pkg as\n"
+        "  procedure helper;\n"
+        "  procedure main is\n"
+        "  begin helper; end;\n"
+        "  procedure helper is\n"
+        "    pragma autonomous_transaction;\n"
+        "  begin null; end;\n"
+        "end pkg;\n"
+    )
+    clean = mask_strings_and_comments(source)
+    forward = clean.index("helper") + len("helper")
+    body = clean.index("helper", clean.index("procedure helper is")) + len("helper")
+    assert declare_and_begin(clean, forward, len(clean)) is None
+    resolved = declare_and_begin(clean, body, len(clean))
+    assert resolved is not None
+    declare_start, begin_pos, _ = resolved
+    assert "pragma autonomous_transaction" in clean[declare_start:begin_pos]

@@ -41,6 +41,15 @@ patch for fixes to existing ones.
   capability matrix is now described as covering the 67 Oracle gaps,
   which is what it does.
 
+- **A package spec with many declarations took quadratic time.** Finding
+  a routine's own `IS`/`AS` searched to the end of the file before
+  noticing that a bodiless declaration's `;` came first, so each one
+  rescanned everything after it: 1,000 declarations took 1.6 s and 4,000
+  took 24 s (utPLSQL's `tst_pkg_huge.pks` alone took 1.5 s). The search
+  now stops at the declaration's own `;`; 4,000 declarations scan in
+  well under a second, with identical findings on 230k lines of real
+  PL/SQL.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

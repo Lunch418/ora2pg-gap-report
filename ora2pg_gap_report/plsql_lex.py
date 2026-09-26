@@ -283,11 +283,13 @@ def _own_is_as(text: str, name_end: int, hard_boundary: int) -> re.Match[str] | 
         pos += 1
     if pos < hard_boundary and text[pos] == "(":
         pos = skip_balanced_parens(text, pos)
-    semi = text.find(";", pos)
-    is_as = _IS_AS_RE.search(text, pos, hard_boundary)
-    if is_as is None or (semi != -1 and semi < is_as.start()):
-        return None
-    return is_as
+    # Search only up to this signature's own ';'. An IS/AS past it belongs
+    # to something else anyway, and searching on to hard_boundary made
+    # every bodiless declaration in a package spec rescan the rest of the
+    # file -- quadratic in the number of declarations. ';' is not a word
+    # character, so \b behaves the same at the cut as it did in the text.
+    semi = text.find(";", pos, hard_boundary)
+    return _IS_AS_RE.search(text, pos, semi if semi != -1 else hard_boundary)
 
 
 def _find_own_begin(

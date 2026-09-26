@@ -285,11 +285,13 @@ def _render_gap_details(console: Console, gaps: list[GapGroup], lang: str) -> No
         for f in ordered[:_OCCURRENCES_SHOWN]:
             place = f"{f.source_file or '—'}:{f.line}" if f.line else (f.source_file or "—")
             where.add_row(Text(place), Text(f.object_name), Text(f.snippet))
-        body.append(Text(f"{i18n.t(lang, 'report_gap_where')}:", style="bold"))
-        body.append(where)
+        places: list[RenderableType] = [Text(f"{i18n.t(lang, 'report_gap_where')}:", style="bold"), where]
         rest = len(ordered) - _OCCURRENCES_SHOWN
         if rest > 0:
-            body.append(Text(i18n.t(lang, "term_more_findings", findings=i18n.count(lang, "finding", rest)), style="dim"))
+            places.append(
+                Text(i18n.t(lang, "term_more_findings", findings=i18n.count(lang, "finding", rest)), style="dim")
+            )
+        body.append(Group(*places))
         title = Text.assemble((g.detector, "bold"), "  ", (g.severity, _SEVERITY_STYLE.get(g.severity, "")))
         console.print(
             Panel(

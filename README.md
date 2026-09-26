@@ -39,7 +39,7 @@ T-SQL script from SSMS (TABLE / PROCEDURE / INDEX / ...)
    └──────────────────────────────────────────────────────────────────┘
 ```
 
-![ora2pg-gap-report — scanning real PL/SQL code in the terminal](docs/demo.gif)
+![ora2pg-gap-report in a terminal: findings per failure stage, every gap once, and one gap in detail](docs/screenshots/terminal.en.png)
 
 ## The problem
 
@@ -340,6 +340,8 @@ ora2pg-gap-report path/to/schema_dump.pkb --format html --output report.html
 ora2pg-gap-report path/to/schema_dump.pkb --check-connect-by
 ```
 
+![The HTML report: the stage rail, severity and effort, and the gaps with one opened](docs/screenshots/html-report.en.png)
+
 The `--format json` format is described by a formal JSON Schema —
 [`schemas/report.schema.json`](schemas/report.schema.json) (and the
 baseline-snapshot format from `--save`/`--baseline` is in
@@ -381,7 +383,7 @@ ora2pg-gap-report --tui                # opens in the current directory
 ora2pg-gap-report --tui path/to/schema_dump/   # opens there instead
 ```
 
-![ora2pg-gap-report --tui — scanning, a baseline diff, and a finding's full explanation](docs/tui_demo.gif)
+![ora2pg-gap-report --tui: the findings grouped by stage and one finding's gap, place and fix](docs/screenshots/tui.en.png)
 
 Standalone mode, like `--explain`/`--verify`: the CLI takes at most one
 path (a starting point for the tree, not a list to scan directly — picking

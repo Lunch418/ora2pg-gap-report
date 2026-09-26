@@ -10,6 +10,10 @@ patch for fixes to existing ones.
 ## [Unreleased]
 
 ### Added
+- **README screenshots of the new interfaces**, in both languages:
+  `docs/screenshots/terminal`, `html-report` and `tui` `.{en,ru}.png`,
+  rendered from the real samples scan. The four GIFs of the old
+  interfaces (4.4 MB together) are gone; the six screenshots are 0.86 MB.
 - **A clearer `--tui` results screen.** The summary names the source
   dialect, breaks the findings down by stage in the stages' colours and
   shows the effort as a range ("112–448 ч" rather than "112.00-448.00");

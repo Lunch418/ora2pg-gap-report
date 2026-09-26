@@ -39,7 +39,7 @@ DDL Oracle (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
    └──────────────────────────────────────────────────────────────────┘
 ```
 
-![ora2pg-gap-report — сканирование реального PL/SQL-кода в терминале](docs/demo.ru.gif)
+![ora2pg-gap-report в терминале: находки по стадиям, каждый пробел один раз и один пробел подробно](docs/screenshots/terminal.ru.png)
 
 ## Проблема
 
@@ -338,6 +338,8 @@ ora2pg-gap-report path/to/schema_dump.pkb --format html --output report.html
 ora2pg-gap-report path/to/schema_dump.pkb --check-connect-by
 ```
 
+![HTML-отчёт: рельс стадий, критичность и трудоёмкость, пробелы, один из них раскрыт](docs/screenshots/html-report.ru.png)
+
 Формат `--format json` описан формальной JSON Schema —
 [`schemas/report.schema.json`](schemas/report.schema.json) (а формат
 снимка baseline из `--save`/`--baseline` — в
@@ -379,7 +381,7 @@ ora2pg-gap-report --tui                # открывается в текуще�
 ora2pg-gap-report --tui path/to/schema_dump/   # открывается там
 ```
 
-![ora2pg-gap-report --tui — сканирование, сравнение с baseline и полное объяснение находки](docs/tui_demo.ru.gif)
+![ora2pg-gap-report --tui: находки, сгруппированные по стадиям, и для одной — пробел, место и что делать](docs/screenshots/tui.ru.png)
 
 Самостоятельный режим, как `--explain`/`--verify`: CLI принимает не больше
 одного пути (стартовую точку дерева, а не список для сканирования — выбор

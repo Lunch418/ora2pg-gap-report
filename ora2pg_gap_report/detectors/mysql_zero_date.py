@@ -2,6 +2,7 @@ import re
 
 from ..models import Finding
 from ..mysql_lex import (
+    TABLE_HEAD,
     line_at,
     mask_comments_only,
     mask_strings_and_comments,
@@ -10,7 +11,7 @@ from ..mysql_lex import (
 )
 
 _TABLE_RE = re.compile(
-    qualified_name_pattern(r"CREATE\s+TABLE"),
+    qualified_name_pattern(TABLE_HEAD),
     re.IGNORECASE,
 )
 # MySQL's "zero" date/datetime sentinels, in the spellings that actually

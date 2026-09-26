@@ -1,11 +1,11 @@
 import re
 
 from .. import plsql_lex
-from ..plsql_lex import qualified_name_pattern
+from ..plsql_lex import TABLE_HEAD, qualified_name_pattern
 from ..detector_spec import DetectorSpec, TABLE_COLUMNS, build
 
 _TABLE_RE = re.compile(
-    qualified_name_pattern(r"CREATE\s+TABLE"),
+    qualified_name_pattern(TABLE_HEAD),
     re.IGNORECASE,
 )
 # LONG RAW specifically -- plain LONG is Oracle's legacy *character* type

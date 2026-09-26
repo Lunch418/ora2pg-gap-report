@@ -1,11 +1,11 @@
 import re
 
 from .. import mssql_lex
-from ..mssql_lex import normalize_name, qualified_name_pattern
+from ..mssql_lex import TABLE_HEAD, normalize_name, qualified_name_pattern
 from ..detector_spec import DetectorSpec, TABLE_COLUMNS, build
 
 _TABLE_RE = re.compile(
-    qualified_name_pattern(r"CREATE\s+TABLE"),
+    qualified_name_pattern(TABLE_HEAD),
     re.IGNORECASE,
 )
 _PATTERN_RE = re.compile(r"\b(?:NEWID|NEWSEQUENTIALID)\s*\(\s*\)", re.IGNORECASE)

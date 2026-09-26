@@ -1,10 +1,10 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import line_at, mask_strings_and_comments, qualified_name_pattern, statement_end
+from ..plsql_lex import TABLE_HEAD, line_at, mask_strings_and_comments, qualified_name_pattern, statement_end
 
 _TABLE_RE = re.compile(
-    qualified_name_pattern(r"CREATE\s+TABLE"),
+    qualified_name_pattern(TABLE_HEAD),
     re.IGNORECASE,
 )
 # Requiring RANGE/LIST/HASH/REFERENCE immediately after 'PARTITION BY',

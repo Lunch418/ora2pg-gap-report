@@ -187,8 +187,13 @@ def mask_comments_only(source: str) -> str:
     return _mask(source, reveal_strings=True)
 
 
+# The head of every CREATE TABLE a table-level detector scans (see
+# plsql_lex.TABLE_HEAD for why it is defined once). TEMPORARY and IF NOT
+# EXISTS both used to hide a table's columns from every detector: the name
+# came out as "IF" or nothing, and the column list was never found.
+TABLE_HEAD = r"CREATE\s+(?:TEMPORARY\s+)?TABLE(?:\s+IF\s+NOT\s+EXISTS)?"
 _CREATE_PREFIX = r"CREATE\s+(?:OR\s+REPLACE\s+)?"
-_TABLE_NAME_RE = re.compile(qualified_name_pattern(r"CREATE\s+TABLE"), re.IGNORECASE)
+_TABLE_NAME_RE = re.compile(qualified_name_pattern(TABLE_HEAD), re.IGNORECASE)
 _PROCEDURE_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "PROCEDURE"), re.IGNORECASE)
 _FUNCTION_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "FUNCTION"), re.IGNORECASE)
 _TRIGGER_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "TRIGGER"), re.IGNORECASE)
@@ -231,6 +236,7 @@ def enclosing_object_name_index(text: str) -> tuple[tuple[int, str, str], ...]:
 # imported from lex_common by each caller.
 __all__ = [  # noqa: RUF022
     "IDENTIFIER",
+    "TABLE_HEAD",
     "qualified_name_pattern",
     "mask_strings_and_comments",
     "mask_comments_only",

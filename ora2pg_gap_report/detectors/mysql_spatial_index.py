@@ -1,11 +1,11 @@
 import re
 
 from .. import mysql_lex
-from ..mysql_lex import qualified_name_pattern
+from ..mysql_lex import TABLE_HEAD, qualified_name_pattern
 from ..detector_spec import DetectorSpec, TABLE_COLUMNS, build
 
 _TABLE_RE = re.compile(
-    qualified_name_pattern(r"CREATE\s+TABLE"),
+    qualified_name_pattern(TABLE_HEAD),
     re.IGNORECASE,
 )
 _SPATIAL_RE = re.compile(r"\bSPATIAL\s+(?:KEY|INDEX)\b", re.IGNORECASE)

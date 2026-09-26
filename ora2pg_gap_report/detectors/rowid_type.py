@@ -1,11 +1,11 @@
 import re
 
 from .. import plsql_lex
-from ..plsql_lex import IDENTIFIER, qualified_name_pattern
+from ..plsql_lex import IDENTIFIER, TABLE_HEAD, qualified_name_pattern
 from ..detector_spec import DetectorSpec, TABLE_COLUMNS, build
 
 _TABLE_RE = re.compile(
-    qualified_name_pattern(r"CREATE\s+TABLE"),
+    qualified_name_pattern(TABLE_HEAD),
     re.IGNORECASE,
 )
 # A column's own data type, not the ROWID/UROWID pseudocolumn used in a

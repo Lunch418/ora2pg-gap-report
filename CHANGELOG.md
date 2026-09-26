@@ -74,6 +74,17 @@ patch for fixes to existing ones.
   finding's fingerprint, a `--save` baseline taken before this reports
   those findings once as RESOLVED and again as NEW.
 
+- **Temporary tables and `IF NOT EXISTS` hid every column finding.** Each
+  of the 30 table-level detectors matched its own `CREATE\s+TABLE`, so no
+  other spelling of the head was scanned: a MySQL `CREATE TABLE IF NOT
+  EXISTS` lost four of five findings (the fifth named its table `IF`), a
+  MySQL `TEMPORARY` table lost all of them, and an Oracle `GLOBAL
+  TEMPORARY` table was never checked for `ROWID`, `DEFAULT ON NULL` or
+  identity options -- although real ora2pg 25.0 converts those columns
+  exactly as it does in any other table. The head is now defined once per
+  dialect (`TABLE_HEAD`). On the MySQL test_db this surfaces a `KEY`
+  inside a procedure's temporary table that was invisible before.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

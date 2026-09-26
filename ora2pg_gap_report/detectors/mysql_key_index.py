@@ -2,6 +2,7 @@ import re
 
 from ..models import Finding
 from ..mysql_lex import (
+    TABLE_HEAD,
     line_at,
     mask_strings_and_comments,
     qualified_name_pattern,
@@ -9,7 +10,7 @@ from ..mysql_lex import (
 )
 
 _TABLE_RE = re.compile(
-    qualified_name_pattern(r"CREATE\s+TABLE"),
+    qualified_name_pattern(TABLE_HEAD),
     re.IGNORECASE,
 )
 # A KEY clause in the column list, with whatever qualifier precedes it.

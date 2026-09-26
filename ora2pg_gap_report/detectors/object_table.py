@@ -1,10 +1,10 @@
 import re
 
 from ..models import Finding
-from ..plsql_lex import IDENTIFIER, line_at, mask_strings_and_comments, qualified_name_pattern
+from ..plsql_lex import IDENTIFIER, TABLE_HEAD, line_at, mask_strings_and_comments, qualified_name_pattern
 
 _TABLE_RE = re.compile(
-    qualified_name_pattern(r"CREATE\s+TABLE"),
+    qualified_name_pattern(TABLE_HEAD),
     re.IGNORECASE,
 )
 # `OF <type>` immediately after the table name is what makes this an

@@ -200,7 +200,12 @@ def mask_comments_only(source: str) -> str:
 # an ALTER PROCEDURE script is just as common in real T-SQL as a CREATE,
 # and 'CREATE OR ALTER' is the modern spelling of both at once.
 _CREATE_PREFIX = r"(?:CREATE(?:\s+OR\s+ALTER)?|ALTER)\s+"
-_TABLE_NAME_RE = re.compile(qualified_name_pattern(r"CREATE\s+TABLE"), re.IGNORECASE)
+# The head of every CREATE TABLE a table-level detector scans (see
+# plsql_lex.TABLE_HEAD for why it is defined once). T-SQL has no IF NOT
+# EXISTS on CREATE TABLE, and a temporary table is #name -- part of the
+# identifier, not a keyword.
+TABLE_HEAD = r"CREATE\s+TABLE"
+_TABLE_NAME_RE = re.compile(qualified_name_pattern(TABLE_HEAD), re.IGNORECASE)
 _PROCEDURE_NAME_RE = re.compile(
     qualified_name_pattern(_CREATE_PREFIX + r"PROC(?:EDURE)?"), re.IGNORECASE
 )
@@ -240,6 +245,7 @@ def enclosing_object_name_index(text: str) -> tuple[tuple[int, str, str], ...]:
 # imported from lex_common by each caller.
 __all__ = [  # noqa: RUF022
     "IDENTIFIER",
+    "TABLE_HEAD",
     "normalize_name",
     "qualified_name_pattern",
     "mask_strings_and_comments",

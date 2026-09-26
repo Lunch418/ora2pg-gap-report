@@ -51,6 +51,17 @@ def qualified_name_pattern(keyword_pattern: str) -> str:
     leading quote is matched by a trailing one — good enough for name
     extraction, not for validating well-formedness."""
     return rf'{keyword_pattern}\s+(?:"?{IDENTIFIER}"?\.)?"?({IDENTIFIER})"?'
+
+
+# The head of every CREATE TABLE a table-level detector scans, for
+# qualified_name_pattern(). One definition rather than one per detector:
+# 30 detectors each had their own r"CREATE\s+TABLE", so none of them saw a
+# GLOBAL TEMPORARY table's columns -- which ora2pg converts with the same
+# code as any other table (ROWID still becomes oid, DEFAULT ON NULL is
+# still copied verbatim), and 23ai's IF NOT EXISTS made the table's name
+# come out as "IF" with its column list unread.
+TABLE_HEAD = r"CREATE\s+(?:GLOBAL\s+TEMPORARY\s+)?TABLE(?:\s+IF\s+NOT\s+EXISTS)?"
+
 _IS_AS_RE = re.compile(r"\b(?:IS|AS)\b", re.IGNORECASE)
 _BEGIN_RE = re.compile(r"\bBEGIN\b", re.IGNORECASE)
 _BLOCK_TOKEN_RE = re.compile(
@@ -625,6 +636,7 @@ def statement_end(text: str, search_from: int, next_match_start: int | None) -> 
 # the detector factory should each have to know.
 __all__ = [  # noqa: RUF022  -- grouped by what the name is for, not alphabetically
     "IDENTIFIER",
+    "TABLE_HEAD",
     "qualified_name_pattern",
     "mask_strings_and_comments",
     "mask_dynamic_sql_visible",

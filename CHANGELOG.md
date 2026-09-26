@@ -10,6 +10,8 @@ patch for fixes to existing ones.
 ## [Unreleased]
 
 ### Added
+- Russian research documents for GAP-002 and GAP-003, the last two that
+  had only English: every gap's `--explain` now reads in both languages.
 - **README screenshots of the new interfaces**, in both languages:
   `docs/screenshots/terminal`, `html-report` and `tui` `.{en,ru}.png`,
   rendered from the real samples scan. The four GIFs of the old

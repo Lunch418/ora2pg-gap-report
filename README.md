@@ -492,9 +492,8 @@ markdown/html`, per-detector explanations and remediation hints, error
 messages, and `--help` (it follows `--lang` and the same priority order
 above). The research documents in `docs/research/` exist in both
 languages — the English text at `gap-NNN-*.md`, the Russian beside it as
-`.ru.md` — and `--explain` prints the one matching the output language,
-falling back to the other when a translation is missing (GAP-002 and
-GAP-003 have no Russian version yet).
+`.ru.md`, for every gap — and `--explain` prints the one matching the
+output language.
 
 ### Tracking migration progress (baseline)
 

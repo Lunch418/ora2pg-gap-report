@@ -4,6 +4,8 @@ truncated file. Most important for `--fix --write`, which rewrites the
 user's own SQL."""
 
 import os
+import stat
+import sys
 from pathlib import Path
 
 import pytest
@@ -92,3 +94,26 @@ def test_non_ascii_content_round_trips_as_utf8(tmp_path):
     target = tmp_path / "out.txt"
     write_text_atomic(target, "поле «id» — GAP-090\n")
     assert target.read_text(encoding="utf-8") == "поле «id» — GAP-090\n"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
+def test_replacing_a_file_keeps_its_permissions(tmp_path):
+    # The write goes through a NamedTemporaryFile, which is created 0600;
+    # renaming it into place used to hand that mode to the user's file.
+    target = tmp_path / "out.sql"
+    target.write_text("old", encoding="utf-8")
+    target.chmod(0o644)
+    write_text_atomic(target, "new")
+    assert stat.S_IMODE(os.stat(target).st_mode) == 0o644
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
+def test_a_new_file_gets_the_permissions_the_umask_allows(tmp_path):
+    # Not 0600: a report or a baseline is routinely read by someone else
+    # (a CI artifact, a web server serving the HTML report).
+    old_umask = os.umask(0o022)
+    try:
+        write_text_atomic(tmp_path / "report.html", "x")
+    finally:
+        os.umask(old_umask)
+    assert stat.S_IMODE(os.stat(tmp_path / "report.html").st_mode) == 0o644

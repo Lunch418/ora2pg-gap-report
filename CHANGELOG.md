@@ -110,6 +110,25 @@ patch for fixes to existing ones.
   Collisions are now checked only within one export; a previous export's
   file is replaced.
 
+- **Every file the tool wrote came out `0600`.** Writes go through a
+  temporary file, created owner-only, and renaming it into place handed
+  that mode to the result: `--fix --write` took read access away from a
+  user's SQL file (a `644` file became `600`), and every report, baseline
+  and SARIF file was unreadable to anyone else -- a CI artifact, a web
+  server serving the HTML report. A replaced file now keeps its mode and
+  a new one gets what the umask allows.
+
+- **`--fix --write` destroyed every non-UTF-8 character in the file it
+  fixed.** Files were read as UTF-8 with `errors="replace"` and written
+  back as UTF-8, so in a cp1251 file -- what ora2pg writes for a
+  Russian-locale source configured that way -- every Cyrillic letter
+  became U+FFFD for good; and Windows line endings were rewritten on
+  every line, not just the fixed one. The file's bytes are now carried
+  through unchanged apart from the fix itself (the fixers only touch
+  ASCII), and the dry-run diff is written as those same bytes, so it
+  applies to the file with `patch`/`git apply` -- before, on such a file
+  it could not even be printed.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

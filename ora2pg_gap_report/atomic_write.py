@@ -20,6 +20,7 @@ avoid (and on some platforms fails outright with EXDEV).
 """
 
 import os
+import stat
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -27,8 +28,26 @@ from pathlib import Path
 from typing import IO
 
 
+def _mode_for(path: Path) -> int:
+    """The permission bits the finished file should have: the file's own
+    if it already exists, otherwise what a plain open() would have given
+    it under the current umask. The temporary file every write goes
+    through is created 0600, and renaming it into place used to hand that
+    to the result -- so `--fix --write` took group/other read away from a
+    user's SQL file, and every new report and baseline was owner-only."""
+    try:
+        return stat.S_IMODE(os.stat(path).st_mode)
+    except FileNotFoundError:
+        # umask can only be read by setting it; put it straight back.
+        umask = os.umask(0)
+        os.umask(umask)
+        return 0o666 & ~umask
+
+
 @contextmanager
-def open_text_atomic(path: Path, encoding: str = "utf-8") -> Iterator[IO[str]]:
+def open_text_atomic(
+    path: Path, encoding: str = "utf-8", *, errors: str = "strict", newline: str | None = None
+) -> Iterator[IO[str]]:
     """A writable text handle whose contents land at `path` atomically,
     or not at all.
 
@@ -46,9 +65,12 @@ def open_text_atomic(path: Path, encoding: str = "utf-8") -> Iterator[IO[str]]:
     # delete=False because the file has to outlive the handle: it gets
     # renamed into place below, not deleted. Same directory as the
     # destination -- see the module docstring for why that matters.
+    mode = _mode_for(path)
     tmp = tempfile.NamedTemporaryFile(
         mode="w",
         encoding=encoding,
+        errors=errors,
+        newline=newline,
         dir=path.parent,
         prefix=f".{path.name}.",
         suffix=".tmp",
@@ -63,6 +85,7 @@ def open_text_atomic(path: Path, encoding: str = "utf-8") -> Iterator[IO[str]]:
             # keeps the guarantee across a power loss, not just a crash.
             tmp.flush()
             os.fsync(tmp.fileno())
+        os.chmod(tmp.name, mode)
         os.replace(tmp.name, path)
     except BaseException:
         # Any failure -- OSError, or a KeyboardInterrupt mid-write --
@@ -76,7 +99,9 @@ def open_text_atomic(path: Path, encoding: str = "utf-8") -> Iterator[IO[str]]:
         raise
 
 
-def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
+def write_text_atomic(
+    path: Path, text: str, encoding: str = "utf-8", *, errors: str = "strict", newline: str | None = None
+) -> None:
     """Write `text` to `path` atomically, creating parent directories.
 
     `--save reports/baseline.json` into a directory that doesn't exist
@@ -88,6 +113,10 @@ def write_text_atomic(path: Path, text: str, encoding: str = "utf-8") -> None:
     existing caller's error handling keeps working unchanged -- what
     changes is only that a failure now leaves the previous file intact
     instead of a truncated one.
+
+    `errors` and `newline` are open()'s own: `--fix --write` passes
+    "surrogateescape" and "" so a file's bytes come back exactly as they
+    were read, whatever its encoding and line endings.
     """
-    with open_text_atomic(path, encoding) as handle:
+    with open_text_atomic(path, encoding, errors=errors, newline=newline) as handle:
         handle.write(text)

@@ -350,7 +350,9 @@ official OASIS SARIF 2.1.0 schema (vendored into `tests/fixtures/`, so the
 tests don't depend on the network).
 
 DDL files can be passed as-is — a single file may contain multiple
-packages/triggers, the detectors figure out object boundaries themselves.
+packages/triggers, the detectors figure out object boundaries themselves,
+including from a script's own separators — SQL*Plus's `/`, T-SQL's `GO`,
+MySQL's `DELIMITER`.
 A directory can be passed too: everything with a `.sql`/`.pks`/`.pkb`
 extension inside gets scanned recursively (e.g. an entire
 `DBMS_METADATA.GET_DDL` export directory):
@@ -635,7 +637,10 @@ ora2pg-gap-report --fix --dialect mssql --write out/   # the T-SQL fixes
 Like `--verify`, it reads its paths as `ora2pg`'s *generated* PostgreSQL
 output, not the Oracle source — the bug lives in `ora2pg`'s own conversion
 logic, not in anything the Oracle DDL says. Dry-run by default; `--write`
-is required to touch anything on disk. Standalone mode, same as
+is required to touch anything on disk. A file changes only where it is
+fixed: its encoding (cp1251 included), Windows line endings, BOM and
+permissions are kept, and the diff is written in the file's own bytes, so
+it applies with `patch`/`git apply`. Standalone mode, same as
 `--verify`/`--tui`/`--explain` — not combinable with the scan-shaping
 flags.
 
@@ -671,7 +676,8 @@ ora2pg-gap-export --dsn host:1521/ORCLPDB1 --user hr --types package-body,trigge
 
 An object whose DDL the connected user may not read (`ORA-31603`, routine
 on a real schema) is skipped and named at the end, rather than failing the
-whole export.
+whole export. Exporting again into
+the same directory replaces the previous export's files.
 
 `ora2pg-gap-export` is a separate command, not a flag on
 `ora2pg-gap-report`, deliberately: exporting requires network access to

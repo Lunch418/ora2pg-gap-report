@@ -24,6 +24,13 @@ patch for fixes to existing ones.
   top-level keys, so it passed -- and printed "3 findings — ok" -- even
   for a scan that found nothing. It now counts the `findings` array.
 
+- **The release workflow's actions were still pinned to tags.** 0.11.0
+  pinned CI to commit ids, but only in `tests.yml`; `publish.yml` -- the
+  one workflow that can publish to PyPI and write to a Release -- still
+  ran whatever `@v4`/`@v5`/`@release/v1` pointed to. All seven are now
+  pinned to the commits those tags point to today, so nothing about what
+  runs changes except that a moved tag can no longer change it.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

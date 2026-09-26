@@ -34,7 +34,19 @@ def test_committed_baseline_is_what_scanning_the_oracle_source_saves_today(
     capsys.readouterr()
 
     assert exit_code == 0
-    assert _read_json(saved) == _read_json(EXAMPLE / "baseline.json")
+    assert _posix_source_files(_read_json(saved)) == _read_json(EXAMPLE / "baseline.json")
+
+
+def _posix_source_files(baseline: object) -> object:
+    # source_file is stored the way the path was spelled on this OS, so a
+    # Windows run writes 'oracle\\bulk_test_pkg.sql' where the committed
+    # file has 'oracle/bulk_test_pkg.sql'. group_key() already hashes a
+    # normalized form, so the keys agree across OSes; only this display
+    # field needs the same treatment before comparing.
+    assert isinstance(baseline, dict)
+    for rec in baseline["findings"]:
+        rec["source_file"] = Path(rec["source_file"]).as_posix()
+    return baseline
 
 
 @pytest.mark.parametrize(

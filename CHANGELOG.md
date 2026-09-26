@@ -167,6 +167,12 @@ patch for fixes to existing ones.
   `MLOG$_`, `RUPD$_` and `I_MLOG$_` objects are left out of the table and
   index listings. Verified against a live Oracle 23ai.
 
+- **GAP-045 did not fire on an export.** `DBMS_METADATA.GET_DDL` writes a
+  temporal validity period as a separate `ALTER TABLE ... ADD PERIOD FOR`
+  after the `CREATE TABLE`, and the detector only looked inside the
+  `CREATE TABLE`. ora2pg drops that statement silently -- verified on a
+  live Oracle 23ai export -- so it is now flagged with its own message.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

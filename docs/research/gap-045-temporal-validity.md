@@ -50,3 +50,31 @@ LINE 5:  period FOR
 built-in temporal validity. Manual rework: an ordinary pair of timestamp
 columns plus filtering on them in queries, or a `tstzrange` type with an
 exclusion constraint if overlapping periods need to be controlled.
+
+## The DBMS_METADATA.GET_DDL spelling (added 2026-09-26)
+
+An export from a live Oracle 23ai does not put the period inside the
+`CREATE TABLE`; `GET_DDL` writes it as a separate statement after it:
+
+```sql
+  CREATE TABLE "G045"."EMP_HIST"
+   (	"EMP_ID" NUMBER,
+	"VALID_FROM" DATE,
+	"VALID_TO" DATE
+   ) ...
+  ALTER TABLE "G045"."EMP_HIST" ADD PERIOD FOR "EMP_VALID_TIME"("VALID_FROM","VALID_TO")
+```
+
+ora2pg 25.0 (`-t TABLE` on that file) drops the `ALTER TABLE` entirely:
+
+```sql
+CREATE TABLE g045.emp_hist (
+	emp_id bigint,
+	valid_from timestamp(0),
+	valid_to timestamp(0)
+) ;
+```
+
+So in this spelling nothing fails to load — the period is lost silently.
+The detector flags both spellings; the `ALTER TABLE` one carries its own
+message (`temporal_validity.alter`) saying so.

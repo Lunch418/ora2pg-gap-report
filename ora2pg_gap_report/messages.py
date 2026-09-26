@@ -3730,6 +3730,30 @@ MESSAGES: dict[str, Message] = {
             'change the code so it leaves the column out.'
         ),
     ),
+    "temporal_validity.alter": Message(
+        ru=(
+            'PERIOD FOR (temporal validity, 12c) в записи DBMS_METADATA.GET_DDL — отдельной '
+            'командой ALTER TABLE ... ADD PERIOD FOR после CREATE TABLE. ora2pg эту команду '
+            'выбрасывает целиком и молча (подтверждено реальным прогоном ora2pg 25.0 на выгрузке '
+            'живого Oracle 23ai, docs/research/gap-045-temporal-validity.md): таблица загружается'
+            ' с обычными столбцами начала и конца, а сам период и запросы AS OF PERIOD FOR / '
+            'VERSIONS PERIOD FOR, которые на него опираются, пропадают без ошибки. В PostgreSQL '
+            'встроенной temporal validity нет: вручную — пара столбцов с фильтрацией в запросах '
+            'или тип tstzrange с ограничением-исключением, если перекрытия периодов нужно '
+            'контролировать.'
+        ),
+        en=(
+            "PERIOD FOR (12c temporal validity) in DBMS_METADATA.GET_DDL's spelling -- a separate"
+            ' ALTER TABLE ... ADD PERIOD FOR after the CREATE TABLE. ora2pg drops that statement '
+            'entirely and silently (confirmed against a real ora2pg 25.0 run on a live Oracle '
+            '23ai export, docs/research/gap-045-temporal-validity.md): the table loads with '
+            'ordinary start and end columns, and the period itself -- with the AS OF PERIOD FOR /'
+            ' VERSIONS PERIOD FOR queries relying on it -- disappears without an error. '
+            'PostgreSQL has no built-in temporal validity: by hand, a column pair filtered on in '
+            'queries, or a tstzrange with an exclusion constraint if overlapping periods must be '
+            'controlled.'
+        ),
+    ),
 }
 
 

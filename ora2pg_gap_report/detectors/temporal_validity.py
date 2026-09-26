@@ -1,7 +1,8 @@
 import re
 
 from .. import plsql_lex
-from ..plsql_lex import TABLE_HEAD, qualified_name_pattern
+from ..models import Finding
+from ..plsql_lex import IDENTIFIER, TABLE_HEAD, line_at, mask_strings_and_comments, qualified_name_pattern
 from ..detector_spec import DetectorSpec, STATEMENT_CLAUSE, build
 
 _TABLE_RE = re.compile(
@@ -24,6 +25,15 @@ object_name is the table's own name (schema-level DDL) -- same
 reasoning as index_organized_table.py, whose statement_end() scoping
 this mirrors."""
 
+# DBMS_METADATA.GET_DDL's spelling: the period is not part of the CREATE
+# TABLE but a separate `ALTER TABLE "S"."T" ADD PERIOD FOR "P"(...)` after
+# it. ora2pg drops that statement entirely, so this form is not the
+# load failure the CREATE TABLE form is, but a silent loss.
+_ALTER_ADD_PERIOD_RE = re.compile(
+    qualified_name_pattern(r"\bALTER\s+TABLE") + rf'\s+ADD\s+PERIOD\s+FOR\s+"?{IDENTIFIER}"?',
+    re.IGNORECASE,
+)
+
 SPEC = DetectorSpec(
     name="temporal_validity",
     dialect="oracle",
@@ -34,5 +44,27 @@ SPEC = DetectorSpec(
     statement_pattern=_TABLE_RE,
 )
 
-find_temporal_validity = build(SPEC, plsql_lex)
-find_temporal_validity.__doc__ = _DOC
+_find_in_create_table = build(SPEC, plsql_lex)
+
+
+def find_temporal_validity(source: str) -> list[Finding]:
+    clean = mask_strings_and_comments(source)
+    return _find_in_create_table(source) + [
+        Finding(
+            detector="temporal_validity",
+            severity="high",
+            object_name=m.group(1).upper(),
+            line=line_at(clean, m.start()),
+            snippet="ALTER TABLE ... ADD PERIOD FOR",
+            message_id="temporal_validity.alter",
+        )
+        for m in _ALTER_ADD_PERIOD_RE.finditer(clean)
+    ]
+
+
+find_temporal_validity.__doc__ = _DOC + """
+
+The same period in DBMS_METADATA.GET_DDL's spelling -- a separate
+ALTER TABLE ... ADD PERIOD FOR after the CREATE TABLE -- is flagged with
+its own message: ora2pg drops that statement without a word, so there
+the period is lost silently instead of breaking the load."""

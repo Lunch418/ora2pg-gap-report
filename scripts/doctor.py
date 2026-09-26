@@ -600,6 +600,32 @@ def check_gap_severity_matches_detector_source() -> list[str]:
     return problems
 
 
+def check_titles_match_gap_registry_md() -> list[str]:
+    """Every detector has a title in messages.TITLES, and every gap's title
+    is its "Construct" cell in GAP_REGISTRY.md / GAP_REGISTRY.ru.md, word
+    for word -- the reports show the title as the heading of a gap, the
+    registry shows the same line, and two hand-kept copies of it are
+    exactly what drifts."""
+    from ora2pg_gap_report.messages import TITLES
+
+    problems: list[str] = []
+    for name in sorted(_detector_names_on_disk()):
+        if name not in TITLES and name != "connect_by":
+            problems.append(f"{name}: нет заголовка в messages.TITLES")
+    for lang, filename in (("en", "GAP_REGISTRY.md"), ("ru", "GAP_REGISTRY.ru.md")):
+        text = (REPO_ROOT / "docs" / "research" / filename).read_text(encoding="utf-8")
+        for m in re.finditer(r"^\| GAP-(\d{3}) \| (.+?) \| `(\w+)` \|", text, re.MULTILINE):
+            entry = TITLES.get(m.group(3))
+            if entry is None:
+                continue
+            ours = entry.en if lang == "en" else entry.ru
+            if ours != m.group(2):
+                problems.append(
+                    f"GAP-{m.group(1)}: заголовок в messages.TITLES ({lang}) не совпадает с {filename}"
+                )
+    return problems
+
+
 def main() -> int:
     print(f"Проверено {len(GAPS)} gap'ов из реестра (ora2pg_gap_report/gap_registry.py).\n")
 
@@ -616,6 +642,7 @@ def main() -> int:
     all_problems.extend(check_failure_stage_values())
     all_problems.extend(check_gap_severity_matches_detector_source())
     all_problems.extend(check_translations_are_not_glued())
+    all_problems.extend(check_titles_match_gap_registry_md())
 
     if not all_problems:
         print(
@@ -628,7 +655,8 @@ def main() -> int:
             "своём диалекте в core.py, у каждого gap'а (кроме FAILURE_STAGE_EXEMPT_DETECTORS) "
             "задан валидный failure_stage, у каждого gap'а severity в реестре совпадает "
             "с тем, что реально использует исходник детектора, и ни в одном английском "
-            "переводе нет слов, склеенных на стыке строковых литералов."
+            "переводе нет слов, склеенных на стыке строковых литералов, а заголовки "
+            "gap'ов в messages.py совпадают с GAP_REGISTRY.md."
         )
         return 0
 

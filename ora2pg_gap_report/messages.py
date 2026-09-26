@@ -4924,3 +4924,474 @@ def remediation_hint(detector: str, lang: str = "ru") -> str | None:
     if hint is None:
         return None
     return hint.en if lang == "en" and hint.en else hint.ru
+
+
+# A one-line title per detector: what the report shows as the heading of a
+# gap, where the full message is too long to scan. Backticks mark code.
+# Every gap's title is its "Construct" cell in docs/research/GAP_REGISTRY
+# .md / .ru.md, word for word -- scripts/doctor.py checks they have not
+# drifted apart; dbms_utl_calls, a classifier with no GAP-NNN of its own,
+# is the one title written only here.
+TITLES: dict[str, Message] = {
+    "autonomous_tx": Message(
+        ru='`PRAGMA AUTONOMOUS_TRANSACTION` — недооценка стоимости в package body',
+        en='`PRAGMA AUTONOMOUS_TRANSACTION` — cost underestimated in a package body',
+    ),
+    "compound_triggers": Message(
+        ru='`COMPOUND TRIGGER` — тихий провал файлового парсера',
+        en='`COMPOUND TRIGGER` — silent failure of the file parser',
+    ),
+    "dbms_utl_calls": Message(
+        ru='Вызовы `DBMS_*`/`UTL_*`, которые ora2pg не переводит',
+        en='`DBMS_*`/`UTL_*` calls ora2pg does not translate',
+    ),
+    "merge_delete_clause": Message(
+        ru='`MERGE ... WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ...`',
+        en='`MERGE ... WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ...`',
+    ),
+    "bulk_collect": Message(
+        ru='`TYPE ... IS TABLE OF` / `BULK COLLECT INTO` / `FORALL`',
+        en='`TYPE ... IS TABLE OF` / `BULK COLLECT INTO` / `FORALL`',
+    ),
+    "database_link": Message(
+        ru='`table@dblink_name` — прямая ссылка на удалённую БД',
+        en='`table@dblink_name` — a direct reference to a remote database',
+    ),
+    "model_clause": Message(
+        ru='`MODEL PARTITION BY ... DIMENSION BY ... MEASURES ... RULES`',
+        en='`MODEL PARTITION BY ... DIMENSION BY ... MEASURES ... RULES`',
+    ),
+    "pivot_clause": Message(
+        ru='`PIVOT`/`UNPIVOT`',
+        en='`PIVOT`/`UNPIVOT`',
+    ),
+    "object_type": Message(
+        ru='`CREATE TYPE ... AS OBJECT` / `TYPE BODY` — вне оценки трудозатрат вообще',
+        en='`CREATE TYPE ... AS OBJECT` / `TYPE BODY` — outside the effort estimate entirely',
+    ),
+    "with_function": Message(
+        ru='`WITH FUNCTION`/`WITH PROCEDURE` — парсер разваливает структуру исходника',
+        en='`WITH FUNCTION`/`WITH PROCEDURE` — the parser wrecks the source structure',
+    ),
+    "flashback_query": Message(
+        ru='`AS OF TIMESTAMP`/`AS OF SCN` — flashback-запрос',
+        en='`AS OF TIMESTAMP`/`AS OF SCN` — a flashback query',
+    ),
+    "global_temp_table": Message(
+        ru='`CREATE GLOBAL TEMPORARY TABLE` — теряется секция `ON COMMIT`',
+        en='`CREATE GLOBAL TEMPORARY TABLE` — the `ON COMMIT` clause is lost',
+    ),
+    "table_partitioning": Message(
+        ru='`PARTITION BY RANGE/LIST/HASH` — секционирование таблицы отбрасывается целиком',
+        en='`PARTITION BY RANGE/LIST/HASH` — table partitioning is dropped entirely',
+    ),
+    "connect_by_nocycle": Message(
+        ru='`CONNECT BY NOCYCLE` / `ORDER SIBLINGS BY` — структурное разрушение блока',
+        en='`CONNECT BY NOCYCLE` / `ORDER SIBLINGS BY` — structural destruction of the block',
+    ),
+    "context_object": Message(
+        ru='`CREATE CONTEXT` — application context не конвертируется вообще',
+        en='`CREATE CONTEXT` — an application context is not converted at all',
+    ),
+    "insert_all": Message(
+        ru='`INSERT ALL`/`INSERT FIRST` — многотабличная вставка',
+        en='`INSERT ALL`/`INSERT FIRST` — a multi-table insert',
+    ),
+    "json_table": Message(
+        ru='`JSON_TABLE(...)` — не существует в PostgreSQL 16 и старше',
+        en='`JSON_TABLE(...)` — does not exist in PostgreSQL 16 or earlier',
+    ),
+    "external_table": Message(
+        ru='`CREATE TABLE ... ORGANIZATION EXTERNAL` — секция отбрасывается целиком',
+        en='`CREATE TABLE ... ORGANIZATION EXTERNAL` — the clause is dropped entirely',
+    ),
+    "sql_macro": Message(
+        ru='`SQL_MACRO` — конвертируется в обычную функцию',
+        en='`SQL_MACRO` — converted into an ordinary function',
+    ),
+    "invisible_column": Message(
+        ru='Столбец `INVISIBLE` теряет своё скрытие',
+        en='An `INVISIBLE` column loses its invisibility',
+    ),
+    "collection_type": Message(
+        ru='`CREATE TYPE ... TABLE OF`/`VARRAY OF` — коллекционный тип пропадает без следа',
+        en='`CREATE TYPE ... TABLE OF`/`VARRAY OF` — a collection type vanishes without a trace',
+    ),
+    "cross_apply": Message(
+        ru='`CROSS APPLY`/`OUTER APPLY` — синтаксиса APPLY нет в PostgreSQL',
+        en='`CROSS APPLY`/`OUTER APPLY` — PostgreSQL has no APPLY syntax',
+    ),
+    "oracle_text": Message(
+        ru='Oracle Text — домен-индекс отбрасывается, `CONTAINS`/`CATSEARCH`/`MATCHES` не переносятся',
+        en='Oracle Text — the domain index is dropped, `CONTAINS`/`CATSEARCH`/`MATCHES` do not port',
+    ),
+    "recursive_with": Message(
+        ru='Нативная рекурсивная `WITH ... AS (...)` без ключевого слова `RECURSIVE`',
+        en='A natively recursive `WITH ... AS (...)` without the `RECURSIVE` keyword',
+    ),
+    "invisible_index": Message(
+        ru='Индекс `INVISIBLE` теряет своё скрытие от оптимизатора',
+        en='An `INVISIBLE` index loses its invisibility to the optimizer',
+    ),
+    "read_only_table": Message(
+        ru='`CREATE TABLE ... READ ONLY` теряет гарантию неизменяемости',
+        en='`CREATE TABLE ... READ ONLY` loses its immutability guarantee',
+    ),
+    "materialized_view_log": Message(
+        ru='`CREATE MATERIALIZED VIEW LOG` не конвертируется вообще',
+        en='`CREATE MATERIALIZED VIEW LOG` is not converted at all',
+    ),
+    "identity_column": Message(
+        ru='`GENERATED ... AS IDENTITY (...)` с опциями — баг двойных скобок',
+        en='`GENERATED ... AS IDENTITY (...)` with options — a doubled-parenthesis bug',
+    ),
+    "default_on_null": Message(
+        ru='`DEFAULT ON NULL` копируется verbatim — синтаксическая ошибка',
+        en='`DEFAULT ON NULL` copied verbatim — a syntax error',
+    ),
+    "rowid_type": Message(
+        ru='`ROWID`/`UROWID` как тип столбца — конвертируется в несовместимый `oid`',
+        en='`ROWID`/`UROWID` as a column type — converted to an incompatible `oid`',
+    ),
+    "sequence_cycle": Message(
+        ru='`CREATE SEQUENCE ... CYCLE` — секция `CYCLE` отбрасывается',
+        en='`CREATE SEQUENCE ... CYCLE` — the `CYCLE` clause is dropped',
+    ),
+    "public_synonym": Message(
+        ru='`CREATE [PUBLIC] SYNONYM` — теряет схему целевого объекта',
+        en="`CREATE [PUBLIC] SYNONYM` — loses the target object's schema",
+    ),
+    "virtual_column": Message(
+        ru='`GENERATED ALWAYS AS (...) VIRTUAL` — теряет защиту `ORA-54016`',
+        en='`GENERATED ALWAYS AS (...) VIRTUAL` — loses the `ORA-54016` protection',
+    ),
+    "conditional_compilation": Message(
+        ru='`$IF`/`$ELSIF`/`$ELSE`/`$END` копируются verbatim',
+        en='`$IF`/`$ELSIF`/`$ELSE`/`$END` copied verbatim',
+    ),
+    "nested_subprogram": Message(
+        ru='Локальная вложенная процедура/функция — портится при экспорте',
+        en='A local nested procedure/function — corrupted on export',
+    ),
+    "package_state": Message(
+        ru='Пакетная переменная — сломанная эмуляция через `set_config`',
+        en='A package variable — a broken emulation through `set_config`',
+    ),
+    "index_organized_table": Message(
+        ru='`ORGANIZATION INDEX` (IOT) отбрасывается',
+        en='`ORGANIZATION INDEX` (IOT) is dropped',
+    ),
+    "match_recognize": Message(
+        ru='`MATCH_RECOGNIZE` — сопоставление строк с шаблоном, аналога в PostgreSQL нет',
+        en='`MATCH_RECOGNIZE` — row pattern matching, no PostgreSQL counterpart',
+    ),
+    "connect_by_pseudocolumn": Message(
+        ru='`CONNECT_BY_ROOT`/`CONNECT_BY_ISLEAF`/`CONNECT_BY_ISCYCLE` переносятся без конвертации',
+        en='`CONNECT_BY_ROOT`/`CONNECT_BY_ISLEAF`/`CONNECT_BY_ISCYCLE` are carried over unconverted',
+    ),
+    "keep_dense_rank": Message(
+        ru='`KEEP (DENSE_RANK FIRST/LAST ORDER BY ...)` — модификатор агрегата',
+        en='`KEEP (DENSE_RANK FIRST/LAST ORDER BY ...)` — an aggregate modifier',
+    ),
+    "multiset_operator": Message(
+        ru='`CAST(MULTISET(...))`, `MULTISET UNION`, `MEMBER OF`, `SUBMULTISET OF`',
+        en='`CAST(MULTISET(...))`, `MULTISET UNION`, `MEMBER OF`, `SUBMULTISET OF`',
+    ),
+    "sample_clause": Message(
+        ru='`SAMPLE (n)` — в PostgreSQL это `TABLESAMPLE`, ora2pg не конвертирует',
+        en='`SAMPLE (n)` — this is `TABLESAMPLE` in PostgreSQL, ora2pg does not convert it',
+    ),
+    "accessible_by": Message(
+        ru='`ACCESSIBLE BY` копируется в заголовок сгенерированной функции',
+        en="`ACCESSIBLE BY` is copied into the generated function's header",
+    ),
+    "local_time_zone": Message(
+        ru='`TIMESTAMP WITH LOCAL TIME ZONE` → `timestamp` без часового пояса',
+        en='`TIMESTAMP WITH LOCAL TIME ZONE` → `timestamp` without a time zone',
+    ),
+    "temporal_validity": Message(
+        ru='`PERIOD FOR` (Temporal Validity) превращается в обрубок `period FOR`',
+        en='`PERIOD FOR` (Temporal Validity) becomes the stub `period FOR`',
+    ),
+    "bitmap_index": Message(
+        ru='`CREATE BITMAP INDEX` → `USING gin` без класса операторов',
+        en='`CREATE BITMAP INDEX` → `USING gin` without an operator class',
+    ),
+    "object_table": Message(
+        ru='`CREATE TABLE ... OF <тип>` — `OF` становится именем столбца',
+        en='`CREATE TABLE ... OF <type>` — `OF` becomes a column name',
+    ),
+    "ignore_nulls": Message(
+        ru='`IGNORE NULLS` / `RESPECT NULLS` — такого синтаксиса в PostgreSQL 16 нет',
+        en='`IGNORE NULLS` / `RESPECT NULLS` — no such syntax in PostgreSQL 16',
+    ),
+    "nlssort": Message(
+        ru='`NLSSORT` — становится `COLLATE` с несуществующим именем сортировки',
+        en='`NLSSORT` — becomes a `COLLATE` with a non-existent collation name',
+    ),
+    "long_raw_type": Message(
+        ru='`LONG RAW` отображается в `text`, а не в задокументированный `bytea`',
+        en='`LONG RAW` maps to `text` rather than the documented `bytea`',
+    ),
+    "anydata_type": Message(
+        ru='`SYS.ANYDATA` — имя типа копируется, схемы `SYS` в PostgreSQL нет',
+        en='`SYS.ANYDATA` — the type name is copied, PostgreSQL has no `SYS` schema',
+    ),
+    "system_trigger": Message(
+        ru='системные триггеры (`ON DATABASE`/`ON SCHEMA`) выводятся как табличные',
+        en='System triggers (`ON DATABASE`/`ON SCHEMA`) are emitted as table triggers',
+    ),
+    "trigger_follows": Message(
+        ru='`FOLLOWS`/`PRECEDES` попадает внутрь тела функции триггера',
+        en='`FOLLOWS`/`PRECEDES` ends up inside the trigger function body',
+    ),
+    "table_collection": Message(
+        ru='оператор `TABLE(...)` — разворот коллекции, копируется как есть',
+        en='The `TABLE(...)` operator — collection unnesting, copied as-is',
+    ),
+    "cursor_expression": Message(
+        ru='`CURSOR(SELECT ...)` — курсорное выражение, аналога нет',
+        en='`CURSOR(SELECT ...)` — a cursor expression, no counterpart',
+    ),
+    "for_update_wait": Message(
+        ru='`FOR UPDATE ... WAIT n` — есть только `NOWAIT`/`SKIP LOCKED`',
+        en='`FOR UPDATE ... WAIT n` — only `NOWAIT`/`SKIP LOCKED` exist',
+    ),
+    "rownum_dml": Message(
+        ru='`ROWNUM` в `UPDATE`/`DELETE` превращается в недопустимый `LIMIT`',
+        en='`ROWNUM` in `UPDATE`/`DELETE` becomes an invalid `LIMIT`',
+    ),
+    "to_date_rr": Message(
+        ru='формат `RR` в `TO_DATE` — молча возвращает 1 год до нашей эры',
+        en='The `RR` format in `TO_DATE` — silently returns the year 1 BC',
+    ),
+    "authid_clause": Message(
+        ru='`AUTHID` — процедура молча пропадает из вывода целиком',
+        en='`AUTHID` — the procedure silently disappears from the output entirely',
+    ),
+    "pragma_exception_init": Message(
+        ru="`PRAGMA EXCEPTION_INIT` — обработчик получает чужой `SQLSTATE '50001'`",
+        en="`PRAGMA EXCEPTION_INIT` — the handler gets someone else's `SQLSTATE '50001'`",
+    ),
+    "subtype_range": Message(
+        ru='`SUBTYPE ... RANGE` переносится в `CREATE DOMAIN` дословно',
+        en='`SUBTYPE ... RANGE` is carried into `CREATE DOMAIN` verbatim',
+    ),
+    "alt_quote_literal": Message(
+        ru="`q'[...]'` — альтернативные кавычки, копируются как есть",
+        en="`q'[...]'` — alternative quoting, copied as-is",
+    ),
+    "goto_statement": Message(
+        ru='`GOTO` — в PL/pgSQL такого оператора нет',
+        en='`GOTO` — PL/pgSQL has no such statement',
+    ),
+    "cursor_rowtype": Message(
+        ru='`<курсор>%ROWTYPE` — PL/pgSQL допускает только таблицу/представление',
+        en='`<cursor>%ROWTYPE` — PL/pgSQL allows only a table/view',
+    ),
+    "wm_concat": Message(
+        ru='`WM_CONCAT` копируется как есть, в отличие от `LISTAGG`',
+        en='`WM_CONCAT` is copied as-is, unlike `LISTAGG`',
+    ),
+    "read_only_view": Message(
+        ru='`WITH READ ONLY` выбрасывается — представление становится обновляемым',
+        en='`WITH READ ONLY` is dropped — the view becomes updatable',
+    ),
+    "sdo_geometry": Message(
+        ru='`SDO_GEOMETRY` — тип PostGIS без `CREATE EXTENSION postgis`',
+        en='`SDO_GEOMETRY` — a PostGIS type without `CREATE EXTENSION postgis`',
+    ),
+    "table_if_not_exists": Message(
+        ru='`CREATE TABLE IF NOT EXISTS` из 23ai — становится таблицей `if`',
+        en='23ai `CREATE TABLE IF NOT EXISTS` — becomes a table called `if`',
+    ),
+    "identity_on_null": Message(
+        ru='`GENERATED BY DEFAULT ON NULL AS IDENTITY` — `ON NULL` теряется, вставка явного NULL падает',
+        en='`GENERATED BY DEFAULT ON NULL AS IDENTITY` — `ON NULL` lost, an explicit NULL insert fails',
+    ),
+    "mysql_enum_type": Message(
+        ru='`ENUM(...)` — ссылка на несуществующий синтезированный тип',
+        en='`ENUM(...)` — a reference to a synthesized type that is never created',
+    ),
+    "mysql_on_update_current_timestamp": Message(
+        ru='`DEFAULT ... ON UPDATE CURRENT_TIMESTAMP` — недопустимый синтаксис внутри DEFAULT',
+        en='`DEFAULT ... ON UPDATE CURRENT_TIMESTAMP` — invalid syntax inside DEFAULT',
+    ),
+    "mysql_on_duplicate_key_update": Message(
+        ru='`INSERT ... ON DUPLICATE KEY UPDATE` — копируется как есть, аналога нет',
+        en='`INSERT ... ON DUPLICATE KEY UPDATE` — copied as-is, no counterpart',
+    ),
+    "mysql_signal": Message(
+        ru='`SIGNAL`/`RESIGNAL` — копируется как есть, такого оператора в PL/pgSQL нет',
+        en='`SIGNAL`/`RESIGNAL` — copied as-is, PL/pgSQL has no such statement',
+    ),
+    "mysql_fulltext_index": Message(
+        ru='`FULLTEXT KEY`/`FULLTEXT INDEX` — теряется целиком, ломает CREATE TABLE',
+        en='`FULLTEXT KEY`/`FULLTEXT INDEX` — lost entirely, breaks CREATE TABLE',
+    ),
+    "mysql_key_index": Message(
+        ru='`KEY <имя> (<столбцы>)` — написание mysqldump, ломает CREATE TABLE',
+        en='`KEY <name> (<columns>)` — the mysqldump spelling, breaks CREATE TABLE',
+    ),
+    "mysql_spatial_index": Message(
+        ru='`SPATIAL KEY`/`SPATIAL INDEX` — теряется целиком, ломает CREATE TABLE',
+        en='`SPATIAL KEY`/`SPATIAL INDEX` — lost entirely, breaks CREATE TABLE',
+    ),
+    "mysql_limit_comma": Message(
+        ru='`LIMIT <смещение>, <количество>` — PostgreSQL такую форму не принимает',
+        en='`LIMIT <offset>, <count>` — PostgreSQL does not accept this form',
+    ),
+    "mysql_replace_into": Message(
+        ru='`REPLACE INTO` — копируется как есть, аналога нет',
+        en='`REPLACE INTO` — copied as-is, no counterpart',
+    ),
+    "mysql_insert_ignore": Message(
+        ru='`INSERT IGNORE` — копируется как есть, такого синтаксиса нет',
+        en='`INSERT IGNORE` — copied as-is, no such syntax',
+    ),
+    "mysql_prepare_from": Message(
+        ru='`PREPARE <имя> FROM` — у PostgreSQL другой синтаксис PREPARE',
+        en="`PREPARE <name> FROM` — PostgreSQL's PREPARE has different syntax",
+    ),
+    "mysql_last_insert_id": Message(
+        ru='`LAST_INSERT_ID()` — такой функции в PostgreSQL нет',
+        en='`LAST_INSERT_ID()` — no such function in PostgreSQL',
+    ),
+    "mysql_auto_increment_start": Message(
+        ru='`AUTO_INCREMENT=<n>` — старт теряется на файловом пути (живой экспорт получает его верно)',
+        en='`AUTO_INCREMENT=<n>` — start value lost on the file-based path (live-DB export gets it right)',
+    ),
+    "mysql_date_format": Message(
+        ru='`DATE_FORMAT(...)` — молча возвращает кортеж вместо строки',
+        en='`DATE_FORMAT(...)` — silently returns a tuple instead of a string',
+    ),
+    "mysql_foreign_key": Message(
+        ru='`FOREIGN KEY` выбрасывается, если PG_VERSION не задан или <=12',
+        en='`FOREIGN KEY` dropped when PG_VERSION is left at its unset default (<=12)',
+    ),
+    "mysql_zero_date": Message(
+        ru="`'0000-00-00'` молча превращается в настоящую дату `'1970-01-01'`",
+        en="`'0000-00-00'` silently becomes the real date `'1970-01-01'`",
+    ),
+    "mysql_declare_handler": Message(
+        ru='`DECLARE ... HANDLER` выбрасывается — обработка ошибок пропадает',
+        en='`DECLARE ... HANDLER` is dropped — error handling disappears',
+    ),
+    "mysql_collate": Message(
+        ru='`COLLATE`/`CHARACTER SET` выбрасывается — сравнение строк меняет смысл',
+        en='`COLLATE`/`CHARACTER SET` is dropped — string comparison changes meaning',
+    ),
+    "mysql_set_type": Message(
+        ru='`SET(...)` становится `text` — проверка допустимых значений теряется',
+        en='`SET(...)` becomes `text` — validation of allowed values is lost',
+    ),
+    "mysql_delimiter_routine": Message(
+        ru='Подпрограмма под `DELIMITER` — разделитель попадает в тело, не загружается',
+        en='A routine written under `DELIMITER` — the delimiter leaks into the body, does not load',
+    ),
+    "mysql_delimiter_trigger": Message(
+        ru='Триггер под `DELIMITER //`/`$$` — не генерируется вовсе',
+        en='A trigger under `DELIMITER //`/`$$` — not generated at all',
+    ),
+    "mysql_definer_procedure": Message(
+        ru='`CREATE DEFINER=… PROCEDURE` — пропускается в `-t PROCEDURE`',
+        en='`CREATE DEFINER=… PROCEDURE` — skipped by `-t PROCEDURE`',
+    ),
+    "mysql_versioned_comment": Message(
+        ru='Триггер/представление/подпрограмма внутри `/*!50003 … */` — удаляется вместе с комментариями',
+        en='A trigger/view/routine inside `/*!50003 … */` — removed with the comments',
+    ),
+    "mysql_create_table_if_not_exists": Message(
+        ru='`CREATE TABLE IF NOT EXISTS` — становится таблицей `if`',
+        en='`CREATE TABLE IF NOT EXISTS` — becomes a table called `if`',
+    ),
+    "mysql_temporary_table": Message(
+        ru='`CREATE TEMPORARY TABLE` — становится постоянной и общей для сеансов',
+        en='`CREATE TEMPORARY TABLE` — becomes permanent and shared between sessions',
+    ),
+    "mssql_bracket_identifier": Message(
+        ru='идентификаторы в `[скобках]` не снимаются — ломается любой скрипт из SSMS',
+        en='Bracketed identifiers are not unwrapped — breaks any SSMS script',
+    ),
+    "mssql_charindex": Message(
+        ru='`CHARINDEX()` → `position()` с удвоенными кавычками',
+        en='`CHARINDEX()` → `position()` with doubled quotes',
+    ),
+    "mssql_collation": Message(
+        ru='`COLLATE` игнорируется, всё становится регистронезависимым `citext` по умолчанию',
+        en='`COLLATE` ignored, everything becomes case-insensitive `citext` by default',
+    ),
+    "mssql_computed_column": Message(
+        ru='вычисляемый столбец получает тип `citext` независимо от выражения',
+        en='A computed column gets the type `citext` regardless of the expression',
+    ),
+    "mssql_datediff": Message(
+        ru='`DATEDIFF()` копируется как есть (`DATEADD`/`DATEPART` — нет)',
+        en='`DATEDIFF()` is copied as-is (`DATEADD`/`DATEPART` are not)',
+    ),
+    "mssql_filtered_index": Message(
+        ru='фильтрованный индекс (`CREATE INDEX ... WHERE`) выбрасывается',
+        en='A filtered index (`CREATE INDEX ... WHERE`) is dropped',
+    ),
+    "mssql_foreign_key": Message(
+        ru='`FOREIGN KEY` выбрасывается, если PG_VERSION не задан или <=12',
+        en='`FOREIGN KEY` dropped when PG_VERSION is left at its unset default (<=12)',
+    ),
+    "mssql_identity_column": Message(
+        ru='`IDENTITY(1,1)` пропадает на файловом пути — вставка падает на NOT NULL',
+        en='`IDENTITY(1,1)` disappears on the file-based path — inserts fail on NOT NULL',
+    ),
+    "mssql_if_statement": Message(
+        ru='`IF` не дописывается до `THEN ... END IF`',
+        en='`IF` is not completed into `THEN ... END IF`',
+    ),
+    "mssql_iif": Message(
+        ru='`IIF()` копируется как есть',
+        en='`IIF()` is copied as-is',
+    ),
+    "mssql_newid_default": Message(
+        ru='`NEWID()` → `uuid_generate_v4()` без `CREATE EXTENSION "uuid-ossp"`',
+        en='`NEWID()` → `uuid_generate_v4()` without `CREATE EXTENSION "uuid-ossp"`',
+    ),
+    "mssql_output_clause": Message(
+        ru='`OUTPUT INSERTED.*` копируется как есть',
+        en='`OUTPUT INSERTED.*` is copied as-is',
+    ),
+    "mssql_parameterless_procedure": Message(
+        ru='процедура без параметров получает неразбираемый пустой `DECLARE`',
+        en='A parameterless procedure gets an unparseable empty `DECLARE`',
+    ),
+    "mssql_raiserror": Message(
+        ru='`RAISERROR`/`THROW` копируются как есть',
+        en='`RAISERROR`/`THROW` are copied as-is',
+    ),
+    "mssql_rowversion": Message(
+        ru='`ROWVERSION` → `bytea`, перестаёт обновляться — блокировка ломается',
+        en='`ROWVERSION` → `bytea`, stops updating — optimistic locking breaks',
+    ),
+    "mssql_scope_identity": Message(
+        ru='`SCOPE_IDENTITY()`/`@@IDENTITY` копируются как есть',
+        en='`SCOPE_IDENTITY()`/`@@IDENTITY` are copied as-is',
+    ),
+    "mssql_top_clause": Message(
+        ru='`SELECT TOP n` копируется как есть',
+        en='`SELECT TOP n` is copied as-is',
+    ),
+    "mssql_try_catch": Message(
+        ru='`BEGIN TRY`/`BEGIN CATCH` копируются как есть',
+        en='`BEGIN TRY`/`BEGIN CATCH` are copied as-is',
+    ),
+    "mssql_update_set": Message(
+        ru='`UPDATE ... SET` превращается в присваивание `:=`',
+        en='`UPDATE ... SET` turns into a `:=` assignment',
+    ),
+}
+
+
+def title(detector: str, lang: str = "ru") -> str:
+    """The detector's one-line title (with backticks around code), or the
+    detector's own name if it has none."""
+    entry = TITLES.get(detector)
+    if entry is None:
+        return detector
+    return entry.en if lang == "en" else entry.ru

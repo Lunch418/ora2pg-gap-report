@@ -61,6 +61,19 @@ patch for fixes to existing ones.
   tokenizer reacts to; before it landed, the same comparison ran clean
   over 844 real files (15.7M characters) in all three masking modes.
 
+- **Findings after the end of an object were reported as part of it.**
+  Nothing ended an object, so in a deployment script everything after a
+  routine -- anonymous blocks, data fixes, one-off queries -- was
+  attributed to whichever routine came last: an `INSERT ALL` in
+  OOS-Utils' data block came out as `OOS_UTIL_WEB.DOWNLOAD_FILE`, and
+  pubs' progress messages as the trigger and procedures before them. An
+  object now ends where the script says so -- SQL*Plus's `/` alone on a
+  line, T-SQL's `GO`, MySQL's `DELIMITER` -- and what follows is
+  `UNKNOWN` until the next `CREATE`. `DBMS_METADATA.GET_DDL` output has
+  none of these and is unaffected. Because the object is part of a
+  finding's fingerprint, a `--save` baseline taken before this reports
+  those findings once as RESOLVED and again as NEW.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

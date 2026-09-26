@@ -283,7 +283,9 @@ def test_dynamic_sql_that_creates_a_package_at_runtime_is_not_picked_up_as_a_rea
     """
     safe = mask_strings_and_comments(source)
     index = enclosing_object_name_index(safe)
-    names = {name for _, _, name in index}
+    # "end" entries are where a container stops (the '/' above), not
+    # containers themselves.
+    names = {name for _, kind, name in index if kind != "end"}
     assert "FAKE_PKG" not in names
     assert names == {"OUTER_PKG", "BUILD_IT"}
 

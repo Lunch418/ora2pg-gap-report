@@ -197,6 +197,13 @@ _VIEW_NAME_RE = re.compile(
 )
 
 
+# The client directive every MySQL script uses around a routine or trigger
+# body, mysqldump included: DELIMITER ;; before it and DELIMITER ; after.
+# A directive to the client, so always the first word on its line. The
+# one after a routine is what ends it; the one before starts nothing.
+_DELIMITER_RE = re.compile(r"^[ \t]*DELIMITER\b", re.IGNORECASE | re.MULTILINE)
+
+
 @lru_cache(maxsize=8)
 def enclosing_object_name_index(text: str) -> tuple[tuple[int, str, str], ...]:
     """Every 'named container' start position in `text` (already masked),
@@ -212,6 +219,9 @@ def enclosing_object_name_index(text: str) -> tuple[tuple[int, str, str], ...]:
         + [(m.start(), "function", m.group(1).upper()) for m in _FUNCTION_NAME_RE.finditer(text)]
         + [(m.start(), "trigger", m.group(1).upper()) for m in _TRIGGER_NAME_RE.finditer(text)]
         + [(m.start(), "view", m.group(1).upper()) for m in _VIEW_NAME_RE.finditer(text)]
+        # Not a container: where the previous one ends (see
+        # lex_common.flat_enclosing_object_name()).
+        + [(m.start(), "end", "") for m in _DELIMITER_RE.finditer(text)]
     )
     return tuple(sorted(tagged, key=lambda t: t[0]))
 

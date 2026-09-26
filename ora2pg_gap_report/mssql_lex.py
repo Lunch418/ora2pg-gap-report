@@ -207,6 +207,11 @@ _PROCEDURE_NAME_RE = re.compile(
 _FUNCTION_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "FUNCTION"), re.IGNORECASE)
 _TRIGGER_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "TRIGGER"), re.IGNORECASE)
 _VIEW_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "VIEW"), re.IGNORECASE)
+# The batch separator SSMS puts after every object it scripts: GO alone on
+# its line, optionally with a repeat count. It is a client command, not
+# T-SQL, so it can only ever stand on a line of its own -- a column or
+# alias named "go" is always followed by more of its statement.
+_GO_RE = re.compile(r"^[ \t]*GO(?:[ \t]+\d+)?[ \t\r]*$", re.IGNORECASE | re.MULTILINE)
 
 
 @lru_cache(maxsize=8)
@@ -223,6 +228,9 @@ def enclosing_object_name_index(text: str) -> tuple[tuple[int, str, str], ...]:
         + [(m.start(), "function", normalize_name(m.group(1)).upper()) for m in _FUNCTION_NAME_RE.finditer(text)]
         + [(m.start(), "trigger", normalize_name(m.group(1)).upper()) for m in _TRIGGER_NAME_RE.finditer(text)]
         + [(m.start(), "view", normalize_name(m.group(1)).upper()) for m in _VIEW_NAME_RE.finditer(text)]
+        # Not a container: where the previous one ends (see
+        # lex_common.flat_enclosing_object_name()).
+        + [(m.start(), "end", "") for m in _GO_RE.finditer(text)]
     )
     return tuple(sorted(tagged, key=lambda t: t[0]))
 

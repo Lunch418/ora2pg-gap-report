@@ -450,6 +450,12 @@ _VIEW_NAME_RE = re.compile(
 # string regardless of the pos argument, not to `boundary`.
 _GRANT_OR_REVOKE_RE = re.compile(r"\s*(?:GRANT|REVOKE)\b", re.IGNORECASE)
 
+# SQL*Plus's own terminator: '/' alone on its line runs the buffer, so in
+# a script it ends whatever object was being created. Only on a line of
+# its own -- SQL*Plus itself treats nothing else as the terminator, which
+# is why a division operator is never written that way.
+_SQLPLUS_SLASH_RE = re.compile(r"^[ \t]*/[ \t\r]*$", re.MULTILINE)
+
 
 def is_inside_grant_or_revoke_statement(text: str, create_pos: int) -> bool:
     """True if the 'CREATE' at create_pos is part of an *enclosing*
@@ -531,6 +537,9 @@ def enclosing_object_name_index(text: str) -> tuple[tuple[int, str, str], ...]:
             for m in _VIEW_NAME_RE.finditer(text)
             if not is_inside_grant_or_revoke_statement(text, m.start())
         ]
+        # Not a container: where the previous one ends. See
+        # enclosing_object_name().
+        + [(m.start(), "end", "") for m in _SQLPLUS_SLASH_RE.finditer(text)]
     )
     return tuple(sorted(tagged, key=lambda t: t[0]))
 
@@ -550,20 +559,27 @@ def enclosing_object_name(index: tuple[tuple[int, str, str], ...], position: int
     — none of these can itself be inside a package body, so its start must
     mean any earlier package's scope has ended). Without this, a package's
     name would otherwise leak into a later, unrelated standalone routine,
-    trigger, or view's own nested finds. There is deliberately no explicit
-    "package body's own END" tracking — this module's actual input is
-    DBMS_METADATA.GET_DDL-exported object DDL (PACKAGE / PACKAGE BODY /
-    TRIGGER / VIEW / standalone PROCEDURE/FUNCTION definitions), which
-    never contains free-standing anonymous PL/SQL blocks between them; a
-    theoretical anonymous block right after a package body and before the
-    next named object would still (incorrectly) inherit that package's
-    name, but that shape of input is outside this tool's actual scope."""
+    trigger, or view's own nested finds.
+
+    An object also ends at SQL*Plus's '/' terminator (an "end" entry in
+    the index). Deployment scripts -- the install scripts of every real
+    project this was checked against -- put one after each object and
+    follow it with anonymous blocks, data fixes and grants; without the
+    marker those were all reported as part of the last routine declared
+    (an INSERT ALL in OOS-Utils' data block came out as
+    OOS_UTIL_WEB.DOWNLOAD_FILE). After a '/', a finding belongs to no
+    object until the next CREATE. There is still no tracking of a package
+    body's own END: DBMS_METADATA.GET_DDL output has no '/' at all, and
+    between two of its objects there is nothing to misattribute."""
     package_name = None
     leaf: tuple[str, bool] | None = None  # (name, needs_package_prefix)
     for pos, kind, name in index:
         if pos > position:
             break
-        if kind == "package":
+        if kind == "end":
+            package_name = None
+            leaf = None
+        elif kind == "package":
             package_name = name
             leaf = None
         else:

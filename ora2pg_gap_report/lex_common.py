@@ -103,14 +103,15 @@ def table_column_definition_list(text: str, table_name_end: int) -> tuple[int, i
 def flat_enclosing_object_name(index: ObjectIndex, position: int) -> str:
     """The name of whichever container (table/procedure/function/trigger/
     view) starts most recently before `position` -- 'UNKNOWN' if nothing
-    precedes at all. No package-prefix logic needed (see
-    enclosing_object_name_index()'s own docstring): every container here
-    is already a flat, top-level name."""
+    precedes at all, or if the script ended that container (an "end"
+    entry: GO, DELIMITER) and nothing has started since. No package-prefix
+    logic needed (see enclosing_object_name_index()'s own docstring):
+    every container here is already a flat, top-level name."""
     current: str | None = None
-    for pos, _kind, name in index:
+    for pos, kind, name in index:
         if pos > position:
             break
-        current = name
+        current = None if kind == "end" else name
     return current or "UNKNOWN"
 
 

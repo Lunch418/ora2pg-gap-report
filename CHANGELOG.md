@@ -9,6 +9,12 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Changed
+
+- `docs/social-preview.png` redrawn for 0.12.0: three source dialects, 113 confirmed gaps,
+  the four failure stages from the new report, and the correct license (Apache 2.0, not MIT).
+  GitHub does not pick the file up by itself: upload it in Settings → General → Social preview.
+
 ## [0.12.0] - 2026-09-27
 
 ### Added

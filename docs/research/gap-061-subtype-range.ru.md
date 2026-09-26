@@ -1,4 +1,4 @@
-# GAP-061: `SUBTYPE ... RANGE` → `CREATE DOMAIN ... RANGE`
+# GAP-061: `SUBTYPE ... RANGE` -> `CREATE DOMAIN ... RANGE`
 
 Oracle feature: подтип PL/SQL с ограничением диапазона значений.
 

@@ -32,7 +32,7 @@ END bulk_test_pkg;
 ## ora2pg output (v25.0, `-t PACKAGE`)
 
 Essentially unconverted — Oracle syntax passed through as-is, with one
-cosmetic change (`BULK COLLECT INTO` → `BULK COLLECT INTO STRICT`, which is
+cosmetic change (`BULK COLLECT INTO` -> `BULK COLLECT INTO STRICT`, which is
 not a fix; `STRICT` is a PL/pgSQL `SELECT INTO` modifier unrelated to
 `BULK COLLECT`). `TYPE t_id_tab IS TABLE OF ...%TYPE`, `FORALL`, and
 `v_ids.COUNT`/`v_ids(i)` are left exactly as Oracle wrote them — none of

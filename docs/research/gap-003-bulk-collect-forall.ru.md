@@ -33,7 +33,7 @@ END bulk_test_pkg;
 ## Вывод ora2pg (v25.0, `-t PACKAGE`)
 
 По сути не сконвертировано: синтаксис Oracle перенесён как есть, с одним
-косметическим изменением (`BULK COLLECT INTO` → `BULK COLLECT INTO STRICT`,
+косметическим изменением (`BULK COLLECT INTO` -> `BULK COLLECT INTO STRICT`,
 что не исправление: `STRICT` — модификатор `SELECT INTO` в PL/pgSQL, никак
 не связанный с `BULK COLLECT`). `TYPE t_id_tab IS TABLE OF ...%TYPE`,
 `FORALL` и `v_ids.COUNT`/`v_ids(i)` остаются ровно такими, как их написал

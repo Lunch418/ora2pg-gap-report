@@ -175,8 +175,8 @@ anonymous_block_is_unknown_not_a_crash` в `tests/test_bulk_collect.py`).
 
 Юнит-тесты `oracle_connector.py` идут на fake-соединении
 (`tests/fakes/fake_oracle.py`) — быстро, детерминированно, не требует
-Oracle. Живой путь ("подключился к настоящей Oracle → выгрузил через
-`DBMS_METADATA.GET_DDL` → проанализировал") ими не покрыт — для него
+Oracle. Живой путь ("подключился к настоящей Oracle -> выгрузил через
+`DBMS_METADATA.GET_DDL` -> проанализировал") ими не покрыт — для него
 нужна настоящая база:
 
 ```sh

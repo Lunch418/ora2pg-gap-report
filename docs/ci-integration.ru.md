@@ -40,7 +40,7 @@ ora2pg-gap-report --verify --baseline baseline.json generated_postgresql/
 
 `--format sarif` — не просто ещё один формат вывода. SARIF 2.1.0 — формат,
 который GitHub понимает нативно через `github/codeql-action/upload-sarif`:
-результаты появляются во вкладке **Security → Code scanning alerts**, а на
+результаты появляются во вкладке **Security -> Code scanning alerts**, а на
 PR, где сработал сам workflow (`on: pull_request`), — построчными
 аннотациями на изменённых строках диффа. Специального Action или бота
 писать не нужно.
@@ -100,6 +100,6 @@ jobs:
   Files changed.
 - GitLab SAST использует свой собственный JSON-формат отчёта, не SARIF
   напрямую — просто загрузить `results.sarif` как GitLab SAST-артефакт не
-  получится. Точный путь конвертации SARIF → формат GitLab здесь не
+  получится. Точный путь конвертации SARIF -> формат GitLab здесь не
   проверялся, поэтому не приводится как готовый рецепт — если понадобится,
   это отдельная, некрупная задача.

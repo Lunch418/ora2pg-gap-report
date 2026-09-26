@@ -15,7 +15,7 @@ WHERE status = 'OPEN';
 ## ora2pg output (v25.0, `-t PACKAGE`)
 
 The construct is copied as written, but with the text incidentally
-corrupted while substituting `SYSTIMESTAMP` → `statement_timestamp()`: the
+corrupted while substituting `SYSTIMESTAMP` -> `statement_timestamp()`: the
 output came out as `AS OF timestamp(tatement_timestamp() - INTERVAL '1'
 DAY)` — the leading `s` of `statement_timestamp` is missing. This looks
 like an artefact of a collision between the `SYSTIMESTAMP` replacement and

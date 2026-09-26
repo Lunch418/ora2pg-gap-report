@@ -61,9 +61,9 @@ being after them.
 | GAP-041 | `CAST(MULTISET(...))`, `MULTISET UNION`, `MEMBER OF`, `SUBMULTISET OF` | `multiset_operator` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-041](gap-041-multiset-operator.md) |
 | GAP-042 | `SAMPLE (n)` — this is `TABLESAMPLE` in PostgreSQL, ora2pg does not convert it | `sample_clause` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-042](gap-042-sample-clause.md) |
 | GAP-043 | `ACCESSIBLE BY` is copied into the generated function's header | `accessible_by` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-043](gap-043-accessible-by.md) |
-| GAP-044 | `TIMESTAMP WITH LOCAL TIME ZONE` → `timestamp` without a time zone | `local_time_zone` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-044](gap-044-local-time-zone.md) |
+| GAP-044 | `TIMESTAMP WITH LOCAL TIME ZONE` -> `timestamp` without a time zone | `local_time_zone` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-044](gap-044-local-time-zone.md) |
 | GAP-045 | `PERIOD FOR` (Temporal Validity) becomes the stub `period FOR` | `temporal_validity` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-045](gap-045-temporal-validity.md) |
-| GAP-046 | `CREATE BITMAP INDEX` → `USING gin` without an operator class | `bitmap_index` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-046](gap-046-bitmap-index.md) |
+| GAP-046 | `CREATE BITMAP INDEX` -> `USING gin` without an operator class | `bitmap_index` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-046](gap-046-bitmap-index.md) |
 | GAP-047 | `CREATE TABLE ... OF <type>` — `OF` becomes a column name | `object_table` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-047](gap-047-object-table.md) |
 | GAP-048 | `IGNORE NULLS` / `RESPECT NULLS` — no such syntax in PostgreSQL 16 | `ignore_nulls` | high | confirmed | 25.0 | 16 | 2026-08-28 | [gap-048](gap-048-ignore-nulls.md) |
 | GAP-049 | `NLSSORT` — becomes a `COLLATE` with a non-existent collation name | `nlssort` | high | confirmed | 25.0 | 16 | 2026-08-28 | [gap-049](gap-049-nlssort.md) |
@@ -123,7 +123,7 @@ being after them.
 | ID | Construct | Detector | Severity | Status | ora2pg | PostgreSQL | Verified | Document |
 |---|---|---|---|---|---|---|---|---|
 | GAP-087 | Bracketed identifiers are not unwrapped — breaks any SSMS script | `mssql_bracket_identifier` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-087](gap-087-mssql-bracket-identifier.md) |
-| GAP-088 | `NEWID()` → `uuid_generate_v4()` without `CREATE EXTENSION "uuid-ossp"` | `mssql_newid_default` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-088](gap-088-mssql-newid-default.md) |
+| GAP-088 | `NEWID()` -> `uuid_generate_v4()` without `CREATE EXTENSION "uuid-ossp"` | `mssql_newid_default` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-088](gap-088-mssql-newid-default.md) |
 | GAP-089 | `UPDATE ... SET` turns into a `:=` assignment | `mssql_update_set` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-089](gap-089-mssql-update-set.md) |
 | GAP-090 | `IDENTITY(1,1)` disappears on the file-based path — inserts fail on NOT NULL | `mssql_identity_column` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-090](gap-090-mssql-identity-column.md) |
 | GAP-091 | A parameterless procedure gets an unparseable empty `DECLARE` | `mssql_parameterless_procedure` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-091](gap-091-mssql-parameterless-procedure.md) |
@@ -135,12 +135,12 @@ being after them.
 | GAP-097 | `OUTPUT INSERTED.*` is copied as-is | `mssql_output_clause` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-097](gap-097-mssql-output-clause.md) |
 | GAP-098 | `IIF()` is copied as-is | `mssql_iif` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-098](gap-098-mssql-iif.md) |
 | GAP-099 | `DATEDIFF()` is copied as-is (`DATEADD`/`DATEPART` are not) | `mssql_datediff` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-099](gap-099-mssql-datediff.md) |
-| GAP-100 | `CHARINDEX()` → `position()` with doubled quotes | `mssql_charindex` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-100](gap-100-mssql-charindex.md) |
+| GAP-100 | `CHARINDEX()` -> `position()` with doubled quotes | `mssql_charindex` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-100](gap-100-mssql-charindex.md) |
 | GAP-101 | A filtered index (`CREATE INDEX ... WHERE`) is dropped | `mssql_filtered_index` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-101](gap-101-mssql-filtered-index.md) |
 | GAP-102 | `FOREIGN KEY` dropped when PG_VERSION is left at its unset default (<=12) | `mssql_foreign_key` | high | confirmed | 25.0 | 16 | 2026-09-08 | [gap-102](gap-102-mssql-foreign-key.md) |
 | GAP-103 | `COLLATE` ignored, everything becomes case-insensitive `citext` by default | `mssql_collation` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-103](gap-103-mssql-collation.md) |
 | GAP-104 | A computed column gets the type `citext` regardless of the expression | `mssql_computed_column` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-104](gap-104-mssql-computed-column.md) |
-| GAP-105 | `ROWVERSION` → `bytea`, stops updating — optimistic locking breaks | `mssql_rowversion` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-105](gap-105-mssql-rowversion.md) |
+| GAP-105 | `ROWVERSION` -> `bytea`, stops updating — optimistic locking breaks | `mssql_rowversion` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-105](gap-105-mssql-rowversion.md) |
 
 Statuses: `confirmed` — reproduced on the stated ora2pg version and still
 current; `fixed-upstream` — ora2pg fixed the problem in a newer version

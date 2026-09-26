@@ -671,8 +671,8 @@ _UI: dict[str, dict[str, str]] = {
     },
     # The HTML report (html_report.py).
     "report_heading": {
-        "ru": "{source} → PostgreSQL: где сломается перенос",
-        "en": "{source} → PostgreSQL: where the migration breaks",
+        "ru": "{source} -> PostgreSQL: где сломается перенос",
+        "en": "{source} -> PostgreSQL: where the migration breaks",
     },
     "report_scanned": {"ru": "Просканировано: {files}, {objects}.", "en": "Scanned: {files}, {objects}."},
     "report_found": {"ru": "Найдено: {findings}, {gaps}.", "en": "Found: {findings}, {gaps}."},

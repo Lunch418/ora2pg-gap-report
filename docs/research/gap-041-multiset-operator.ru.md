@@ -41,9 +41,9 @@ LINE 3:  col_b AS merged
 Отдельно проверено — все конструкции этого семейства ведут себя
 одинаково (копируются дословно, падают при загрузке):
 
-- `CAST(MULTISET(SELECT ...) AS num_list_t)` →
+- `CAST(MULTISET(SELECT ...) AS num_list_t)` ->
   `ERROR: syntax error at or near "SELECT"`
-- `col_a SUBMULTISET OF col_b` →
+- `col_a SUBMULTISET OF col_b` ->
   `ERROR: syntax error at or near "SUBMULTISET"`
 - `MULTISET INTERSECT` — переносится дословно так же.
 
@@ -53,9 +53,9 @@ LINE 3:  col_b AS merged
 
 **Gap подтверждён.** Реализовано:
 `ora2pg_gap_report/detectors/multiset_operator.py`. Ручная переработка
-под модель массивов PostgreSQL: `CAST(MULTISET(...))` → `ARRAY(SELECT
-...)`, `MULTISET UNION` → `||`, `MEMBER OF` → `= ANY(...)`,
-`SUBMULTISET OF` → `<@`.
+под модель массивов PostgreSQL: `CAST(MULTISET(...))` -> `ARRAY(SELECT
+...)`, `MULTISET UNION` -> `||`, `MEMBER OF` -> `= ANY(...)`,
+`SUBMULTISET OF` -> `<@`.
 
 Отдельно от `collection_type` (GAP-021): тот про объявление типа
 коллекции (`CREATE TYPE ... AS TABLE OF`), этот — про операторы над

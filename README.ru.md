@@ -47,7 +47,7 @@ DDL Oracle (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
 лицензии на Postgres Pro Enterprise и без проприетарной утилиты `ora2pgpro`)
 единственный доступный автоматический конвертер — открытый
 [`ora2pg`](https://github.com/darold/ora2pg). По независимым оценкам он закрывает
-в среднем ~80% задачи перевода PL/SQL → PL/pgSQL. Оставшиеся ~20% (пакеты,
+в среднем ~80% задачи перевода PL/SQL -> PL/pgSQL. Оставшиеся ~20% (пакеты,
 автономные транзакции, `CONNECT BY`, вызовы `DBMS_*`/`UTL_*`, составные триггеры)
 сейчас разбираются вручную и, как правило, обнаруживаются постфактум — когда
 что-то уже сломалось в проде.
@@ -203,7 +203,7 @@ DDL Oracle (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
 | `mssql_foreign_key` | `FOREIGN KEY` — выбрасывается, если целевой `PG_VERSION` не задан или равен 12 и ниже, тот же механизм общего кода, что и у MySQL; ни на одной стадии ошибки нет |
 | `mssql_collation` | `COLLATE` — игнорируется умолчанием `CASE_INSENSITIVE_SEARCH citext`, которое проверяет базовый тип столбца, но не его collation, и каждый строковый столбец становится нечувствительным к регистру `citext`; для collation `_CS_` в источнике это инвертирует сравнение, проверено на живых данных |
 | `mssql_computed_column` | Вычисляемый столбец (`AS (выражение) PERSISTED`) получает тип `citext`, что бы выражение ни вычисляло, и числовой результат хранится как текст |
-| `mssql_rowversion` | `ROWVERSION` → `bytea`, который сам не обновляется, и проверки оптимистической блокировки молча перестают видеть конфликты |
+| `mssql_rowversion` | `ROWVERSION` -> `bytea`, который сам не обновляется, и проверки оптимистической блокировки молча перестают видеть конфликты |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -322,8 +322,8 @@ ora2pg-gap-report path/to/schema_dump.pkb --format markdown > report.md
 ora2pg-gap-report path/to/schema_dump.pkb --format csv --output report.csv
 
 # SARIF 2.1.0 — для GitHub code scanning (вкладка Security) или GitLab SAST.
-# Severity отображается в уровни SARIF: high → error, medium → warning,
-# low → note (отдельного уровня critical нет ни в SARIF, ни в этом
+# Severity отображается в уровни SARIF: high -> error, medium -> warning,
+# low -> note (отдельного уровня critical нет ни в SARIF, ни в этом
 # инструменте).
 ora2pg-gap-report path/to/schema_dump.pkb --format sarif --output report.sarif
 
@@ -481,8 +481,8 @@ Oracle, так что на файле другого диалекта она н�
 - при первом запуске в интерактивном терминале, если язык нигде не задан,
   выбор `--set-lang` показывается один раз и сохраняется.
 
-Порядок приоритета: `--lang` → переменная окружения → сохранённый выбор →
-интерактивный выбор (только в настоящем терминале) → русский по умолчанию.
+Порядок приоритета: `--lang` -> переменная окружения -> сохранённый выбор ->
+интерактивный выбор (только в настоящем терминале) -> русский по умолчанию.
 
 Переведён весь вывод сканирования: терминальный отчёт, `--format
 markdown/html`, объяснения и рекомендации по каждому детектору, сообщения
@@ -572,10 +572,10 @@ Still present        2
 Not detected          1
 Not verifiable        1
 
-cross_apply       GAP-022   3 → 1   STILL_PRESENT
-json_table        GAP-017   2 → 0   NOT_DETECTED
-identity_column   GAP-028   4 → 4   STILL_PRESENT
-read_only_table   GAP-026   1 → —   NOT_VERIFIABLE
+cross_apply       GAP-022   3 -> 1   STILL_PRESENT
+json_table        GAP-017   2 -> 0   NOT_DETECTED
+identity_column   GAP-028   4 -> 4   STILL_PRESENT
+read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
 ```
 
 Это **не** функциональная проверка: инструмент никогда не подключается к
@@ -646,7 +646,7 @@ PostgreSQL-код, а не исходный Oracle: баг живёт в лог�
 сочетается с флагами, влияющими на сканирование.
 
 Готовый к запуску, настоящий (не симулированный) проход по всему циклу
-SCAN → миграция → VERIFY — реальный вывод `ora2pg 25.0`, и сломанная, и
+SCAN -> миграция -> VERIFY — реальный вывод `ora2pg 25.0`, и сломанная, и
 вручную исправленная версии подтверждены на настоящем PostgreSQL 16 —
 в [`examples/end-to-end/`](examples/end-to-end/).
 
@@ -697,7 +697,7 @@ ora2pg-gap-export --dsn host:1521/ORCLPDB1 --user hr --types package-body,trigge
 ```sh
 # На машине с интернетом, из клона репозитория:
 python scripts/build_offline_bundle.py --oracle   # --oracle опционален, --dev — для pytest
-# → ora2pg-gap-report-offline.tar.gz (пакет + rich + всё транзитивно,
+# -> ora2pg-gap-report-offline.tar.gz (пакет + rich + всё транзитивно,
 #   включая oracledb и его зависимости, если указан --oracle)
 
 scp ora2pg-gap-report-offline.tar.gz user@jump-host:/tmp/

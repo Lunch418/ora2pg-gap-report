@@ -15,7 +15,7 @@ WHERE status = 'OPEN';
 ## Вывод ora2pg (v25.0, `-t PACKAGE`)
 
 Конструкция копируется как есть, но с побочным искажением текста при
-подстановке `SYSTIMESTAMP` → `statement_timestamp()`: в выводе получилось
+подстановке `SYSTIMESTAMP` -> `statement_timestamp()`: в выводе получилось
 `AS OF timestamp(tatement_timestamp() - INTERVAL '1' DAY)` — потеряна
 буква `s` в начале `statement_timestamp` (похоже на артефакт коллизии
 между заменой `SYSTIMESTAMP` и приведением `TIMESTAMP` из `AS OF

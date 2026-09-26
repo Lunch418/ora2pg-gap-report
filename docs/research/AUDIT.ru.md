@@ -57,7 +57,7 @@
 | 026 | `read_only_table` | high | ✅ | ✅ | ✅ INSERT прошёл там, где Oracle гарантированно блокирует его (ORA-12081) | 7 / 3 | нет |
 | 027 | `materialized_view_log` | high | ✅ | ✅ (`[DEBUG] unhandled line`) | н/д — журнал пропадает без следа | 3 / 2 | нет |
 | 028 | `identity_column` | high | ✅ | ✅ (лишняя пара скобок в выводе) | ✅ `ERROR: syntax error at or near "("` | 5 / 2 | нет |
-| 029 | `rowid_type` | high | ✅ | ✅ (`ROWID`/`UROWID` → `oid`) | ✅ `ERROR: invalid input syntax for type oid` при INSERT реального значения | 11 / 4 | нет |
+| 029 | `rowid_type` | high | ✅ | ✅ (`ROWID`/`UROWID` -> `oid`) | ✅ `ERROR: invalid input syntax for type oid` при INSERT реального значения | 11 / 4 | нет |
 | 030 | `sequence_cycle` | high | ✅ | ✅ (секция `CYCLE` пропадает) | ✅ `ERROR: nextval: reached maximum value of sequence` после исчерпания диапазона | 6 / 2 | нет |
 | 031 | `default_on_null` | high | ✅ | ✅ (`ON NULL` копируется как есть) | ✅ `ERROR: syntax error at or near "ON"` уже на CREATE TABLE | 7 / 2 | нет |
 | 032 | `public_synonym` | high | ✅ | ✅ (переписан в `CREATE VIEW` без схемы) | ✅ `ERROR: relation ... does not exist` при совпадении имён | 8 / 1 | нет |
@@ -105,7 +105,7 @@ PL/SQL — с нестандартными расширениями файлов
 индекс контейнеров как настоящий (в этих двух конкретных случаях внутри
 динамического кода не оказалось самой конструкции ни одного детектора —
 подтверждает отсутствие падений/порчи данных, не добавляет новую
-находку). Из более раннего расширения (два проекта → четыре) осталась
+находку). Из более раннего расширения (два проекта -> четыре) осталась
 уже задокументированная честная граница применимости —
 `object_name='UNKNOWN'` на анонимном `declare...begin...end;`-блоке без
 имени (install-скрипт, не выгрузка `DBMS_METADATA.GET_DDL`), закреплено

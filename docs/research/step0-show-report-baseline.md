@@ -328,8 +328,8 @@ A mixed picture, confirmed both by runs and by reading the code:
   this particular, broadly harmless construct is already singled out and
   scored below the other `DBMS_*` calls.
 - **`DBMS_LOB`** — only 2 functions out of dozens have a direct
-  replacement: `DBMS_LOB.GETLENGTH` → `octet_length`,
-  `DBMS_LOB.SUBSTR(...)` → `substr(...)` (with the arguments reordered).
+  replacement: `DBMS_LOB.GETLENGTH` -> `octet_length`,
+  `DBMS_LOB.SUBSTR(...)` -> `substr(...)` (with the arguments reordered).
   Everything else (`READ`, `WRITE`, `LOADFROMFILE`, `COMPARE`, `INSTR`,
   `APPEND`, `CREATETEMPORARY` and so on — and that is exactly what
   `file_util_pkg.pkb`/`sql_util_pkg.pkb` use) is left unchanged and
@@ -414,7 +414,7 @@ EACH ROW` (the timing is given separately in each of the four sections)
 nor a single `BEGIN` right after the declaration — instead there is
 `COMPOUND TRIGGER`, a declarative section, and then 4 named blocks `BEFORE
 STATEMENT IS ... END BEFORE STATEMENT;` and so on. Neither regex is
-designed for that shape → the trigger drops out of the result entirely,
+designed for that shape -> the trigger drops out of the result entirely,
 **without a single warning** ("Nothing found" is the standard "the file is
 empty" message, not "could not parse").
 

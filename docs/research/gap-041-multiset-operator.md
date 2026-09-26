@@ -41,9 +41,9 @@ LINE 3:  col_b AS merged
 Checked separately — every construct in this family behaves the same way
 (copied verbatim, fails at load):
 
-- `CAST(MULTISET(SELECT ...) AS num_list_t)` →
+- `CAST(MULTISET(SELECT ...) AS num_list_t)` ->
   `ERROR: syntax error at or near "SELECT"`
-- `col_a SUBMULTISET OF col_b` →
+- `col_a SUBMULTISET OF col_b` ->
   `ERROR: syntax error at or near "SUBMULTISET"`
 - `MULTISET INTERSECT` — carried over verbatim in the same way.
 
@@ -53,8 +53,8 @@ Checked separately — every construct in this family behaves the same way
 
 **Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/multiset_operator.py`. Manual rework onto
-PostgreSQL's array model: `CAST(MULTISET(...))` → `ARRAY(SELECT ...)`,
-`MULTISET UNION` → `||`, `MEMBER OF` → `= ANY(...)`, `SUBMULTISET OF` →
+PostgreSQL's array model: `CAST(MULTISET(...))` -> `ARRAY(SELECT ...)`,
+`MULTISET UNION` -> `||`, `MEMBER OF` -> `= ANY(...)`, `SUBMULTISET OF` ->
 `<@`.
 
 Kept separate from `collection_type` (GAP-021): that one is about

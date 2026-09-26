@@ -23,7 +23,7 @@ WHEN NOT MATCHED THEN
 
 ## Вывод ora2pg (v25.0, `-t PACKAGE`, по умолчанию и с `PG_VERSION 16` — одинаково)
 
-Оператор `MERGE` переносится почти дословно (только `SYSDATE` →
+Оператор `MERGE` переносится почти дословно (только `SYSDATE` ->
 `clock_timestamp()` и поправка на эквивалентность пустой строки и NULL в
 Oracle в `WHERE`). Предложение `DELETE WHERE s.is_deleted = 1` остаётся
 ровно в том виде, как написано.

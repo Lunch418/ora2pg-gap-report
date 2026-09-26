@@ -60,9 +60,9 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-041 | `CAST(MULTISET(...))`, `MULTISET UNION`, `MEMBER OF`, `SUBMULTISET OF` | `multiset_operator` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-041](gap-041-multiset-operator.md) |
 | GAP-042 | `SAMPLE (n)` — в PostgreSQL это `TABLESAMPLE`, ora2pg не конвертирует | `sample_clause` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-042](gap-042-sample-clause.md) |
 | GAP-043 | `ACCESSIBLE BY` копируется в заголовок сгенерированной функции | `accessible_by` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-043](gap-043-accessible-by.md) |
-| GAP-044 | `TIMESTAMP WITH LOCAL TIME ZONE` → `timestamp` без часового пояса | `local_time_zone` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-044](gap-044-local-time-zone.md) |
+| GAP-044 | `TIMESTAMP WITH LOCAL TIME ZONE` -> `timestamp` без часового пояса | `local_time_zone` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-044](gap-044-local-time-zone.md) |
 | GAP-045 | `PERIOD FOR` (Temporal Validity) превращается в обрубок `period FOR` | `temporal_validity` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-045](gap-045-temporal-validity.md) |
-| GAP-046 | `CREATE BITMAP INDEX` → `USING gin` без класса операторов | `bitmap_index` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-046](gap-046-bitmap-index.md) |
+| GAP-046 | `CREATE BITMAP INDEX` -> `USING gin` без класса операторов | `bitmap_index` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-046](gap-046-bitmap-index.md) |
 | GAP-047 | `CREATE TABLE ... OF <тип>` — `OF` становится именем столбца | `object_table` | high | confirmed | 25.0 | 16 | 2026-08-27 | [gap-047](gap-047-object-table.md) |
 | GAP-048 | `IGNORE NULLS` / `RESPECT NULLS` — такого синтаксиса в PostgreSQL 16 нет | `ignore_nulls` | high | confirmed | 25.0 | 16 | 2026-08-28 | [gap-048](gap-048-ignore-nulls.md) |
 | GAP-049 | `NLSSORT` — становится `COLLATE` с несуществующим именем сортировки | `nlssort` | high | confirmed | 25.0 | 16 | 2026-08-28 | [gap-049](gap-049-nlssort.md) |
@@ -122,7 +122,7 @@ GAP-001/004/005 просто потому, что реестр появился 
 | ID | Конструкция | Детектор | Severity | Статус | ora2pg | PostgreSQL | Проверено | Документ |
 |---|---|---|---|---|---|---|---|---|
 | GAP-087 | идентификаторы в `[скобках]` не снимаются — ломается любой скрипт из SSMS | `mssql_bracket_identifier` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-087](gap-087-mssql-bracket-identifier.md) |
-| GAP-088 | `NEWID()` → `uuid_generate_v4()` без `CREATE EXTENSION "uuid-ossp"` | `mssql_newid_default` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-088](gap-088-mssql-newid-default.md) |
+| GAP-088 | `NEWID()` -> `uuid_generate_v4()` без `CREATE EXTENSION "uuid-ossp"` | `mssql_newid_default` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-088](gap-088-mssql-newid-default.md) |
 | GAP-089 | `UPDATE ... SET` превращается в присваивание `:=` | `mssql_update_set` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-089](gap-089-mssql-update-set.md) |
 | GAP-090 | `IDENTITY(1,1)` пропадает на файловом пути — вставка падает на NOT NULL | `mssql_identity_column` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-090](gap-090-mssql-identity-column.md) |
 | GAP-091 | процедура без параметров получает неразбираемый пустой `DECLARE` | `mssql_parameterless_procedure` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-091](gap-091-mssql-parameterless-procedure.md) |
@@ -134,12 +134,12 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-097 | `OUTPUT INSERTED.*` копируется как есть | `mssql_output_clause` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-097](gap-097-mssql-output-clause.md) |
 | GAP-098 | `IIF()` копируется как есть | `mssql_iif` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-098](gap-098-mssql-iif.md) |
 | GAP-099 | `DATEDIFF()` копируется как есть (`DATEADD`/`DATEPART` — нет) | `mssql_datediff` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-099](gap-099-mssql-datediff.md) |
-| GAP-100 | `CHARINDEX()` → `position()` с удвоенными кавычками | `mssql_charindex` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-100](gap-100-mssql-charindex.md) |
+| GAP-100 | `CHARINDEX()` -> `position()` с удвоенными кавычками | `mssql_charindex` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-100](gap-100-mssql-charindex.md) |
 | GAP-101 | фильтрованный индекс (`CREATE INDEX ... WHERE`) выбрасывается | `mssql_filtered_index` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-101](gap-101-mssql-filtered-index.md) |
 | GAP-102 | `FOREIGN KEY` выбрасывается, если PG_VERSION не задан или <=12 | `mssql_foreign_key` | high | confirmed | 25.0 | 16 | 2026-09-08 | [gap-102](gap-102-mssql-foreign-key.md) |
 | GAP-103 | `COLLATE` игнорируется, всё становится регистронезависимым `citext` по умолчанию | `mssql_collation` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-103](gap-103-mssql-collation.md) |
 | GAP-104 | вычисляемый столбец получает тип `citext` независимо от выражения | `mssql_computed_column` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-104](gap-104-mssql-computed-column.md) |
-| GAP-105 | `ROWVERSION` → `bytea`, перестаёт обновляться — блокировка ломается | `mssql_rowversion` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-105](gap-105-mssql-rowversion.md) |
+| GAP-105 | `ROWVERSION` -> `bytea`, перестаёт обновляться — блокировка ломается | `mssql_rowversion` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-105](gap-105-mssql-rowversion.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

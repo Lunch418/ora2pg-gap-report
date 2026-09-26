@@ -1,4 +1,4 @@
-# End-to-end example: SCAN → migrate → VERIFY
+# End-to-end example: SCAN -> migrate -> VERIFY
 
 One real, reproducible walk through the whole lifecycle this tool is built
 around — not a synthetic demo, an actual `ora2pg 25.0` run and an actual

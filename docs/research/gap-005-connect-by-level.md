@@ -32,7 +32,7 @@ The conversion is templated and brittle, though: `(c.level+1)` refers to a
 regex-based converter, which took the literal name `LEVEL` and failed to
 substitute the `depth` alias from the first `UNION` branch. The generated
 SQL will not run on PostgreSQL as written without a manual fix (`c.level`
-→ `c.depth`). The converter also cannot handle the more complex variants:
+-> `c.depth`). The converter also cannot handle the more complex variants:
 `CONNECT BY NOCYCLE`, multiple conditions, `ORDER SIBLINGS BY`,
 `CONNECT_BY_ROOT`, `CONNECT_BY_ISLEAF` — none of these are covered by any
 regex in `PLSQL.pm`.

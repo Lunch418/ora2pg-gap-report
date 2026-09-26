@@ -42,5 +42,5 @@ LINE 2: FROM employees SAMPLE(10);
 
 **Gap подтверждён.** Реализовано:
 `ora2pg_gap_report/detectors/sample_clause.py`. Ручная переработка:
-`SAMPLE (n)` → `TABLESAMPLE BERNOULLI (n)` (построчная выборка, ближе к
-Oracle `SAMPLE`), `SAMPLE BLOCK (n)` → `TABLESAMPLE SYSTEM (n)`.
+`SAMPLE (n)` -> `TABLESAMPLE BERNOULLI (n)` (построчная выборка, ближе к
+Oracle `SAMPLE`), `SAMPLE BLOCK (n)` -> `TABLESAMPLE SYSTEM (n)`.

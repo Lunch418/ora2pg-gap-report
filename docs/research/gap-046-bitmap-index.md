@@ -1,4 +1,4 @@
-# GAP-046: `CREATE BITMAP INDEX` → `USING gin` with no operator class
+# GAP-046: `CREATE BITMAP INDEX` -> `USING gin` with no operator class
 
 Oracle feature: a bitmap index, designed for low-cardinality columns and
 for combining several such indexes with bitwise operations.

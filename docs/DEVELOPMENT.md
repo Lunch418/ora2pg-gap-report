@@ -172,8 +172,8 @@ Details and the full list of corpus-validated detectors are in
 
 `oracle_connector.py`'s unit tests run against a fake connection
 (`tests/fakes/fake_oracle.py`) — fast, deterministic, no Oracle required.
-The live path ("connect to a real Oracle → export via
-`DBMS_METADATA.GET_DDL` → analyze") isn't covered by those, it needs a
+The live path ("connect to a real Oracle -> export via
+`DBMS_METADATA.GET_DDL` -> analyze") isn't covered by those, it needs a
 real database:
 
 ```sh

@@ -29,7 +29,7 @@ LANGUAGE PLPGSQL
 ;
 ```
 
-The cursor's own declaration is rewritten correctly (`CURSOR c IS` → `c
+The cursor's own declaration is rewritten correctly (`CURSOR c IS` -> `c
 CURSOR FOR`), while `c%ROWTYPE` is left as written.
 
 ## Observed problem

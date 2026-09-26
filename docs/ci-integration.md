@@ -41,7 +41,7 @@ detectors are in the README's `--verify` section.
 
 `--format sarif` isn't just another output format. SARIF 2.1.0 is a
 format GitHub understands natively via
-`github/codeql-action/upload-sarif`: results show up under **Security →
+`github/codeql-action/upload-sarif`: results show up under **Security ->
 Code scanning alerts**, and on the PR that triggered the workflow itself
 (`on: pull_request`), as inline annotations on the diff's changed lines.
 No custom Action or bot needed.
@@ -101,6 +101,6 @@ Caveats, so this doesn't overpromise:
   highlighted inline in Files changed.
 - GitLab SAST uses its own JSON report format, not SARIF directly, so
   just uploading `results.sarif` as a GitLab SAST artifact won't work.
-  The exact SARIF → GitLab format conversion path hasn't been checked
+  The exact SARIF -> GitLab format conversion path hasn't been checked
   here, so it isn't given as a ready recipe, if it's ever needed, that's
   a separate, small task.

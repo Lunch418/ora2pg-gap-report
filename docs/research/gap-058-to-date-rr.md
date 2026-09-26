@@ -90,7 +90,7 @@ SELECT to_date('49-06-01','YY-MM-DD') AS yy49,
 | 70-99 | 19xx | 19xx | yes |
 
 So `'65'` is 1965 under Oracle's `RR` and 2065 under PostgreSQL's `YY`. A
-mechanical `RR` → `YY` substitution fixes the loud breakage (year 1 BC)
+mechanical `RR` -> `YY` substitution fixes the loud breakage (year 1 BC)
 and replaces it with a quiet one, on a subset of the data. For dates of
 birth, historical records, and any mid-twentieth-century data, that is
 exactly the range that diverges.

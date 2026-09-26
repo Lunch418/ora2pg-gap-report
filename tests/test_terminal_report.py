@@ -216,7 +216,7 @@ def test_render_shows_a_heading_and_the_remediation_with_a_known_detector():
     console = Console(record=True, width=200)
     render(findings, console=console)
     text = console.export_text()
-    assert "Oracle → PostgreSQL" in text
+    assert "Oracle -> PostgreSQL" in text
     assert "Что делать" in text
     assert "autonomous_tx" in text
     assert "dblink" in text  # the real remediation hint for this detector, not a generic fallback

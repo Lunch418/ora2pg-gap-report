@@ -5,7 +5,7 @@ table (IOT). The data is stored physically inside the primary key's own
 structure rather than in a separate heap referenced from the index. For
 tables accessed almost exclusively by primary key (caches, reference data,
 dictionary tables) this is a deliberate choice of a specific storage
-architecture: there is no separate "index → heap" lookup on every access.
+architecture: there is no separate "index -> heap" lookup on every access.
 
 ## Minimal example
 

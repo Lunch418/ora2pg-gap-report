@@ -11,9 +11,13 @@ patch for fixes to existing ones.
 
 ### Changed
 
+- The Unicode arrow is gone from the whole project: the report heading, messages, hints,
+  documentation and the package description now use the plain `->` you can type on any
+  keyboard. The README screenshots were retaken with font ligatures off, so `->` shows as
+  two characters there too.
 - `docs/social-preview.png` redrawn for 0.12.0: three source dialects, 113 confirmed gaps,
   the four failure stages from the new report, and the correct license (Apache 2.0, not MIT).
-  GitHub does not pick the file up by itself: upload it in Settings → General → Social preview.
+  GitHub does not pick the file up by itself: upload it in Settings -> General -> Social preview.
 
 ## [0.12.0] - 2026-09-27
 
@@ -807,7 +811,7 @@ gone; whatever remains is elsewhere and hasn't been profiled yet.
 - `--fix` (+ `--write`): applies the one known mechanical, provably
   safe correction we currently trust to `--fix` — GAP-028's identity-column
   double-paren bug in ora2pg's *generated* PostgreSQL output (`GENERATED
-  ... AS IDENTITY ((...))` → `IDENTITY (...)`, see `autofix.py`'s module
+  ... AS IDENTITY ((...))` -> `IDENTITY (...)`, see `autofix.py`'s module
   docstring for why this gap specifically qualifies and most others don't).
   Dry-run by default (prints a unified diff, touches nothing on disk);
   `--write` is required to actually rewrite the files. Standalone mode,
@@ -962,8 +966,8 @@ gone; whatever remains is elsewhere and hasn't been profiled yet.
 ## [0.7.0] - 2026-08-20
 
 ### Added
-- `examples/end-to-end/` — a reproducible run through the whole SCAN →
-  migrate → VERIFY lifecycle on one real example (GAP-003, `BULK
+- `examples/end-to-end/` — a reproducible run through the whole SCAN ->
+  migrate -> VERIFY lifecycle on one real example (GAP-003, `BULK
   COLLECT`/`FORALL`/a local `TYPE`): real `ora2pg 25.0` output
   (`generated/`), a manually fixed version (`generated_fixed/`), both
   confirmed against a real PostgreSQL 16 server (creating the procedure
@@ -1104,20 +1108,20 @@ gone; whatever remains is elsewhere and hasn't been profiled yet.
   links to the actual section heading ("Why almost everything is `high`").
 
 ### Changed
-- `terminal_report.py`: the `→` character in the banner and the
+- `terminal_report.py`: the Unicode arrow character in the banner and the
   "Рекомендации" section's hints was replaced with the ASCII `->` — on
   some terminals/fonts (especially in closed corporate environments
   without a full Unicode glyph set), that character renders poorly or
   not at all.
 - `docs/demo.gif`/`docs/demo.ru.gif` regenerated — the old versions
   didn't show the `GAP-NNN · <stage>` line in the explanation panel
-  (added later) and still used `→` instead of `->`. `docs/social-
+  (added later) and still used the Unicode arrow instead of `->`. `docs/social-
   preview.png` was regenerated too, now in English (tagline and badges
   synced with README/GitHub About/PyPI already being English; there's no
   point making an RU/EN pair for the social-preview image, GitHub only
   stores one per repository, unlike demo.gif). **`docs/social-
-  preview.png` needs to be manually re-uploaded via Settings → General
-  → Social preview, GitHub doesn't pick the file up from the repository
+  preview.png` needs to be manually re-uploaded via Settings -> General
+  -> Social preview, GitHub doesn't pick the file up from the repository
   automatically.**
 
 ## [0.6.0] - 2026-08-18
@@ -1127,7 +1131,7 @@ gone; whatever remains is elsewhere and hasn't been profiled yet.
   [Trusted Publishing](https://docs.pypi.org/trusted-publishers/)
   (OIDC) when a full (non-pre-release) GitHub Release is published: no
   PyPI token stored in repository secrets. Requires a one-time setup on
-  PyPI's side (Your projects → Publishing → Add a new publisher,
+  PyPI's side (Your projects -> Publishing -> Add a new publisher,
   owner/repo/workflow file `publish.yml`/environment `pypi`).
 - Nine newly confirmed gaps (GAP-029..037), the registry grew from 28 to
   37 (a real ora2pg 25.0 + PostgreSQL 16 run for each):
@@ -1200,7 +1204,7 @@ gone; whatever remains is elsewhere and hasn't been profiled yet.
   check — it never connects to anything, never executes anything, it
   just reruns the same detectors against the generated file. Compared at
   detector granularity, not per finding (file/object/snippet matching,
-  like `--baseline` uses, doesn't survive the Oracle→PostgreSQL boundary:
+  like `--baseline` uses, doesn't survive the Oracle->PostgreSQL boundary:
   `ora2pg` renames objects, the file is different either way). New
   `verification.py` module: 13 detectors whose finding `ora2pg` copies
   into the output essentially unchanged (`cross_apply`, `json_table`,
@@ -1225,7 +1229,7 @@ gone; whatever remains is elsewhere and hasn't been profiled yet.
   `~/.config/ora2pg-gap-report/language` (or `$XDG_CONFIG_HOME`) for all
   future runs; the same picker shows itself once on the first run in an
   interactive terminal if the language isn't set anywhere yet. Priority:
-  `--lang` → env var → saved choice → interactive picker → Russian. New
+  `--lang` -> env var -> saved choice -> interactive picker -> Russian. New
   `ora2pg_gap_report/i18n.py` module: every UI string in the terminal/
   markdown/HTML report, all runtime error messages and warnings, plus an
   English translation of each of 29 detectors' explanation and
@@ -1361,7 +1365,7 @@ gone; whatever remains is elsewhere and hasn't been profiled yet.
   new dev dependency (only for this check in tests, not for the CLI
   itself).
 - `--format sarif` — SARIF 2.1.0 for GitHub code scanning / GitLab SAST.
-  Severity mapped to SARIF levels (high → error, medium → warning, low →
+  Severity mapped to SARIF levels (high -> error, medium -> warning, low ->
   note), one rule per detector that actually fired, with a link to the
   research doc (`helpUri`) if the detector is in the GAP-NNN registry.
   Checked in tests against the official OASIS SARIF 2.1.0 schema

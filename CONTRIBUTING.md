@@ -18,8 +18,8 @@ used to check for false positives, how to confirm a finding against a live
 Oracle — is described in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). In
 short:
 
-1. The hypothesis is confirmed in practice: minimal example → real
-   `ora2pg` → check the generated PostgreSQL code. If `ora2pg` handled it
+1. The hypothesis is confirmed in practice: minimal example -> real
+   `ora2pg` -> check the generated PostgreSQL code. If `ora2pg` handled it
    fine, there's no detector to add, that's a normal outcome.
 2. Before a PR: `pytest`, `ruff check`, `mypy`, `python3 scripts/doctor.py`
    all green (`doctor.py` is part of CI, catches the registry/docs

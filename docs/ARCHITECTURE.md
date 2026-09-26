@@ -307,7 +307,7 @@ this one, and not one any real schema has called for yet.
 `--verify` compares pre-migration findings (a `--save` snapshot) against
 what's statically visible in the already-generated ora2pg PostgreSQL
 code, at detector granularity, not per finding (file/object/snippet
-matching, like `baseline.py` uses, doesn't survive the Oracle→PostgreSQL
+matching, like `baseline.py` uses, doesn't survive the Oracle->PostgreSQL
 boundary: ora2pg renames objects, e.g. `autonomous_tx`'s own dblink
 strategy appends an `_atx` suffix, and the file is different either way).
 Implemented in `verification.py`.

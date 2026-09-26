@@ -1924,9 +1924,9 @@ MESSAGES: dict[str, Message] = {
             "docs/research/gap-041-multiset-operator.md). У PostgreSQL нет ни "
             "одного из этих операторов — падает синтаксической ошибкой при "
             "загрузке. Переписывается вручную под модель массивов PostgreSQL: "
-            "CAST(MULTISET(...)) → ARRAY(SELECT ...), MULTISET UNION → оператор "
-            "|| над массивами или отдельный UNION-подзапрос, MEMBER OF → '= "
-            "ANY(массив)', SUBMULTISET OF → оператор <@ над массивами."
+            "CAST(MULTISET(...)) -> ARRAY(SELECT ...), MULTISET UNION -> оператор "
+            "|| над массивами или отдельный UNION-подзапрос, MEMBER OF -> '= "
+            "ANY(массив)', SUBMULTISET OF -> оператор <@ над массивами."
         ),
         en=(
             "Oracle's collection operators — CAST(MULTISET(...)), MULTISET "
@@ -1936,10 +1936,10 @@ MESSAGES: dict[str, Message] = {
             "ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-041-multiset-operator.md). PostgreSQL has none of "
             "these operators — it fails to load with a syntax error. Rewritten by "
-            "hand against PostgreSQL's array model: CAST(MULTISET(...)) → "
-            "ARRAY(SELECT ...), MULTISET UNION → the || operator over arrays or a "
-            "separate UNION subquery, MEMBER OF → '= ANY(array)', SUBMULTISET OF "
-            "→ the <@ operator over arrays."
+            "hand against PostgreSQL's array model: CAST(MULTISET(...)) -> "
+            "ARRAY(SELECT ...), MULTISET UNION -> the || operator over arrays or a "
+            "separate UNION subquery, MEMBER OF -> '= ANY(array)', SUBMULTISET OF "
+            "-> the <@ operator over arrays."
         ),
     ),
     "mysql_auto_increment_start": Message(
@@ -3089,9 +3089,9 @@ MESSAGES: dict[str, Message] = {
             "выборка, но с другим синтаксисом и другим местом в запросе — "
             "TABLESAMPLE BERNOULLI (n) / TABLESAMPLE SYSTEM (n) — поэтому "
             "скопированный как есть Oracle-вариант падает синтаксической ошибкой "
-            "при загрузке. Переписывается вручную: SAMPLE (n) → TABLESAMPLE "
+            "при загрузке. Переписывается вручную: SAMPLE (n) -> TABLESAMPLE "
             "BERNOULLI (n) (построчная выборка, ближе к Oracle SAMPLE), SAMPLE "
-            "BLOCK (n) → TABLESAMPLE SYSTEM (n) (поблочная, быстрее, но "
+            "BLOCK (n) -> TABLESAMPLE SYSTEM (n) (поблочная, быстрее, но "
             "статистически грубее)."
         ),
         en=(
@@ -3103,8 +3103,8 @@ MESSAGES: dict[str, Message] = {
             "sampling, but with different syntax and a different position in the "
             "query — TABLESAMPLE BERNOULLI (n) / TABLESAMPLE SYSTEM (n) — so the "
             "verbatim-copied Oracle form fails to load with a syntax error. "
-            "Rewritten by hand: SAMPLE (n) → TABLESAMPLE BERNOULLI (n) (per-row "
-            "sampling, closer to Oracle's SAMPLE), SAMPLE BLOCK (n) → TABLESAMPLE "
+            "Rewritten by hand: SAMPLE (n) -> TABLESAMPLE BERNOULLI (n) (per-row "
+            "sampling, closer to Oracle's SAMPLE), SAMPLE BLOCK (n) -> TABLESAMPLE "
             "SYSTEM (n) (per-block, faster but statistically coarser)."
         ),
     ),
@@ -3367,8 +3367,8 @@ MESSAGES: dict[str, Message] = {
             "ни на выполнении, данные просто оказываются неверными. Заменять "
             "нужно на явный четырёхзначный YYYY с приведением входных данных: YY "
             "тут не эквивалент, хотя выглядит им. Пороги у правил разные — у "
-            "Oracle RR это 00-49 → 20xx, 50-99 → 19xx, а у PostgreSQL YY это "
-            "00-69 → 20xx, 70-99 → 19xx (проверено на PostgreSQL 16). Совпадают "
+            "Oracle RR это 00-49 -> 20xx, 50-99 -> 19xx, а у PostgreSQL YY это "
+            "00-69 -> 20xx, 70-99 -> 19xx (проверено на PostgreSQL 16). Совпадают "
             "они только на 00-49 и 70-99, а на 50-69 расходятся ровно на сто лет: "
             "'65' по Oracle это 1965 год, а по YY в PostgreSQL — 2065. Отдельно "
             "стоит отметить асимметрию в самом ora2pg: в TO_CHAR он RR на YY "
@@ -3386,8 +3386,8 @@ MESSAGES: dict[str, Message] = {
             "at run time, the data is simply wrong. Replace it with an explicit "
             "four-digit YYYY after normalising the input: YY is not an equivalent "
             "here, though it looks like one. The two rules pivot at different "
-            "points — Oracle's RR is 00-49 → 20xx, 50-99 → 19xx, while "
-            "PostgreSQL's YY is 00-69 → 20xx, 70-99 → 19xx (verified on "
+            "points — Oracle's RR is 00-49 -> 20xx, 50-99 -> 19xx, while "
+            "PostgreSQL's YY is 00-69 -> 20xx, 70-99 -> 19xx (verified on "
             "PostgreSQL 16). They agree on 00-49 and 70-99 and disagree by "
             "exactly a century on 50-69: '65' is 1965 under Oracle's RR and 2065 "
             "under PostgreSQL's YY. Worth noting separately is an asymmetry "
@@ -4193,22 +4193,22 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "multiset_operator": Message(
         ru=(
-            'Перевести на модель массивов PostgreSQL: CAST(MULTISET(...)) → ARRAY(SELECT '
-            '...), MULTISET UNION → ||, MEMBER OF → = ANY(...), SUBMULTISET OF → <@'
+            'Перевести на модель массивов PostgreSQL: CAST(MULTISET(...)) -> ARRAY(SELECT '
+            '...), MULTISET UNION -> ||, MEMBER OF -> = ANY(...), SUBMULTISET OF -> <@'
         ),
         en=(
-            "Move to PostgreSQL's array model: CAST(MULTISET(...)) → ARRAY(SELECT ...), "
-            'MULTISET UNION → ||, MEMBER OF → = ANY(...), SUBMULTISET OF → <@'
+            "Move to PostgreSQL's array model: CAST(MULTISET(...)) -> ARRAY(SELECT ...), "
+            'MULTISET UNION -> ||, MEMBER OF -> = ANY(...), SUBMULTISET OF -> <@'
         ),
     ),
     "sample_clause": Message(
         ru=(
-            'Заменить на TABLESAMPLE: SAMPLE (n) → TABLESAMPLE BERNOULLI (n), SAMPLE '
-            'BLOCK (n) → TABLESAMPLE SYSTEM (n)'
+            'Заменить на TABLESAMPLE: SAMPLE (n) -> TABLESAMPLE BERNOULLI (n), SAMPLE '
+            'BLOCK (n) -> TABLESAMPLE SYSTEM (n)'
         ),
         en=(
-            'Replace with TABLESAMPLE: SAMPLE (n) → TABLESAMPLE BERNOULLI (n), SAMPLE '
-            'BLOCK (n) → TABLESAMPLE SYSTEM (n)'
+            'Replace with TABLESAMPLE: SAMPLE (n) -> TABLESAMPLE BERNOULLI (n), SAMPLE '
+            'BLOCK (n) -> TABLESAMPLE SYSTEM (n)'
         ),
     ),
     "accessible_by": Message(
@@ -4274,12 +4274,12 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "nlssort": Message(
         ru=(
-            'Сопоставить имя сортировки Oracle с реальной локалью PostgreSQL (GERMAN → '
+            'Сопоставить имя сортировки Oracle с реальной локалью PostgreSQL (GERMAN -> '
             '"de-DE-x-icu" или "de_DE.utf8") и при необходимости создать её через CREATE '
             'COLLATION'
         ),
         en=(
-            'Map the Oracle sort name onto a real PostgreSQL locale (GERMAN → '
+            'Map the Oracle sort name onto a real PostgreSQL locale (GERMAN -> '
             '"de-DE-x-icu" or "de_DE.utf8") and create it with CREATE COLLATION if needed'
         ),
     ),
@@ -5106,16 +5106,16 @@ TITLES: dict[str, Message] = {
         en="`ACCESSIBLE BY` is copied into the generated function's header",
     ),
     "local_time_zone": Message(
-        ru='`TIMESTAMP WITH LOCAL TIME ZONE` → `timestamp` без часового пояса',
-        en='`TIMESTAMP WITH LOCAL TIME ZONE` → `timestamp` without a time zone',
+        ru='`TIMESTAMP WITH LOCAL TIME ZONE` -> `timestamp` без часового пояса',
+        en='`TIMESTAMP WITH LOCAL TIME ZONE` -> `timestamp` without a time zone',
     ),
     "temporal_validity": Message(
         ru='`PERIOD FOR` (Temporal Validity) превращается в обрубок `period FOR`',
         en='`PERIOD FOR` (Temporal Validity) becomes the stub `period FOR`',
     ),
     "bitmap_index": Message(
-        ru='`CREATE BITMAP INDEX` → `USING gin` без класса операторов',
-        en='`CREATE BITMAP INDEX` → `USING gin` without an operator class',
+        ru='`CREATE BITMAP INDEX` -> `USING gin` без класса операторов',
+        en='`CREATE BITMAP INDEX` -> `USING gin` without an operator class',
     ),
     "object_table": Message(
         ru='`CREATE TABLE ... OF <тип>` — `OF` становится именем столбца',
@@ -5314,8 +5314,8 @@ TITLES: dict[str, Message] = {
         en='Bracketed identifiers are not unwrapped — breaks any SSMS script',
     ),
     "mssql_charindex": Message(
-        ru='`CHARINDEX()` → `position()` с удвоенными кавычками',
-        en='`CHARINDEX()` → `position()` with doubled quotes',
+        ru='`CHARINDEX()` -> `position()` с удвоенными кавычками',
+        en='`CHARINDEX()` -> `position()` with doubled quotes',
     ),
     "mssql_collation": Message(
         ru='`COLLATE` игнорируется, всё становится регистронезависимым `citext` по умолчанию',
@@ -5350,8 +5350,8 @@ TITLES: dict[str, Message] = {
         en='`IIF()` is copied as-is',
     ),
     "mssql_newid_default": Message(
-        ru='`NEWID()` → `uuid_generate_v4()` без `CREATE EXTENSION "uuid-ossp"`',
-        en='`NEWID()` → `uuid_generate_v4()` without `CREATE EXTENSION "uuid-ossp"`',
+        ru='`NEWID()` -> `uuid_generate_v4()` без `CREATE EXTENSION "uuid-ossp"`',
+        en='`NEWID()` -> `uuid_generate_v4()` without `CREATE EXTENSION "uuid-ossp"`',
     ),
     "mssql_output_clause": Message(
         ru='`OUTPUT INSERTED.*` копируется как есть',
@@ -5366,8 +5366,8 @@ TITLES: dict[str, Message] = {
         en='`RAISERROR`/`THROW` are copied as-is',
     ),
     "mssql_rowversion": Message(
-        ru='`ROWVERSION` → `bytea`, перестаёт обновляться — блокировка ломается',
-        en='`ROWVERSION` → `bytea`, stops updating — optimistic locking breaks',
+        ru='`ROWVERSION` -> `bytea`, перестаёт обновляться — блокировка ломается',
+        en='`ROWVERSION` -> `bytea`, stops updating — optimistic locking breaks',
     ),
     "mssql_scope_identity": Message(
         ru='`SCOPE_IDENTITY()`/`@@IDENTITY` копируются как есть',

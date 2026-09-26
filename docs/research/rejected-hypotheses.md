@@ -24,7 +24,7 @@ whose syntax is compatible with the basic Oracle usage —
 `PASSING`/`COLUMNS`/`PATH` behave identically. The example actually ran
 and inserted the data correctly (`SELECT * FROM orders` after the call
 showed the right rows). Ora2pg does not even need a special conversion —
-the data types (`NUMBER` → `bigint`) are substituted by the same general
+the data types (`NUMBER` -> `bigint`) are substituted by the same general
 logic as everywhere else. More complex XPath expressions and the rarer
 `XMLTABLE` options were not tested — the hypothesis is rejected only for
 the basic, most common usage.

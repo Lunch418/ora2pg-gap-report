@@ -26,7 +26,7 @@ CREATE TABLE durations (
 ) ;
 ```
 
-`TIMESTAMP WITH LOCAL TIME ZONE` → `timestamp`, то есть **без** часового
+`TIMESTAMP WITH LOCAL TIME ZONE` -> `timestamp`, то есть **без** часового
 пояса. Правильной заменой был бы `timestamptz`.
 
 ## Наблюдаемая проблема

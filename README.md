@@ -47,7 +47,7 @@ Migrating from Oracle to Postgres Pro Standard/Certified (i.e. without a Postgre
 Pro Enterprise license and without the proprietary `ora2pgpro` utility), the only
 available automated converter is the open-source
 [`ora2pg`](https://github.com/darold/ora2pg). By independent estimates it covers
-around ~80% of the PL/SQL → PL/pgSQL conversion job on average. The remaining
+around ~80% of the PL/SQL -> PL/pgSQL conversion job on average. The remaining
 ~20% (packages, autonomous transactions, `CONNECT BY`, `DBMS_*`/`UTL_*` calls,
 compound triggers) is currently sorted out by hand, and is typically discovered
 after the fact — once something has already broken in production.
@@ -203,7 +203,7 @@ And these nineteen are the T-SQL/SQL Server dialect (`--dialect mssql`,
 | `mssql_foreign_key` | `FOREIGN KEY` — dropped whenever the target `PG_VERSION` is left unset or set to 12 or lower, same shared-code mechanism as on the MySQL side; no error at any stage |
 | `mssql_collation` | `COLLATE` — ignored by the `CASE_INSENSITIVE_SEARCH citext` default, which checks a column's base type but never its actual collation, so every string column becomes case-insensitive `citext`; for a `_CS_` source collation that inverts comparison behaviour, verified on live data |
 | `mssql_computed_column` | A computed column (`AS (expr) PERSISTED`) is typed `citext` whatever the expression computes, so a numeric result is stored as text |
-| `mssql_rowversion` | `ROWVERSION` → `bytea`, which never self-updates, so optimistic-locking checks silently stop detecting conflicts |
+| `mssql_rowversion` | `ROWVERSION` -> `bytea`, which never self-updates, so optimistic-locking checks silently stop detecting conflicts |
 
 Plus `ora2pg_wrapper.py` — runs `ora2pg` per object type against exported DDL
 and parses `--estimate_cost`, and `oracle_connector.py`/`oracle_export.py` —
@@ -324,8 +324,8 @@ ora2pg-gap-report path/to/schema_dump.pkb --format markdown > report.md
 ora2pg-gap-report path/to/schema_dump.pkb --format csv --output report.csv
 
 # SARIF 2.1.0 — for GitHub code scanning (Security tab) or GitLab SAST.
-# Severity is mapped to SARIF levels: high → error, medium → warning,
-# low → note (SARIF has no separate critical level, and neither does
+# Severity is mapped to SARIF levels: high -> error, medium -> warning,
+# low -> note (SARIF has no separate critical level, and neither does
 # this tool).
 ora2pg-gap-report path/to/schema_dump.pkb --format sarif --output report.sarif
 
@@ -484,8 +484,8 @@ working unchanged. English is available as an option:
 - on first run in an interactive terminal, if no language is set anywhere,
   the `--set-lang` picker shows itself once and saves the choice.
 
-Priority order: `--lang` → environment variable → saved choice → interactive
-picker (a real terminal only) → Russian by default.
+Priority order: `--lang` -> environment variable -> saved choice -> interactive
+picker (a real terminal only) -> Russian by default.
 
 The entire scan output is translated: the terminal report, `--format
 markdown/html`, per-detector explanations and remediation hints, error
@@ -576,10 +576,10 @@ Still present        2
 Not detected          1
 Not verifiable        1
 
-cross_apply       GAP-022   3 → 1   STILL_PRESENT
-json_table        GAP-017   2 → 0   NOT_DETECTED
-identity_column   GAP-028   4 → 4   STILL_PRESENT
-read_only_table   GAP-026   1 → —   NOT_VERIFIABLE
+cross_apply       GAP-022   3 -> 1   STILL_PRESENT
+json_table        GAP-017   2 -> 0   NOT_DETECTED
+identity_column   GAP-028   4 -> 4   STILL_PRESENT
+read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
 ```
 
 This is **not** a functional check — the tool never connects to a database,
@@ -647,7 +647,7 @@ it applies with `patch`/`git apply`. Standalone mode, same as
 `--verify`/`--tui`/`--explain` — not combinable with the scan-shaping
 flags.
 
-A runnable, real (not simulated) walk through the whole SCAN → migrate →
+A runnable, real (not simulated) walk through the whole SCAN -> migrate ->
 VERIFY lifecycle — real `ora2pg 25.0` output, both the broken and a
 manually fixed version confirmed against a real PostgreSQL 16 server —
 [`examples/end-to-end/`](examples/end-to-end/).
@@ -701,7 +701,7 @@ drive), and install it on the target machine with no network at all:
 ```sh
 # On a machine with internet access, from a repo checkout:
 python scripts/build_offline_bundle.py --oracle   # --oracle is optional, --dev for pytest
-# → ora2pg-gap-report-offline.tar.gz (the package + rich + everything
+# -> ora2pg-gap-report-offline.tar.gz (the package + rich + everything
 #   transitively, including oracledb and its dependencies if --oracle is given)
 
 scp ora2pg-gap-report-offline.tar.gz user@jump-host:/tmp/

@@ -30,7 +30,7 @@ SELECT employee_id,manager_id,(c.level+1) AS depth,c.org_path || '/' || last_nam
 `level`, это баг подстановки regex-based конвертера, который взял
 литеральное имя `LEVEL` и не подставил алиас `depth` из первой ветки
 `UNION`. Сгенерированный SQL в буквальном виде не выполнится в PostgreSQL
-без ручной правки (`c.level` → `c.depth`). Также конвертер не умеет более
+без ручной правки (`c.level` -> `c.depth`). Также конвертер не умеет более
 сложные варианты: `CONNECT BY NOCYCLE`, множественные условия, `ORDER
 SIBLINGS BY`, `CONNECT_BY_ROOT`, `CONNECT_BY_ISLEAF` — не покрыты ни одним
 регулярным выражением в `PLSQL.pm`.

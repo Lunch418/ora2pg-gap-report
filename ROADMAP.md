@@ -58,7 +58,7 @@ project exists — is already in place:
   `--set-lang`), README and README.ru.md.
 - **Offline install**: `scripts/build_offline_bundle.py` + automatic
   bundle build in CI on every release (for closed-network environments,
-  a common case for Oracle→PostgreSQL migrations).
+  a common case for Oracle->PostgreSQL migrations).
 - **CI recipe**: [`docs/ci-integration.md`](docs/ci-integration.md) — a
   pipeline alongside `ora2pg` (a gate before conversion, `--check-
   connect-by`, `--verify` after) and a sample GitHub Actions workflow
@@ -119,7 +119,7 @@ waiting for its trigger.
   documented risk, not a forgotten one.
 - A migration checklist generated from a specific run's findings.
 - Migration recipes: `docs/recipes/` — for each class of problem (not
-  each detector) a separate "problem → migration pattern → alternatives"
+  each detector) a separate "problem -> migration pattern -> alternatives"
   document, distinct from the detectors' own evidence docs.
 
 ### Ecosystem

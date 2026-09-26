@@ -42,5 +42,5 @@ unconverted syntax.
 
 **Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/sample_clause.py`. Manual rework: `SAMPLE
-(n)` → `TABLESAMPLE BERNOULLI (n)` (row-wise sampling, closer to Oracle's
-`SAMPLE`), `SAMPLE BLOCK (n)` → `TABLESAMPLE SYSTEM (n)`.
+(n)` -> `TABLESAMPLE BERNOULLI (n)` (row-wise sampling, closer to Oracle's
+`SAMPLE`), `SAMPLE BLOCK (n)` -> `TABLESAMPLE SYSTEM (n)`.

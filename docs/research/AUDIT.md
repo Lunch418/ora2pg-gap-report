@@ -57,7 +57,7 @@ yourself" below.
 | 026 | `read_only_table` | high | ✅ | ✅ | ✅ an INSERT succeeded where Oracle blocks it outright (ORA-12081) | 7 / 3 | no |
 | 027 | `materialized_view_log` | high | ✅ | ✅ (`[DEBUG] unhandled line`) | n/a — the log vanishes without a trace | 3 / 2 | no |
 | 028 | `identity_column` | high | ✅ | ✅ (an extra pair of parentheses in the output) | ✅ `ERROR: syntax error at or near "("` | 5 / 2 | no |
-| 029 | `rowid_type` | high | ✅ | ✅ (`ROWID`/`UROWID` → `oid`) | ✅ `ERROR: invalid input syntax for type oid` when inserting a real value | 11 / 4 | no |
+| 029 | `rowid_type` | high | ✅ | ✅ (`ROWID`/`UROWID` -> `oid`) | ✅ `ERROR: invalid input syntax for type oid` when inserting a real value | 11 / 4 | no |
 | 030 | `sequence_cycle` | high | ✅ | ✅ (the `CYCLE` clause vanishes) | ✅ `ERROR: nextval: reached maximum value of sequence` once the range is exhausted | 6 / 2 | no |
 | 031 | `default_on_null` | high | ✅ | ✅ (`ON NULL` copied as-is) | ✅ `ERROR: syntax error at or near "ON"`, already at CREATE TABLE | 7 / 2 | no |
 | 032 | `public_synonym` | high | ✅ | ✅ (rewritten as a `CREATE VIEW` without the schema) | ✅ `ERROR: relation ... does not exist` when names collide | 8 / 1 | no |
@@ -105,7 +105,7 @@ none of those dynamically created objects entered the container index as
 a real one (in those two specific cases the dynamic code happened to
 contain no detector's target construct at all — which confirms the
 absence of crashes and data corruption, and adds no new finding). From
-the earlier expansion (two projects → four) there remains an already
+the earlier expansion (two projects -> four) there remains an already
 documented, honest limit of applicability — `object_name='UNKNOWN'` on an
 anonymous `declare...begin...end;` block with no name (an install script,
 not a `DBMS_METADATA.GET_DDL` export), pinned by the test

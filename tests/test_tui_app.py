@@ -20,6 +20,8 @@ from textual.widgets import Button, DataTable, Select
 
 from ora2pg_gap_report import core, messages
 from ora2pg_gap_report.baseline import load_baseline, save_baseline
+from ora2pg_gap_report import i18n
+from ora2pg_gap_report.gap_registry import gap_metadata
 from ora2pg_gap_report.tui_app import (
     GapReportApp,
     ResultsScreen,
@@ -172,12 +174,16 @@ async def test_selecting_a_row_shows_gap_and_failure_stage_in_the_detail_panel()
         await pilot.press("enter")
         await pilot.pause()
 
+        # The first row is the first finding in the order the reports list
+        # gaps (by stage), whatever that finding is.
+        first = app.screen.findings[0]
+        gap_number, stage = gap_metadata(first.detector)
         detail = app.screen.query_one("#detail")
-        assert "GAP-004" in detail.content
+        assert f"GAP-{gap_number}" in detail.content
         # Default lang is "ru" -- the short stage label is translated,
-        # same as terminal_report.py's own explanation panel, not the raw
-        # "semantic" constant.
-        assert "тихая потеря поведения" in detail.content
+        # same as the terminal report's, not the raw constant.
+        assert i18n.t("ru", f"failure_stage_short_{stage}") in detail.content
+        assert stage not in detail.content
 
 
 @pytest.mark.asyncio
@@ -197,9 +203,11 @@ async def test_detail_panel_stage_label_respects_english_language():
         await pilot.press("enter")
         await pilot.pause()
 
+        first = app.screen.findings[0]
+        gap_number, stage = gap_metadata(first.detector)
         detail = app.screen.query_one("#detail")
-        assert "GAP-004" in detail.content
-        assert "silent behavior loss" in detail.content
+        assert f"GAP-{gap_number}" in detail.content
+        assert i18n.t("en", f"failure_stage_short_{stage}") in detail.content
 
 
 @pytest.mark.asyncio
@@ -606,7 +614,7 @@ async def test_results_screen_table_headers_are_translated_to_russian():
         results_screen = app.screen
         table = results_screen.query_one("#findings-table", DataTable)
         headers = [str(col.label) for col in table.columns.values()]
-        assert headers == ["Severity", "Файл", "Объект", "Строка", "Детектор", "GAP"]
+        assert headers == ["Severity", "Стадия", "GAP", "Объект", "Строка", "Файл"]
 
 
 def test_tui_app_does_not_import_from_cli():

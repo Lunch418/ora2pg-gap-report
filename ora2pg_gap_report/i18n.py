@@ -943,8 +943,8 @@ _UI: dict[str, dict[str, str]] = {
     # tui_ prefix -- same words, same screen concept (a findings table / a
     # verification table), just rendered by Textual instead of Rich.
     "tui_app_subtitle": {
-        "ru": "Отчёт о пробелах миграции Oracle -> PostgreSQL",
-        "en": "Oracle -> PostgreSQL migration gap report",
+        "ru": "что сломается при переносе в PostgreSQL через ora2pg",
+        "en": "what breaks when ora2pg moves a schema to PostgreSQL",
     },
     "tui_tree_label": {
         "ru": "Выберите файл .sql/.pks/.pkb или директорию для рекурсивного сканирования:",
@@ -1049,12 +1049,8 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "Просканировано {path} — проблемных конструкций не найдено.",
         "en": "Scanned {path} — no problematic constructs found.",
     },
-    "tui_scanned_summary": {
-        "ru": "Просканировано {path} — объектов: {objects}, находок: {count} ({counts_text}) — "
-        "грубая оценка {lo:.2f}-{hi:.2f} ч. (неоткалиброванная эвристика, не измерение)",
-        "en": "Scanned {path} — objects: {objects}, findings: {count} ({counts_text}) — rough "
-        "estimate {lo:.2f}-{hi:.2f}h (uncalibrated heuristic, not a measurement)",
-    },
+    "tui_effort_caveat": {"ru": "(грубая эвристика, не измерение)", "en": "(a rough heuristic, not a measurement)"},
+    "tui_scanned_path": {"ru": "Просканировано: {path}", "en": "Scanned: {path}"},
     "tui_error_enter_path_first": {"ru": "Сначала введите путь.", "en": "Enter a path first."},
     "tui_error_couldnt_save": {"ru": "Не удалось сохранить: {exc}", "en": "Couldn't save: {exc}"},
     "tui_saved_findings": {

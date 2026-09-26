@@ -24,6 +24,7 @@ verification.py) the CLI uses, just click-driven.
 from __future__ import annotations
 
 import dataclasses
+from collections import Counter
 from pathlib import Path
 from typing import cast
 
@@ -56,8 +57,9 @@ from .core import (
     scan_source,
 )
 from .core import sort_findings
-from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
+from .effort_estimator import estimate_hours
 from .gap_registry import gap_metadata
+from .html_report import group_by_gap, source_name, stage_key
 from . import messages
 from .models import Finding
 from .verification import DetectorVerification, NewInOutput, new_in_output, verify_against_baseline
@@ -70,6 +72,15 @@ from .verification import DetectorVerification, NewInOutput, new_in_output, veri
 # dark background -- picking a maintained, tested palette here beats
 # hand-rolling colors and hoping they read well.
 _SEVERITY_STYLE = {"high": "bold #FF5555", "medium": "bold #F1FA8C", "low": "bold #50FA7B"}
+# The failure stages, in Dracula's accents like the severities above --
+# the same hues the HTML and terminal reports give each stage.
+_STAGE_STYLE = {
+    "conversion": "#BD93F9",
+    "deployment": "#FF5555",
+    "runtime": "#FFB86C",
+    "semantic": "#8BE9FD",
+    "none": "#6272A4",
+}
 _VERIFY_STATUS_STYLE = {
     "still_present": "bold #FF5555",
     "not_detected": "bold #50FA7B",
@@ -562,9 +573,12 @@ class ResultsScreen(Screen[None]):
        viewport that had fit it fine locally). Capping the height here
        makes the rest of the layout's position independent of checkout
        path length instead of "hope it never wraps more than expected". */
+    /* No inner padding and a 7-row cap (4 lines of text inside the
+       border): on a 24-line terminal the old padding 1 2 spent two of
+       those rows on air and left room for the heading alone. */
     #summary {
-        height: auto; max-height: 25%; overflow-y: auto; padding: 1 2;
-        border: round $primary; margin: 1 2; background: $panel;
+        height: auto; max-height: 7; overflow-y: auto; padding: 0 1;
+        border: round $primary; margin: 0 1; background: $panel;
     }
     /* 2fr/1fr, not a fixed height for #detail: a fixed height (tried
        first at 14) doesn't scale down on a small terminal -- at the
@@ -575,14 +589,20 @@ class ResultsScreen(Screen[None]):
        viewport entirely. Sharing the remaining space proportionally
        guarantees both boxes fit whatever the real terminal size is,
        just with different proportions. */
-    #findings-table { height: 2fr; margin: 0 2; border: round $panel-lighten-1; }
+    #findings-table { height: 3fr; margin: 0 1; border: round $panel-lighten-1; }
+    /* 2fr against the table's 3fr, and padding 0 2: the panel's first
+       lines are what to act on (gap, stage, place, what to do), and at
+       1fr with a padded border they were cut off after two lines. */
     #detail {
-        height: 1fr; border: round $accent; margin: 1 2; padding: 1 2;
+        height: 2fr; border: round $accent; margin: 0 1; padding: 0 1;
         overflow-y: auto; background: $panel;
     }
-    #baseline-save-controls { height: auto; padding: 0 2 1 2; }
+    /* Save and Back share one row: two rows of buttons were what squeezed
+       the detail panel above to nothing on a 24-line terminal. */
+    #baseline-save-controls { height: auto; padding: 0 1; }
     #baseline-save-controls Input { width: 1fr; margin-right: 2; }
-    #back-btn { margin: 0 2 1 2; }
+    #baseline-save-controls Button { margin-right: 2; }
+    #back-btn { margin: 0; }
     """
 
     def __init__(
@@ -596,7 +616,9 @@ class ResultsScreen(Screen[None]):
         baseline_diff: BaselineDiff | None = None,
     ) -> None:
         super().__init__()
-        self.findings = findings
+        # In the order the reports list gaps -- by the stage a migration
+        # reaches first -- so one gap's rows sit together in the table.
+        self.findings = [f for group in group_by_gap(findings) for f in group.findings]
         # The full, unfiltered scan result -- what --save/--baseline act on
         # in the CLI too (see cli.py's own comment on `all_findings`):
         # a baseline snapshot is meant as ground truth for the schema, not
@@ -627,35 +649,48 @@ class ResultsScreen(Screen[None]):
                 id="save-baseline-input",
             )
             yield Button(i18n.t(self.lang, "tui_save_baseline_btn"), id="save-baseline-btn")
-        yield Button(i18n.t(self.lang, "tui_back_to_scan_btn"), id="back-btn")
+            yield Button(i18n.t(self.lang, "tui_back_to_scan_btn"), id="back-btn")
         yield Footer()
 
     def _summary_text(self) -> Text:
         # Built as a Text, appended to piece by piece, not as an f-string
         # with inline [style] markup: scanned_path and warnings carry
         # scanned-content/filesystem text verbatim (a path with brackets
-        # would raise MarkupError on Static.update() otherwise -- same
-        # class of bug terminal_report.py's own Text(...) wrapping avoids).
-        # Only the style spans below (Text(..., style=...)) are markup;
-        # everything else is plain appended text, never parsed.
+        # would raise MarkupError on Static.update() otherwise).
         if not self.findings:
             text = Text(i18n.t(self.lang, "tui_scanned_no_findings", path=self.scanned_path))
         else:
-            counts = summarize_by_severity(self.findings)
-            counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
+            lang = self.lang
+            gaps = group_by_gap(self.findings)
+            text = Text()
+            text.append(i18n.t(lang, "report_heading", source=source_name(self.findings)) + "\n", style="bold")
+            per_stage = Counter(stage_key(g.stage) for g in gaps for _ in g.findings)
+            for key in ("conversion", "deployment", "runtime", "semantic", "none"):
+                n = per_stage.get(key, 0)
+                if not n and key == "none":
+                    continue
+                style = _STAGE_STYLE[key] if n else "dim"
+                # Non-breaking spaces inside an item, so a narrow terminal
+                # wraps between stages, never between a dot and its name.
+                name = i18n.t(lang, f"stage_{key}_name").replace(" ", "\u00a0")
+                text.append("●\u00a0", style=style)
+                text.append(f"{name}\u00a0", style="dim" if not n else "")
+                text.append(str(n), style=f"bold {style}" if n else "dim")
+                text.append("   ")
+            text.append("\n")
             lo, hi = estimate_hours(self.findings)
-            text = Text(
+            text.append(
                 i18n.t(
-                    self.lang,
-                    "tui_scanned_summary",
-                    path=self.scanned_path,
-                    objects=self.objects_scanned,
-                    count=len(self.findings),
-                    counts_text=counts_text,
-                    lo=lo,
-                    hi=hi,
+                    lang,
+                    "report_found",
+                    findings=i18n.count(lang, "finding", len(self.findings)),
+                    gaps=i18n.count(lang, "gap", len(gaps)),
                 )
             )
+            text.append(f" {i18n.t(lang, 'effort_panel_title')}: ", style="dim")
+            text.append(i18n.t(lang, "report_effort_range", lo=lo, hi=hi), style="bold")
+            text.append(f" {i18n.t(lang, 'tui_effort_caveat')}\n", style="dim")
+            text.append(i18n.t(lang, "tui_scanned_path", path=self.scanned_path), style="dim")
         if self.baseline_diff is not None:
             # NEW/RESOLVED/UNCHANGED stay untranslated words here, same as
             # terminal_report.py's own render_baseline_diff() -- fixed
@@ -691,27 +726,25 @@ class ResultsScreen(Screen[None]):
         # column name here too, matching md_table_header/html_table_header.
         table.add_columns(
             i18n.t(self.lang, "col_severity"),
-            i18n.t(self.lang, "col_file"),
+            i18n.t(self.lang, "report_filter_stage"),
+            "GAP",
             i18n.t(self.lang, "col_object"),
             i18n.t(self.lang, "col_line"),
-            i18n.t(self.lang, "col_detector"),
-            "GAP",
+            i18n.t(self.lang, "col_file"),
         )
         for i, f in enumerate(self.findings):
-            gap_number, _ = gap_metadata(f.detector)
+            gap_number, failure_stage = gap_metadata(f.detector)
+            key = stage_key(failure_stage)
             # Text(...) per cell, not markup strings: object_name/file name
-            # come straight from the scanned Oracle source (a quoted
-            # identifier like "my[table]" is legal Oracle and would
-            # otherwise be parsed as a style tag) -- same reasoning as
-            # terminal_report.py's own table. Only Severity gets an actual
-            # style, passed as Text's own style= kwarg, never inline markup.
+            # come straight from the scanned source (a quoted identifier
+            # like "my[table]" would otherwise be parsed as a style tag).
             table.add_row(
                 Text(f.severity, style=_SEVERITY_STYLE.get(f.severity, "")),
-                Text(Path(f.source_file).name if f.source_file else "—"),
+                Text(i18n.t(self.lang, f"stage_{key}_name"), style=_STAGE_STYLE[key]),
+                Text(f"GAP-{gap_number}" if gap_number else "—"),
                 Text(f.object_name),
                 Text(str(f.line)),
-                Text(f.detector),
-                Text(f"GAP-{gap_number}" if gap_number else "—"),
+                Text(Path(f.source_file).name if f.source_file else "—", style="dim"),
                 key=str(i),
             )
 
@@ -737,20 +770,33 @@ class ResultsScreen(Screen[None]):
         # entirely from our own GAP-NNN numbering and i18n dict), so those
         # are the only pieces styled here.
         text = Text()
-        text.append(f.detector, style="bold")
-        text.append(f" ({f.object_name}:{f.line})")
+        lang = self.lang
+        key = stage_key(failure_stage)
+        # What to act on first, while it is still on screen: the gap, when
+        # it breaks, where, and what to do. The explanation -- several
+        # wrapped lines -- goes last, where scrolling to it costs nothing.
+        # Every scanned field goes in as plain appended text, never markup.
         if gap_number is not None:
-            ref = f"GAP-{gap_number}"
-            if failure_stage is not None:
-                # Same short label terminal_report.py's own explanation
-                # panel uses -- respects the language picked for this
-                # scan, same as f.message already does.
-                stage_label = i18n.t(self.lang, f"failure_stage_short_{failure_stage}")
-                text.append(f"\n{ref} · {stage_label}", style="dim")
-            else:
-                text.append(f"\n{ref}", style="dim")
-        text.append("\n\n")
-        text.append(messages.text(f.message_id, self.lang))
+            text.append(f"GAP-{gap_number}  ", style="bold")
+        text.append(messages.title(f.detector, lang).replace("`", ""), style="bold")
+        text.append("\n")
+        if failure_stage is not None:
+            text.append(
+                f"{i18n.t(lang, 'report_rail_label')}: "
+                f"{i18n.t(lang, f'failure_stage_short_{failure_stage}')} — {i18n.t(lang, f'stage_{key}_desc')}",
+                style=_STAGE_STYLE[key],
+            )
+            text.append("\n")
+        text.append(f"{f.object_name}:{f.line}", style="bold")
+        text.append(f"  {f.source_file}" if f.source_file else "", style="dim")
+        text.append("\n")
+        text.append(f.snippet, style="#8BE9FD")
+        hint = messages.remediation_hint(f.detector, lang)
+        if hint:
+            text.append(f"\n\n{i18n.t(lang, 'report_gap_fix')}: ", style="bold")
+            text.append(hint)
+        text.append(f"\n\n{i18n.t(lang, 'report_gap_why')}: ", style="bold")
+        text.append(messages.text(f.message_id, lang))
         self.query_one("#detail", Static).update(text)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

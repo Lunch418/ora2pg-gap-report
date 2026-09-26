@@ -10,6 +10,15 @@ patch for fixes to existing ones.
 ## [Unreleased]
 
 ### Added
+- **A clearer `--tui` results screen.** The summary names the source
+  dialect, breaks the findings down by stage in the stages' colours and
+  shows the effort as a range ("112–448 ч" rather than "112.00-448.00");
+  the table groups each gap's rows together in stage order, with a
+  coloured stage column; and the detail panel leads with what to act on --
+  the gap's title, when it breaks, the place and fragment, what to do --
+  before the explanation, which used to be the only thing there and was
+  cut off below two lines. Save and Back share one row, so an 80×24
+  terminal shows the whole summary, the table and the detail at once.
 - **A redesigned terminal report**, laid out like the HTML one: the stage
   rail, the severity split, every gap once with a stage-coloured marker,
   then each gap in detail with its first five occurrences and a pointer to

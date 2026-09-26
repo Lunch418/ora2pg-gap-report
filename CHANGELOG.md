@@ -9,6 +9,16 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Fixed
+- **`examples/end-to-end/run_demo.sh` failed at its `--verify` step.**
+  The committed `baseline.json` was still `schema_version` 2 after the
+  tool moved to 3, so step 3 exited with code 2 instead of showing
+  `STILL_PRESENT`. Regenerated it (the fingerprints are unchanged), along
+  with the two `verification_*.json` files, which predated the
+  `new_in_output` fields. `tests/test_end_to_end_example.py` now
+  regenerates all three the way the example's README describes and
+  requires them to match, so they can't drift silently again.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

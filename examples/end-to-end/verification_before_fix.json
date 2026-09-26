@@ -3,6 +3,7 @@
   "still_present": 1,
   "not_detected": 0,
   "not_verifiable": 0,
+  "new_in_output_detectors": 0,
   "results": [
     {
       "detector": "bulk_collect",
@@ -11,5 +12,6 @@
       "post_migration_count": 3,
       "status": "still_present"
     }
-  ]
+  ],
+  "new_in_output": []
 }

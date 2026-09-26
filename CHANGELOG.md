@@ -10,6 +10,14 @@ patch for fixes to existing ones.
 ## [Unreleased]
 
 ### Added
+- **A redesigned HTML report.** It opens with the four stages a migration
+  meets gaps in -- conversion, schema load, run time, silently -- and how
+  many findings wait at each, then lists every gap once: its title, when it
+  bites, why, what to do, and every place it was found, collapsed until
+  opened. Severity and stage filters work with CSS alone (no script, as
+  before: the report is made for closed networks), there is a dark theme,
+  and it reads on a phone. The explanation is no longer repeated in each
+  row, so the samples' 389-finding report went from 697 KB to 105 KB.
 - **Eight new confirmed gaps, GAP-106..113**, found by scanning real dumps
   -- a mysqldump of sakila from MySQL 8.0.46 and Oracle 23ai exports --
   rather than examples written for one construct, and each confirmed

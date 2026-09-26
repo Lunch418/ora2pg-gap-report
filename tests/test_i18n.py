@@ -206,3 +206,21 @@ def test_stream_can_encode_says_yes_when_there_is_nothing_to_ask():
 
     assert i18n.stream_can_encode("Русский", _NoEncoding()) is True
     assert i18n.stream_can_encode("Русский", None) is not None
+
+
+def test_numbers_use_the_decimal_mark_of_the_language():
+    from ora2pg_gap_report.i18n import number
+
+    assert number("ru", 53.5) == "53,5"
+    assert number("en", 53.5) == "53.5"
+    assert number("ru", 112.0) == "112"
+
+
+def test_counts_take_the_russian_plural_form_the_number_needs():
+    from ora2pg_gap_report.i18n import count
+
+    assert [count("ru", "finding", n) for n in (1, 2, 5, 11, 21, 22, 111)] == [
+        "1 находка", "2 находки", "5 находок", "11 находок", "21 находка", "22 находки", "111 находок",
+    ]
+    assert count("en", "finding", 1) == "1 finding"
+    assert count("en", "finding", 2) == "2 findings"

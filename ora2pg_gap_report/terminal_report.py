@@ -215,7 +215,7 @@ def _render_severity_and_effort(console: Console, findings: list[Finding], gaps:
     grid.add_row(i18n.t(lang, "report_filter_severity"), bar)
     lo, hi = estimate_hours(findings)
     grid.add_row(
-        i18n.t(lang, "effort_panel_title"), Text(i18n.t(lang, "report_effort_range", lo=lo, hi=hi), style="bold")
+        i18n.t(lang, "effort_panel_title"), Text(i18n.t(lang, "report_effort_range", lo=i18n.number(lang, lo), hi=i18n.number(lang, hi)), style="bold")
     )
     grid.add_row("", Text(i18n.t(lang, "report_effort_caveat"), style="dim"))
     if distinct_detector_count(findings) < total:

@@ -688,7 +688,7 @@ class ResultsScreen(Screen[None]):
                 )
             )
             text.append(f" {i18n.t(lang, 'effort_panel_title')}: ", style="dim")
-            text.append(i18n.t(lang, "report_effort_range", lo=lo, hi=hi), style="bold")
+            text.append(i18n.t(lang, "report_effort_range", lo=i18n.number(lang, lo), hi=i18n.number(lang, hi)), style="bold")
             text.append(f" {i18n.t(lang, 'tui_effort_caveat')}\n", style="dim")
             text.append(i18n.t(lang, "tui_scanned_path", path=self.scanned_path), style="dim")
         if self.baseline_diff is not None:

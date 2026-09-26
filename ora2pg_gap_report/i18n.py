@@ -198,6 +198,13 @@ _COUNTED: dict[str, dict[str, tuple[str, ...]]] = {
 }
 
 
+def number(lang: str, value: float) -> str:
+    """`value` without trailing zeros, with the decimal mark the language
+    uses: number("ru", 53.5) -> "53,5", number("en", 53.5) -> "53.5"."""
+    text = f"{value:g}"
+    return text.replace(".", ",") if lang != "en" else text
+
+
 def count(lang: str, noun: str, n: int) -> str:
     """`n` with `noun` in the grammatical form the number takes:
     count("ru", "finding", 21) -> "21 находка", count("en", "file", 1)
@@ -694,7 +701,7 @@ _UI: dict[str, dict[str, str]] = {
     "report_col_object": {"ru": "Объект", "en": "Object"},
     "report_col_snippet": {"ru": "Фрагмент", "en": "Fragment"},
     "report_effort_label": {"ru": "Ручная доработка", "en": "Manual rework"},
-    "report_effort_range": {"ru": "{lo:g}–{hi:g} ч", "en": "{lo:g}–{hi:g} h"},
+    "report_effort_range": {"ru": "{lo}–{hi} ч", "en": "{lo}–{hi} h"},
     "report_effort_caveat": {
         "ru": "неоткалиброванная эвристика по severity, не измерение (см. README.md, «Почему почти всё high»)",
         "en": "an uncalibrated heuristic based on severity, not a measurement (see README.md, "

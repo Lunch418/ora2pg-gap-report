@@ -203,15 +203,24 @@ def _safe_stem(name: str) -> str:
     return (sanitized or "_").lower()
 
 
-def _unique_output_path(output_dir: Path, stem: str, suffix: str) -> Path:
+def _unique_output_path(output_dir: Path, stem: str, suffix: str, taken: set[Path]) -> Path:
     """Sanitizing distinct quoted names (e.g. "Logger" vs "LOGGER") can
     make them collide once lowercased — never silently overwrite one
-    object's export with another's."""
+    object's export with another's.
+
+    A collision is with a path this export has already written (`taken`),
+    not with whatever is on disk: a file left by an earlier export into
+    the same directory is the same object's previous DDL, and replacing it
+    is the point of exporting again. Checking the disk instead made every
+    re-export write <name>_2 beside <name>, so a scan of the directory saw
+    each object twice -- stale DDL next to current -- and counted every
+    finding twice."""
     candidate = output_dir / f"{stem}{suffix}"
     n = 2
-    while candidate.exists():
+    while candidate in taken:
         candidate = output_dir / f"{stem}_{n}{suffix}"
         n += 1
+    taken.add(candidate)
     return candidate
 
 
@@ -248,6 +257,7 @@ def export_schema(
     such object is the opposite of what the per-file design is for."""
     output_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
+    taken: set[Path] = set()
 
     for object_type in types:
         for name in list_objects(conn, owner, object_type.dictionary_type):
@@ -262,7 +272,7 @@ def export_schema(
                 # Listed but no DDL: dropped between the list call and
                 # this one, or a type GET_DDL declines to render.
                 continue
-            path = _unique_output_path(output_dir, _safe_stem(name), object_type.suffix)
+            path = _unique_output_path(output_dir, _safe_stem(name), object_type.suffix, taken)
             path.write_text(ddl, encoding="utf-8")
             written.append(path)
 

@@ -175,6 +175,29 @@ def test_export_schema_disambiguates_filename_collisions(tmp_path):
     assert len({p.name for p in written}) == 2  # distinct filenames, nothing overwritten
 
 
+def test_exporting_again_into_the_same_directory_replaces_the_previous_export(tmp_path):
+    # Collisions are between objects of one export. A file an earlier run
+    # wrote is that same object's previous DDL, and used to be treated as a
+    # collision too: re-exporting after a schema change wrote logger_2.pkb.sql
+    # beside logger.pkb.sql, so scanning the directory counted every finding
+    # twice and reported the stale DDL alongside the current one.
+    def export(ddl):
+        conn = FakeConnection(
+            _schema_provider(
+                package_bodies=["Logger", "LOGGER"],
+                ddl_by_key={("PACKAGE_BODY", "LOGGER", "HR"): ddl},
+            )
+        )
+        return oracle_connector.export_schema(conn, "hr", tmp_path / "export")
+
+    first = export("-- before the schema change")
+    second = export("-- after the schema change")
+
+    assert [p.name for p in second] == [p.name for p in first]
+    assert sorted(p.name for p in (tmp_path / "export").iterdir()) == sorted(p.name for p in first)
+    assert all(p.read_text(encoding="utf-8") == "-- after the schema change" for p in second)
+
+
 def test_export_schema_covers_schema_level_objects_not_just_code(tmp_path):
     # The point of EXPORTABLE_TYPES: before it, a live export produced
     # only PACKAGE BODY and TRIGGER files, so every schema-level detector

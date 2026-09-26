@@ -391,7 +391,7 @@ the `[tui]` extra installed prints a plain install hint, not a traceback.
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 67 — a single
+finding was confirmed against (currently 25.0/16 for all 105 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -475,11 +475,12 @@ picker (a real terminal only) → Russian by default.
 
 The entire scan output is translated: the terminal report, `--format
 markdown/html`, per-detector explanations and remediation hints, error
-messages. Not translated: `--help` (would need to know the language before
-argparse has parsed `--lang` out of argv — a separate piece of work, not
-done in this pass) and the research documents themselves in
-`docs/research/` (`--explain` under `--lang en` still prints their text in
-Russian, as before — only the version header is translated).
+messages, and `--help` (it follows `--lang` and the same priority order
+above). The research documents in `docs/research/` exist in both
+languages — the English text at `gap-NNN-*.md`, the Russian beside it as
+`.ru.md` — and `--explain` prints the one matching the output language,
+falling back to the other when a translation is missing (GAP-002 and
+GAP-003 have no Russian version yet).
 
 ### Tracking migration progress (baseline)
 
@@ -574,18 +575,20 @@ same pattern already in the generated code. And even so, it doesn't work
 the same way for every detector:
 
 - **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
-  `json_table`, `identity_column`, and 11 more) — for these, re-running the
-  detector against the output is meaningful: `STILL_PRESENT` if the pattern
-  remains, `NOT_DETECTED` if it's gone.
+  `json_table`, `identity_column`, and 48 more — 51 of the 106 detectors) —
+  for these, re-running the detector against the output is meaningful:
+  `STILL_PRESENT` if the pattern remains, `NOT_DETECTED` if it's gone.
 - **Some `ora2pg` drops or rewrites away entirely** (`read_only_table`,
-  `table_partitioning`, 20 more) — the construct isn't in the output *by
-  definition*, regardless of whether someone fixed the problem by hand some
-  other way. For these, the honest status is `NOT_VERIFIABLE`, not a
+  `table_partitioning`, and 52 more — 54 of the 106) — the construct isn't
+  in the output *by definition*, regardless of whether someone fixed the
+  problem by hand some other way. For these, the honest status is `NOT_VERIFIABLE`, not a
   fabricated `NOT_DETECTED`: treating absence as proof of a fix would be
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 67 —
+Which mode applies to which detector, and why, for the 67 Oracle gaps
+(the MySQL and T-SQL detectors' modes are in `verification.py`'s
+`VERIFICATION_MODE`) —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't
@@ -730,7 +733,7 @@ in [`SECURITY.md`](SECURITY.md). Where the project is headed, and what is
 already built versus still just an idea waiting for a real use case — in
 [`ROADMAP.md`](ROADMAP.md).
 
-(These deeper docs are currently in Russian only.)
+(Each of these also has a Russian version beside it, as `.ru.md`.)
 
 ## Changelog
 

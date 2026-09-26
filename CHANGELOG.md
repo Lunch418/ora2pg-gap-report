@@ -31,6 +31,16 @@ patch for fixes to existing ones.
   pinned to the commits those tags point to today, so nothing about what
   runs changes except that a moved tag can no longer change it.
 
+- **README and ARCHITECTURE still described an earlier, smaller tool.**
+  `--verify`'s mode counts were given as 21/26 of 38 detectors (and
+  "11 more"/"20 more" in the README) where the registry has 51/54 of
+  106; the confirmed-versions note said "all 67" for what is now 105
+  gaps; and the README said `--help` and the research documents were not
+  translated and that the deeper docs were Russian-only, all of which
+  stopped being true in 0.10.0-0.11.0. Corrected in both languages; the
+  capability matrix is now described as covering the 67 Oracle gaps,
+  which is what it does.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

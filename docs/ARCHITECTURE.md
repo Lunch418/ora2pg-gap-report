@@ -306,13 +306,13 @@ Implemented in `verification.py`.
 This is not a behavioral/functional check: the tool never connects to
 either database, never executes anything, never compares data. It simply
 runs the same detectors against the generated file instead of the
-original Oracle file, and that doesn't work the same way for all 38
+original Oracle file, and that doesn't work the same way for all 106
 detectors, because not every construct survives conversion the same way:
 
-- **`VERBATIM`** (21 detectors) — `ora2pg` copies the flagged Oracle
+- **`VERBATIM`** (51 detectors) — `ora2pg` copies the flagged
   construct into its output essentially unchanged (confirmed from each
-  detector's own research doc, the "what ora2pg does" section):
-  `bulk_collect`, `conditional_compilation`, `cross_apply`,
+  detector's own research doc, the "what ora2pg does" section). Among
+  them: `bulk_collect`, `conditional_compilation`, `cross_apply`,
   `database_link`, `dbms_utl_calls`, `default_on_null`,
   `flashback_query`, `identity_column`, `insert_all`, `json_table`,
   `merge_delete_clause`, `model_clause`, `object_type`, `pivot_clause`,
@@ -320,7 +320,7 @@ detectors, because not every construct survives conversion the same way:
   generated file is a real check: `STILL_PRESENT` if the pattern remains,
   `NOT_DETECTED` if it's gone.
 
-- **`NOT_VERIFIABLE`** (26 detectors) — `ora2pg` either drops the
+- **`NOT_VERIFIABLE`** (54 detectors) — `ora2pg` either drops the
   construct entirely or rewrites it into a completely different shape
   (`read_only_table`, `table_partitioning`, `invisible_column`,
   `invisible_index`, `external_table`, `collection_type`,

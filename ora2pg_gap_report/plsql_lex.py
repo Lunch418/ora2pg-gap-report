@@ -88,6 +88,32 @@ def _q_quote_open_delim_pos(source: str, i: int) -> int | None:
 _EXEC_IMMEDIATE_RE = re.compile(r"\bEXECUTE\s+IMMEDIATE\b", re.IGNORECASE)
 
 
+# Where _mask() has something to decide. Everywhere else a character is
+# copied through unchanged, so the text between two matches can be copied
+# as one chunk -- which is what makes masking a large file fast. Each
+# alternative is a superset of the condition its branch in _mask() checks
+# (e.g. REM is found anywhere, and the branch still checks it opens its
+# line), never a subset, so no position a branch would act on is skipped.
+_MASK_CANDIDATE_SOURCE = r"--|/\*|'|[nN]?[qQ]'|(?i:REM(?:ARK)?)(?=[ \t\r\n]|\Z)"
+_MASK_CANDIDATES = re.compile(_MASK_CANDIDATE_SOURCE)
+_MASK_CANDIDATES_IN_DYNAMIC_SQL = re.compile(_MASK_CANDIDATE_SOURCE + "|;")
+_MASK_CANDIDATES_BEFORE_DYNAMIC_SQL = re.compile(
+    _MASK_CANDIDATE_SOURCE + r"|(?i:\bEXECUTE\s+IMMEDIATE\b)"
+)
+# The body of a '...' literal after its opening quote: anything but a
+# quote, or a doubled '' (an escaped quote). Ends at the closing quote,
+# or at the end of the text for an unterminated literal.
+_STRING_BODY_RE = re.compile(r"[^']*(?:''[^']*)*")
+_NOT_NEWLINE_RE = re.compile(r"[^\n]")
+
+
+def _blank(text: str) -> str:
+    """`text` with every character but a newline replaced by a space --
+    what masking does to a comment or a literal, keeping both the length
+    and the line numbers of everything after it."""
+    return _NOT_NEWLINE_RE.sub(" ", text)
+
+
 def _mask(source: str, reveal_dynamic_sql: bool, reveal_strings: bool = False) -> str:
     """Shared tokenizer for mask_strings_and_comments(),
     mask_dynamic_sql_visible() and mask_comments_only() -- all three views
@@ -101,10 +127,30 @@ def _mask(source: str, reveal_dynamic_sql: bool, reveal_strings: bool = False) -
     literal *content* -- ordinary and q-quoted alike -- while still
     blanking comments, for the two detectors whose subject matter is the
     literal itself (a q'...' literal, a 'RR' date format model)."""
-    out = []
+    out: list[str] = []
     i, n = 0, len(source)
     in_dynamic_sql = False
     while i < n:
+        # Jump straight to the next position where anything below could
+        # apply, copying the plain text in between as one chunk. Every
+        # branch that follows is still evaluated at that position exactly
+        # as it was per character before; the candidate patterns only
+        # skip positions where all of them would have fallen through to
+        # the plain append at the bottom. Which pattern depends on the
+        # state, because two branches only exist in some states.
+        if in_dynamic_sql:
+            candidates = _MASK_CANDIDATES_IN_DYNAMIC_SQL
+        elif reveal_dynamic_sql:
+            candidates = _MASK_CANDIDATES_BEFORE_DYNAMIC_SQL
+        else:
+            candidates = _MASK_CANDIDATES
+        found = candidates.search(source, i)
+        if found is None:
+            out.append(source[i:])
+            break
+        if found.start() > i:
+            out.append(source[i : found.start()])
+            i = found.start()
         if reveal_dynamic_sql and not in_dynamic_sql and source[i].upper() == "E":
             m = _EXEC_IMMEDIATE_RE.match(source, i)
             if m:
@@ -113,25 +159,24 @@ def _mask(source: str, reveal_dynamic_sql: bool, reveal_strings: bool = False) -
                 in_dynamic_sql = True
                 continue
         two = source[i : i + 2]
-        if two == "--":
-            while i < n and source[i] != "\n":
-                out.append(" ")
-                i += 1
-            continue
-        if source[i] in "rR" and _at_line_start(source, i) and _REM_RE.match(source, i):
-            while i < n and source[i] != "\n":
-                out.append(" ")
-                i += 1
+        if two == "--" or (
+            source[i] in "rR" and _at_line_start(source, i) and _REM_RE.match(source, i)
+        ):
+            line_end = source.find("\n", i)
+            if line_end == -1:
+                line_end = n
+            out.append(" " * (line_end - i))
+            i = line_end
             continue
         if two == "/*":
-            out.append("  ")
-            i += 2
-            while i < n and source[i : i + 2] != "*/":
-                out.append("\n" if source[i] == "\n" else " ")
-                i += 1
-            if i < n:
+            close = source.find("*/", i + 2)
+            body_end = close if close != -1 else n
+            out.append("  " + _blank(source[i + 2 : body_end]))
+            if close != -1:
                 out.append("  ")
-                i += 2
+                i = close + 2
+            else:
+                i = n
             continue
         if source[i] in "nNqQ":
             open_pos = _q_quote_open_delim_pos(source, i)
@@ -140,31 +185,26 @@ def _mask(source: str, reveal_dynamic_sql: bool, reveal_strings: bool = False) -
                 close_delim = _Q_QUOTE_PAIRS.get(open_delim, open_delim)
                 end = source.find(close_delim + "'", open_pos + 1)
                 if end != -1:
-                    if in_dynamic_sql or reveal_strings:
-                        out.append(source[i : end + 2])
-                    else:
-                        for k in range(i, end + 2):
-                            out.append("\n" if source[k] == "\n" else " ")
+                    literal = source[i : end + 2]
+                    out.append(literal if in_dynamic_sql or reveal_strings else _blank(literal))
                     i = end + 2
                     continue
         if source[i] == "'":
             reveal = in_dynamic_sql or reveal_strings
+            # A doubled '' inside the literal is an escaped quote, not its
+            # end; the literal runs to the first single ' after that, or to
+            # the end of the text if it never closes.
+            body_match = _STRING_BODY_RE.match(source, i + 1)
+            assert body_match is not None  # every alternative can match empty
+            close = body_match.end()
+            body = source[i + 1 : close]
             out.append("'" if reveal else " ")
-            i += 1
-            while i < n:
-                if source[i] == "'":
-                    if source[i : i + 2] == "''":
-                        out.append("''" if reveal else "  ")
-                        i += 2
-                        continue
-                    out.append("'" if reveal else " ")
-                    i += 1
-                    break
-                if reveal:
-                    out.append(source[i])
-                else:
-                    out.append("\n" if source[i] == "\n" else " ")
-                i += 1
+            out.append(body if reveal else _blank(body))
+            if close < n:
+                out.append("'" if reveal else " ")
+                i = close + 1
+            else:
+                i = n
             continue
         if source[i] == ";" and in_dynamic_sql:
             in_dynamic_sql = False

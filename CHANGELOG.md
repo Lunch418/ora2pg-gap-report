@@ -50,6 +50,17 @@ patch for fixes to existing ones.
   well under a second, with identical findings on 230k lines of real
   PL/SQL.
 
+- **Masking Oracle source is three times faster.** The tokenizer every
+  Oracle detector's view of the source comes from walked the text one
+  character per iteration; on a 1.2 MB data script that was 6 of the 9
+  seconds the whole scan took. It now copies plain text, comments and
+  literals in one piece and only stops where something can happen. The
+  output is required to be identical: `tests/test_plsql_mask_equivalence.py`
+  keeps the old implementation as a reference and compares both on every
+  sample and on 60,000 random strings built from the characters the
+  tokenizer reacts to; before it landed, the same comparison ran clean
+  over 844 real files (15.7M characters) in all three masking modes.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

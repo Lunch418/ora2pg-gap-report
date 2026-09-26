@@ -1404,7 +1404,10 @@ def test_fix_dry_run_diff_is_not_wrapped_and_is_git_apply_clean(tmp_path, capsys
     long_dir = tmp_path / ("this_is_a_very_long_directory_name_" * 3)
     long_dir.mkdir()
     generated = long_dir / "generated.sql"
-    generated.write_text(_GENERATED_IDENTITY_BUG, encoding="utf-8")
+    # Bytes, not write_text(): on Windows write_text() turns every '\n'
+    # into '\r\n', and --fix keeps a file's line endings in its diff, so
+    # the expected diff below would have to change per platform.
+    generated.write_bytes(_GENERATED_IDENTITY_BUG.encode("utf-8"))
 
     exit_code = main(["--fix", str(generated)])
     captured = capsys.readouterr()
@@ -1412,7 +1415,7 @@ def test_fix_dry_run_diff_is_not_wrapped_and_is_git_apply_clean(tmp_path, capsys
 
     import difflib
 
-    fixed = generated.read_text(encoding="utf-8").replace("((START WITH 1 INCREMENT BY 1))", "(START WITH 1 INCREMENT BY 1)")
+    fixed = _GENERATED_IDENTITY_BUG.replace("((START WITH 1 INCREMENT BY 1))", "(START WITH 1 INCREMENT BY 1)")
     expected_diff = "".join(
         difflib.unified_diff(
             _GENERATED_IDENTITY_BUG.splitlines(keepends=True),

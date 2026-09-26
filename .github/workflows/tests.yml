@@ -195,8 +195,8 @@ jobs:
           /tmp/verify-venv/bin/pip install dist/*.whl
           /tmp/verify-venv/bin/ora2pg-gap-report --help
           /tmp/verify-venv/bin/ora2pg-gap-report --version
-          /tmp/verify-venv/bin/ora2pg-gap-report docs/research/samples/logger.pkb --format json | python -c "import json,sys; d=json.load(sys.stdin); assert len(d) > 0, 'expected findings on a known-bad sample'; print(len(d), 'findings — ok')"
-          /tmp/verify-venv/bin/ora2pg-gap-report docs/research/samples/ --format json | python -c "import json,sys; d=json.load(sys.stdin); assert len(d) > 0, 'expected findings scanning the samples directory'; print(len(d), 'findings from directory scan — ok')"
+          /tmp/verify-venv/bin/ora2pg-gap-report docs/research/samples/logger.pkb --format json | python -c "import json,sys; d=json.load(sys.stdin); assert len(d['findings']) > 0, 'expected findings on a known-bad sample'; print(len(d['findings']), 'findings — ok')"
+          /tmp/verify-venv/bin/ora2pg-gap-report docs/research/samples/ --format json | python -c "import json,sys; d=json.load(sys.stdin); assert len(d['findings']) > 0, 'expected findings scanning the samples directory'; print(len(d['findings']), 'findings from directory scan — ok')"
           COLUMNS=200 /tmp/verify-venv/bin/ora2pg-gap-report --explain GAP-023 | grep -q 'github.com.*gap-023-oracle-text.md' && echo '--explain falls back to a GitHub link in the installed wheel — ok'
           # textual isn't installed in this bare wheel (only via the [tui] extra) --
           # --tui must fail with a clean install hint, not a raw ImportError traceback.

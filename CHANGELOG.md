@@ -19,6 +19,11 @@ patch for fixes to existing ones.
   regenerates all three the way the example's README describes and
   requires them to match, so they can't drift silently again.
 
+- **The installed-wheel smoke test in CI could not fail.** It checked
+  `len()` of the whole `--format json` document, which always has three
+  top-level keys, so it passed -- and printed "3 findings — ok" -- even
+  for a scan that found nothing. It now counts the `findings` array.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

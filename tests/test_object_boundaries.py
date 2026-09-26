@@ -124,7 +124,7 @@ def test_a_mysql_statement_after_the_delimiter_reset_is_not_the_previous_routine
         "DELIMITER ;\n"
         "SELECT * FROM t LIMIT 3, 4;\n"
     )
-    assert _attribution(source, "mysql") == [
+    assert [a for a in _attribution(source, "mysql") if a[0] == "mysql_limit_comma"] == [
         ("mysql_limit_comma", "P"),
         ("mysql_limit_comma", "UNKNOWN"),
     ]

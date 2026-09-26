@@ -107,6 +107,14 @@ from .detectors.cursor_rowtype import find_cursor_rowtype
 from .detectors.wm_concat import find_wm_concat
 from .detectors.read_only_view import find_read_only_views
 from .detectors.sdo_geometry import find_sdo_geometry_columns
+from .detectors.identity_on_null import find_identity_on_null
+from .detectors.table_if_not_exists import find_table_if_not_exists
+from .detectors.mysql_create_table_if_not_exists import find_mysql_create_table_if_not_exists
+from .detectors.mysql_definer_procedure import find_mysql_definer_procedures
+from .detectors.mysql_delimiter_routine import find_mysql_delimiter_routines
+from .detectors.mysql_delimiter_trigger import find_mysql_delimiter_triggers
+from .detectors.mysql_temporary_table import find_mysql_temporary_tables
+from .detectors.mysql_versioned_comment import find_mysql_versioned_comments
 from .detectors.object_type import find_object_types
 from .detectors.oracle_text import find_oracle_text_usage
 from .detectors.package_state import find_package_state
@@ -195,6 +203,8 @@ _ORACLE_DETECTORS = (
     find_wm_concat,
     find_read_only_views,
     find_sdo_geometry_columns,
+    find_table_if_not_exists,
+    find_identity_on_null,
 )
 # MySQL detectors -- a source-language dialect, run against a MySQL/MariaDB
 # schema/procedure dump rather than an Oracle one. Deliberately a SEPARATE
@@ -229,6 +239,12 @@ _MYSQL_DETECTORS = (
     find_mysql_declare_handlers,
     find_mysql_collations,
     find_mysql_set_columns,
+    find_mysql_delimiter_routines,
+    find_mysql_delimiter_triggers,
+    find_mysql_definer_procedures,
+    find_mysql_versioned_comments,
+    find_mysql_create_table_if_not_exists,
+    find_mysql_temporary_tables,
 )
 # MSSQL detectors -- the T-SQL/SQL Server source dialect (ora2pg -M),
 # added on exactly the same footing as the MySQL set above and kept just

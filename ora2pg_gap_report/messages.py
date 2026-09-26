@@ -3524,6 +3524,212 @@ MESSAGES: dict[str, Message] = {
             "made explicit."
         ),
     ),
+    "mysql_delimiter_routine": Message(
+        ru=(
+            "Процедура или функция MySQL/MariaDB, записанная под разделителем, отличным от ';' "
+            "(DELIMITER ;; / // / $$ ...), — иначе подпрограмму с ';' внутри клиент mysql не "
+            'примет, и именно так mysqldump выгружает каждую подпрограмму. ora2pg (-m) ищет конец'
+            ' тела в стиле Oracle — END <имя>; — и директиву DELIMITER не знает: закрывающий '
+            'разделитель, строка DELIMITER ; и всё, что стоит до следующей подпрограммы (у '
+            'mysqldump — служебные /*!50003 SET ... */), попадают внутрь тела (подтверждено '
+            'реальным прогоном ora2pg 25.0 + PostgreSQL 16 для процедур и функций под ;; // $$ | '
+            '$, docs/research/gap-106-mysql-delimiter-routine.md). CREATE падает сразу при '
+            'загрузке (\'syntax error at or near "DELIMITER"\' / \'"//"\' / \'unterminated '
+            "dollar-quoted string'), а \\set ON_ERROR_STOP ON в выводе останавливает загрузку "
+            'всего файла: из настоящего дампа sakila (MySQL 8.0) в PostgreSQL не создалась ни '
+            'одна подпрограмма. Та же подпрограмма без DELIMITER загружается и работает. '
+            'Исправляется до конвертации: убрать директивы DELIMITER и заменить закрывающий '
+            "разделитель на обычный ';'."
+        ),
+        en=(
+            "A MySQL/MariaDB procedure or function written under a delimiter other than ';' "
+            '(DELIMITER ;; / // / $$ ...) -- the only way the mysql client accepts a routine with'
+            " ';' in its body, and how mysqldump writes every routine it dumps. ora2pg (-m) looks"
+            ' for an Oracle-style END <name>; to end the body and does not know the DELIMITER '
+            'directive: the closing delimiter, the DELIMITER ; line and everything before the '
+            "next routine (mysqldump's /*!50003 SET ... */ lines) end up inside the body "
+            '(confirmed against a real ora2pg 25.0 + PostgreSQL 16 run for procedures and '
+            'functions under ;; // $$ | $, docs/research/gap-106-mysql-delimiter-routine.md). '
+            'CREATE fails immediately at load time (\'syntax error at or near "DELIMITER"\' / '
+            '\'"//"\' / \'unterminated dollar-quoted string\'), and the output\'s \\set ON_ERROR_STOP '
+            'ON stops the load of the whole file there: from a real mysqldump of sakila (MySQL '
+            '8.0) not a single routine was created in PostgreSQL. The same routine without '
+            'DELIMITER loads and runs. Fix it before converting: drop the DELIMITER directives '
+            "and end each routine with a plain ';'."
+        ),
+    ),
+    "mysql_delimiter_trigger": Message(
+        ru=(
+            "Триггер MySQL/MariaDB, записанный под разделителем без ';' (DELIMITER // / $$ / | "
+            "...). Разбор триггеров в ora2pg (-m) находит конец триггера только по ';', поэтому "
+            'под таким разделителем не находит триггер вовсе: в выводе его нет, ошибки нет, в '
+            'логе ничего (подтверждено реальным прогоном ora2pg 25.0 для // $$ | $, '
+            'docs/research/gap-107-mysql-delimiter-trigger.md). Схема загружается, а таблица в '
+            'PostgreSQL просто остаётся без триггера — всё, что он делал (заполнение полей, '
+            'аудит, каскадные изменения), молча перестаёт происходить. Под DELIMITER ;; — выбором'
+            ' самого mysqldump — тот же триггер конвертируется, поэтому такой случай не '
+            'отмечается. Исправляется до конвертации: заменить разделитель на ;; или убрать '
+            'DELIMITER.'
+        ),
+        en=(
+            "A MySQL/MariaDB trigger written under a delimiter with no ';' in it (DELIMITER // / "
+            "$$ / | ...). ora2pg's (-m) trigger parser only finds the end of a trigger by a ';', "
+            'so under such a delimiter it finds no trigger at all: nothing in the output, no '
+            'error, nothing in the log (confirmed against a real ora2pg 25.0 run for // $$ | $, '
+            'docs/research/gap-107-mysql-delimiter-trigger.md). The schema loads, and the table '
+            'in PostgreSQL simply has no trigger -- whatever it did (filling columns, auditing, '
+            "cascading changes) silently stops happening. Under DELIMITER ;; -- mysqldump's own "
+            'choice -- the same trigger converts, which is why that case is not flagged. Fix it '
+            'before converting: switch the delimiter to ;; or drop DELIMITER.'
+        ),
+    ),
+    "mysql_definer_procedure": Message(
+        ru=(
+            'Процедура MySQL/MariaDB с DEFINER=... — так mysqldump записывает каждую процедуру. '
+            'ora2pg -m -t PROCEDURE такую процедуру не выгружает никогда: в построчном разборе '
+            'export_procedure(), в отличие от export_function(), у шаблонов CREATE нет варианта '
+            'DEFINER=, имя процедуры не распознаётся, и весь её текст пропускается молча '
+            '(подтверждено реальным прогоном ora2pg 25.0 и по его исходному коду, '
+            'docs/research/gap-108-mysql-definer-procedure.md). Та же процедура без DEFINER '
+            'выгружается. Обойти можно двумя способами: убрать DEFINER=... из скрипта до '
+            'конвертации либо выгружать процедуры через -t FUNCTION — его разбор DEFINER понимает'
+            ' и заодно забирает процедуры.'
+        ),
+        en=(
+            'A MySQL/MariaDB procedure with DEFINER=... -- how mysqldump writes every procedure. '
+            "ora2pg -m -t PROCEDURE never exports one: unlike export_function()'s, the CREATE "
+            "patterns in export_procedure()'s line parser have no DEFINER= alternative, so the "
+            "procedure's name is never recognised and its whole text is skipped without a word "
+            '(confirmed against a real ora2pg 25.0 run and in its source, '
+            'docs/research/gap-108-mysql-definer-procedure.md). The same procedure without '
+            'DEFINER is exported. Two ways around it: strip DEFINER=... from the script before '
+            'converting, or export procedures with -t FUNCTION, whose parser does understand '
+            'DEFINER and picks procedures up as well.'
+        ),
+    ),
+    "mysql_versioned_comment": Message(
+        ru=(
+            'Триггер, представление, процедура или функция внутри исполняемых комментариев MySQL '
+            '(/*!50003 CREATE*/ /*!50017 DEFINER=...*/ /*!50003 TRIGGER ... */) — так mysqldump '
+            'выгружает каждый триггер и каждое представление (а старые версии — и подпрограммы). '
+            'MySQL выполняет содержимое таких комментариев, а ora2pg (-m) удаляет комментарии до '
+            'разбора, и объект пропадает целиком: ни вывода, ни ошибки, ни строки в логе '
+            '(подтверждено реальным прогоном ora2pg 25.0 для триггера, представления, процедуры и'
+            ' функции, docs/research/gap-109-mysql-versioned-comment.md). Схема загружается без '
+            'них. Исправляется до конвертации: снять обёртку /*!NNNNN ... */, оставив сам CREATE.'
+        ),
+        en=(
+            "A trigger, view, procedure or function inside MySQL's executable comments (/*!50003 "
+            'CREATE*/ /*!50017 DEFINER=...*/ /*!50003 TRIGGER ... */) -- how mysqldump writes '
+            'every trigger and every view (and older versions, routines too). MySQL runs the '
+            'contents of such comments; ora2pg (-m) removes comments before it parses, and the '
+            'object is gone entirely: no output, no error, not a line in the log (confirmed '
+            'against a real ora2pg 25.0 run for a trigger, a view, a procedure and a function, '
+            'docs/research/gap-109-mysql-versioned-comment.md). The schema loads without them. '
+            'Fix it before converting: unwrap the /*!NNNNN ... */, keeping the CREATE itself.'
+        ),
+    ),
+    "mysql_create_table_if_not_exists": Message(
+        ru=(
+            'CREATE TABLE IF NOT EXISTS на верхнем уровне скрипта MySQL/MariaDB. Разбор таблиц в '
+            'ora2pg (-m) берёт слово после TABLE за имя таблицы, и она выходит как CREATE TABLE '
+            'if ( not EXISTS ... ) — настоящее имя и столбцы потеряны (подтверждено реальным '
+            'прогоном ora2pg 25.0 + PostgreSQL 16, '
+            'docs/research/gap-110-mysql-create-table-if-not-exists.md). PostgreSQL отвергает её '
+            'сразу при загрузке (\'syntax error at or near "not"\'), и \\set ON_ERROR_STOP ON в '
+            'выводе останавливает загрузку всей схемы. Та же таблица без IF NOT EXISTS '
+            'конвертируется. Внутри процедуры/функции/триггера конструкция копируется в тело как '
+            'есть и в PostgreSQL работает, поэтому там не отмечается. Исправляется до '
+            'конвертации: убрать IF NOT EXISTS.'
+        ),
+        en=(
+            "A top-level CREATE TABLE IF NOT EXISTS in a MySQL/MariaDB script. ora2pg's (-m) "
+            "table parser takes the word after TABLE as the table's name, so it comes out as "
+            'CREATE TABLE if ( not EXISTS ... ) with its real name and columns lost (confirmed '
+            'against a real ora2pg 25.0 + PostgreSQL 16 run, '
+            'docs/research/gap-110-mysql-create-table-if-not-exists.md). PostgreSQL rejects it at'
+            ' load time (\'syntax error at or near "not"\'), and the output\'s \\set ON_ERROR_STOP ON'
+            ' stops the load of the whole schema. The same table without IF NOT EXISTS converts. '
+            'Inside a procedure/function/trigger the statement is copied into the body as written'
+            ' and works in PostgreSQL, so it is not flagged there. Fix it before converting: drop'
+            ' IF NOT EXISTS.'
+        ),
+    ),
+    "mysql_temporary_table": Message(
+        ru=(
+            'CREATE TEMPORARY TABLE на верхнем уровне скрипта MySQL/MariaDB. ora2pg (-m) '
+            'отбрасывает TEMPORARY и генерирует обычный CREATE TABLE (подтверждено реальным '
+            'прогоном ora2pg 25.0 + PostgreSQL 16, '
+            'docs/research/gap-111-mysql-temporary-table.md). Ошибки нет, но смысл меняется: '
+            'таблица становится постоянной и общей — строки, записанные одним сеансом, переживают'
+            ' его и видны всем остальным, тогда как в MySQL у каждого сеанса была своя копия, '
+            'исчезавшая вместе с ним. Проверено на данных: строка, вставленная в одной сессии '
+            'PostgreSQL, читается из другой. Внутри процедуры/функции/триггера CREATE TEMPORARY '
+            'TABLE копируется в тело как есть и значит то же, что в MySQL, поэтому там не '
+            'отмечается. Восстанавливается вручную: CREATE TEMPORARY TABLE в сгенерированном DDL '
+            '(или в коде, который её создаёт).'
+        ),
+        en=(
+            'A top-level CREATE TEMPORARY TABLE in a MySQL/MariaDB script. ora2pg (-m) drops '
+            'TEMPORARY and generates a plain CREATE TABLE (confirmed against a real ora2pg 25.0 +'
+            ' PostgreSQL 16 run, docs/research/gap-111-mysql-temporary-table.md). Nothing errors,'
+            ' but the meaning changes: the table is now permanent and shared -- rows one session '
+            'writes outlive it and are visible to every other session, where MySQL gave each '
+            'session its own copy that vanished with it. Verified on data: a row inserted in one '
+            'PostgreSQL session is read back from another. Inside a procedure/function/trigger '
+            'CREATE TEMPORARY TABLE is copied into the body as written and means what it did in '
+            'MySQL, so it is not flagged there. Restore it by hand: CREATE TEMPORARY TABLE in the'
+            ' generated DDL (or in the code that creates it).'
+        ),
+    ),
+    "table_if_not_exists": Message(
+        ru=(
+            'CREATE TABLE IF NOT EXISTS (Oracle 23ai). ora2pg берёт слово после TABLE за имя '
+            'таблицы, и она выходит как CREATE TABLE if ( not EXISTS ... ) — настоящее имя и '
+            'столбцы потеряны (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, '
+            'docs/research/gap-112-table-if-not-exists.md). PostgreSQL отвергает её сразу при '
+            'загрузке (\'syntax error at or near "not"\'), и \\set ON_ERROR_STOP ON в выводе '
+            'останавливает загрузку всей схемы. Та же таблица без IF NOT EXISTS конвертируется. '
+            'DBMS_METADATA.GET_DDL это предложение не пишет никогда — оно встречается в скриптах,'
+            ' которые ведут вручную. Исправляется до конвертации: убрать IF NOT EXISTS.'
+        ),
+        en=(
+            'CREATE TABLE IF NOT EXISTS (Oracle 23ai). ora2pg takes the word after TABLE as the '
+            "table's name, so it comes out as CREATE TABLE if ( not EXISTS ... ) with its real "
+            'name and columns lost (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, '
+            'docs/research/gap-112-table-if-not-exists.md). PostgreSQL rejects it at load time '
+            '(\'syntax error at or near "not"\'), and the output\'s \\set ON_ERROR_STOP ON stops the '
+            'load of the whole schema. The same table without IF NOT EXISTS converts. '
+            'DBMS_METADATA.GET_DDL never writes the clause -- it turns up in hand-maintained '
+            'scripts. Fix it before converting: drop IF NOT EXISTS.'
+        ),
+    ),
+    "identity_on_null": Message(
+        ru=(
+            'GENERATED BY DEFAULT ON NULL AS IDENTITY. В Oracle INSERT, который явно передаёт '
+            'NULL в такой столбец, получает следующее значение identity — ровно как если бы '
+            'столбец не был указан. ora2pg превращает столбец в GENERATED BY DEFAULT AS IDENTITY '
+            'и ON NULL отбрасывает (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 и '
+            'живым Oracle 23ai, docs/research/gap-113-identity-on-null.md). DDL загружается, а '
+            "тот же INSERT в PostgreSQL падает: 'null value in column ... violates not-null "
+            "constraint'. Ломается код, который передаёт NULL намеренно — универсальная процедура"
+            ' вставки, ORM, перечисляющая все столбцы, — на первом же вызове. Восстанавливается '
+            'триггером BEFORE INSERT, подставляющим nextval() последовательности столбца, когда '
+            'пришёл NULL, либо правкой кода, чтобы он не передавал столбец вовсе.'
+        ),
+        en=(
+            'GENERATED BY DEFAULT ON NULL AS IDENTITY. In Oracle, an INSERT that passes NULL for '
+            'such a column explicitly gets the next identity value, exactly as if the column had '
+            'been left out. ora2pg turns the column into GENERATED BY DEFAULT AS IDENTITY and '
+            'drops ON NULL (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run and a live '
+            'Oracle 23ai, docs/research/gap-113-identity-on-null.md). The DDL loads, and the same'
+            " INSERT then fails in PostgreSQL: 'null value in column ... violates not-null "
+            "constraint'. Code that passes NULL on purpose -- a generic insert routine, an ORM "
+            'that lists every column -- breaks on its first call. Restore it with a BEFORE INSERT'
+            " trigger that substitutes the column sequence's nextval() when NULL arrives, or "
+            'change the code so it leaves the column out.'
+        ),
+    ),
 }
 
 
@@ -4595,6 +4801,86 @@ REMEDIATION_HINTS: dict[str, Message] = {
         en=(
             'Restore self-updating with a BEFORE UPDATE trigger, or switch to the system '
             'xmin column -- otherwise optimistic locking silently stops working'
+        ),
+    ),
+    "mysql_delimiter_routine": Message(
+        ru=(
+            "Убрать DELIMITER и закончить подпрограмму обычным ';' до конвертации — иначе ora2pg "
+            'затягивает директиву в тело, и CREATE не загружается'
+        ),
+        en=(
+            "Drop DELIMITER and end the routine with a plain ';' before converting -- otherwise "
+            'ora2pg pulls the directive into the body and CREATE fails to load'
+        ),
+    ),
+    "mysql_delimiter_trigger": Message(
+        ru=(
+            'Заменить разделитель на ;; (или убрать DELIMITER) до конвертации — под // $$ | '
+            'ora2pg триггер не видит вовсе'
+        ),
+        en=(
+            'Switch the delimiter to ;; (or drop DELIMITER) before converting -- under // $$ | '
+            'ora2pg does not see the trigger at all'
+        ),
+    ),
+    "mysql_definer_procedure": Message(
+        ru=(
+            'Убрать DEFINER=... до конвертации или выгружать процедуры через -t FUNCTION — -t '
+            'PROCEDURE такие процедуры пропускает молча'
+        ),
+        en=(
+            'Strip DEFINER=... before converting, or export procedures with -t FUNCTION -- -t '
+            'PROCEDURE silently skips them'
+        ),
+    ),
+    "mysql_versioned_comment": Message(
+        ru=(
+            'Снять обёртку /*!NNNNN ... */ вокруг CREATE до конвертации — ora2pg считает её '
+            'комментарием и выбрасывает объект'
+        ),
+        en=(
+            'Unwrap the /*!NNNNN ... */ around the CREATE before converting -- ora2pg treats it '
+            'as a comment and drops the object'
+        ),
+    ),
+    "mysql_create_table_if_not_exists": Message(
+        ru=(
+            "Убрать IF NOT EXISTS до конвертации — ora2pg превращает таблицу в 'CREATE TABLE if "
+            "(...)', и загрузка схемы падает"
+        ),
+        en=(
+            "Drop IF NOT EXISTS before converting -- ora2pg turns the table into 'CREATE TABLE if"
+            " (...)' and the schema load fails"
+        ),
+    ),
+    "mysql_temporary_table": Message(
+        ru=(
+            'Вернуть TEMPORARY в сгенерированный CREATE TABLE — без него таблица постоянная и '
+            'общая для всех сеансов'
+        ),
+        en=(
+            'Put TEMPORARY back into the generated CREATE TABLE -- without it the table is '
+            'permanent and shared by every session'
+        ),
+    ),
+    "table_if_not_exists": Message(
+        ru=(
+            "Убрать IF NOT EXISTS до конвертации — ora2pg превращает таблицу в 'CREATE TABLE if "
+            "(...)', и загрузка схемы падает"
+        ),
+        en=(
+            "Drop IF NOT EXISTS before converting -- ora2pg turns the table into 'CREATE TABLE if"
+            " (...)' and the schema load fails"
+        ),
+    ),
+    "identity_on_null": Message(
+        ru=(
+            'Добавить триггер BEFORE INSERT, подставляющий nextval() при явном NULL, или не '
+            'передавать столбец в INSERT — ON NULL теряется'
+        ),
+        en=(
+            'Add a BEFORE INSERT trigger that substitutes nextval() on an explicit NULL, or leave'
+            ' the column out of the INSERT -- ON NULL is lost'
         ),
     ),
 }

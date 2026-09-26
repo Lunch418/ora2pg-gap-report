@@ -17,6 +17,15 @@ import pytest
 
 from ora2pg_gap_report.core import scan_source
 
+# Gaps that are about the head itself rather than the columns, and so are
+# expected on a variant and not on the plain CREATE TABLE.
+_HEAD_GAPS = {
+    "global_temp_table",
+    "table_if_not_exists",
+    "mysql_create_table_if_not_exists",
+    "mysql_temporary_table",
+}
+
 MYSQL_BODY = (
     " t (id int NOT NULL, s ENUM('a','b'),"
     " u timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,"
@@ -30,7 +39,9 @@ ORACLE_BODY = (
 
 
 def _findings(source: str, dialect: str) -> list[tuple[str, str]]:
-    return sorted((f.detector, f.object_name) for f in scan_source(source, dialect))
+    return sorted(
+        (f.detector, f.object_name) for f in scan_source(source, dialect) if f.detector not in _HEAD_GAPS
+    )
 
 
 @pytest.mark.parametrize(
@@ -45,9 +56,7 @@ def test_a_mysql_table_head_variant_is_scanned_like_a_plain_create_table(head):
 def test_an_oracle_table_head_variant_is_scanned_like_a_plain_create_table(head):
     plain = _findings("CREATE TABLE" + ORACLE_BODY + ";", "oracle")
     assert {"default_on_null", "identity_column", "rowid_type"} <= {d for d, _ in plain}
-    variant = [f for f in _findings(head + ORACLE_BODY + " ON COMMIT PRESERVE ROWS;", "oracle")
-               if f[0] != "global_temp_table"]
-    assert variant == plain
+    assert _findings(head + ORACLE_BODY + " ON COMMIT PRESERVE ROWS;", "oracle") == plain
 
 
 def test_the_mysql_table_name_is_not_taken_from_if_not_exists():

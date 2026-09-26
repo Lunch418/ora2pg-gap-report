@@ -10,7 +10,7 @@ something's unimplemented, but because the question itself, "is this
 still in the output," is a tautology for them: the construct is
 guaranteed to never appear in the output on any migration, regardless of
 whether someone fixed it by hand or not. `verification.py`'s docstring
-explains this in detail; this is a table for each of the 67 gaps, so
+explains this in detail; this is a table for each of the 113 gaps, so
 nobody has to read the code just to answer "can this specific one be
 verified."
 
@@ -108,7 +108,68 @@ verified."
 | 066 | `read_only_view` | `not_verifiable` | The WITH READ ONLY clause is dropped unconditionally. |
 | 067 | `sdo_geometry` | `not_verifiable` | Rewritten to the PostGIS `geometry` type; the SDO_GEOMETRY name never survives. |
 
-Totals among the 67 gaps themselves: 30 `verbatim`, 36 `not_verifiable`
+### Oracle (GAP-112..113)
+
+| # | Detector | Mode | Why |
+|---|---|---|---|
+| 112 | `table_if_not_exists` | `not_verifiable` | Mangled into `CREATE TABLE if (`, never IF NOT EXISTS. |
+| 113 | `identity_on_null` | `not_verifiable` | Rewritten to BY DEFAULT AS IDENTITY; ON NULL never survives. |
+
+### MySQL/MariaDB (`ora2pg -m`)
+
+| # | Detector | Mode | Why |
+|---|---|---|---|
+| 068 | `mysql_enum_type` | `not_verifiable` | Rewritten to a synthesized <table>_<column>_t type reference; ENUM(...) itself never survives. |
+| 069 | `mysql_on_update_current_timestamp` | `verbatim` | ON UPDATE CURRENT_TIMESTAMP is copied straight into the generated DEFAULT. |
+| 070 | `mysql_on_duplicate_key_update` | `verbatim` | The whole ON DUPLICATE KEY UPDATE clause is copied unchanged into the function body. |
+| 071 | `mysql_signal` | `verbatim` | SIGNAL/RESIGNAL is copied unchanged (only the SET keyword before MESSAGE_TEXT is lost). |
+| 072 | `mysql_fulltext_index` | `verbatim` | 'FULLTEXT KEY'/'FULLTEXT INDEX' is left sitting in the output, case-folded but keyword-intact. |
+| 073 | `mysql_key_index` | `verbatim` | The bare 'key <NAME>' stub survives in the output where a column was expected. |
+| 074 | `mysql_spatial_index` | `verbatim` | Same shape as fulltext: 'spatial KEY' left in the column list. |
+| 075 | `mysql_limit_comma` | `verbatim` | `LIMIT n, m` copied straight into the function body. |
+| 076 | `mysql_replace_into` | `verbatim` | REPLACE INTO copied unchanged into the function body. |
+| 077 | `mysql_insert_ignore` | `verbatim` | INSERT IGNORE copied unchanged into the function body. |
+| 078 | `mysql_prepare_from` | `verbatim` | `PREPARE <name> FROM` copied unchanged (only the @var becomes a plain variable). |
+| 079 | `mysql_last_insert_id` | `verbatim` | The LAST_INSERT_ID() call is copied unchanged. |
+| 080 | `mysql_auto_increment_start` | `not_verifiable` | A table option that is dropped; AUTO_INCREMENT=<n> is never in the output by construction. |
+| 081 | `mysql_date_format` | `not_verifiable` | Rewritten into a row constructor; the DATE_FORMAT name never survives. |
+| 082 | `mysql_foreign_key` | `not_verifiable` | Dropped entirely — no FOREIGN KEY reaches the output at all. |
+| 083 | `mysql_zero_date` | `not_verifiable` | Silently rewritten to '1970-01-01'; the zero-date literal never survives. |
+| 084 | `mysql_declare_handler` | `not_verifiable` | Dropped entirely, replaced by blank lines. |
+| 085 | `mysql_collate` | `not_verifiable` | The COLLATE/CHARACTER SET clause is dropped from the column definition. |
+| 086 | `mysql_set_type` | `not_verifiable` | Rewritten to plain `text`; the SET(...) spelling never survives. |
+| 106 | `mysql_delimiter_routine` | `not_verifiable` | The DELIMITER directive only leaks into the body as a stray line. |
+| 107 | `mysql_delimiter_trigger` | `not_verifiable` | The trigger is not generated at all. |
+| 108 | `mysql_definer_procedure` | `not_verifiable` | The procedure is not generated at all by -t PROCEDURE. |
+| 109 | `mysql_versioned_comment` | `not_verifiable` | The object is removed with the comments. |
+| 110 | `mysql_create_table_if_not_exists` | `not_verifiable` | Mangled into `CREATE TABLE if (`, never IF NOT EXISTS. |
+| 111 | `mysql_temporary_table` | `not_verifiable` | TEMPORARY is dropped; a plain CREATE TABLE is left. |
+
+### MSSQL / T-SQL (`ora2pg -M`)
+
+| # | Detector | Mode | Why |
+|---|---|---|---|
+| 087 | `mssql_bracket_identifier` | `verbatim` | The brackets survive into the generated identifier, which is exactly the problem. |
+| 088 | `mssql_newid_default` | `not_verifiable` | Rewritten to uuid_generate_v4(); the NEWID() spelling never survives. |
+| 089 | `mssql_update_set` | `not_verifiable` | The SET keyword is deleted by the conversion, so the source shape is gone. |
+| 090 | `mssql_identity_column` | `not_verifiable` | IDENTITY is dropped entirely; nothing of it reaches the output. |
+| 091 | `mssql_parameterless_procedure` | `not_verifiable` | The finding is about the generated DECLARE block, not a surviving source token. |
+| 092 | `mssql_if_statement` | `verbatim` | The IF survives (mis-closed or without THEN), so re-detection is meaningful. |
+| 093 | `mssql_raiserror` | `verbatim` | RAISERROR/THROW are copied unchanged. |
+| 094 | `mssql_try_catch` | `verbatim` | The whole TRY/CATCH construct is copied unchanged. |
+| 095 | `mssql_top_clause` | `verbatim` | TOP n is copied unchanged. |
+| 096 | `mssql_scope_identity` | `verbatim` | The call is copied unchanged. |
+| 097 | `mssql_output_clause` | `verbatim` | The OUTPUT clause is copied unchanged. |
+| 098 | `mssql_iif` | `verbatim` | The IIF call is copied unchanged. |
+| 099 | `mssql_datediff` | `verbatim` | The DATEDIFF call is copied unchanged. |
+| 100 | `mssql_charindex` | `not_verifiable` | Rewritten into position(); the CHARINDEX name never survives. |
+| 101 | `mssql_filtered_index` | `not_verifiable` | The whole CREATE INDEX statement is dropped. |
+| 102 | `mssql_foreign_key` | `not_verifiable` | Dropped entirely — no FOREIGN KEY reaches the output at all. |
+| 103 | `mssql_collation` | `not_verifiable` | The COLLATE clause is dropped and the column becomes citext. |
+| 104 | `mssql_computed_column` | `not_verifiable` | Rewritten into a trigger; the `AS (expr)` column syntax never survives. |
+| 105 | `mssql_rowversion` | `not_verifiable` | Rewritten to bytea; the ROWVERSION name never survives. |
+
+Totals among the 113 gaps themselves: 50 `verbatim`, 62 `not_verifiable`
 (including `autonomous_tx`, but for a different reason, see above), 1
 `generated_only` (`connect_by`).
 

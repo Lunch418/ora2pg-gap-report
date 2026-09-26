@@ -217,6 +217,13 @@ _TRIGGER_NAME_RE = re.compile(
     qualified_name_pattern(_CREATE_PREFIX + "TRIGGER" + _IF_NOT_EXISTS), re.IGNORECASE
 )
 _VIEW_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "VIEW" + _IF_NOT_EXISTS), re.IGNORECASE)
+# Public for the detectors that need "a routine" or "a trigger" rather
+# than the whole container index -- the same patterns, not copies of them.
+ROUTINE_NAME_RE = re.compile(
+    qualified_name_pattern(_CREATE_PREFIX + r"(?:AGGREGATE\s+)?(?:PROCEDURE|FUNCTION)" + _IF_NOT_EXISTS),
+    re.IGNORECASE,
+)
+TRIGGER_NAME_RE = _TRIGGER_NAME_RE
 
 
 # The client directive every MySQL script uses around a routine or trigger
@@ -224,6 +231,49 @@ _VIEW_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "VIEW" + _IF_
 # A directive to the client, so always the first word on its line. The
 # one after a routine is what ends it; the one before starts nothing.
 _DELIMITER_RE = re.compile(r"^[ \t]*DELIMITER\b", re.IGNORECASE | re.MULTILINE)
+_DELIMITER_TOKEN_RE = re.compile(r"^[ \t]*DELIMITER[ \t]+(\S+)", re.IGNORECASE | re.MULTILINE)
+
+
+def delimiter_at(text: str, position: int) -> str:
+    """The statement delimiter in force at `position` in `text` (already
+    masked): ';' unless a DELIMITER directive before it set another one.
+    The mysql client -- and mysqldump, which writes for it -- needs a
+    different delimiter to send a routine or trigger body that contains
+    ';' as one statement; which one was in force decides what ora2pg -m
+    makes of the object (see mysql_delimiter_routine.py)."""
+    current = ";"
+    for m in _DELIMITER_TOKEN_RE.finditer(text, 0, position):
+        current = m.group(1)
+    return current
+
+
+# The containers a statement can be written *inside* of, rather than
+# beside. See inside_routine_body().
+_ROUTINE_KINDS = frozenset({"procedure", "function", "trigger"})
+
+
+def inside_routine_body(index: tuple[tuple[int, str, str], ...], position: int) -> bool:
+    """Whether `position` falls in a procedure, function or trigger rather
+    than at the top level of the script, going by the most recent entry of
+    enclosing_object_name_index() before it. A statement inside a routine
+    is copied into the generated PL/pgSQL body as written, where it can
+    mean something else than the same statement given to ora2pg's own
+    schema parser at the top level: CREATE TEMPORARY TABLE is valid in a
+    PL/pgSQL body, and loses TEMPORARY only as schema DDL.
+
+    Conservative in the direction that avoids false findings: a routine
+    written without DELIMITER has no marker for its end, so a statement
+    after it counts as inside it."""
+    kind = None
+    for pos, entry_kind, _name in index:
+        if pos > position:
+            break
+        # A table holds no statements, so one does not end the routine it
+        # is created in -- and the CREATE TABLE being asked about is an
+        # index entry itself, at `position`.
+        if entry_kind != "table":
+            kind = entry_kind
+    return kind in _ROUTINE_KINDS
 
 
 @lru_cache(maxsize=8)
@@ -262,4 +312,8 @@ __all__ = [  # noqa: RUF022
     "table_column_definition_list",
     "enclosing_object_name_index",
     "enclosing_object_name",
+    "delimiter_at",
+    "inside_routine_body",
+    "ROUTINE_NAME_RE",
+    "TRIGGER_NAME_RE",
 ]

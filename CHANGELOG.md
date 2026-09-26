@@ -9,6 +9,35 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Added
+- **Eight new confirmed gaps, GAP-106..113**, found by scanning real dumps
+  -- a mysqldump of sakila from MySQL 8.0.46 and Oracle 23ai exports --
+  rather than examples written for one construct, and each confirmed
+  against real ora2pg 25.0 and PostgreSQL 16. Every one is `high`:
+  - `mysql_delimiter_routine` (GAP-106): a routine under `DELIMITER`, which
+    is how mysqldump and every `mysql`-client script write routines. The
+    delimiter leaks into the generated body and it does not load; from the
+    sakila dump not one routine reached PostgreSQL.
+  - `mysql_delimiter_trigger` (GAP-107): a trigger under `//`, `$$` or any
+    delimiter without `;` is not generated at all.
+  - `mysql_definer_procedure` (GAP-108): `-t PROCEDURE` silently skips a
+    `DEFINER` procedure -- its parser, unlike `-t FUNCTION`'s, has no
+    `DEFINER=` pattern (traced in ora2pg's source).
+  - `mysql_versioned_comment` (GAP-109): mysqldump wraps every trigger and
+    view in `/*!50003 ... */`; ora2pg strips comments and the objects go.
+  - `mysql_create_table_if_not_exists` (GAP-110) and `table_if_not_exists`
+    (GAP-112, Oracle 23ai): the table is named `if`, and the load fails.
+  - `mysql_temporary_table` (GAP-111): `TEMPORARY` is dropped; the table is
+    permanent and shared between sessions, verified on data.
+  - `identity_on_null` (GAP-113): `ON NULL` is dropped from an identity
+    column, so an `INSERT` passing `NULL` fails in PostgreSQL where Oracle
+    fills the value in. `default_on_null` used to flag this spelling as
+    GAP-031 with that gap's "fails at load" explanation, which real ora2pg
+    disproves; it no longer does.
+- The verification capability matrix now covers every gap, not only the
+  first 67 Oracle ones.
+
+
 ### Fixed
 - **`examples/end-to-end/run_demo.sh` failed at its `--verify` step.**
   The committed `baseline.json` was still `schema_version` 2 after the

@@ -13,18 +13,21 @@ deliberate exemptions (`FAILURE_STAGE_EXEMPT_DETECTORS`). `doctor.py` now
 requires full coverage — a new gap with no decision on `failure_stage`
 will not pass the check.
 
-## Final distribution (105 gaps)
+## Final distribution (113 gaps)
 
 | Stage | Count |
 |---|---|
-| `deployment` | 30 |
-| `runtime` | 46 |
-| `semantic` | 26 |
-| `conversion` | 1 |
+| `deployment` | 33 |
+| `runtime` | 47 |
+| `semantic` | 27 |
+| `conversion` | 4 |
 | no stage (`FAILURE_STAGE_EXEMPT_DETECTORS`) | 2 |
 
-These counts cover all 105 gaps, the MySQL (GAP-068..086) and MSSQL
-(GAP-087..105) batches included; the analysis in the sections below was
+These counts cover all 113 gaps, the MySQL (GAP-068..086, 106..111),
+MSSQL (GAP-087..105) and later Oracle (GAP-112..113) gaps included;
+`conversion` -- defined from the start but unused for a long time -- now
+holds the four gaps whose object ora2pg drops without a trace (GAP-059,
+107, 108, 109); the analysis in the sections below was
 written when the registry held 67 Oracle gaps, and its conclusions have
 not been re-examined against the two later batches. The per-gap list is in
 `--explain GAP-NNN` (the "Fails at" line) and in

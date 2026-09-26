@@ -10,7 +10,7 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 выводе" тавтологичен: конструкция гарантированно не появится в выводе ни
 на одной миграции, независимо от того, исправил её кто-то руками или
 нет. Docstring `verification.py` объясняет это подробно; здесь — таблица
-по каждому из 47 gap'ов, чтобы не листать код ради одного вопроса
+по каждому из 113 gap'ов, чтобы не листать код ради одного вопроса
 "а можно ли верифицировать конкретно этот".
 
 ## Как читать колонку "режим"
@@ -107,7 +107,68 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 066 | `read_only_view` | `not_verifiable` | Оговорка WITH READ ONLY выбрасывается безусловно. |
 | 067 | `sdo_geometry` | `not_verifiable` | Переписывается в тип PostGIS `geometry`; имя SDO_GEOMETRY не переживает конвертацию. |
 
-Итого среди самих 67 gap'ов: 30 `verbatim`, 36 `not_verifiable`
+### Oracle (GAP-112..113)
+
+| # | Детектор | Режим | Почему |
+|---|---|---|---|
+| 112 | `table_if_not_exists` | `not_verifiable` | Превращается в `CREATE TABLE if (`, IF NOT EXISTS в выводе нет. |
+| 113 | `identity_on_null` | `not_verifiable` | Переписывается в BY DEFAULT AS IDENTITY; ON NULL не переживает конвертацию. |
+
+### MySQL/MariaDB (`ora2pg -m`)
+
+| # | Детектор | Режим | Почему |
+|---|---|---|---|
+| 068 | `mysql_enum_type` | `not_verifiable` | Переписывается в ссылку на синтезированный тип <таблица>_<столбец>_t; сам ENUM(...) не переживает конвертацию. |
+| 069 | `mysql_on_update_current_timestamp` | `verbatim` | ON UPDATE CURRENT_TIMESTAMP копируется прямо в сгенерированный DEFAULT. |
+| 070 | `mysql_on_duplicate_key_update` | `verbatim` | Всё предложение ON DUPLICATE KEY UPDATE копируется в тело функции без изменений. |
+| 071 | `mysql_signal` | `verbatim` | SIGNAL/RESIGNAL копируются без изменений (теряется только SET перед MESSAGE_TEXT). |
+| 072 | `mysql_fulltext_index` | `verbatim` | 'FULLTEXT KEY'/'FULLTEXT INDEX' остаётся в выводе — в другом регистре, но с ключевыми словами. |
+| 073 | `mysql_key_index` | `verbatim` | В выводе остаётся заглушка 'key <ИМЯ>' там, где ожидался столбец. |
+| 074 | `mysql_spatial_index` | `verbatim` | Та же форма, что у FULLTEXT: 'spatial KEY' остаётся в списке столбцов. |
+| 075 | `mysql_limit_comma` | `verbatim` | `LIMIT n, m` копируется прямо в тело функции. |
+| 076 | `mysql_replace_into` | `verbatim` | REPLACE INTO копируется в тело функции без изменений. |
+| 077 | `mysql_insert_ignore` | `verbatim` | INSERT IGNORE копируется в тело функции без изменений. |
+| 078 | `mysql_prepare_from` | `verbatim` | `PREPARE <имя> FROM` копируется без изменений (только @переменная становится обычной). |
+| 079 | `mysql_last_insert_id` | `verbatim` | Вызов LAST_INSERT_ID() копируется без изменений. |
+| 080 | `mysql_auto_increment_start` | `not_verifiable` | Опция таблицы выбрасывается; AUTO_INCREMENT=<n> в вывод не попадает по построению. |
+| 081 | `mysql_date_format` | `not_verifiable` | Переписывается в конструктор строки; имя DATE_FORMAT не переживает конвертацию. |
+| 082 | `mysql_foreign_key` | `not_verifiable` | Выбрасывается целиком — ни одного FOREIGN KEY в выводе. |
+| 083 | `mysql_zero_date` | `not_verifiable` | Молча переписывается в '1970-01-01'; литерал нулевой даты не переживает конвертацию. |
+| 084 | `mysql_declare_handler` | `not_verifiable` | Выбрасывается целиком, на его месте пустые строки. |
+| 085 | `mysql_collate` | `not_verifiable` | Предложение COLLATE/CHARACTER SET выбрасывается из определения столбца. |
+| 086 | `mysql_set_type` | `not_verifiable` | Переписывается в обычный `text`; запись SET(...) не переживает конвертацию. |
+| 106 | `mysql_delimiter_routine` | `not_verifiable` | Директива DELIMITER попадает в тело лишь как посторонняя строка. |
+| 107 | `mysql_delimiter_trigger` | `not_verifiable` | Триггер не генерируется вовсе. |
+| 108 | `mysql_definer_procedure` | `not_verifiable` | Процедура не генерируется вовсе в -t PROCEDURE. |
+| 109 | `mysql_versioned_comment` | `not_verifiable` | Объект удаляется вместе с комментариями. |
+| 110 | `mysql_create_table_if_not_exists` | `not_verifiable` | Превращается в `CREATE TABLE if (`, IF NOT EXISTS в выводе нет. |
+| 111 | `mysql_temporary_table` | `not_verifiable` | TEMPORARY выбрасывается, остаётся обычный CREATE TABLE. |
+
+### MSSQL / T-SQL (`ora2pg -M`)
+
+| # | Детектор | Режим | Почему |
+|---|---|---|---|
+| 087 | `mssql_bracket_identifier` | `verbatim` | Скобки остаются в сгенерированном идентификаторе — в этом и состоит проблема. |
+| 088 | `mssql_newid_default` | `not_verifiable` | Переписывается в uuid_generate_v4(); запись NEWID() не переживает конвертацию. |
+| 089 | `mssql_update_set` | `not_verifiable` | Ключевое слово SET удаляется при конвертации, исходной формы больше нет. |
+| 090 | `mssql_identity_column` | `not_verifiable` | IDENTITY выбрасывается целиком; в вывод ничего не попадает. |
+| 091 | `mssql_parameterless_procedure` | `not_verifiable` | Находка — про сгенерированный блок DECLARE, а не про сохранившийся фрагмент исходника. |
+| 092 | `mssql_if_statement` | `verbatim` | IF сохраняется (неверно закрытый или без THEN), так что повторное обнаружение осмысленно. |
+| 093 | `mssql_raiserror` | `verbatim` | RAISERROR/THROW копируются без изменений. |
+| 094 | `mssql_try_catch` | `verbatim` | Вся конструкция TRY/CATCH копируется без изменений. |
+| 095 | `mssql_top_clause` | `verbatim` | TOP n копируется без изменений. |
+| 096 | `mssql_scope_identity` | `verbatim` | Вызов копируется без изменений. |
+| 097 | `mssql_output_clause` | `verbatim` | Предложение OUTPUT копируется без изменений. |
+| 098 | `mssql_iif` | `verbatim` | Вызов IIF копируется без изменений. |
+| 099 | `mssql_datediff` | `verbatim` | Вызов DATEDIFF копируется без изменений. |
+| 100 | `mssql_charindex` | `not_verifiable` | Переписывается в position(); имя CHARINDEX не переживает конвертацию. |
+| 101 | `mssql_filtered_index` | `not_verifiable` | Вся инструкция CREATE INDEX выбрасывается. |
+| 102 | `mssql_foreign_key` | `not_verifiable` | Выбрасывается целиком — ни одного FOREIGN KEY в выводе. |
+| 103 | `mssql_collation` | `not_verifiable` | Предложение COLLATE выбрасывается, столбец становится citext. |
+| 104 | `mssql_computed_column` | `not_verifiable` | Переписывается в триггер; синтаксис столбца `AS (выражение)` не переживает конвертацию. |
+| 105 | `mssql_rowversion` | `not_verifiable` | Переписывается в bytea; имя ROWVERSION не переживает конвертацию. |
+
+Итого среди самих 113 gap'ов: 50 `verbatim`, 62 `not_verifiable`
 (включая `autonomous_tx`, но по другой причине — см. выше), 1
 `generated_only` (`connect_by`).
 

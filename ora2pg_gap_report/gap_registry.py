@@ -624,6 +624,76 @@ GapEntry(
         severity="high",
         failure_stage="semantic",
         dialect="mssql", last_verified="2026-09-01"),
+    # GAP-106..113: found by scanning real dumps -- a mysqldump of sakila
+    # from MySQL 8.0.46, Oracle 23ai exports -- rather than minimal
+    # examples written for one construct, and each confirmed afterwards
+    # the usual way: real ora2pg 25.0 (same commit as CI), the output
+    # loaded into PostgreSQL 16, and for the silent ones the behaviour
+    # observed on data.
+    GapEntry(
+        "106",
+        "mysql_delimiter_routine",
+        "mysql-delimiter-routine",
+        ("test_mysql_delimiter_routine.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mysql", last_verified="2026-09-26"),
+    GapEntry(
+        "107",
+        "mysql_delimiter_trigger",
+        "mysql-delimiter-trigger",
+        ("test_mysql_delimiter_trigger.py",),
+        severity="high",
+        failure_stage="conversion",
+        dialect="mysql", last_verified="2026-09-26"),
+    GapEntry(
+        "108",
+        "mysql_definer_procedure",
+        "mysql-definer-procedure",
+        ("test_mysql_definer_procedure.py",),
+        severity="high",
+        failure_stage="conversion",
+        dialect="mysql", last_verified="2026-09-26"),
+    GapEntry(
+        "109",
+        "mysql_versioned_comment",
+        "mysql-versioned-comment",
+        ("test_mysql_versioned_comment.py",),
+        severity="high",
+        failure_stage="conversion",
+        dialect="mysql", last_verified="2026-09-26"),
+    GapEntry(
+        "110",
+        "mysql_create_table_if_not_exists",
+        "mysql-create-table-if-not-exists",
+        ("test_mysql_create_table_if_not_exists.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mysql", last_verified="2026-09-26"),
+    GapEntry(
+        "111",
+        "mysql_temporary_table",
+        "mysql-temporary-table",
+        ("test_mysql_temporary_table.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="mysql", last_verified="2026-09-26"),
+    GapEntry(
+        "112",
+        "table_if_not_exists",
+        "table-if-not-exists",
+        ("test_table_if_not_exists.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-09-26"),
+    GapEntry(
+        "113",
+        "identity_on_null",
+        "identity-on-null",
+        ("test_identity_on_null.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="oracle", last_verified="2026-09-26"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

@@ -61,7 +61,8 @@ def test_findings_in_a_mysqldump_routine_belong_to_the_routine_not_the_last_tabl
         "END ;;\n"
         "DELIMITER ;\n"
     )
-    assert sorted((f.detector, f.object_name) for f in scan_source(source, "mysql")) == [
-        ("mysql_limit_comma", "GAP_PROBE"),
-        ("mysql_signal", "GAP_PROBE"),
-    ]
+    findings = scan_source(source, "mysql")
+    assert {"mysql_limit_comma", "mysql_signal"} <= {f.detector for f in findings}
+    # Every finding here is inside the procedure -- the routine-level ones
+    # this dump also triggers (DELIMITER, DEFINER) included.
+    assert {f.object_name for f in findings} == {"GAP_PROBE"}

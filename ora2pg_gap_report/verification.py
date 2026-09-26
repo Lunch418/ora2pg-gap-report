@@ -210,6 +210,17 @@ VERIFICATION_MODE: dict[str, str] = {
     "mssql_collation": NOT_VERIFIABLE,  # the COLLATE clause is dropped and the column becomes citext
     "mssql_computed_column": NOT_VERIFIABLE,  # rewritten into a trigger; the `AS (expr)` column syntax never survives
     "mssql_rowversion": NOT_VERIFIABLE,  # rewritten to bytea; the ROWVERSION name never survives
+    # GAP-106..113, confirmed 2026-09-26. Every one of them is something
+    # ora2pg drops or rewrites away, so its absence from the output says
+    # nothing about whether anyone fixed it.
+    "mysql_delimiter_routine": NOT_VERIFIABLE,  # the DELIMITER directive only leaks into the body as a stray line
+    "mysql_delimiter_trigger": NOT_VERIFIABLE,  # the trigger is not generated at all
+    "mysql_definer_procedure": NOT_VERIFIABLE,  # the procedure is not generated at all by -t PROCEDURE
+    "mysql_versioned_comment": NOT_VERIFIABLE,  # the object is removed with the comments
+    "mysql_create_table_if_not_exists": NOT_VERIFIABLE,  # mangled into `CREATE TABLE if (`, never IF NOT EXISTS
+    "mysql_temporary_table": NOT_VERIFIABLE,  # TEMPORARY is dropped; a plain CREATE TABLE is left
+    "table_if_not_exists": NOT_VERIFIABLE,  # mangled into `CREATE TABLE if (`, never IF NOT EXISTS
+    "identity_on_null": NOT_VERIFIABLE,  # rewritten to BY DEFAULT AS IDENTITY; ON NULL never survives
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists
     # for verify to compare against.

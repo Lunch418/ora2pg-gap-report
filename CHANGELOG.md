@@ -85,6 +85,14 @@ patch for fixes to existing ones.
   dialect (`TABLE_HEAD`). On the MySQL test_db this surfaces a `KEY`
   inside a procedure's temporary table that was invisible before.
 
+- **No routine in a real mysqldump was recognised as an object.** mysqldump
+  writes `CREATE DEFINER=`root`@`localhost` PROCEDURE ...` (and views with
+  `ALGORITHM`, `DEFINER`, `SQL SECURITY`), but the MySQL object patterns
+  allowed only `OR REPLACE` after `CREATE`, so every finding inside a
+  dumped routine was attributed to the last table in the dump. Also
+  accepted now: `AGGREGATE FUNCTION` and `IF NOT EXISTS` on routines,
+  triggers and views (which used to name the object `IF`).
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

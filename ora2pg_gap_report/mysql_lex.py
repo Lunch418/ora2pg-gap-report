@@ -192,14 +192,31 @@ def mask_comments_only(source: str) -> str:
 # EXISTS both used to hide a table's columns from every detector: the name
 # came out as "IF" or nothing, and the column list was never found.
 TABLE_HEAD = r"CREATE\s+(?:TEMPORARY\s+)?TABLE(?:\s+IF\s+NOT\s+EXISTS)?"
-_CREATE_PREFIX = r"CREATE\s+(?:OR\s+REPLACE\s+)?"
-_TABLE_NAME_RE = re.compile(qualified_name_pattern(TABLE_HEAD), re.IGNORECASE)
-_PROCEDURE_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "PROCEDURE"), re.IGNORECASE)
-_FUNCTION_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "FUNCTION"), re.IGNORECASE)
-_TRIGGER_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "TRIGGER"), re.IGNORECASE)
-_VIEW_NAME_RE = re.compile(
-    qualified_name_pattern(_CREATE_PREFIX + r"(?:ALGORITHM\s*=\s*\w+\s+)?VIEW"), re.IGNORECASE
+# Everything MySQL/MariaDB allow between CREATE and the object keyword, in
+# their order. mysqldump writes every routine as
+# CREATE DEFINER=`root`@`localhost` PROCEDURE ..., and every view with
+# ALGORITHM, DEFINER and SQL SECURITY; with only OR REPLACE allowed here,
+# none of them was recognised as an object, and their findings were
+# attributed to whichever table the dump happened to create last.
+# DEFINER's value is matched loosely -- up to the next whitespace that
+# precedes the keyword, within the statement -- because in the masked text
+# a quoted 'user'@'host' is blanked to spaces.
+_CREATE_PREFIX = (
+    r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:ALGORITHM\s*=\s*\w+\s+)?"
+    r"(?:DEFINER\s*=[^;]*?\s+)??(?:SQL\s+SECURITY\s+\w+\s+)?"
 )
+_IF_NOT_EXISTS = r"(?:\s+IF\s+NOT\s+EXISTS)?"
+_TABLE_NAME_RE = re.compile(qualified_name_pattern(TABLE_HEAD), re.IGNORECASE)
+_PROCEDURE_NAME_RE = re.compile(
+    qualified_name_pattern(_CREATE_PREFIX + "PROCEDURE" + _IF_NOT_EXISTS), re.IGNORECASE
+)
+_FUNCTION_NAME_RE = re.compile(
+    qualified_name_pattern(_CREATE_PREFIX + r"(?:AGGREGATE\s+)?FUNCTION" + _IF_NOT_EXISTS), re.IGNORECASE
+)
+_TRIGGER_NAME_RE = re.compile(
+    qualified_name_pattern(_CREATE_PREFIX + "TRIGGER" + _IF_NOT_EXISTS), re.IGNORECASE
+)
+_VIEW_NAME_RE = re.compile(qualified_name_pattern(_CREATE_PREFIX + "VIEW" + _IF_NOT_EXISTS), re.IGNORECASE)
 
 
 # The client directive every MySQL script uses around a routine or trigger

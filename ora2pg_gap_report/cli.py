@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import dataclasses
 import difflib
 import io
@@ -948,92 +949,110 @@ def _main(argv: list[str] | None = None) -> int:
         err_console.print(i18n.t(lang, "empty_dir_warning", dir=escape(str(empty_dir))))
         had_error = True
 
-    for path in paths_to_scan:
-        if not path.is_file():
-            err_console.print(i18n.t(lang, "skipped_not_found", path=escape(str(path))))
-            had_error = True
-            continue
-        try:
-            source = path.read_text(encoding="utf-8", errors="replace")
-        except OSError as exc:
-            err_console.print(
-                i18n.t(lang, "skipped_unreadable", exc=escape(str(exc)), path=escape(str(path)))
-            )
-            had_error = True
-            continue
-        # Two nested levels of isolation, both deliberately broad `except
-        # Exception` unlike the rest of this codebase (see
-        # oracle_export.py's own comment on the same trade-off). A
-        # detector bug used to take the whole run down with it, and an
-        # unhandled exception's default exit code (1) is indistinguishable
-        # from --fail-on's "gate failed" -- so a crashed analyzer looked
-        # exactly like a gate that had honestly done its job.
-        detector_errors: list[tuple[str, Exception]] = []
-        try:
-            objects_scanned += count_objects(source)
-            file_findings = [
-                dataclasses.replace(f, source_file=str(path))
-                for f in scan_source(source, dialect=args.dialect, errors=detector_errors)
-            ]
-        except Exception as exc:
-            # Outer level: something outside any single detector failed
-            # (count_objects(), or the scan orchestration itself). Rarer
-            # than a detector bug, and the blast radius is this one file.
-            err_console.print(
-                i18n.t(
-                    lang,
-                    "scan_internal_error",
-                    path=escape(str(path)),
-                    exc_type=type(exc).__name__,
-                    exc=escape(str(exc)),
+    # A spinner on stderr while the files are read, like Claude Code's own
+    # "working" line -- only on a real terminal and only for the terminal
+    # report, so CI logs, pipes and machine-readable output never see it.
+    # Rich's "line" spinner keeps to characters every font has.
+    show_spinner = fmt == "terminal" and err_console.is_terminal and bool(paths_to_scan)
+    spinner_cm = (
+        err_console.status("", spinner="line", spinner_style="bold #D97757")
+        if show_spinner
+        else contextlib.nullcontext()
+    )
+    with spinner_cm as spinner:
+        for position, path in enumerate(paths_to_scan, 1):
+            if spinner is not None:
+                spinner.update(
+                    Text(
+                        i18n.t(lang, "term_scanning", file=path.name, i=position, n=len(paths_to_scan)),
+                        style="dim",
+                    )
                 )
-            )
-            had_internal_error = True
-            continue
-
-        if detector_errors:
-            # Inner level: scan_source() isolated each detector, so what's
-            # lost is only the crashed detectors' own findings for this
-            # file -- every other detector's results for it are in
-            # `file_findings` below and still get reported. Named, not
-            # counted anonymously: "which detector is broken" is the one
-            # thing a bug report needs. The first exception is shown in
-            # full since a single root cause (a recursion limit hit inside
-            # shared masking, say) typically trips several detectors at
-            # once with the identical error.
-            had_internal_error = True
-            first_name, first_exc = detector_errors[0]
-            names = ", ".join(name for name, _ in detector_errors[:3])
-            if len(detector_errors) > 3:
-                names += f" (+{len(detector_errors) - 3})"
-            err_console.print(
-                i18n.t(
-                    lang,
-                    "scan_detector_errors",
-                    names=escape(names),
-                    path=escape(str(path)),
-                    exc_type=type(first_exc).__name__,
-                    exc=escape(str(first_exc)),
+            if not path.is_file():
+                err_console.print(i18n.t(lang, "skipped_not_found", path=escape(str(path))))
+                had_error = True
+                continue
+            try:
+                source = path.read_text(encoding="utf-8", errors="replace")
+            except OSError as exc:
+                err_console.print(
+                    i18n.t(lang, "skipped_unreadable", exc=escape(str(exc)), path=escape(str(path)))
                 )
-            )
+                had_error = True
+                continue
+            # Two nested levels of isolation, both deliberately broad `except
+            # Exception` unlike the rest of this codebase (see
+            # oracle_export.py's own comment on the same trade-off). A
+            # detector bug used to take the whole run down with it, and an
+            # unhandled exception's default exit code (1) is indistinguishable
+            # from --fail-on's "gate failed" -- so a crashed analyzer looked
+            # exactly like a gate that had honestly done its job.
+            detector_errors: list[tuple[str, Exception]] = []
+            try:
+                objects_scanned += count_objects(source)
+                file_findings = [
+                    dataclasses.replace(f, source_file=str(path))
+                    for f in scan_source(source, dialect=args.dialect, errors=detector_errors)
+                ]
+            except Exception as exc:
+                # Outer level: something outside any single detector failed
+                # (count_objects(), or the scan orchestration itself). Rarer
+                # than a detector bug, and the blast radius is this one file.
+                err_console.print(
+                    i18n.t(
+                        lang,
+                        "scan_internal_error",
+                        path=escape(str(path)),
+                        exc_type=type(exc).__name__,
+                        exc=escape(str(exc)),
+                    )
+                )
+                had_internal_error = True
+                continue
 
-        all_findings.extend(file_findings)
-        files_scanned += 1
+            if detector_errors:
+                # Inner level: scan_source() isolated each detector, so what's
+                # lost is only the crashed detectors' own findings for this
+                # file -- every other detector's results for it are in
+                # `file_findings` below and still get reported. Named, not
+                # counted anonymously: "which detector is broken" is the one
+                # thing a bug report needs. The first exception is shown in
+                # full since a single root cause (a recursion limit hit inside
+                # shared masking, say) typically trips several detectors at
+                # once with the identical error.
+                had_internal_error = True
+                first_name, first_exc = detector_errors[0]
+                names = ", ".join(name for name, _ in detector_errors[:3])
+                if len(detector_errors) > 3:
+                    names += f" (+{len(detector_errors) - 3})"
+                err_console.print(
+                    i18n.t(
+                        lang,
+                        "scan_detector_errors",
+                        names=escape(names),
+                        path=escape(str(path)),
+                        exc_type=type(first_exc).__name__,
+                        exc=escape(str(first_exc)),
+                    )
+                )
 
-        if args.check_connect_by:
-            if not checked_ora2pg_version:
-                # Once per run, and only when ora2pg is actually going to
-                # be used: asking a binary for its version costs a
-                # subprocess, and saying nothing about a tool the run
-                # never touches would be noise.
-                checked_ora2pg_version = True
-                mismatch = _ora2pg_version_warning(args.ora2pg_bin, lang)
-                if mismatch:
-                    err_console.print(f"[yellow]{escape(mismatch)}[/yellow]")
-            findings, warning = connect_by_check(path, source, args.ora2pg_bin, lang)
-            all_findings.extend(findings)
-            if warning:
-                err_console.print(f"[yellow]{escape(warning)}[/yellow]")
+            all_findings.extend(file_findings)
+            files_scanned += 1
+
+            if args.check_connect_by:
+                if not checked_ora2pg_version:
+                    # Once per run, and only when ora2pg is actually going to
+                    # be used: asking a binary for its version costs a
+                    # subprocess, and saying nothing about a tool the run
+                    # never touches would be noise.
+                    checked_ora2pg_version = True
+                    mismatch = _ora2pg_version_warning(args.ora2pg_bin, lang)
+                    if mismatch:
+                        err_console.print(f"[yellow]{escape(mismatch)}[/yellow]")
+                findings, warning = connect_by_check(path, source, args.ora2pg_bin, lang)
+                all_findings.extend(findings)
+                if warning:
+                    err_console.print(f"[yellow]{escape(warning)}[/yellow]")
 
     elapsed_seconds = time.perf_counter() - start_time
     sort_findings(all_findings)

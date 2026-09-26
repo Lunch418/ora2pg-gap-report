@@ -1951,3 +1951,14 @@ def test_a_partly_failed_scan_still_reports_what_it_did_scan(capsys, tmp_path):
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "goto_statement" in captured.out
+
+
+@pytest.mark.parametrize("fmt", ["terminal", "markdown", "json"])
+def test_scan_spinner_never_reaches_a_pipe(capsys, fmt):
+    """The "Scanning <file>" spinner is for a person at a terminal. Under
+    capture stderr is not a terminal -- as in CI or a pipe -- and must not
+    get a single spinner frame, whatever the format."""
+    main(["--lang", "en", "-f", fmt, str(SAMPLES)])
+    captured = capsys.readouterr()
+    assert "Scanning" not in captured.err
+    assert "Scanning" not in captured.out

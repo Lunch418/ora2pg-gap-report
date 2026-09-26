@@ -11,6 +11,28 @@ patch for fixes to existing ones.
 
 ### Changed
 
+- **One look across the TUI, the terminal report and the HTML report**, after Claude
+  Code's own: a warm dark ground, one clay-orange accent kept for what matters on screen,
+  soft hues for the four failure stages.
+  - TUI: the header bar and footer are gone. A rounded welcome box shows the name, version,
+    purpose and the folder being browsed, and every control is a compact one-row widget.
+    Checkboxes are drawn as `[ ]` / `[x]` and the file tree has no emoji icons. A line of
+    key hints sits at the bottom, and a pulsing `*` with a seconds counter shows while a
+    scan runs. On the results screen the detail box follows the cursor, so there is no
+    need to press Enter on every row. Its border takes the colour of the finding's
+    stage, and it puts "what to do" before "why". The summary lays out its stage counts
+    by hand, so a dot never ends up on one line and its stage name on the next.
+  - Terminal report: an orange `*` marks the heading, and severities and stages use
+    colours that read on light and dark terminals alike. Source snippets are orange,
+    code named in titles is blue, and "what to do" comes before the explanation in
+    each gap's panel. While files are being read, a spinner on stderr names the
+    current file. It only appears on a real terminal with the terminal format, so CI
+    logs, pipes and JSON/SARIF/Markdown output are unchanged.
+  - HTML report: ivory paper (warm charcoal in dark mode) with serif headings and
+    stage counts. The stage rail and the gap list sit in rounded cards, severity is
+    shown as soft tinted pills, and "what to do" comes first in its own box. The
+    snippets carry the accent, and a brand line and footer mark the report. It is
+    still one self-contained file with no script and no external font.
 - The Unicode arrow is gone from the whole project: the report heading, messages, hints,
   documentation and the package description now use the plain `->` you can type on any
   keyboard. The README screenshots were retaken with font ligatures off, so `->` shows as

@@ -404,3 +404,26 @@ def test_to_html_has_no_script_of_any_kind():
     report = to_html([SAMPLE_FINDING, SAMPLE_FINDING])
     for marker in ("<script", "onclick", "onsubmit", "onload", "javascript:"):
         assert marker not in report
+
+
+def test_html_gap_shows_what_to_do_before_why():
+    from ora2pg_gap_report.report_generator import to_html
+
+    finding = Finding(
+        detector="sequence_cycle", severity="high", object_name="S", line=1,
+        snippet="CYCLE", message_id="sequence_cycle", source_file="a.sql",
+    )
+    report = to_html([finding], lang="ru")
+    assert report.index('<div class="fix">') < report.index("<h3>Почему</h3>")
+
+
+def test_html_report_carries_the_brand_mark_and_no_external_font():
+    from ora2pg_gap_report.report_generator import to_html
+
+    finding = Finding(
+        detector="sequence_cycle", severity="high", object_name="S", line=1,
+        snippet="CYCLE", message_id="sequence_cycle", source_file="a.sql",
+    )
+    report = to_html([finding], lang="en")
+    assert '<p class="brand"><span class="mark">*</span>ora2pg-gap-report' in report
+    assert "fonts.googleapis" not in report and "@import" not in report

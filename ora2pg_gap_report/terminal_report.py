@@ -44,11 +44,17 @@ from .models import Finding
 from . import messages
 from .verification import DetectorVerification, NewInOutput
 
+# Mid-tones of the TUI's and the HTML report's palette: dark enough to
+# read on a light terminal, light enough on a dark one.
 _SEVERITY_STYLE = {
-    "high": "bold red",
-    "medium": "bold yellow",
-    "low": "bold green",
+    "high": "bold #E5484D",
+    "medium": "bold #D9A21B",
+    "low": "bold #46A758",
 }
+# The one accent, Claude Code's clay orange, kept for the report's mark and
+# the snippets it quotes from your source; code named in titles and hints
+# gets a quieter blue, so the orange stays rare enough to mean something.
+_ACCENT = "#D97757"
 _TOP_OBJECTS_LIMIT = 10
 # How many occurrences of one gap the terminal lists before pointing at
 # the formats that carry all of them.
@@ -57,11 +63,11 @@ _OCCURRENCES_SHOWN = 5
 _STAGE_STYLE = {
     "conversion": "#8b6cf0",
     "deployment": "#e5484d",
-    "runtime": "#f76b15",
+    "runtime": "#D9A21B",
     "semantic": "#12a594",
     "none": "grey62",
 }
-_CODE_STYLE = "cyan"
+_CODE_STYLE = "#5B8DEF"
 
 
 
@@ -101,7 +107,7 @@ def render(
             empty_message.append(i18n.t(lang, "objects_scanned_inline", n=objects_scanned))
         if elapsed_seconds is not None:
             empty_message.append(i18n.t(lang, "elapsed_inline", s=elapsed_seconds), style="dim")
-        console.print(Panel(empty_message, border_style="green"))
+        console.print(Panel(empty_message, border_style="#46A758"))
         return
 
     gaps = group_by_gap(findings)
@@ -131,8 +137,11 @@ def _render_heading(
     lang: str,
 ) -> None:
     console.print()
-    console.print(Text(i18n.t(lang, "report_heading", source=source_name(findings)), style="bold"))
-    lede = Text(style="dim")
+    heading = Text()
+    heading.append("* ", style=f"bold {_ACCENT}")
+    heading.append(i18n.t(lang, "report_heading", source=source_name(findings)), style="bold")
+    console.print(heading)
+    lede = Text("  ", style="dim")
     lede.append(
         i18n.t(
             lang,
@@ -269,18 +278,19 @@ def _render_gap_details(console: Console, gaps: list[GapGroup], lang: str) -> No
                 body.append(Text(f"{line} — {i18n.t(lang, f'stage_{failure_stage}_desc')}", style=_STAGE_STYLE[failure_stage]))
             else:
                 body.append(Text(f"GAP-{gap_number}", style="dim"))
-        for message_id in dict.fromkeys(f.message_id for f in g.findings):
-            body.append(Text(messages.text(message_id, lang)))
+        # What to do before why: the same order as the TUI and the HTML.
         hint = messages.remediation_hint(g.detector, lang)
         if hint:
             fix = Text()
-            fix.append(f"{i18n.t(lang, 'report_gap_fix')}: ", style="bold")
+            fix.append(f"{i18n.t(lang, 'report_gap_fix')}: ", style=f"bold {_ACCENT}")
             fix.append(hint)
             body.append(fix)
+        for message_id in dict.fromkeys(f.message_id for f in g.findings):
+            body.append(Text(messages.text(message_id, lang)))
         where = Table.grid(padding=(0, 2))
         where.add_column(style="dim", no_wrap=True, overflow="ellipsis", max_width=48)
         where.add_column(style="bold", no_wrap=True, overflow="ellipsis", max_width=40)
-        where.add_column(style=_CODE_STYLE, overflow="fold")
+        where.add_column(style=_ACCENT, overflow="fold")
         ordered = sorted(g.findings, key=lambda f: (f.source_file, f.line))
         for f in ordered[:_OCCURRENCES_SHOWN]:
             place = f"{f.source_file or '—'}:{f.line}" if f.line else (f.source_file or "—")
@@ -292,7 +302,7 @@ def _render_gap_details(console: Console, gaps: list[GapGroup], lang: str) -> No
                 Text(i18n.t(lang, "term_more_findings", findings=i18n.count(lang, "finding", rest)), style="dim")
             )
         body.append(Group(*places))
-        title = Text.assemble((g.detector, "bold"), "  ", (g.severity, _SEVERITY_STYLE.get(g.severity, "")))
+        title = Text.assemble(" ", (g.detector, "bold"), "  ", (g.severity, _SEVERITY_STYLE.get(g.severity, "")), " ")
         console.print(
             Panel(
                 Group(*_spaced(body)),
@@ -342,8 +352,8 @@ def render_baseline_diff(diff: BaselineDiff, console: Console | None = None, lan
     counts = Table.grid(padding=(0, 2))
     counts.add_column(style="dim")
     counts.add_column()
-    counts.add_row("NEW", Text(str(len(diff.new)), style="bold red" if diff.new else "bold"))
-    counts.add_row("RESOLVED", Text(str(len(diff.resolved)), style="bold green"))
+    counts.add_row("NEW", Text(str(len(diff.new)), style="bold #E5484D" if diff.new else "bold"))
+    counts.add_row("RESOLVED", Text(str(len(diff.resolved)), style="bold #46A758"))
     counts.add_row("UNCHANGED", Text(str(diff.unchanged_count), style="dim"))
 
     parts: list[Text | Table] = [counts]
@@ -357,7 +367,7 @@ def render_baseline_diff(diff: BaselineDiff, console: Console | None = None, lan
         # distinction matters here (arbitrary text straight from the Oracle
         # source being scanned).
         new_list = Text("\n")
-        new_list.append(i18n.t(lang, "new_findings_label"), style="bold red")
+        new_list.append(i18n.t(lang, "new_findings_label"), style="bold #E5484D")
         for f in diff.new:
             new_list.append(f"  • {f.object_name}", style="bold")
             new_list.append(f"  [{f.detector}]  {f.snippet}\n", style="dim")
@@ -368,7 +378,7 @@ def render_baseline_diff(diff: BaselineDiff, console: Console | None = None, lan
             Group(*parts),
             title=i18n.t(lang, "baseline_panel_title"),
             title_align="left",
-            border_style="magenta",
+            border_style=_ACCENT,
         )
     )
 
@@ -385,8 +395,8 @@ def _render_footer_hints(console: Console, lang: str = "ru") -> None:
 
 
 _VERIFICATION_STATUS_STYLE = {
-    "still_present": "bold red",
-    "not_detected": "bold green",
+    "still_present": "bold #E5484D",
+    "not_detected": "bold #46A758",
     "not_verifiable": "dim",
 }
 
@@ -404,14 +414,14 @@ def _render_new_in_output(
         return
 
     table = Table(show_lines=True, expand=True)
-    table.add_column(i18n.t(lang, "verify_col_detector"), style="magenta", no_wrap=True, overflow="ellipsis")
+    table.add_column(i18n.t(lang, "verify_col_detector"), style="bold", no_wrap=True, overflow="ellipsis")
     table.add_column(i18n.t(lang, "verify_col_gap"), width=9)
     table.add_column(i18n.t(lang, "verify_new_col_count"), justify="right", width=12)
     for e in entries:
         table.add_row(
             Text(e.detector),
             Text(f"GAP-{e.gap_number}" if e.gap_number else "—"),
-            Text(str(e.count), style="yellow"),
+            Text(str(e.count), style="#D9A21B"),
         )
 
     console.print()
@@ -420,7 +430,7 @@ def _render_new_in_output(
             table,
             title=i18n.t(lang, "verify_new_panel_title"),
             title_align="left",
-            border_style="yellow",
+            border_style="#D9A21B",
         )
     )
     console.print(f"[dim]{i18n.t(lang, 'verify_new_footer_note')}[/dim]")
@@ -476,9 +486,9 @@ def render_verification(
         # baseline, this one counts detectors the baseline never had.
         summary.add_row(
             i18n.t(lang, "verify_summary_new_in_output"),
-            Text(str(len(new_in_output)), style="yellow"),
+            Text(str(len(new_in_output)), style="#D9A21B"),
         )
-    console.print(Panel(summary, title=i18n.t(lang, "verify_panel_title"), title_align="left", border_style="cyan"))
+    console.print(Panel(summary, title=i18n.t(lang, "verify_panel_title"), title_align="left", border_style=_ACCENT))
 
     _render_new_in_output(new_in_output or [], console, lang)
 
@@ -486,7 +496,7 @@ def render_verification(
         return
 
     table = Table(show_lines=True, expand=True)
-    table.add_column(i18n.t(lang, "verify_col_detector"), style="magenta", no_wrap=True, overflow="ellipsis")
+    table.add_column(i18n.t(lang, "verify_col_detector"), style="bold", no_wrap=True, overflow="ellipsis")
     table.add_column(i18n.t(lang, "verify_col_gap"), width=9)
     table.add_column(i18n.t(lang, "verify_col_before"), justify="right", width=12)
     table.add_column(i18n.t(lang, "verify_col_after"), justify="right", width=12)

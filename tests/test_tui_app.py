@@ -781,3 +781,64 @@ async def test_baseline_path_input_is_wide_enough_to_read_a_path_in(lang):
         await pilot.pause()
         width = app.screen.query_one("#baseline-input").region.width
         assert width >= 24, f"baseline input collapsed to {width} columns"
+
+
+@pytest.mark.asyncio
+async def test_detail_box_follows_the_cursor_without_enter():
+    """Arrowing down the table reads through the findings: the detail box
+    shows whichever row the cursor is on, no Enter needed."""
+    findings, _, _ = scan_path(SAMPLES)
+    app = GapReportApp(start_path=SAMPLES)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await app.push_screen(ResultsScreen(findings, findings, 1, [], "ru", str(SAMPLES)))
+        await pilot.pause()
+        screen = app.screen
+        table = screen.query_one("#findings-table")
+        table.focus()
+        await pilot.pause()
+        # The first finding of a different gap than row 0's, so the detail
+        # text can only match if the box really moved with the cursor.
+        target = next(i for i, f in enumerate(screen.findings) if f.detector != screen.findings[0].detector)
+        for _ in range(target):
+            await pilot.press("down")
+        await pilot.pause()
+        gap_number, _stage = gap_metadata(screen.findings[target].detector)
+        assert f"GAP-{gap_number}" in str(screen.query_one("#detail").content)
+
+
+def test_flow_never_splits_an_item_across_lines():
+    """Rich's own wrap breaks at non-breaking spaces too, which stranded a
+    stage's dot at the end of one line and its name on the next."""
+    from rich.text import Text
+
+    from ora2pg_gap_report.tui_app import _flow
+
+    items = [Text(f"● Stage name {i}") for i in range(6)]
+    out = _flow(items, 40)
+    for line in out.plain.split("\n"):
+        assert len(line) <= 40
+        assert not line.rstrip().endswith("●")
+    assert all(f"● Stage name {i}" in out.plain for i in range(6))
+
+
+@pytest.mark.asyncio
+async def test_checkboxes_are_drawn_in_keyboard_characters():
+    app = GapReportApp(start_path=SAMPLES, lang="en")
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        box = app.screen.query_one("#connect-by-checkbox")
+        assert box._button.plain == "[ ]"
+        box.value = True
+        await pilot.pause()
+        assert box._button.plain == "[x]"
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_every_hint_key_has_a_key_and_a_description(lang):
+    from ora2pg_gap_report.tui_app import _hints
+
+    text = _hints(lang, "tab", "enter", "move", "back", "quit").plain
+    assert "|" not in text
+    for key in ("tab", "enter", "esc", "q"):
+        assert key in text

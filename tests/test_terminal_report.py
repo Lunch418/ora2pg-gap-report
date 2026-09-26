@@ -359,3 +359,27 @@ def test_render_verification_in_english():
     assert "Post-migration verification" in text
     assert "Still present" in text
     assert "Проверка после миграции" not in text
+
+
+def test_heading_mark_is_styled_on_its_own_not_the_whole_heading():
+    """The accent belongs to the "* " mark only. Text("* ", style=...) set
+    it as the base style of the whole line, and the heading came out all
+    orange."""
+    import io
+
+    out = io.StringIO()
+    console = Console(file=out, width=100, color_system="truecolor", force_terminal=True)
+    render([_finding(detector="sequence_cycle", snippet="CYCLE")], console=console)
+    heading = next(line for line in out.getvalue().splitlines() if "Oracle" in line)
+    accent = "38;2;217;119;87"
+    assert accent in heading.split("*", 1)[0]
+    assert accent not in heading.split("Oracle", 1)[0].rsplit("\x1b[0m", 1)[-1]
+
+
+def test_what_to_do_comes_before_why_in_a_gap_panel():
+    console = Console(record=True, width=120)
+    render([_finding(detector="sequence_cycle", snippet="CYCLE", message_id="sequence_cycle")], console=console)
+    text = console.export_text()
+    # The fix is what the reader acts on; the explanation follows it, the
+    # same order as the TUI's detail box and the HTML report.
+    assert text.index("Что делать") < text.index("после исчерпания диапазона")

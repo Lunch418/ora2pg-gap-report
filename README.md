@@ -372,10 +372,11 @@ ora2pg-gap-report path/to/schema_dump_dir/
 Everything above is flag-driven, on purpose — that's what makes it
 scriptable and CI-friendly. For browsing interactively instead of
 remembering flags, `--tui` opens a mouse/keyboard-driven screen: pick a
-file or directory in a tree, choose severity/language, scan, then click a
-row in the results table to see its full explanation (message, `GAP-NNN`,
-and when it actually breaks — same information `--explain` and the
-terminal report already show, just click-driven):
+file or directory in a tree, choose severity/language, scan, then move
+through the results table with the arrow keys: the box under it follows the
+cursor and shows each finding's `GAP-NNN`, when it actually breaks, what to
+do and why — the same information `--explain` and the terminal report
+show. It is styled after Claude Code's own terminal UI. To install and open it:
 
 ```sh
 pip install "ora2pg-gap-report[tui]"   # adds textual — not part of the base install

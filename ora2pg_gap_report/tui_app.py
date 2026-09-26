@@ -24,22 +24,24 @@ verification.py) the CLI uses, just click-driven.
 from __future__ import annotations
 
 import dataclasses
+import time
 from collections import Counter
 from pathlib import Path
 from typing import cast
 
 from rich.text import Text
-from textual import work
+from textual.content import Content
+from textual import events, work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 from textual.screen import Screen
+from textual.theme import Theme
+from textual.timer import Timer
 from textual.widgets import (
     Button,
     Checkbox,
     DataTable,
     DirectoryTree,
-    Footer,
-    Header,
     Input,
     Label,
     Select,
@@ -59,38 +61,79 @@ from .core import (
 from .core import sort_findings
 from .effort_estimator import estimate_hours
 from .gap_registry import gap_metadata
-from .html_report import group_by_gap, source_name, stage_key
+from .html_report import _version, group_by_gap, source_name, stage_key
 from . import messages
 from .models import Finding
 from .verification import DetectorVerification, NewInOutput, new_in_output, verify_against_baseline
 
-# Dracula's own published accent colors (draculatheme.com/contribute)
-# for error/warning/success -- not the plain named "red"/"yellow"/"green"
-# Rich would otherwise pick, which look harsh and don't match the app's
-# Dracula theme (see GapReportApp.theme below) at all. Dracula ships as
-# one of Textual's own built-in themes, already tuned for contrast on a
-# dark background -- picking a maintained, tested palette here beats
-# hand-rolling colors and hoping they read well.
-_SEVERITY_STYLE = {"high": "bold #FF5555", "medium": "bold #F1FA8C", "low": "bold #50FA7B"}
-# The failure stages, in Dracula's accents like the severities above --
-# the same hues the HTML and terminal reports give each stage.
+# The palette of Claude Code's own terminal UI, which this app is dressed
+# after: a warm near-black ground, one clay-orange accent for what matters
+# on screen right now, and soft desaturated hues for everything else. The
+# stage colours are the same four hues the HTML and terminal reports give
+# the stages, shifted to read on this background; the severities reuse
+# them, so red always means "fails", amber "look at it", green "fine".
+_ACCENT = "#D97757"
+_MUTED = "#8F8B82"
+_CODE = "#9ECBFF"
+_RED = "#FF6B80"
+_AMBER = "#EBB85E"
+_GREEN = "#4EBA65"
+_SEVERITY_STYLE = {"high": f"bold {_RED}", "medium": f"bold {_AMBER}", "low": f"bold {_GREEN}"}
 _STAGE_STYLE = {
-    "conversion": "#BD93F9",
-    "deployment": "#FF5555",
-    "runtime": "#FFB86C",
-    "semantic": "#8BE9FD",
-    "none": "#6272A4",
+    "conversion": "#B1B9F9",
+    "deployment": _RED,
+    "runtime": _AMBER,
+    "semantic": "#5FC4B4",
+    "none": _MUTED,
 }
+
+_THEME = Theme(
+    name="ora2pg-gap-report",
+    primary=_ACCENT,
+    secondary="#B1B9F9",
+    accent=_ACCENT,
+    warning=_AMBER,
+    error=_RED,
+    success=_GREEN,
+    foreground="#ECEAE4",
+    background="#1D1C1A",
+    surface="#262522",
+    panel="#2F2E2A",
+    dark=True,
+    variables={
+        "border": _ACCENT,
+        "border-blurred": "#4A4843",
+        "text-muted": _MUTED,
+        "block-cursor-background": "#3B3934",
+        "block-cursor-foreground": "#FFFFFF",
+        "block-cursor-text-style": "bold",
+        "block-cursor-blurred-background": "#302F2B",
+        "block-cursor-blurred-foreground": "#ECEAE4",
+        "block-hover-background": "#2A2926",
+        "input-cursor-background": _ACCENT,
+        "input-selection-background": "#D9775755",
+        "scrollbar": "#3B3934",
+        "scrollbar-hover": "#55524B",
+        "scrollbar-active": _ACCENT,
+        "scrollbar-background": "#1D1C1A",
+        "scrollbar-background-hover": "#1D1C1A",
+        "scrollbar-background-active": "#1D1C1A",
+        "scrollbar-corner-color": "#1D1C1A",
+        "button-color-foreground": "#1D1C1A",
+        "button-focus-text-style": "bold",
+    },
+)
+
 _VERIFY_STATUS_STYLE = {
-    "still_present": "bold #FF5555",
-    "not_detected": "bold #50FA7B",
-    "not_verifiable": "dim",
+    "still_present": f"bold {_RED}",
+    "not_detected": f"bold {_GREEN}",
+    "not_verifiable": _MUTED,
     # Not one of DetectorVerification's three statuses: rows for detectors
     # the baseline never had (the conversion introduced the construct),
     # shown in the same table because they answer the same user question
     # -- "what is wrong with the generated output" -- and a second table
     # on this screen would push the first one off a short terminal.
-    "new_in_output": "bold #F1FA8C",
+    "new_in_output": f"bold {_AMBER}",
 }
 
 # Each language's own name, not translated cross-wise (same convention as
@@ -119,6 +162,80 @@ def _severity_options(lang: str) -> list[tuple[str, str]]:
         (i18n.t(lang, "tui_severity_only", level="medium"), "medium"),
         (i18n.t(lang, "tui_severity_only", level="low"), "low"),
     ]
+
+
+def _hints(lang: str, *keys: str) -> Text:
+    """The dim key line at the bottom of every screen, in place of
+    Textual's Footer: key in the accent, what it does in grey, the way
+    Claude Code shows its own shortcuts under the prompt."""
+    text = Text()
+    for i, key in enumerate(keys):
+        if i:
+            text.append("   ")
+        label, what = i18n.t(lang, f"tui_hint_{key}").split("|", 1)
+        text.append(label, style=f"bold {_ACCENT}")
+        text.append(f" {what}", style=_MUTED)
+    return text
+
+
+def _flow(items: list[Text], width: int, indent: str = "  ") -> Text:
+    """Lay `items` out in lines no wider than `width`, three spaces apart,
+    starting each line with `indent`. Done here rather than left to Rich's
+    word wrap, which breaks at any space -- non-breaking ones included --
+    and so could strand a stage's dot at the end of one line and its name
+    at the start of the next."""
+    out = Text(indent)
+    used = len(indent)
+    for i, item in enumerate(items):
+        if i and used + 3 + item.cell_len > width:
+            out.append("\n" + indent)
+            used = len(indent)
+        elif i:
+            out.append("   ")
+            used += 3
+        out.append(item)
+        used += item.cell_len
+    return out
+
+
+def _banner(lang: str, path: Path | None = None, roomy: bool = False) -> Text:
+    """The welcome box's text, after Claude Code's own: an orange asterisk
+    and the name, then what the tool is for, then where it is looking.
+    `roomy` puts a blank line between them, as Claude Code does; the
+    screen asks for it only when the terminal is tall enough to spare
+    the rows (see ScanScreen.on_resize)."""
+    gap = "\n\n" if roomy else "\n"
+    text = Text()
+    text.append("* ", style=f"bold {_ACCENT}")
+    text.append("ora2pg-gap-report", style="bold")
+    text.append(f"  {_version()}", style=_MUTED)
+    text.append(f"{gap}  {i18n.t(lang, 'tui_app_subtitle')}", style=_MUTED)
+    if path is not None:
+        text.append(f"{gap}  cwd: {path.resolve()}", style=_MUTED)
+    return text
+
+
+class _Tree(DirectoryTree):
+    """DirectoryTree without its emoji icons: folders get a plain + / -
+    that says whether they are open, files a blank of the same width, and
+    colour does the rest (see the directory-tree--* rules in the app CSS)."""
+
+    ICON_NODE = "+ "
+    ICON_NODE_EXPANDED = "- "
+    ICON_FILE = "  "
+
+
+class _Check(Checkbox):
+    """A checkbox drawn as [x] / [ ] in plain keyboard characters, in
+    place of Textual's half-block box: grey brackets, an orange x."""
+
+    @property
+    def _button(self) -> Content:
+        return Content.assemble(
+            ("[", _MUTED),
+            ("x" if self.value else " ", f"bold {_ACCENT}"),
+            ("]", _MUTED),
+        )
 
 
 def scan_paths(
@@ -228,39 +345,30 @@ class ScanScreen(Screen[None]):
     comparison, --verify), press Scan."""
 
     CSS = """
-    #tree-label { padding: 1 2 0 2; color: $text-muted; text-style: italic; }
-    DirectoryTree { height: 1fr; margin: 1 2; border: round $panel-lighten-1; padding: 1; }
-    #controls { height: auto; padding: 1 2; }
-    /* Per-select widths, not one shared 26: three pickers plus the Scan
-       button have to fit an 80-column terminal (the narrowest this app
-       targets, and what App.run_test() gives the TUI tests), so each is
-       sized to its own content rather than every one paying for the
-       widest.
-       These are measured minimums, not label lengths. A Select needs
-       room for its border and its dropdown arrow on top of the label, so
-       sizing to the label alone (which is what the first version of this
-       block did -- 12/20/13 for labels of 6/13/7) leaves the widget one
-       row TALLER than its neighbours: the text wraps inside it. That is
-       invisible in a screenshot of one widget and obvious in the row --
-       a ragged bottom edge under the pickers. The numbers below are the
-       smallest width at which each renders at height 3, taken from a
-       real headless render in BOTH languages and pinned by
-       test_control_row_widgets_are_all_the_same_height.
-       Severity is the one that differs between locales: "Только medium"
-       needs 18, "All severities" needs 22, so 22 it is. Total with
-       margins and the Scan button is 75 of the 78 available. */
+    /* Every control is Textual's one-row compact variant: the screen reads
+       as a few quiet lines under the banner, like Claude Code's own prompt,
+       instead of a wall of three-row boxes. It also leaves the tree most of
+       an 80x24 terminal (the smallest this app targets and what
+       App.run_test() gives the tests).
+       Select widths are the smallest at which each label still fits on
+       one row in both languages ("All severities" is the widest); the
+       rows' heights and right edges are pinned by
+       test_scan_screen_row_widgets_are_all_the_same_height and
+       test_scan_screen_row_fits_an_eighty_column_terminal. */
+    #tree-label { padding: 0 2; color: $text-muted; }
+    #multi-select-controls, #baseline-controls { margin-top: 1; }
+    ScanScreen #banner { margin-top: 0; }
+    ScanScreen.-roomy #banner, ScanScreen.-roomy #tree-label { margin-top: 1; }
+    #tree { height: 1fr; margin: 0 1; padding: 0 1; }
+    #controls, #multi-select-controls, #baseline-controls { height: 1; padding: 0 2; }
+    #controls { margin-top: 1; }
     #controls Select { margin-right: 2; }
-    #dialect-select { width: 14; }
-    #severity-select { width: 22; }
-    #lang-select { width: 15; }
-    #controls Button { margin-top: 0; }
-    #multi-select-controls { height: auto; padding: 0 2; }
+    #dialect-select { width: 12; }
+    #severity-select { width: 20; }
+    #lang-select { width: 13; }
     #multi-select-controls Button { margin-right: 2; }
-    #multi-select-controls Checkbox { margin-top: 0; }
-    #baseline-controls { height: auto; padding: 0 2 1 2; }
     #baseline-controls Input { width: 1fr; margin-right: 2; }
-    #baseline-controls Checkbox { margin-top: 0; }
-    #status { height: auto; padding: 0 3 1 3; color: $text-muted; }
+    #status { height: auto; max-height: 5; padding: 0 2; margin-top: 1; color: $text-muted; }
     """
 
     def __init__(self, start_path: Path, lang: str = "ru") -> None:
@@ -269,25 +377,77 @@ class ScanScreen(Screen[None]):
         self.lang = lang
         self.selected_path: Path | None = None
         self.selected_paths: list[Path] = []
+        self._spinner: Timer | None = None
+        self._spinner_message = ""
+        self._spinner_started = 0.0
+        self._spinner_frame = 0
+        self._spinner_lang = lang
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Static(_banner(self.lang, self._start_path), id="banner")
         yield Label(i18n.t(self.lang, "tui_tree_label"), id="tree-label")
-        yield DirectoryTree(str(self._start_path), id="tree")
+        yield _Tree(str(self._start_path), id="tree")
         with Horizontal(id="controls"):
-            yield Select(_dialect_options(), value="oracle", id="dialect-select", allow_blank=False)
-            yield Select(_severity_options(self.lang), value="all", id="severity-select", allow_blank=False)
-            yield Select(_LANG_OPTIONS, value=self.lang, id="lang-select", allow_blank=False)
-            yield Button(i18n.t(self.lang, "tui_scan_btn"), id="scan-btn", variant="primary")
+            yield Select(_dialect_options(), value="oracle", id="dialect-select", allow_blank=False, compact=True)
+            yield Select(
+                _severity_options(self.lang), value="all", id="severity-select", allow_blank=False, compact=True
+            )
+            yield Select(_LANG_OPTIONS, value=self.lang, id="lang-select", allow_blank=False, compact=True)
+            yield Button(i18n.t(self.lang, "tui_scan_btn"), id="scan-btn", variant="primary", compact=True)
         with Horizontal(id="multi-select-controls"):
-            yield Button(i18n.t(self.lang, "tui_add_to_selection_btn"), id="add-path-btn")
-            yield Button(i18n.t(self.lang, "tui_clear_selection_btn"), id="clear-paths-btn")
-            yield Checkbox(i18n.t(self.lang, "tui_connect_by_checkbox"), id="connect-by-checkbox")
+            yield Button(i18n.t(self.lang, "tui_add_to_selection_btn"), id="add-path-btn", compact=True)
+            yield Button(i18n.t(self.lang, "tui_clear_selection_btn"), id="clear-paths-btn", compact=True)
+            yield _Check(i18n.t(self.lang, "tui_connect_by_checkbox"), id="connect-by-checkbox", compact=True)
         with Horizontal(id="baseline-controls"):
-            yield Input(placeholder=i18n.t(self.lang, "tui_baseline_input_placeholder"), id="baseline-input")
-            yield Checkbox(i18n.t(self.lang, "tui_verify_checkbox"), id="verify-checkbox")
+            yield Input(
+                placeholder=i18n.t(self.lang, "tui_baseline_input_placeholder"), id="baseline-input", compact=True
+            )
+            yield _Check(i18n.t(self.lang, "tui_verify_checkbox"), id="verify-checkbox", compact=True)
         yield Static(i18n.t(self.lang, "tui_status_nothing_selected"), id="status")
-        yield Footer()
+        yield Static(_hints(self.lang, "tab", "enter", "quit"), classes="hints")
+
+    def on_resize(self, event: events.Resize) -> None:
+        # Air between the rows only when the terminal can spare it; on a
+        # short one the rows go to the file tree instead.
+        roomy = event.size.height >= 34
+        self.set_class(roomy, "-roomy")
+        self.query_one("#banner", Static).update(_banner(self.lang, self._start_path, roomy=roomy))
+
+    def on_screen_resume(self) -> None:
+        # Back from a results screen: the spinner that was running when it
+        # opened is stale, and the status line should say what is picked.
+        if self._spinner is not None:
+            self._stop_spinner()
+            self._update_status()
+
+    def _start_spinner(self, message: str, lang: str) -> None:
+        """Claude Code's "working" line: a pulsing orange asterisk, what is
+        happening, and the seconds so far -- redrawn ten times a second
+        until the worker hands over a result or an error."""
+        self._stop_spinner()
+        self._spinner_message = message
+        self._spinner_lang = lang
+        self._spinner_started = time.monotonic()
+        self._spinner_frame = 0
+        self._draw_spinner()
+        self._spinner = self.set_interval(0.1, self._draw_spinner)
+
+    def _stop_spinner(self) -> None:
+        if self._spinner is not None:
+            self._spinner.stop()
+            self._spinner = None
+
+    def _draw_spinner(self) -> None:
+        shades = (_ACCENT, "#E38E72", "#EBA58E", "#E38E72")
+        shade = shades[self._spinner_frame % len(shades)]
+        self._spinner_frame += 1
+        lang = self._spinner_lang
+        seconds = i18n.number(lang, round(time.monotonic() - self._spinner_started, 1))
+        text = Text()
+        text.append("* ", style=f"bold {shade}")
+        text.append(self._spinner_message, style=shade)
+        text.append(f"  {i18n.t(lang, 'tui_elapsed', s=seconds)}", style=_MUTED)
+        self.query_one("#status", Static).update(text)
 
     def _update_status(self) -> None:
         # Text(...), not an f-string handed to Static.update(): a selected
@@ -314,7 +474,8 @@ class ScanScreen(Screen[None]):
         # f-string -- `message` can carry an exception's own text (e.g. a
         # baseline load error quoting the bad file's content), which must
         # never be parsed as markup either.
-        self.query_one("#status", Static).update(Text(message, style="bold #FF5555"))
+        self._stop_spinner()
+        self.query_one("#status", Static).update(Text(message, style=f"bold {_RED}"))
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
         self.selected_path = event.path
@@ -384,10 +545,10 @@ class ScanScreen(Screen[None]):
 
         if verify_mode:
             assert baseline_path is not None  # ruled out by the check above
-            self.query_one("#status", Static).update(i18n.t(lang, "tui_status_verifying"))
+            self._start_spinner(i18n.t(lang, "tui_status_verifying"), lang)
             self._run_verify(paths, Path(baseline_path), lang, dialect)
         else:
-            self.query_one("#status", Static).update(i18n.t(lang, "tui_status_scanning"))
+            self._start_spinner(i18n.t(lang, "tui_status_scanning"), lang)
             self._run_scan(paths, severity, lang, check_connect_by, baseline_path, dialect)
 
     @work(thread=True)
@@ -562,44 +723,20 @@ class ResultsScreen(Screen[None]):
     BINDINGS = [("escape", "app.pop_screen", "Back")]
 
     CSS = """
-    /* max-height + overflow-y, not just height: auto: "Scanned <path>"
-       wraps to a different number of lines depending on how long the
-       scanned path's absolute string is -- which depends on where the
-       repo is checked out, not just on what's actually being scanned.
-       Confirmed the hard way: this screen's layout passed locally (a
-       short /workspace/... checkout path) and then failed in CI on every
-       Python version (a longer runner checkout path wrapped the summary
-       one line taller, pushing #back-btn's region below the 80x24 test
-       viewport that had fit it fine locally). Capping the height here
-       makes the rest of the layout's position independent of checkout
-       path length instead of "hope it never wraps more than expected". */
-    /* No inner padding and a 7-row cap (4 lines of text inside the
-       border): on a 24-line terminal the old padding 1 2 spent two of
-       those rows on air and left room for the heading alone. */
-    #summary {
-        height: auto; max-height: 7; overflow-y: auto; padding: 0 1;
-        border: round $primary; margin: 0 1; background: $panel;
-    }
-    /* 2fr/1fr, not a fixed height for #detail: a fixed height (tried
-       first at 14) doesn't scale down on a small terminal -- at the
-       80x24 Textual itself defaults to for headless/test runs, the rest
-       of this screen's fixed-height chrome (header, summary, save-
-       baseline row, back button, footer) plus a 14-row detail box
-       genuinely doesn't fit, pushing #back-btn below the visible
-       viewport entirely. Sharing the remaining space proportionally
-       guarantees both boxes fit whatever the real terminal size is,
-       just with different proportions. */
-    #findings-table { height: 3fr; margin: 0 1; border: round $panel-lighten-1; }
-    /* 2fr against the table's 3fr, and padding 0 2: the panel's first
-       lines are what to act on (gap, stage, place, what to do), and at
-       1fr with a padded border they were cut off after two lines. */
-    #detail {
-        height: 2fr; border: round $accent; margin: 0 1; padding: 0 1;
-        overflow-y: auto; background: $panel;
-    }
-    /* Save and Back share one row: two rows of buttons were what squeezed
-       the detail panel above to nothing on a 24-line terminal. */
-    #baseline-save-controls { height: auto; padding: 0 1; }
+    /* The summary is capped at 7 rows (5 lines inside the border) and
+       scrolls past that: the scanned path's length depends on where the
+       repo is checked out, and an uncapped box once wrapped one line
+       taller on CI than locally and pushed #back-btn below the 80x24
+       viewport the tests use. */
+    #summary { max-height: 8; overflow-y: auto; }
+    /* Proportional heights, not a fixed one for #detail: a fixed 14 rows
+       pushed #back-btn off an 80x24 terminal. The table gets more room,
+       the detail box enough for gap, stage, place and what to do. */
+    #findings-table { height: 3fr; margin: 0 1; }
+    #detail { height: 2fr; margin: 0 1; padding: 0 1; overflow-y: auto; }
+    /* Save and Back share one compact row: two rows of buttons were what
+       squeezed the detail box to nothing on a 24-line terminal. */
+    #baseline-save-controls { height: 1; padding: 0 2; margin-top: 1; }
     #baseline-save-controls Input { width: 1fr; margin-right: 2; }
     #baseline-save-controls Button { margin-right: 2; }
     #back-btn { margin: 0; }
@@ -629,6 +766,9 @@ class ResultsScreen(Screen[None]):
         self.lang = lang
         self.scanned_path = scanned_path
         self.baseline_diff = baseline_diff
+        # Width the summary's items are laid out for; on_resize keeps it
+        # current.
+        self._width = 72
         # Set by the "Save baseline" button, folded into #summary instead of
         # its own row -- a screen already tight enough at 80x24 to have
         # pushed #back-btn out of the visible viewport once (see the CSS
@@ -638,19 +778,29 @@ class ResultsScreen(Screen[None]):
         self._save_status: Text | None = None
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        yield Static(self._summary_text(), id="summary")
-        table: DataTable[str] = DataTable(id="findings-table", cursor_type="row")
+        summary = Static(self._summary_text(), id="summary", classes="box")
+        summary.border_title = "ora2pg-gap-report"
+        yield summary
+        table: DataTable[str] = DataTable(id="findings-table", cursor_type="row", zebra_stripes=False)
+        table.border_title = i18n.count(self.lang, "finding", len(self.findings))
         yield table
-        yield Static(i18n.t(self.lang, "tui_results_select_row_hint"), id="detail")
+        detail = Static(Text(i18n.t(self.lang, "tui_results_select_row_hint"), style=_MUTED), id="detail")
+        yield detail
         with Horizontal(id="baseline-save-controls"):
             yield Input(
                 placeholder=i18n.t(self.lang, "tui_save_baseline_input_placeholder"),
                 id="save-baseline-input",
+                compact=True,
             )
-            yield Button(i18n.t(self.lang, "tui_save_baseline_btn"), id="save-baseline-btn")
-            yield Button(i18n.t(self.lang, "tui_back_to_scan_btn"), id="back-btn")
-        yield Footer()
+            yield Button(i18n.t(self.lang, "tui_save_baseline_btn"), id="save-baseline-btn", compact=True)
+            yield Button(i18n.t(self.lang, "tui_back_to_scan_btn"), id="back-btn", compact=True)
+        yield Static(_hints(self.lang, "move", "back", "quit"), classes="hints")
+
+    def on_resize(self, event: events.Resize) -> None:
+        # The summary's items are laid out by hand for the current width
+        # (see _flow), so a resize lays them out again.
+        self._width = max(event.size.width - 8, 20)
+        self.query_one("#summary", Static).update(self._summary_text())
 
     def _summary_text(self) -> Text:
         # Built as a Text, appended to piece by piece, not as an f-string
@@ -663,23 +813,24 @@ class ResultsScreen(Screen[None]):
             lang = self.lang
             gaps = group_by_gap(self.findings)
             text = Text()
+            text.append("* ", style=f"bold {_ACCENT}")
             text.append(i18n.t(lang, "report_heading", source=source_name(self.findings)) + "\n", style="bold")
             per_stage = Counter(stage_key(g.stage) for g in gaps for _ in g.findings)
+            stages: list[Text] = []
             for key in ("conversion", "deployment", "runtime", "semantic", "none"):
                 n = per_stage.get(key, 0)
                 if not n and key == "none":
                     continue
-                style = _STAGE_STYLE[key] if n else "dim"
-                # Non-breaking spaces inside an item, so a narrow terminal
-                # wraps between stages, never between a dot and its name.
-                name = i18n.t(lang, f"stage_{key}_name").replace(" ", "\u00a0")
-                text.append("●\u00a0", style=style)
-                text.append(f"{name}\u00a0", style="dim" if not n else "")
-                text.append(str(n), style=f"bold {style}" if n else "dim")
-                text.append("   ")
+                style = _STAGE_STYLE[key] if n else "#55524B"
+                item = Text()
+                item.append("● ", style=style)
+                item.append(f"{i18n.t(lang, f'stage_{key}_name')} ", style=_MUTED if not n else "")
+                item.append(str(n), style=f"bold {style}" if n else _MUTED)
+                stages.append(item)
+            text.append(_flow(stages, self._width))
             text.append("\n")
             lo, hi = estimate_hours(self.findings)
-            text.append(
+            found = Text(
                 i18n.t(
                     lang,
                     "report_found",
@@ -687,27 +838,32 @@ class ResultsScreen(Screen[None]):
                     gaps=i18n.count(lang, "gap", len(gaps)),
                 )
             )
-            text.append(f" {i18n.t(lang, 'effort_panel_title')}: ", style="dim")
-            text.append(i18n.t(lang, "report_effort_range", lo=i18n.number(lang, lo), hi=i18n.number(lang, hi)), style="bold")
-            text.append(f" {i18n.t(lang, 'tui_effort_caveat')}\n", style="dim")
-            text.append(i18n.t(lang, "tui_scanned_path", path=self.scanned_path), style="dim")
+            effort = Text(f"{i18n.t(lang, 'effort_panel_title')}: ", style=_MUTED)
+            effort.append(
+                i18n.t(lang, "report_effort_range", lo=i18n.number(lang, lo), hi=i18n.number(lang, hi)),
+                style="bold",
+            )
+            effort.append(f" {i18n.t(lang, 'tui_effort_caveat')}", style=_MUTED)
+            text.append(_flow([found, effort], self._width))
+            text.append("\n")
+            text.append("  " + i18n.t(lang, "tui_scanned_path", path=self.scanned_path), style=_MUTED)
         if self.baseline_diff is not None:
             # NEW/RESOLVED/UNCHANGED stay untranslated words here, same as
             # terminal_report.py's own render_baseline_diff() -- fixed
             # status vocabulary, not prose (see _severity_options()'s own
             # reasoning for the same choice with high/medium/low).
             d = self.baseline_diff
-            text.append("\n")
+            text.append("\n  ")
             text.append("Baseline: ", style="bold")
-            text.append(f"{len(d.new)} new", style="#FF5555")
+            text.append(f"{len(d.new)} new", style=_RED)
             text.append(", ")
-            text.append(f"{len(d.resolved)} resolved", style="#50FA7B")
+            text.append(f"{len(d.resolved)} resolved", style=_GREEN)
             text.append(f", {d.unchanged_count} unchanged")
         if self.warnings:
-            text.append("\n")
-            text.append(" / ".join(self.warnings), style="#F1FA8C")
+            text.append("\n  ")
+            text.append(" / ".join(self.warnings), style=_AMBER)
         if self._save_status is not None:
-            text.append("\n")
+            text.append("\n  ")
             text.append(self._save_status)
         return text
 
@@ -744,40 +900,33 @@ class ResultsScreen(Screen[None]):
                 Text(f"GAP-{gap_number}" if gap_number else "—"),
                 Text(f.object_name),
                 Text(str(f.line)),
-                Text(Path(f.source_file).name if f.source_file else "—", style="dim"),
+                Text(Path(f.source_file).name if f.source_file else "—", style=_MUTED),
                 key=str(i),
             )
 
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        # The detail box follows the cursor, so arrowing down the table
+        # reads through the findings without pressing Enter on each one.
+        self._show_detail(event.row_key.value)
+
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        row_key_value = event.row_key.value
+        self._show_detail(event.row_key.value)
+
+    def _show_detail(self, row_key_value: str | None) -> None:
         assert row_key_value is not None  # every row is added with key=str(i) in on_mount()
-        index = int(row_key_value)
-        f = self.findings[index]
+        f = self.findings[int(row_key_value)]
         gap_number, failure_stage = gap_metadata(f.detector)
-        # GAP-NNN/stage comes right after the header, before the message
-        # body -- not after it. f.message can run to several wrapped
-        # lines (see e.g. bulk_collect's), and #detail has a fixed height
-        # with overflow-y: auto -- put the GAP reference last and a long
-        # enough message pushes the one thing this panel exists to show
-        # (when does this actually break) below the visible area with no
-        # obvious indication there's more to scroll to.
-        #
-        # Built as a Text, appended piece by piece: f.object_name/f.message
-        # can carry scanned-content text verbatim (a quoted Oracle
-        # identifier, or a detector message that echoes a captured snippet)
-        # -- never safe to hand to Static.update() as an f-string with
-        # inline markup. Only ref/stage_label are markup-safe (built
-        # entirely from our own GAP-NNN numbering and i18n dict), so those
-        # are the only pieces styled here.
-        text = Text()
         lang = self.lang
         key = stage_key(failure_stage)
         # What to act on first, while it is still on screen: the gap, when
         # it breaks, where, and what to do. The explanation -- several
         # wrapped lines -- goes last, where scrolling to it costs nothing.
-        # Every scanned field goes in as plain appended text, never markup.
+        # Built as a Text, piece by piece: object names, snippets and paths
+        # come from the scanned source and must never be parsed as markup
+        # (a quoted identifier like "my[table]" would raise MarkupError).
+        text = Text()
         if gap_number is not None:
-            text.append(f"GAP-{gap_number}  ", style="bold")
+            text.append(f"GAP-{gap_number}  ", style=f"bold {_STAGE_STYLE[key]}")
         text.append(messages.title(f.detector, lang).replace("`", ""), style="bold")
         text.append("\n")
         if failure_stage is not None:
@@ -787,17 +936,24 @@ class ResultsScreen(Screen[None]):
                 style=_STAGE_STYLE[key],
             )
             text.append("\n")
-        text.append(f"{f.object_name}:{f.line}", style="bold")
-        text.append(f"  {f.source_file}" if f.source_file else "", style="dim")
         text.append("\n")
-        text.append(f.snippet, style="#8BE9FD")
+        text.append(f"{f.object_name}:{f.line}", style="bold")
+        text.append(f"  {f.source_file}" if f.source_file else "", style=_MUTED)
+        text.append("\n")
+        text.append("  ")
+        text.append(f.snippet, style=_CODE)
         hint = messages.remediation_hint(f.detector, lang)
         if hint:
-            text.append(f"\n\n{i18n.t(lang, 'report_gap_fix')}: ", style="bold")
+            text.append(f"\n\n{i18n.t(lang, 'report_gap_fix')}  ", style=f"bold {_ACCENT}")
             text.append(hint)
-        text.append(f"\n\n{i18n.t(lang, 'report_gap_why')}: ", style="bold")
-        text.append(messages.text(f.message_id, lang))
-        self.query_one("#detail", Static).update(text)
+        text.append(f"\n\n{i18n.t(lang, 'report_gap_why')}  ", style=f"bold {_MUTED}")
+        text.append(messages.text(f.message_id, lang), style="#CFCBC2")
+        detail = self.query_one("#detail", Static)
+        # The box takes the colour of the stage the finding breaks at, the
+        # same hue its row carries in the table's Stage column.
+        detail.styles.border = ("round", _STAGE_STYLE[key])
+        detail.border_title = i18n.t(lang, f"stage_{key}_name")
+        detail.update(text)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "back-btn":
@@ -811,19 +967,19 @@ class ResultsScreen(Screen[None]):
             value = self.query_one("#save-baseline-input", Input).value.strip()
             if not value:
                 self._save_status = Text(
-                    i18n.t(self.lang, "tui_error_enter_path_first"), style="bold #FF5555"
+                    i18n.t(self.lang, "tui_error_enter_path_first"), style=f"bold {_RED}"
                 )
             else:
                 try:
                     save_baseline(self.all_findings, Path(value))
                 except OSError as exc:
                     self._save_status = Text(
-                        i18n.t(self.lang, "tui_error_couldnt_save", exc=exc), style="bold #FF5555"
+                        i18n.t(self.lang, "tui_error_couldnt_save", exc=exc), style=f"bold {_RED}"
                     )
                 else:
                     self._save_status = Text(
                         i18n.t(self.lang, "tui_saved_findings", n=len(self.all_findings), path=value),
-                        style="#50FA7B",
+                        style=_GREEN,
                     )
             self.query_one("#summary", Static).update(self._summary_text())
 
@@ -839,10 +995,9 @@ class VerifyResultsScreen(Screen[None]):
     BINDINGS = [("escape", "app.pop_screen", "Back")]
 
     CSS = """
-    #verify-summary { height: auto; padding: 1 2; border: round $primary; margin: 1 2; background: $panel; }
-    #verify-table { height: 1fr; margin: 0 2 1 2; border: round $panel-lighten-1; }
-    #verify-back-btn { margin: 0 2 1 2; }
-    #verify-footer-note { height: auto; padding: 0 3 1 3; color: $text-muted; }
+    #verify-table { height: 1fr; margin: 0 1; }
+    #verify-footer-note { height: auto; padding: 0 2; margin-top: 1; color: $text-muted; }
+    #verify-back-btn { margin: 1 2 0 2; }
     """
 
     def __init__(
@@ -861,15 +1016,16 @@ class VerifyResultsScreen(Screen[None]):
         self.new_in_output = new_in_output or []
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        yield Static(self._summary_text(), id="verify-summary")
+        summary = Static(self._summary_text(), id="verify-summary", classes="box")
+        summary.border_title = "ora2pg-gap-report"
+        yield summary
         yield DataTable(id="verify-table", cursor_type="row")
         # Same footer disclaimer text as terminal_report.py's own
         # render_verification() -- reuses its i18n key rather than a
         # tui_-prefixed duplicate.
         yield Static(i18n.t(self.lang, "verify_footer_note"), id="verify-footer-note")
-        yield Button(i18n.t(self.lang, "tui_back_to_scan_btn"), id="verify-back-btn")
-        yield Footer()
+        yield Button(i18n.t(self.lang, "tui_back_to_scan_btn"), id="verify-back-btn", compact=True)
+        yield Static(_hints(self.lang, "move", "back", "quit"), classes="hints")
 
     def _summary_text(self) -> Text:
         # Text(...), not an f-string with inline markup: scanned_path and
@@ -878,7 +1034,8 @@ class VerifyResultsScreen(Screen[None]):
         counts = {"still_present": 0, "not_detected": 0, "not_verifiable": 0}
         for r in self.results:
             counts[r.status] = counts.get(r.status, 0) + 1
-        text = Text(
+        text = Text("* ", style=f"bold {_ACCENT}")
+        text.append(
             i18n.t(
                 self.lang,
                 "tui_verify_summary",
@@ -890,8 +1047,8 @@ class VerifyResultsScreen(Screen[None]):
             )
         )
         if self.warnings:
-            text.append("\n")
-            text.append(" / ".join(self.warnings), style="#F1FA8C")
+            text.append("\n  ")
+            text.append(" / ".join(self.warnings), style=_AMBER)
         return text
 
     def on_mount(self) -> None:
@@ -943,19 +1100,69 @@ class GapReportApp(App[None]):
     TITLE = "ora2pg-gap-report"
     BINDINGS = [("q", "quit", "Quit")]
 
+    # Shared by every screen: the look is Claude Code's -- no header bar,
+    # no filled panels, thin rounded borders, orange only on what has
+    # focus or matters most, grey for everything that is just context.
+    CSS = """
+    Screen { background: $background; }
+    #banner {
+        width: auto; max-width: 100%; height: auto;
+        border: round $primary; padding: 0 2 0 1; margin: 1 1 0 1;
+    }
+    .box {
+        height: auto; border: round $primary; padding: 0 1; margin: 1 1 0 1;
+        border-title-color: $text-muted; border-title-style: none;
+    }
+    .hints { height: 1; padding: 0 2; margin-top: 1; }
+
+    DirectoryTree, DataTable, #detail {
+        background: $background; border: round #4A4843;
+        border-title-color: $text-muted; border-title-style: none;
+    }
+    DirectoryTree:focus, DataTable:focus { border: round $primary; background-tint: $foreground 0%; }
+    DirectoryTree, DataTable, #detail { scrollbar-size: 0 1; }
+    DirectoryTree > .directory-tree--folder { color: $primary; text-style: bold; }
+    DirectoryTree > .directory-tree--extension { color: $text-muted; text-style: none; }
+    DirectoryTree > .directory-tree--file { color: $foreground; }
+    DirectoryTree > .tree--guides { color: #4A4843; }
+    DirectoryTree > .tree--guides-hover { color: #6B675F; }
+    DirectoryTree > .tree--guides-selected { color: $primary; }
+
+    DataTable > .datatable--header { background: $background; color: $text-muted; text-style: bold; }
+    DataTable > .datatable--even-row, DataTable > .datatable--odd-row { background: $background; }
+    DataTable > .datatable--hover { background: #2A2926; }
+
+    Button {
+        background: $panel; color: $foreground; text-style: none;
+        padding: 0 1; min-width: 0;
+    }
+    Button:hover { background: #3B3934; }
+    Button:focus { background: #3B3934; color: $primary; text-style: bold; }
+    Button.-primary { background: $primary; color: #1D1C1A; text-style: bold; }
+    Button.-primary:hover { background: #E38E72; }
+    Button.-primary:focus { background: #EBA58E; color: #1D1C1A; }
+
+    Select > SelectCurrent { background: $panel; }
+    Select:focus > SelectCurrent { background: #3B3934; }
+    Select > SelectCurrent .arrow { color: $primary; }
+    Input { background: $panel; }
+    Input:focus { background: #3B3934; }
+    Input > .input--placeholder { color: #6B675F; }
+    Checkbox { background: $background; }
+    Checkbox:focus { background-tint: $foreground 0%; }
+    Checkbox:focus > .toggle--label { color: $primary; background: $background; text-style: bold; }
+    """
+
     def __init__(self, start_path: Path | None = None, lang: str = "ru") -> None:
         super().__init__()
         self._start_path = start_path or Path.cwd()
         self.lang = lang
         self.sub_title = i18n.t(lang, "tui_app_subtitle")
-        # Dracula (draculatheme.com) -- one of Textual's own built-in
-        # themes, not the library's generic default: high-contrast purple
-        # on near-black, the option the project's own maintainer picked
-        # after comparing it side by side with five other built-in themes.
-        # Severity colors above (_SEVERITY_STYLE) are pulled straight from
-        # Dracula's own published accents, not picked independently, so
-        # they read as part of the same palette rather than clashing with it.
-        self.theme = "dracula"
+        # A theme of this app's own (see _THEME above) rather than one of
+        # Textual's built-ins, so the widgets' own colours -- focus rings,
+        # cursors, scrollbars -- come from the same palette as the text.
+        self.register_theme(_THEME)
+        self.theme = _THEME.name
 
     def on_mount(self) -> None:
         self.push_screen(ScanScreen(self._start_path, self.lang))

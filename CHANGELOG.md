@@ -10,6 +10,17 @@ patch for fixes to existing ones.
 ## [Unreleased]
 
 ### Added
+- **A redesigned terminal report**, laid out like the HTML one: the stage
+  rail, the severity split, every gap once with a stage-coloured marker,
+  then each gap in detail with its first five occurrences and a pointer to
+  the formats that carry all of them -- instead of one table with a row
+  per finding, which for the samples ran to 389 rows. The header names the
+  real source dialect instead of always saying ORACLE, counts are
+  grammatical ("2 находки", "1 тип пробела"), and the effort estimate is
+  shown as the range it is: the old panel printed its midpoint as
+  "Среднее", which effort_estimator.py says never to do. The Markdown
+  header and the old panel said "проблемных объектов" (problematic
+  objects) for what is a number of findings; both now say findings.
 - **A redesigned HTML report.** It opens with the four stages a migration
   meets gaps in -- conversion, schema load, run time, silently -- and how
   many findings wait at each, then lists every gap once: its title, when it

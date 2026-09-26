@@ -389,8 +389,8 @@ def test_main_format_terminal_prints_a_styled_report_to_stdout(monkeypatch, caps
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "TR_CONSTRUCTORS_CTI" in captured.out
-    assert "Найдено проблемных объектов" in captured.out
-    assert "Пояснения" in captured.out
+    assert "где сломается перенос" in captured.out
+    assert "Подробно" in captured.out
 
 
 def test_main_format_terminal_can_be_written_to_a_file(monkeypatch, tmp_path):

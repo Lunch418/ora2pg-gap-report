@@ -6,14 +6,11 @@ importable with zero dependencies; only the CLI's interactive terminal
 output pulls in `rich`. report_generator.py's plain JSON/Markdown stay
 the machine-readable / redirect-to-a-file formats.
 
-The table itself stays deliberately compact (identifiers truncated with
-an ellipsis rather than wrapped mid-word) and the full explanation text
-lives in a separate "Пояснения" section below, grouped by the (detector,
-message) pairs actually present — every detector in this project emits
-the same static explanation for all its findings, so repeating a full
-paragraph once per row would be pure noise, and at a realistic terminal
-width (or the ~80-column fallback used when output isn't a real tty) a
-wide prose column makes the table unreadable regardless.
+The report follows the HTML one (html_report.py), whose GapGroup model
+it shares: the failure stages first, then each gap once, then each gap
+in detail with its explanation printed once and only its first few
+occurrences -- a terminal is no place for a 389-row table, and every
+other format carries the full list.
 
 Deliberately NOT here: a single "migration readiness" score, a risk
 level (LOW/MEDIUM/HIGH/...), per-category "compatibility %" numbers, or
@@ -22,17 +19,16 @@ this project doesn't have and hasn't calibrated against real migrations
 — showing a confident-looking number with no real basis behind it is
 exactly the overclaiming this project's own effort estimate deliberately
 avoids (see effort_estimator.py's docstring). Only counts and ranges
-genuinely computed from the findings appear here. The "Рекомендации"
-section below is the one apparent exception — but each line is just the
-existing per-detector remediation hint attached to a real count, not a
-new synthesized recommendation.
+genuinely computed from the findings appear here, and the effort
+estimate is shown as the range it is, never collapsed to a midpoint.
 """
 
-from rich.console import Console, Group
+from collections import Counter
+
+from rich.console import Console, Group, RenderableType
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from rich.tree import Tree
 
 from . import i18n
 from .baseline import BaselineDiff
@@ -42,7 +38,8 @@ from .effort_estimator import (
     ordered_counts,
     summarize_by_severity,
 )
-from .gap_registry import gap_metadata
+from .gap_registry import gap_by_detector, gap_metadata
+from .html_report import STAGES, GapGroup, group_by_gap, source_name, stage_key
 from .models import Finding
 from . import messages
 from .verification import DetectorVerification, NewInOutput
@@ -53,6 +50,18 @@ _SEVERITY_STYLE = {
     "low": "bold green",
 }
 _TOP_OBJECTS_LIMIT = 10
+# How many occurrences of one gap the terminal lists before pointing at
+# the formats that carry all of them.
+_OCCURRENCES_SHOWN = 5
+# The stage colours of the HTML report, as close as a terminal gets.
+_STAGE_STYLE = {
+    "conversion": "#8b6cf0",
+    "deployment": "#e5484d",
+    "runtime": "#f76b15",
+    "semantic": "#12a594",
+    "none": "grey62",
+}
+_CODE_STYLE = "cyan"
 
 
 
@@ -76,8 +85,15 @@ def render(
     objects_scanned: int | None = None,
     lang: str = "ru",
 ) -> None:
+    """The interactive report, in the same order as the HTML one: where the
+    gaps break the migration, how serious and how costly, each gap once,
+    then each gap in detail with its first few occurrences.
+
+    Every piece of scanned content -- object names, paths, snippets -- goes
+    through Text(), never through Rich markup: a path like
+    "notes[/archive].sql" would otherwise raise MarkupError, and a snippet
+    like "arr[red]" would lose what looks like a style tag."""
     console = console or Console()
-    _render_banner(console)
 
     if not findings:
         empty_message = Text(i18n.t(lang, "no_findings"))
@@ -88,71 +104,229 @@ def render(
         console.print(Panel(empty_message, border_style="green"))
         return
 
-    counts = summarize_by_severity(findings)
-    lo, hi = estimate_hours(findings)
-
-    _render_run_info(console, len(findings), objects_scanned, elapsed_seconds, lang)
-    _render_findings_summary(console, counts, lang)
+    gaps = group_by_gap(findings)
+    _render_heading(console, findings, gaps, objects_scanned, elapsed_seconds, lang)
+    _render_rail(console, gaps, lang)
+    _render_severity_and_effort(console, findings, gaps, lang)
+    _render_gap_list(console, gaps, lang)
+    _render_gap_details(console, gaps, lang)
     _render_top_objects(findings, console, lang)
-    _render_recommended_actions(findings, console, lang)
+    _render_footer_hints(console, lang)
 
-    # Finding content (object names, file paths, source snippets) comes
-    # straight from the Oracle files being scanned — arbitrary text that
-    # must never be interpreted as Rich's own markup language (a path like
-    # "notes[/archive].sql" would otherwise raise MarkupError, and content
-    # that happens to look like a style tag, e.g. "arr[i][j]", would be
-    # silently stripped instead of shown verbatim).
-    table = Table(show_lines=True, expand=True, title=i18n.t(lang, "all_findings_title"))
-    table.add_column(i18n.t(lang, "col_file"), style="dim", no_wrap=True, overflow="ellipsis", ratio=2)
-    table.add_column(i18n.t(lang, "col_object"), style="bold", no_wrap=True, overflow="ellipsis", ratio=2)
-    table.add_column(i18n.t(lang, "col_line"), justify="right", width=7)
-    table.add_column(i18n.t(lang, "col_severity"), width=9)
-    table.add_column(i18n.t(lang, "col_detector"), style="magenta", no_wrap=True, overflow="ellipsis", ratio=2)
-    table.add_column(i18n.t(lang, "col_snippet"), style="cyan", no_wrap=True, overflow="ellipsis", ratio=2)
 
-    for f in findings:
-        severity_style = _SEVERITY_STYLE.get(f.severity, "")
+def _title_text(detector: str, lang: str, style: str = "bold") -> Text:
+    """The detector's title, with its `code` spans set apart."""
+    text = Text(style=style)
+    for i, part in enumerate(messages.title(detector, lang).split("`")):
+        text.append(part, style=_CODE_STYLE if i % 2 else None)
+    return text
+
+
+def _render_heading(
+    console: Console,
+    findings: list[Finding],
+    gaps: list[GapGroup],
+    objects_scanned: int | None,
+    elapsed_seconds: float | None,
+    lang: str,
+) -> None:
+    console.print()
+    console.print(Text(i18n.t(lang, "report_heading", source=source_name(findings)), style="bold"))
+    lede = Text(style="dim")
+    lede.append(
+        i18n.t(
+            lang,
+            "report_found",
+            findings=i18n.count(lang, "finding", len(findings)),
+            gaps=i18n.count(lang, "gap", len(gaps)),
+        )
+    )
+    if objects_scanned is not None or elapsed_seconds is not None:
+        lede.append(" ")
+        if objects_scanned is not None:
+            lede.append(i18n.t(lang, "term_scanned", objects=i18n.count(lang, "object", objects_scanned)))
+        if elapsed_seconds is not None:
+            if objects_scanned is None:
+                lede.append(i18n.t(lang, "term_scanned", objects="").rstrip(" :") + ":")
+            lede.append(i18n.t(lang, "term_elapsed", s=elapsed_seconds))
+        lede.append(".")
+    console.print(lede)
+    console.print()
+
+
+def _render_rail(console: Console, gaps: list[GapGroup], lang: str) -> None:
+    """The four failure stages, in the order a migration reaches them."""
+    per_stage = {stage_key(s): 0 for s in STAGES}
+    kinds = {stage_key(s): 0 for s in STAGES}
+    for g in gaps:
+        per_stage[stage_key(g.stage)] += len(g.findings)
+        kinds[stage_key(g.stage)] += 1
+    peak = max(per_stage.values()) or 1
+    narrow = console.width < 96
+    grid = Table.grid(expand=True, padding=(0, 2))
+    for _ in range(2 if narrow else 4):
+        grid.add_column(ratio=1)
+    cells = []
+    for stage in STAGES[:-1]:
+        key = stage_key(stage)
+        n = per_stage[key]
+        color = _STAGE_STYLE[key] if n else "grey50"
+        cell = Text()
+        cell.append("● ", style=color)
+        cell.append(i18n.t(lang, f"stage_{key}_name") + "\n", style="bold" if n else "dim")
+        cell.append(f"{n}\n", style=f"bold {color}")
+        # The bar right under the number, so the bars line up whatever the
+        # descriptions below them wrap to.
+        cell.append("━" * max(1 if n else 0, round(18 * n / peak)) + "\n", style=color)
+        cell.append(i18n.count(lang, "gap", kinds[key]) + "\n", style="dim")
+        cell.append(i18n.t(lang, f"stage_{key}_desc"), style="dim")
+        cells.append(cell)
+    for i in range(0, len(cells), 2 if narrow else 4):
+        grid.add_row(*cells[i : i + (2 if narrow else 4)])
+    console.print(grid)
+    if per_stage["none"]:
+        console.print()
+        console.print(
+            Text(
+                f"{i18n.t(lang, 'stage_none_name')}: {i18n.count(lang, 'finding', per_stage['none'])} — "
+                f"{i18n.t(lang, 'stage_none_desc')}.",
+                style="dim",
+            )
+        )
+    console.print()
+
+
+def _render_severity_and_effort(console: Console, findings: list[Finding], gaps: list[GapGroup], lang: str) -> None:
+    """Severity split and effort range, labels in one column and values in
+    another so that anything that wraps stays under its value."""
+    counts = summarize_by_severity(findings)
+    total = len(findings)
+    bar = Text()
+    for name, n in ordered_counts(counts):
+        bar.append("█" * max(1, round(40 * n / total)), style=_SEVERITY_STYLE.get(name, "dim"))
+    for name, n in ordered_counts(counts):
+        bar.append(f"  {_severity_dot(name)} ", style=_SEVERITY_STYLE.get(name))
+        bar.append(f"{name} ")
+        bar.append(str(n), style="bold")
+
+    grid = Table.grid(padding=(0, 2))
+    grid.add_column(style="dim", no_wrap=True)
+    grid.add_column(ratio=1)
+    grid.add_row(i18n.t(lang, "report_filter_severity"), bar)
+    lo, hi = estimate_hours(findings)
+    grid.add_row(
+        i18n.t(lang, "effort_panel_title"), Text(i18n.t(lang, "report_effort_range", lo=lo, hi=hi), style="bold")
+    )
+    grid.add_row("", Text(i18n.t(lang, "report_effort_caveat"), style="dim"))
+    if distinct_detector_count(findings) < total:
+        note = i18n.t(
+            lang,
+            "term_effort_patterns",
+            gaps=i18n.count(lang, "gap", len(gaps)),
+            findings=i18n.count(lang, "finding", total),
+        )
+        grid.add_row("", Text(note, style="dim"))
+    console.print(grid)
+    console.print()
+
+
+def _render_gap_list(console: Console, gaps: list[GapGroup], lang: str) -> None:
+    console.print(Text(i18n.t(lang, "report_gaps_heading"), style="bold"))
+    table = Table(box=None, show_header=False, expand=True, pad_edge=False, padding=(0, 1))
+    table.add_column(width=1, no_wrap=True)
+    table.add_column(width=7, no_wrap=True)
+    table.add_column(ratio=1, overflow="fold")
+    table.add_column(justify="right", no_wrap=True)
+    table.add_column(justify="right", no_wrap=True)
+    table.add_column(no_wrap=True)
+    for g in gaps:
+        gap = gap_by_detector(g.detector)
         table.add_row(
-            Text(f.source_file or "—"),
-            Text(f.object_name),
-            Text(str(f.line)),
-            Text(f.severity, style=severity_style),
-            Text(f.detector),
-            Text(f.snippet),
+            Text("▌", style=_STAGE_STYLE[stage_key(g.stage)]),
+            Text(f"GAP-{gap.number}" if gap is not None else "—", style="dim"),
+            _title_text(g.detector, lang, style=""),
+            Text(i18n.count(lang, "finding", len(g.findings))),
+            Text(i18n.count(lang, "object", g.objects), style="dim"),
+            Text(g.severity, style=_SEVERITY_STYLE.get(g.severity, "")),
+        )
+    console.print(table)
+    console.print()
+
+
+def _render_gap_details(console: Console, gaps: list[GapGroup], lang: str) -> None:
+    console.print(Text(i18n.t(lang, "term_details_heading"), style="bold"))
+    for g in gaps:
+        gap_number, failure_stage = gap_metadata(g.detector)
+        body: list[RenderableType] = []
+        if gap_number is not None:
+            if failure_stage is not None:
+                line = i18n.t(
+                    lang,
+                    "explanation_gap_stage_line",
+                    gap=f"GAP-{gap_number}",
+                    stage=i18n.t(lang, f"failure_stage_short_{failure_stage}"),
+                )
+                body.append(Text(f"{line} — {i18n.t(lang, f'stage_{failure_stage}_desc')}", style=_STAGE_STYLE[failure_stage]))
+            else:
+                body.append(Text(f"GAP-{gap_number}", style="dim"))
+        for message_id in dict.fromkeys(f.message_id for f in g.findings):
+            body.append(Text(messages.text(message_id, lang)))
+        hint = messages.remediation_hint(g.detector, lang)
+        if hint:
+            fix = Text()
+            fix.append(f"{i18n.t(lang, 'report_gap_fix')}: ", style="bold")
+            fix.append(hint)
+            body.append(fix)
+        where = Table.grid(padding=(0, 2))
+        where.add_column(style="dim", no_wrap=True, overflow="ellipsis", max_width=48)
+        where.add_column(style="bold", no_wrap=True, overflow="ellipsis", max_width=40)
+        where.add_column(style=_CODE_STYLE, overflow="fold")
+        ordered = sorted(g.findings, key=lambda f: (f.source_file, f.line))
+        for f in ordered[:_OCCURRENCES_SHOWN]:
+            place = f"{f.source_file or '—'}:{f.line}" if f.line else (f.source_file or "—")
+            where.add_row(Text(place), Text(f.object_name), Text(f.snippet))
+        body.append(Text(f"{i18n.t(lang, 'report_gap_where')}:", style="bold"))
+        body.append(where)
+        rest = len(ordered) - _OCCURRENCES_SHOWN
+        if rest > 0:
+            body.append(Text(i18n.t(lang, "term_more_findings", findings=i18n.count(lang, "finding", rest)), style="dim"))
+        title = Text.assemble((g.detector, "bold"), "  ", (g.severity, _SEVERITY_STYLE.get(g.severity, "")))
+        console.print(
+            Panel(
+                Group(*_spaced(body)),
+                title=title,
+                title_align="left",
+                border_style=_STAGE_STYLE[stage_key(g.stage)],
+                padding=(0, 1),
+            )
         )
 
-    console.print(table)
 
-    explanation_counts: dict[tuple[str, str], int] = {}
-    for f in findings:
-        key = (f.detector, f.message_id)
-        explanation_counts[key] = explanation_counts.get(key, 0) + 1
+def _spaced(parts: list[RenderableType]) -> list[RenderableType]:
+    """The parts of a gap's panel with an empty line between each."""
+    out: list[RenderableType] = []
+    for i, part in enumerate(parts):
+        if i:
+            out.append(Text())
+        out.append(part)
+    return out
 
+
+def _render_top_objects(findings: list[Finding], console: Console, lang: str = "ru") -> None:
+    per_object = Counter(f.object_name for f in findings)
+    if len(per_object) < 2:
+        return
     console.print()
-    console.print(f"[bold]{i18n.t(lang, 'explanations_title')}[/bold]")
-    for (detector, message_id), n in explanation_counts.items():
-        title = i18n.t(lang, "explanation_panel_title", detector=detector, n=n)
-        body: list[Text] = [Text(messages.text(message_id, lang))]
-        gap_number, failure_stage = gap_metadata(detector)
-        # None for a detector with no registered gap at all (e.g.
-        # dbms_utl_calls, a classifier -- see gap_registry.py) -- omit the
-        # line entirely rather than show a bare "—" that explains nothing.
-        if gap_number is not None:
-            gap_ref = f"GAP-{gap_number}"
-            if failure_stage is not None:
-                stage_label = i18n.t(lang, f"failure_stage_short_{failure_stage}")
-                line = i18n.t(lang, "explanation_gap_stage_line", gap=gap_ref, stage=stage_label)
-            else:
-                # The two gaps in FAILURE_STAGE_EXEMPT_DETECTORS -- still
-                # worth showing the GAP reference (it links to real
-                # evidence via --explain), just without a stage claim
-                # that doesn't apply to a cost-estimation finding.
-                line = gap_ref
-            body.append(Text(f"\n{line}", style="dim"))
-        console.print(Panel(Group(*body), title=title, title_align="left", border_style="dim"))
-
-    _render_effort_panel(console, lo, hi, distinct_detector_count(findings), len(findings), lang)
-    _render_footer_hints(console, lang)
+    console.print(Text(i18n.t(lang, "report_top_objects"), style="bold"))
+    grid = Table.grid(padding=(0, 3))
+    grid.add_column(no_wrap=True, overflow="ellipsis", max_width=60)
+    grid.add_column(justify="right", style="dim")
+    for name, n in per_object.most_common(_TOP_OBJECTS_LIMIT):
+        grid.add_row(Text(name), Text(i18n.count(lang, "finding", n)))
+    console.print(grid)
+    rest = len(per_object) - _TOP_OBJECTS_LIMIT
+    if rest > 0:
+        console.print(Text(i18n.t(lang, "term_more_objects", objects=i18n.count(lang, "object", rest)), style="dim"))
 
 
 def render_baseline_diff(diff: BaselineDiff, console: Console | None = None, lang: str = "ru") -> None:
@@ -197,79 +371,6 @@ def render_baseline_diff(diff: BaselineDiff, console: Console | None = None, lan
     )
 
 
-def _render_banner(console: Console) -> None:
-    banner = Text(justify="center")
-    banner.append("ORACLE -> POSTGRESQL MIGRATION GAP REPORT\n", style="bold")
-    banner.append("ora2pg-gap-report", style="dim")
-    console.print(Panel(banner, border_style="blue"))
-
-
-def _render_run_info(
-    console: Console,
-    finding_count: int,
-    objects_scanned: int | None,
-    elapsed_seconds: float | None,
-    lang: str = "ru",
-) -> None:
-    info = Table.grid(padding=(0, 2))
-    info.add_column(style="dim")
-    info.add_column()
-    if objects_scanned is not None:
-        info.add_row(i18n.t(lang, "run_info_objects_scanned"), Text(str(objects_scanned), style="bold"))
-    info.add_row(i18n.t(lang, "run_info_findings_found"), Text(str(finding_count), style="bold"))
-    if elapsed_seconds is not None:
-        info.add_row(
-            i18n.t(lang, "run_info_elapsed"),
-            Text(i18n.t(lang, "elapsed_value", s=elapsed_seconds), style="dim"),
-        )
-    console.print(Panel(info, border_style="cyan"))
-
-
-def _render_findings_summary(console: Console, counts: dict[str, int], lang: str = "ru") -> None:
-    body = Text()
-    for i, (name, n) in enumerate(ordered_counts(counts)):
-        if i:
-            body.append("\n")
-        style = _SEVERITY_STYLE.get(name)
-        body.append(f"{_severity_dot(name)} ", style=style)
-        body.append(f"{name.upper():<8}", style=style)
-        body.append(str(n), style=style)
-    console.print(
-        Panel(body, title=i18n.t(lang, "severity_panel_title"), title_align="left", border_style="cyan")
-    )
-
-
-def _render_effort_panel(
-    console: Console,
-    lo: float,
-    hi: float,
-    distinct_patterns: int,
-    total_findings: int,
-    lang: str = "ru",
-) -> None:
-    mid = (lo + hi) / 2
-    rows = Table.grid(padding=(0, 2))
-    rows.add_column(style="dim")
-    rows.add_column()
-    rows.add_row(i18n.t(lang, "effort_best"), Text(i18n.t(lang, "hours_value", v=lo), style="bold"))
-    rows.add_row(i18n.t(lang, "effort_avg"), Text(i18n.t(lang, "hours_value", v=mid), style="bold"))
-    rows.add_row(i18n.t(lang, "effort_worst"), Text(i18n.t(lang, "hours_value", v=hi), style="bold"))
-
-    body = Text()
-    body.append(i18n.t(lang, "effort_disclaimer"), style="dim")
-    if distinct_patterns < total_findings:
-        body.append("\n")
-        body.append(
-            i18n.t(lang, "effort_patterns_note", patterns=distinct_patterns, findings=total_findings),
-            style="dim",
-        )
-
-    group = Group(rows, Text(), body)
-    console.print(
-        Panel(group, title=i18n.t(lang, "effort_panel_title"), title_align="left", border_style="blue")
-    )
-
-
 def _render_footer_hints(console: Console, lang: str = "ru") -> None:
     console.print()
     console.print(
@@ -279,84 +380,6 @@ def _render_footer_hints(console: Console, lang: str = "ru") -> None:
     console.print(
         f"[dim]{i18n.t(lang, 'footer_hint_object_label')}[/dim] ora2pg-gap-report ... --object PKG_NAME"
     )
-
-
-def _render_recommended_actions(findings: list[Finding], console: Console, lang: str = "ru") -> None:
-    """One line per detector actually present, count first — a compact
-    index into the "Пояснения" section below, not new analysis. Ordered by
-    how many findings each detector produced, worst first."""
-    by_detector: dict[str, int] = {}
-    for f in findings:
-        by_detector[f.detector] = by_detector.get(f.detector, 0) + 1
-
-    ranked = sorted(by_detector.items(), key=lambda kv: -kv[1])
-
-    body = Text()
-    for i, (detector, n) in enumerate(ranked, start=1):
-        if i > 1:
-            body.append("\n\n")
-        body.append(f"[{i}] ", style="bold")
-        body.append(f"{detector}  ")
-        body.append(f"({n})\n", style="dim")
-        hint = messages.remediation_hint(detector, lang) or i18n.t(
-            lang, "see_explanation_below"
-        )
-        body.append(f"    -> {hint}", style="dim")
-
-    console.print(
-        Panel(body, title=i18n.t(lang, "recommendations_panel_title"), title_align="left", border_style="magenta")
-    )
-
-
-def _render_top_objects(findings: list[Finding], console: Console, lang: str = "ru") -> None:
-    """Findings grouped by object, worst-affected first — the same
-    findings already in the table below, just re-sliced by "which object
-    needs the most attention" instead of one row per finding. Every count
-    shown here is a plain tally of real findings, nothing derived or
-    estimated."""
-    by_object: dict[str, list[Finding]] = {}
-    for f in findings:
-        by_object.setdefault(f.object_name, []).append(f)
-
-    if len(by_object) <= 1:
-        return  # nothing to rank when everything is already one object
-
-    ranked = sorted(
-        by_object.items(),
-        key=lambda item: (
-            -len(item[1]),
-            {"high": 0, "medium": 1, "low": 2}.get(_worst_severity({g.severity for g in item[1]}) or "", 3),
-            item[0],
-        ),
-    )
-
-    tree = Tree(Text(i18n.t(lang, "top_objects_tree_title"), style="bold"))
-    for object_name, group in ranked[:_TOP_OBJECTS_LIMIT]:
-        by_detector: dict[str, list[Finding]] = {}
-        for f in group:
-            by_detector.setdefault(f.detector, []).append(f)
-
-        branch_label = Text()
-        branch_label.append(object_name, style="bold")
-        branch_label.append(i18n.t(lang, "findings_count_suffix", n=len(group)))
-        branch = tree.add(branch_label)
-
-        for detector, detector_findings in sorted(
-            by_detector.items(), key=lambda kv: -len(kv[1])
-        ):
-            worst = _worst_severity({g.severity for g in detector_findings})
-            leaf = Text()
-            leaf.append(f"{_severity_dot(worst)} ", style=_SEVERITY_STYLE.get(worst or "", ""))
-            leaf.append(detector)
-            leaf.append(f"  ({len(detector_findings)})", style="dim")
-            branch.add(leaf)
-
-    remaining = len(ranked) - _TOP_OBJECTS_LIMIT
-    if remaining > 0:
-        tree.add(Text(i18n.t(lang, "and_more_objects", n=remaining), style="dim"))
-
-    console.print(tree)
-    console.print()
 
 
 _VERIFICATION_STATUS_STYLE = {
@@ -417,7 +440,9 @@ def render_verification(
     fixed", and that distinction matters enough to spell out in the
     report itself (see the footer note), not just in a docstring."""
     console = console or Console()
-    _render_banner(console)
+    console.print()
+    console.print(Text(i18n.t(lang, "term_verify_heading"), style="bold"))
+    console.print()
 
     counts = {"still_present": 0, "not_detected": 0, "not_verifiable": 0}
     for r in results:

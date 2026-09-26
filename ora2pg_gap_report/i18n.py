@@ -232,36 +232,11 @@ _UI: dict[str, dict[str, str]] = {
     "no_findings": {"ru": "Проблемных конструкций не найдено.", "en": "No problematic constructs found."},
     "objects_scanned_inline": {"ru": "\nОбъектов просканировано: {n}", "en": "\nObjects scanned: {n}"},
     "elapsed_inline": {"ru": "\nВремя анализа: {s:.1f} с", "en": "\nAnalysis time: {s:.1f}s"},
-    "all_findings_title": {"ru": "Все находки", "en": "All findings"},
     "col_file": {"ru": "Файл", "en": "File"},
     "col_object": {"ru": "Объект", "en": "Object"},
     "col_line": {"ru": "Строка", "en": "Line"},
     "col_severity": {"ru": "Severity", "en": "Severity"},
     "col_detector": {"ru": "Детектор", "en": "Detector"},
-    "col_snippet": {"ru": "Фрагмент", "en": "Snippet"},
-    "explanations_title": {"ru": "Пояснения", "en": "Explanations"},
-    "explanation_panel_title": {"ru": "{detector} — {n} объект(ов)", "en": "{detector} — {n} object(s)"},
-    "run_info_objects_scanned": {"ru": "Объектов просканировано", "en": "Objects scanned"},
-    "run_info_findings_found": {"ru": "Найдено проблемных объектов", "en": "Problematic objects found"},
-    "run_info_elapsed": {"ru": "Время анализа", "en": "Analysis time"},
-    "elapsed_value": {"ru": "{s:.1f} с", "en": "{s:.1f}s"},
-    "severity_panel_title": {"ru": "Находки по severity", "en": "Findings by severity"},
-    "effort_best": {"ru": "Лучший случай", "en": "Best case"},
-    "effort_avg": {"ru": "Среднее", "en": "Average"},
-    "effort_worst": {"ru": "Худший случай", "en": "Worst case"},
-    "hours_value": {"ru": "{v:g} ч", "en": "{v:g}h"},
-    "effort_disclaimer": {
-        "ru": "— неоткалиброванная эвристика по severity, не измерение",
-        "en": "— an uncalibrated heuristic based on severity, not a measurement",
-    },
-    "effort_patterns_note": {
-        "ru": "{patterns} паттернов из {findings} находок — первое вхождение паттерна "
-        "оценивается по полной стоимости, повторные — дешевле (тот же фикс, "
-        "применённый ещё раз, не новая задача)",
-        "en": "{patterns} patterns behind {findings} findings — a pattern's first "
-        "occurrence is priced in full, repeats are cheaper (the same fix applied "
-        "again, not a new problem)",
-    },
     "effort_panel_title": {"ru": "Оценка ручной доработки", "en": "Manual rework estimate"},
     "footer_hint_severity_label": {
         "ru": "Показать только высокую критичность:",
@@ -271,14 +246,6 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "Сфокусироваться на одном объекте:    ",
         "en": "Focus on a single object:            ",
     },
-    "recommendations_panel_title": {"ru": "Рекомендации", "en": "Recommendations"},
-    "see_explanation_below": {"ru": "См. пояснение ниже.", "en": "See the explanation below."},
-    "top_objects_tree_title": {
-        "ru": "Объекты с наибольшим числом находок",
-        "en": "Objects with the most findings",
-    },
-    "findings_count_suffix": {"ru": "  {n} находок", "en": "  {n} findings"},
-    "and_more_objects": {"ru": "… и ещё {n} объект(ов)", "en": "… and {n} more object(s)"},
     "baseline_panel_title": {"ru": "Сравнение с baseline", "en": "Baseline comparison"},
     "new_findings_label": {"ru": "Новые находки:\n", "en": "New findings:\n"},
     # cli.py runtime messages
@@ -671,6 +638,26 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "\n## Пояснения\n\n",
         "en": "\n## Explanations\n\n",
     },
+    # The terminal report (terminal_report.render), beside the report_*
+    # strings it shares with the HTML report.
+    "term_scanned": {"ru": "Просканировано: {objects}", "en": "Scanned: {objects}"},
+    "term_elapsed": {"ru": " за {s:.1f} с", "en": " in {s:.1f} s"},
+    "term_effort_patterns": {
+        "ru": "{gaps} на {findings}: каждый тип оценён полностью один раз, повторы — как применение "
+        "уже найденного исправления",
+        "en": "{gaps} across {findings}: each kind is priced in full once, repeats as applying a fix "
+        "already worked out",
+    },
+    "term_more_findings": {
+        "ru": "… и ещё {findings} — полный список: ora2pg-gap-report ... -f html -o report.html",
+        "en": "… and {findings} more — the full list: ora2pg-gap-report ... -f html -o report.html",
+    },
+    "term_more_objects": {"ru": "… и ещё {objects}", "en": "… and {objects} more"},
+    "term_details_heading": {"ru": "Подробно", "en": "In detail"},
+    "term_verify_heading": {
+        "ru": "Что из найденного до миграции осталось в сгенерированном коде",
+        "en": "What the pre-migration findings left in the generated code",
+    },
     # The HTML report (html_report.py).
     "report_heading": {
         "ru": "{source} → PostgreSQL: где сломается перенос",
@@ -724,15 +711,15 @@ _UI: dict[str, dict[str, str]] = {
     },
     # The no-findings variants. A clean scan is the ordinary outcome in
     # CI, and the counts breakdown is empty then, so the parenthesised
-    # form rendered as "Найдено проблемных объектов: 0 ()".
+    # form rendered as "Находок: 0 ()".
     "markdown_findings_found_none": {
-        "ru": "Найдено проблемных объектов: 0\n\n",
-        "en": "Problematic objects found: 0\n\n",
+        "ru": "Находок: 0\n\n",
+        "en": "Findings: 0\n\n",
     },
     "markdown_report_title": {"ru": "# Отчёт ora2pg-gap-report\n\n", "en": "# ora2pg-gap-report report\n\n"},
     "markdown_findings_found": {
-        "ru": "Найдено проблемных объектов: {n} ({counts})\n\n",
-        "en": "Problematic objects found: {n} ({counts})\n\n",
+        "ru": "Находок: {n} ({counts})\n\n",
+        "en": "Findings: {n} ({counts})\n\n",
     },
     "markdown_effort_estimate": {
         "ru": "Грубая оценка ручной доработки: {lo:g}–{hi:g} ч. "

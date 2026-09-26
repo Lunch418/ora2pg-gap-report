@@ -303,9 +303,11 @@ Right after installation, the command is available:
 ora2pg-gap-report path/to/schema_dump.pkb another_file.sql
 ```
 
-In an interactive terminal, the default is a colored report: a summary panel
-(how many findings, breakdown by severity, a rough hour estimate), a compact
-findings table, and an explanation under every detector that fired. For
+In an interactive terminal, the default is a colored report laid out like
+the HTML one: how many findings wait at each stage a migration reaches
+(conversion, schema load, run time, silently), the severity split and a
+rough hour range, every gap once, then each gap in detail — why, what to
+do, and its first few occurrences. For
 scripts/redirects — `--format markdown`, `--format json`, `--format csv`,
 `--format sarif`, or `--format html` (markdown also serves as the default
 format whenever stdout isn't a terminal):

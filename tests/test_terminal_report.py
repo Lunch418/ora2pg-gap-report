@@ -60,8 +60,9 @@ def test_render_shows_summary_counts_and_every_finding():
     render(findings, console=console)
     text = console.export_text()
 
-    assert "Найдено проблемных объектов" in text and "2" in text
-    assert "HIGH" in text and "MEDIUM" in text
+    # Counted as what they are -- findings -- in the right grammatical form.
+    assert "Найдено: 2 находки" in text
+    assert "high" in text and "medium" in text
     assert "PKG.A" in text
     assert "PKG.B" in text
     assert "Оценка ручной доработки" in text
@@ -73,8 +74,8 @@ def test_render_handles_a_severity_outside_high_medium_low_without_crashing():
     render(findings, console=console)  # must not raise
     text = console.export_text()
 
-    assert "OTHER" in text  # effort_estimator's catch-all bucket
-    assert "critical" in text  # still shown verbatim in the per-row column
+    assert "other" in text  # effort_estimator's catch-all bucket
+    assert "critical" in text  # still shown verbatim for the gap
 
 
 def test_render_shows_source_file_column():
@@ -128,16 +129,16 @@ def test_render_shows_top_objects_tree_when_multiple_objects_present():
     console = Console(record=True, width=200)
     render(findings, console=console)
     text = console.export_text()
-    assert "Объекты с наибольшим числом находок" in text
+    assert "Где больше всего находок" in text
     assert "PKG.A" in text
-    assert "2 находок" in text
+    assert "2 находки" in text
 
 
 def test_render_skips_top_objects_tree_when_only_one_object():
     findings = [_finding(object_name="PKG.A"), _finding(object_name="PKG.A", snippet="s2")]
     console = Console(record=True, width=200)
     render(findings, console=console)
-    assert "Объекты с наибольшим числом находок" not in console.export_text()
+    assert "Где больше всего находок" not in console.export_text()
 
 
 def test_render_shows_elapsed_time_and_objects_scanned_when_provided():
@@ -145,8 +146,7 @@ def test_render_shows_elapsed_time_and_objects_scanned_when_provided():
     console = Console(record=True, width=200)
     render(findings, console=console, elapsed_seconds=1.23, objects_scanned=7)
     text = console.export_text()
-    assert "Время анализа" in text and "1.2 с" in text
-    assert "Объектов просканировано" in text and "7" in text
+    assert "Просканировано: 7 объектов за 1.2 с." in text
 
 
 def test_render_omits_elapsed_time_and_objects_scanned_when_not_provided():
@@ -154,18 +154,21 @@ def test_render_omits_elapsed_time_and_objects_scanned_when_not_provided():
     console = Console(record=True, width=200)
     render(findings, console=console)
     text = console.export_text()
-    assert "Время анализа" not in text
-    assert "Объектов просканировано" not in text
+    assert "Просканировано" not in text
+    assert " за " not in text
 
 
-def test_render_shows_best_expected_worst_case_effort():
+def test_render_shows_the_effort_as_a_range_never_a_midpoint():
+    # effort_estimator.py: "do not collapse it to an average and quote that
+    # as a number; the spread itself is the honest part of the answer".
+    # The old panel printed exactly that average ("Среднее 280 ч").
     findings = [_finding(severity="high")]
     console = Console(record=True, width=200)
     render(findings, console=console)
     text = console.export_text().lower()
-    assert "лучший случай" in text
-    assert "среднее" in text
-    assert "худший случай" in text
+    assert "2–8 ч" in text
+    assert "неоткалиброванная эвристика" in text
+    assert "среднее" not in text
 
 
 def test_effort_panel_shows_patterns_note_when_a_detector_repeats():
@@ -173,8 +176,7 @@ def test_effort_panel_shows_patterns_note_when_a_detector_repeats():
     console = Console(record=True, width=200)
     render(findings, console=console)
     text = console.export_text()
-    assert "3 паттернов" not in text  # only 1 distinct detector, not 3
-    assert "1 паттернов из 3 находок" in text
+    assert "1 тип пробела на 3 находки" in text  # 1 distinct detector, not 3
 
 
 def test_effort_panel_omits_patterns_note_when_every_finding_is_a_distinct_detector():
@@ -193,7 +195,7 @@ def test_top_objects_tree_truncates_beyond_the_limit_and_notes_the_remainder():
     console = Console(record=True, width=200)
     render(findings, console=console)
     text = console.export_text()
-    assert "и ещё 5 объект(ов)" in text
+    assert "и ещё 5 объектов" in text
 
 
 def test_render_shows_stats_even_when_filters_leave_no_findings():
@@ -209,32 +211,39 @@ def test_render_shows_stats_even_when_filters_leave_no_findings():
     assert "Время анализа: 2.5 с" in text
 
 
-def test_render_shows_a_banner_and_recommendations_with_a_known_detector():
+def test_render_shows_a_heading_and_the_remediation_with_a_known_detector():
     findings = [_finding(detector="autonomous_tx"), _finding(detector="autonomous_tx", snippet="s2")]
     console = Console(record=True, width=200)
     render(findings, console=console)
     text = console.export_text()
-    assert "ORACLE" in text and "POSTGRESQL" in text
-    assert "Рекомендации" in text
+    assert "Oracle → PostgreSQL" in text
+    assert "Что делать" in text
     assert "autonomous_tx" in text
     assert "dblink" in text  # the real remediation hint for this detector, not a generic fallback
 
 
-def test_recommended_actions_orders_detectors_by_finding_count_descending():
+def test_gaps_are_listed_by_stage_then_by_finding_count():
     findings = [
-        _finding(detector="dbms_utl_calls", object_name="A"),
-        _finding(detector="bulk_collect", object_name="B", snippet="s2"),
+        _finding(detector="goto_statement", object_name="A"),  # runtime, 1
+        _finding(detector="bulk_collect", object_name="B", snippet="s2"),  # runtime, 3
         _finding(detector="bulk_collect", object_name="C", snippet="s3"),
         _finding(detector="bulk_collect", object_name="D", snippet="s4"),
+        _finding(detector="authid_clause", object_name="E"),  # conversion, 1
     ]
     console = Console(record=True, width=200)
     render(findings, console=console)
-    # Slice to the "Рекомендации" panel specifically -- both detector names
-    # also appear earlier, in the "top objects" tree, whose own ordering
-    # (by per-object count, not per-detector total) isn't what this test
-    # is about.
-    recommendations = console.export_text().split("Рекомендации", 1)[1]
-    assert recommendations.index("bulk_collect") < recommendations.index("dbms_utl_calls")
+    details = console.export_text().split("Подробно", 1)[1]
+    assert details.index("authid_clause") < details.index("bulk_collect") < details.index("goto_statement")
+
+
+def test_a_gap_lists_its_first_occurrences_and_points_at_the_full_list():
+    findings = [_finding(detector="goto_statement", object_name=f"P{i}", line=i) for i in range(1, 9)]
+    console = Console(record=True, width=200)
+    render(findings, console=console)
+    details = console.export_text().split("Подробно", 1)[1].split("Где больше всего находок", 1)[0]
+    assert "P5" in details and "P6" not in details
+    assert "и ещё 3 находки" in details
+    assert "-f html -o report.html" in details
 
 
 def test_every_detector_registered_in_cli_has_a_remediation_hint():
@@ -274,11 +283,10 @@ def test_render_uses_english_ui_strings_and_hint_when_lang_is_en():
     render(findings, console=console, lang="en")
     text = console.export_text()
 
-    assert "Problematic objects found" in text
+    assert "Found: 1 finding, 1 kind of gap." in text
     assert "Найдено" not in text
-    assert "All findings" in text
-    assert "Recommendations" in text
-    assert "Explanations" in text
+    assert "where the migration breaks" in text
+    assert "In detail" in text
     assert "Manual rework estimate" in text
     # the English remediation hint for read_only_table, not the Russian one
     assert "ora2pg drops the READ ONLY section" in text

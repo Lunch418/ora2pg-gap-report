@@ -14,6 +14,7 @@ without :has() shows everything, which is still the whole report."""
 
 from __future__ import annotations
 
+import dataclasses
 import html
 import re
 from collections import Counter
@@ -171,6 +172,62 @@ __FILTER_RULES__
 """
 
 
+def stage_of(detector: str) -> str | None:
+    """The failure stage a detector's gap is registered with, or None."""
+    gap = gap_by_detector(detector)
+    return gap.failure_stage if gap is not None else None
+
+
+def stage_key(stage: str | None) -> str:
+    """A stage as a word that names it in CSS classes and i18n keys."""
+    return stage or "none"
+
+
+def severity_rank(severity: str) -> int:
+    return _SEVERITIES.index(severity) if severity in _SEVERITIES else len(_SEVERITIES)
+
+
+@dataclasses.dataclass(frozen=True)
+class GapGroup:
+    """Every finding of one detector, with what the reports show about it."""
+
+    detector: str
+    findings: list[Finding]
+    stage: str | None
+    severity: str  # the most severe of its findings
+
+    @property
+    def objects(self) -> int:
+        return len({(f.source_file, f.object_name) for f in self.findings})
+
+
+def group_by_gap(findings: list[Finding]) -> list[GapGroup]:
+    """The findings grouped by detector, in the order both reports list
+    gaps: by the stage a migration reaches first, then severity, then the
+    number of findings, largest first."""
+    by_detector: dict[str, list[Finding]] = {}
+    for f in findings:
+        by_detector.setdefault(f.detector, []).append(f)
+    groups = [
+        GapGroup(d, group, stage_of(d), min((f.severity for f in group), key=severity_rank))
+        for d, group in by_detector.items()
+    ]
+    return sorted(
+        groups,
+        key=lambda g: (STAGES.index(g.stage), severity_rank(g.severity), -len(g.findings), g.detector),
+    )
+
+
+def source_name(findings: list[Finding]) -> str:
+    """How the reports name the source database: the dialect most of the
+    findings' gaps belong to."""
+    dialects = Counter(
+        (gap.dialect if (gap := gap_by_detector(f.detector)) is not None else "oracle") for f in findings
+    )
+    dialect = dialects.most_common(1)[0][0] if dialects else "oracle"
+    return _SOURCE_NAME.get(dialect, "Oracle")
+
+
 def _filter_rules(severities: list[str], stages: list[str]) -> str:
     """One CSS rule per filter option: while that radio is checked, gaps
     that do not match it are hidden."""
@@ -182,23 +239,11 @@ def _filter_rules(severities: list[str], stages: list[str]) -> str:
     return "\n".join(rules)
 
 
-def _stage_key(stage: str | None) -> str:
-    return stage or "none"
-
-
 def _title_html(detector: str, lang: str) -> str:
     """The detector's one-line title, escaped, with its `code` spans set in
     the monospace face."""
     escaped = html.escape(messages.title(detector, lang))
     return re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
-
-
-def _source_name(findings: list[Finding]) -> str:
-    dialects = Counter(
-        (gap.dialect if (gap := gap_by_detector(f.detector)) is not None else "oracle") for f in findings
-    )
-    dialect = dialects.most_common(1)[0][0] if dialects else "oracle"
-    return _SOURCE_NAME.get(dialect, "Oracle")
 
 
 def _version() -> str:
@@ -208,36 +253,18 @@ def _version() -> str:
         return ""
 
 
-def _severity_rank(severity: str) -> int:
-    return _SEVERITIES.index(severity) if severity in _SEVERITIES else len(_SEVERITIES)
-
-
 def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> None:
     """Write the report for `findings` to `stream`."""
     w = stream.write
-    by_detector: dict[str, list[Finding]] = {}
-    for f in findings:
-        by_detector.setdefault(f.detector, []).append(f)
-
-    def stage_of(detector: str) -> str | None:
-        gap = gap_by_detector(detector)
-        return gap.failure_stage if gap is not None else None
-
-    def worst(group: list[Finding]) -> str:
-        return min((f.severity for f in group), key=_severity_rank)
-
-    gaps = sorted(
-        by_detector,
-        key=lambda d: (STAGES.index(stage_of(d)), _severity_rank(worst(by_detector[d])), -len(by_detector[d]), d),
-    )
+    gaps = group_by_gap(findings)
     counts = summarize_by_severity(findings)
     severities_present = [s for s in _SEVERITIES if counts.get(s)]
-    stages_present = [_stage_key(s) for s in STAGES if any(stage_of(d) == s for d in gaps)]
+    stages_present = [stage_key(s) for s in STAGES if any(g.stage == s for g in gaps)]
 
     files = {f.source_file for f in findings if f.source_file}
     objects = {(f.source_file, f.object_name) for f in findings}
     html_lang = "en" if lang == "en" else "ru"
-    heading = i18n.t(lang, "report_heading", source=_source_name(findings))
+    heading = i18n.t(lang, "report_heading", source=source_name(findings))
 
     w(f"""<!doctype html>
 <html lang="{html_lang}">
@@ -274,12 +301,12 @@ def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> No
     w(f'<p class="lede">{scanned} {found}</p>\n')
 
     # The rail: the four stages in the order a migration reaches them.
-    per_stage = Counter(_stage_key(stage_of(f.detector)) for f in findings)
-    gaps_per_stage = Counter(_stage_key(stage_of(d)) for d in gaps)
+    per_stage = Counter(stage_key(g.stage) for g in gaps for _ in g.findings)
+    gaps_per_stage = Counter(stage_key(g.stage) for g in gaps)
     peak = max(per_stage.values())
     w(f'<ol class="rail" aria-label="{i18n.t(lang, "report_rail_label")}">\n')
     for stage in STAGES[:-1]:
-        key = _stage_key(stage)
+        key = stage_key(stage)
         n = per_stage.get(key, 0)
         share = round(100 * n / peak) if peak else 0
         w(
@@ -315,10 +342,10 @@ def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> No
 
     # The gaps, each once.
     w(f'<h2>{i18n.t(lang, "report_gaps_heading")}</h2>\n')
-    _write_filters(w, lang, severities_present, stages_present, by_detector, stage_of, worst)
+    _write_filters(w, lang, severities_present, stages_present, gaps)
     w('<div class="gaps">\n')
-    for detector in gaps:
-        _write_gap(w, lang, detector, by_detector[detector], stage_of(detector), worst(by_detector[detector]))
+    for gap in gaps:
+        _write_gap(w, lang, gap)
     w("</div>\n")
 
     # The objects with the most findings.
@@ -332,17 +359,9 @@ def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> No
     _write_footer(w, lang)
 
 
-def _write_filters(
-    w: Write,
-    lang: str,
-    severities: list[str],
-    stages: list[str],
-    by_detector: dict[str, list[Finding]],
-    stage_of: Callable[[str], str | None],
-    worst: Callable[[list[Finding]], str],
-) -> None:
-    sev_gaps = Counter(worst(g) for g in by_detector.values())
-    stage_gaps = Counter(_stage_key(stage_of(d)) for d in by_detector)
+def _write_filters(w: Write, lang: str, severities: list[str], stages: list[str], gaps: list[GapGroup]) -> None:
+    sev_gaps = Counter(g.severity for g in gaps)
+    stage_gaps = Counter(stage_key(g.stage) for g in gaps)
     w('<div class="filters">\n')
     groups: tuple[tuple[str, str, list[str], Counter[str], Callable[[str], str]], ...] = (
         ("sev", "report_filter_severity", severities, sev_gaps, lambda s: s),
@@ -365,20 +384,18 @@ def _write_filters(
     w("</div>\n")
 
 
-def _write_gap(
-    w: Write, lang: str, detector: str, group: list[Finding], stage: str | None, severity: str
-) -> None:
+def _write_gap(w: Write, lang: str, group_: GapGroup) -> None:
+    detector, group, severity = group_.detector, group_.findings, group_.severity
     gap = gap_by_detector(detector)
-    key = _stage_key(stage)
+    key = stage_key(group_.stage)
     number = f"GAP-{gap.number}" if gap is not None else "—"
-    objects = {(f.source_file, f.object_name) for f in group}
     w(
         f'<details class="gap st-{key}" data-sev="{html.escape(severity)}" data-stage="{key}" '
         f'id="{html.escape(detector)}">\n<summary>'
         f'<span class="gap-num">{number}</span>'
         f'<span class="gap-title">{_title_html(detector, lang)}</span>'
         f'<span class="gap-meta">{i18n.count(lang, "finding", len(group))}, '
-        f'{i18n.count(lang, "object", len(objects))}</span>'
+        f'{i18n.count(lang, "object", group_.objects)}</span>'
         f'<span class="badge sev-{html.escape(severity)}">{html.escape(severity)}</span>'
         "</summary>\n<div class=\"gap-body\">\n"
     )

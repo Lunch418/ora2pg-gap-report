@@ -9,6 +9,8 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-27
+
 ### Added
 - Russian research documents for GAP-002 and GAP-003, the last two that
   had only English: every gap's `--explain` now reads in both languages.

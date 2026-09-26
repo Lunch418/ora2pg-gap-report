@@ -93,6 +93,23 @@ patch for fixes to existing ones.
   accepted now: `AGGREGATE FUNCTION` and `IF NOT EXISTS` on routines,
   triggers and views (which used to name the object `IF`).
 
+- **Several detectors did not understand `DBMS_METADATA.GET_DDL` output**
+  -- what `ora2pg-gap-export` writes. Found by running every Oracle gap's
+  minimal example in a real Oracle 23ai and scanning its export: every
+  standalone procedure and function (`CREATE OR REPLACE EDITIONABLE
+  PROCEDURE "HR"."P"`) was reported as `UNKNOWN` and never counted,
+  `nested_subprogram` found nothing in one, private synonyms
+  (`EDITIONABLE SYNONYM`) and bitmap indexes with a quoted name were never
+  flagged, and `--check-connect-by` ran ora2pg in `PACKAGE` mode on an
+  exported routine. An unquoted `hr.proc` was also named `HR`.
+
+- **Re-exporting into the same directory duplicated every object.**
+  `ora2pg-gap-export` treated a file from its own previous run as a
+  name collision and wrote `<name>_2` beside it, so scanning the
+  directory reported every finding twice, stale DDL next to current.
+  Collisions are now checked only within one export; a previous export's
+  file is replaced.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

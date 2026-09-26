@@ -4,7 +4,10 @@ from ..models import Finding
 from ..plsql_lex import IDENTIFIER, line_at, mask_strings_and_comments, qualified_name_pattern, statement_end
 
 _SYNONYM_RE = re.compile(
-    qualified_name_pattern(r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:PUBLIC\s+)?SYNONYM"),
+    # EDITIONABLE: how DBMS_METADATA.GET_DDL writes every private synonym.
+    qualified_name_pattern(
+        r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:EDITIONABLE\s+|NONEDITIONABLE\s+)?(?:PUBLIC\s+)?SYNONYM"
+    ),
     re.IGNORECASE,
 )
 _FOR_TARGET_RE = re.compile(

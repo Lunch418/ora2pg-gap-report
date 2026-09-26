@@ -9,17 +9,21 @@ from ..detector_spec import DetectorSpec, MATCH_NAMED, build
 # same keyword) is matched too: it converts the same way and breaks the
 # same way, and the alternative -- silently ignoring it -- would be the
 # worse failure mode.
+# Either part may be double-quoted: DBMS_METADATA.GET_DDL writes
+# CREATE BITMAP INDEX "HR"."IDX" ..., which an unquoted-only pattern never
+# matched.
+_NAME_PART = rf'"?{IDENTIFIER}"?'
 _BITMAP_INDEX_RE = re.compile(
-    rf"\bCREATE\s+BITMAP\s+(?:JOIN\s+)?INDEX\s+({IDENTIFIER}(?:\s*\.\s*{IDENTIFIER})?)",
+    rf"\bCREATE\s+BITMAP\s+(?:JOIN\s+)?INDEX\s+({_NAME_PART}(?:\s*\.\s*{_NAME_PART})?)",
     re.IGNORECASE,
 )
 
 
 def _without_spaces(name: str) -> str:
-    """A qualified name with the whitespace around its dot removed, so
-    `SCHEMA . IDX` and `SCHEMA.IDX` are reported as one object rather
-    than two."""
-    return re.sub(r"\s+", "", name)
+    """A qualified name with the whitespace around its dot and any quotes
+    removed, so `SCHEMA . IDX`, `SCHEMA.IDX` and `"SCHEMA"."IDX"` are
+    reported as one object rather than three."""
+    return re.sub(r'[\s"]+', "", name)
 
 
 _DOC = """Detect Oracle's CREATE BITMAP INDEX. ora2pg rewrites it to a GIN

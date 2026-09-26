@@ -428,8 +428,14 @@ PACKAGE_SPEC_NAME_RE = re.compile(
 # A standalone 'CREATE [OR REPLACE] PROCEDURE/FUNCTION name' — distinct from
 # ROUTINE_START_RE, which only matches routines declared *inside* a package
 # body ('PROCEDURE name IS', at the start of a line with no CREATE prefix).
+# EDITIONABLE and a quoted, schema-qualified name are how
+# DBMS_METADATA.GET_DDL writes every standalone routine
+# (CREATE OR REPLACE EDITIONABLE PROCEDURE "HR"."P"). This pattern
+# accepted neither, unlike the package/trigger/view ones beside it, so no
+# exported routine was ever an object -- and for hr.p it took the schema
+# for the name.
 STANDALONE_ROUTINE_RE = re.compile(
-    _CREATE_PREFIX + rf"(?:FUNCTION|PROCEDURE)\s+({IDENTIFIER})",
+    qualified_name_pattern(_CREATE_PREFIX + _EDITIONABLE_PREFIX + r"(?:FUNCTION|PROCEDURE)"),
     re.IGNORECASE,
 )
 _TRIGGER_NAME_RE = re.compile(

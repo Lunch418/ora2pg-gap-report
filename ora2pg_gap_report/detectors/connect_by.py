@@ -21,12 +21,22 @@ _ENCLOSING_ROUTINE_RE = re.compile(
 # Object-type guess for the *Oracle source*, so the caller can pick the
 # matching `ora2pg -t <TYPE>` mode instead of always assuming PACKAGE —
 # CONNECT BY can just as well live in a standalone function/procedure.
+# EDITIONABLE/NONEDITIONABLE and FORCE are how DBMS_METADATA.GET_DDL
+# writes these; without them an exported procedure fell through to the
+# PACKAGE fallback and ora2pg was run in the wrong mode.
+_EDITIONABLE = r"(?:EDITIONABLE\s+|NONEDITIONABLE\s+)?"
 _OBJECT_TYPE_PATTERNS = (
     (re.compile(r"\bPACKAGE\s+BODY\b", re.IGNORECASE), "PACKAGE"),
-    (re.compile(r"\bCREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\b", re.IGNORECASE), "TRIGGER"),
-    (re.compile(r"\bCREATE\s+(?:OR\s+REPLACE\s+)?PROCEDURE\b", re.IGNORECASE), "PROCEDURE"),
-    (re.compile(r"\bCREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\b", re.IGNORECASE), "FUNCTION"),
-    (re.compile(r"\bCREATE\s+(?:OR\s+REPLACE\s+)?VIEW\b", re.IGNORECASE), "VIEW"),
+    (re.compile(rf"\bCREATE\s+(?:OR\s+REPLACE\s+)?{_EDITIONABLE}TRIGGER\b", re.IGNORECASE), "TRIGGER"),
+    (re.compile(rf"\bCREATE\s+(?:OR\s+REPLACE\s+)?{_EDITIONABLE}PROCEDURE\b", re.IGNORECASE), "PROCEDURE"),
+    (re.compile(rf"\bCREATE\s+(?:OR\s+REPLACE\s+)?{_EDITIONABLE}FUNCTION\b", re.IGNORECASE), "FUNCTION"),
+    (
+        re.compile(
+            rf"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:NO\s*FORCE\s+|FORCE\s+)?{_EDITIONABLE}VIEW\b",
+            re.IGNORECASE,
+        ),
+        "VIEW",
+    ),
 )
 
 

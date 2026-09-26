@@ -7,7 +7,7 @@ import os
 import signal
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 from pathlib import Path
 from typing import IO
@@ -33,6 +33,7 @@ from .core import (
 )
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .gap_registry import (
+    GAPS,
     gap_by_number,
     normalize_gap_number,
     research_doc_is_translated,
@@ -99,10 +100,31 @@ class _LazyVersionAction(argparse.Action):
 
 
 def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
+    usage_prefix = i18n.t(lang, "help_usage")
+
+    class _Formatter(argparse.HelpFormatter):
+        # argparse's own words ("usage:", "positional arguments",
+        # "options", "show this help message and exit") come from its
+        # gettext catalogue, which has no Russian -- set in the help's own
+        # language instead of leaving them English around Russian text.
+        def add_usage(
+            self,
+            usage: str | None,
+            actions: Iterable[argparse.Action],
+            groups: Iterable[argparse._MutuallyExclusiveGroup],
+            prefix: str | None = None,
+        ) -> None:
+            super().add_usage(usage, actions, groups, prefix if prefix is not None else usage_prefix)
+
     parser = argparse.ArgumentParser(
         prog="ora2pg-gap-report",
-        description=i18n.t(lang, "help_description"),
+        description=i18n.t(lang, "help_description", n=len(GAPS)),
+        formatter_class=_Formatter,
+        add_help=False,
     )
+    parser._positionals.title = i18n.t(lang, "help_positionals")
+    parser._optionals.title = i18n.t(lang, "help_optionals")
+    parser.add_argument("-h", "--help", action="help", help=i18n.t(lang, "help_help"))
     parser.add_argument(
         "paths",
         nargs="*",
@@ -917,6 +939,7 @@ def _main(argv: list[str] | None = None) -> int:
     all_findings: list[Finding] = []
     checked_ora2pg_version = False
     objects_scanned = 0
+    files_scanned = 0
     had_error = False
     had_internal_error = False
 
@@ -995,6 +1018,7 @@ def _main(argv: list[str] | None = None) -> int:
             )
 
         all_findings.extend(file_findings)
+        files_scanned += 1
 
         if args.check_connect_by:
             if not checked_ora2pg_version:
@@ -1013,6 +1037,17 @@ def _main(argv: list[str] | None = None) -> int:
 
     elapsed_seconds = time.perf_counter() - start_time
     sort_findings(all_findings)
+
+    if files_scanned == 0 and (had_error or had_internal_error) and fmt in ("terminal", "markdown", "html"):
+        # Nothing was scanned at all: every path was missing, unreadable,
+        # an empty directory or failed outright. A report a person reads
+        # would say "0 findings" about files nobody looked at -- which
+        # reads as a clean result. The reasons are already on stderr; say
+        # that nothing was scanned and stop. The machine formats (json,
+        # csv, sarif) still get their empty document: a pipeline parsing
+        # stdout needs one, and the exit code says what happened.
+        err_console.print(i18n.t(lang, "nothing_scanned"))
+        return 3 if had_internal_error and not had_error else 2
 
     # --save/--baseline/--fail-on all act on the full, unfiltered scan
     # result (`all_findings`) rather than what --severity/--object narrow

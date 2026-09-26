@@ -640,6 +640,10 @@ _UI: dict[str, dict[str, str]] = {
     },
     # The terminal report (terminal_report.render), beside the report_*
     # strings it shares with the HTML report.
+    "nothing_scanned": {
+        "ru": "Ни один из указанных путей не удалось просканировать — отчёт не создан. Причины выше.",
+        "en": "None of the given paths could be scanned, so no report was made. The reasons are above.",
+    },
     "term_scanned": {"ru": "Просканировано: {objects}", "en": "Scanned: {objects}"},
     "term_elapsed": {"ru": " за {s:.1f} с", "en": " in {s:.1f} s"},
     "term_effort_patterns": {
@@ -736,12 +740,13 @@ _UI: dict[str, dict[str, str]] = {
     # parse --lang out of argv, but building translated help text needs to
     # already know --lang.
     "help_description": {
-        "ru": "Сканирует выгруженный Oracle DDL (PACKAGE BODY / TRIGGER) и "
-        "показывает конкретные объекты, которые ora2pg не перенесёт "
-        "корректно, и почему.",
-        "en": "Scans exported Oracle DDL (PACKAGE BODY / TRIGGER) and shows the "
-        "specific objects ora2pg won't migrate correctly, and why.",
+        "ru": 'Находит в схеме Oracle, дампе MySQL/MariaDB или скрипте T-SQL то, что ora2pg при переносе в PostgreSQL потеряет, сломает или перенесёт неверно, — и объясняет, почему и что делать. Каждый из {n} пробелов подтверждён прогоном настоящего ora2pg и PostgreSQL.',
+        "en": 'Finds what ora2pg will lose, break or carry over wrongly when it moves an Oracle schema, a MySQL/MariaDB dump or a T-SQL script to PostgreSQL -- and explains why and what to do. Each of the {n} gaps was confirmed with a real ora2pg and PostgreSQL run.',
     },
+    "help_usage": {"ru": "использование: ", "en": "usage: "},
+    "help_positionals": {"ru": "аргументы", "en": "positional arguments"},
+    "help_optionals": {"ru": "параметры", "en": "options"},
+    "help_help": {"ru": "Показать эту справку и выйти", "en": "Show this help and exit"},
     "help_paths": {
         "ru": "Файлы с DDL для анализа (.sql/.pks/.pkb) и/или директории — "
         "директория сканируется рекурсивно на файлы с этими "
@@ -788,14 +793,8 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Path to the ora2pg executable (default: looked up on PATH)",
     },
     "help_dialect": {
-        "ru": "Диалект исходного кода: oracle (по умолчанию), mysql (дампы MySQL/MariaDB, "
-        "source-side для ora2pg -m) или mssql (скрипты T-SQL/SQL Server, source-side для "
-        "ora2pg -M). Работает только для обычного сканирования — не сочетается с --tui, "
-        "--explain, --verify, --fix.",
-        "en": "Source dialect: oracle (default), mysql (MySQL/MariaDB dumps, the source "
-        "side of ora2pg -m) or mssql (T-SQL/SQL Server scripts, the source side of "
-        "ora2pg -M). Only applies to a plain scan -- cannot be combined with --tui, "
-        "--explain, --verify, --fix.",
+        "ru": 'Диалект исходного кода: oracle (по умолчанию), mysql (дампы MySQL/MariaDB, как для ora2pg -m) или mssql (скрипты T-SQL/SQL Server, как для ora2pg -M). Выбирает детекторы для сканирования и исправления для --fix; в --verify диалект берётся из baseline, а явно указанный сверяется с ним. Не сочетается с --tui (там свой выбор) и --explain.',
+        "en": 'Source dialect: oracle (default), mysql (MySQL/MariaDB dumps, as for ora2pg -m) or mssql (T-SQL/SQL Server scripts, as for ora2pg -M). Picks the detectors for a scan and the fixes for --fix; --verify takes the dialect from the baseline and checks an explicit one against it. Not combinable with --tui (it has its own picker) or --explain.',
     },
     "verify_unknown_detectors": {
         "ru": "В baseline есть детекторы, которых нет в этой сборке: {detectors}. "

@@ -201,6 +201,19 @@ patch for fixes to existing ones.
   `CREATE TABLE`. ora2pg drops that statement silently -- verified on a
   live Oracle 23ai export -- so it is now flagged with its own message.
 
+- **A scan that could not read any of its paths printed a clean-looking
+  report.** A mistyped path was followed by "0 findings ... no problematic
+  constructs found" -- a clean bill of health for a scan that looked at
+  nothing. The terminal, Markdown and HTML reports are now skipped with a
+  plain "none of the given paths could be scanned"; json, csv and sarif
+  still emit their empty document for pipelines, and the exit code is 2
+  as before.
+- **`--help` described an older tool.** It said the tool scans Oracle
+  PACKAGE BODY/TRIGGER DDL, and that `--dialect` cannot be combined with
+  `--fix` or `--verify`, which it can. Both are rewritten, and argparse's
+  own words ("usage:", "options", "show this help message") are now in
+  the help's language instead of English around Russian text.
+
 ## [0.11.1] - 2026-09-24
 
 ### Fixed

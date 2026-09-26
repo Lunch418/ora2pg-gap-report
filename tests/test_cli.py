@@ -85,22 +85,22 @@ def test_help_text_is_rendered_in_english_when_lang_en_is_passed_before_help(cap
     with pytest.raises(SystemExit):
         main(["--lang", "en", "--help"])
     captured = capsys.readouterr()
-    assert "Scans exported Oracle DDL" in captured.out
-    assert "Сканирует выгруженный" not in captured.out
+    assert "Finds what ora2pg will lose" in captured.out
+    assert "Находит в схеме Oracle" not in captured.out
 
 
 def test_help_text_defaults_to_russian_without_an_explicit_lang(capsys):
     with pytest.raises(SystemExit):
         main(["--help"])
     captured = capsys.readouterr()
-    assert "Сканирует выгруженный" in captured.out
+    assert "Находит в схеме Oracle" in captured.out
 
 
 def test_help_text_recognizes_the_equals_sign_form_of_lang(capsys):
     with pytest.raises(SystemExit):
         main(["--lang=en", "--help"])
     captured = capsys.readouterr()
-    assert "Scans exported Oracle DDL" in captured.out
+    assert "Finds what ora2pg will lose" in captured.out
 
 
 def test_main_end_to_end_markdown_to_stdout(capsys):
@@ -1930,3 +1930,24 @@ def test_an_ordinary_failure_is_never_mistaken_for_a_closed_pipe(monkeypatch):
     monkeypatch.setattr(cli.os, "name", "nt")
     assert cli._is_closed_pipe(RuntimeError("boom")) is False
     assert cli._is_closed_pipe(FileNotFoundError(2, "No such file")) is False
+
+
+def test_nothing_scanned_prints_no_clean_looking_report(capsys, tmp_path):
+    # A mistyped path used to be followed by a whole empty report --
+    # "Находок: 0 ... Проблемных конструкций не найдено" -- which reads as
+    # a clean bill of health for a scan that looked at nothing.
+    exit_code = main(["--lang", "ru", str(tmp_path / "nosuch.sql")])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "не найдено" not in captured.out
+    assert "Находок" not in captured.out
+    assert "ни один" in captured.err.lower()
+
+
+def test_a_partly_failed_scan_still_reports_what_it_did_scan(capsys, tmp_path):
+    good = tmp_path / "good.sql"
+    good.write_text("CREATE OR REPLACE PROCEDURE p IS BEGIN GOTO x; <<x>> NULL; END;\n", encoding="utf-8")
+    exit_code = main(["--lang", "ru", "-f", "markdown", str(good), str(tmp_path / "nosuch.sql")])
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "goto_statement" in captured.out

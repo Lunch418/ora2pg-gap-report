@@ -9,6 +9,8 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-27
+
 ### Changed
 
 - **One look across the TUI, the terminal report and the HTML report**, after Claude

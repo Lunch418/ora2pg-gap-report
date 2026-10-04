@@ -29,12 +29,23 @@ ora2pg-gap-report schema/ --check-connect-by
 #    сгенерированном PostgreSQL-коде — не гипотеза, а STILL_PRESENT/
 #    NOT_DETECTED/NOT_VERIFIABLE по факту.
 ora2pg-gap-report --verify --baseline baseline.json generated_postgresql/
+
+# 5. Исправить то, что исправляется механически, и загрузить результат в
+#    одноразовый PostgreSQL. Код возврата 1, если какая-то команда не загрузилась.
+ora2pg-gap-report --fix --write generated_postgresql/
+ora2pg-gap-report --load-check docker generated_postgresql/ -f json -o load-check.json
 ```
 
 Шаг 4 — статическая проверка (детекторы повторно прогоняются на
 сгенерированном файле), не поведенческая: она не подключается к БД и
 ничего не выполняет. Подробности и список `NOT_VERIFIABLE`-детекторов — в
 разделе README про `--verify`.
+
+Шаг 5 как раз обращается к базе: к одноразовому контейнеру (на раннерах
+GitHub `ubuntu-latest` docker есть), и в конце всё откатывается. Он ловит
+то, чего не видит статический анализ: любую команду, которую не принял
+PostgreSQL, известный это пробел или нет. Подробнее - в разделе README про
+`--load-check`.
 
 ## Находки прямо в GitHub PR (без своего бота)
 

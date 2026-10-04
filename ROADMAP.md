@@ -9,7 +9,8 @@ backlog, and items only get pulled out of it once there's a confirmed
 reason (a real user, a real issue, real pain). See the rule at the end of
 the document.
 
-Status current as of v0.6.0 (2026-08-18).
+Status current as of v0.13.0 plus what is under Unreleased in the
+changelog (2026-10-05).
 
 ## How to read this list
 
@@ -29,6 +30,22 @@ Three sections:
 The core "evidence-based verification layer" — the whole reason this
 project exists — is already in place:
 
+- **113 confirmed gaps across three source dialects**: 69 Oracle, 25
+  MySQL/MariaDB (`--dialect mysql`, as for `ora2pg -m`) and 19 SQL Server
+  (`--dialect mssql`, as for `ora2pg -M`), plus the `dbms_utl_calls`
+  classifier. Each one reproduced on a real `ora2pg` 25.0 + PostgreSQL 16
+  run before it was added.
+- **Load check against a real PostgreSQL** (Unreleased): `--load-check
+  docker|DSN` loads `ora2pg`'s generated files into a real server (a
+  throwaway container by default) in one transaction that is rolled back,
+  with `check_function_bodies` forced on, and ties every statement that
+  fails to a GAP-NNN, to `--fix`, or to an earlier failure. Errors the
+  registry doesn't know are listed apart — exactly the material new gaps
+  come from.
+- **Autofix**: `--fix`/`--write` — three mechanical fixes for `ora2pg`'s
+  generated code (GAP-028 for Oracle, GAP-091 and GAP-100 for T-SQL), dry
+  run by default, preserving the file's encoding, line endings and BOM.
+
 - **Verification, not guessing**: `--verify` compares the converted
   PostgreSQL code against a pre-migration snapshot (`--baseline`) at
   detector granularity and gives `STILL_PRESENT` / `NOT_DETECTED` /
@@ -43,14 +60,15 @@ project exists — is already in place:
   SARIF 2.1.0. Via `github/codeql-action/upload-sarif`, GitHub draws the
   findings inline in the PR itself, no custom bot or Action needed for
   that (see "Near-term" — only a documented example is missing).
-- **Evidence pages**: `--explain GAP-NNN` + `docs/research/gap-*.md` (67
-  of them) — minimal example, real `ora2pg` output, what happens in
-  PostgreSQL, the severity rationale.
+- **Evidence pages**: `--explain GAP-NNN` + `docs/research/gap-*.md` (113
+  of them, each in English and Russian) — minimal example, real `ora2pg`
+  output, what happens in PostgreSQL, the severity rationale.
 - **Reproduce for CONNECT BY**: `--check-connect-by` actually runs an
   installed `ora2pg` and checks the generated `WITH RECURSIVE` against a
   specific, known `LEVEL` bug — not a hypothesis, a reproduced fact.
 - **HTML/JSON/CSV/Markdown reports**: `--format html` — a self-contained
-  page with no external resources, for showing a non-engineer.
+  page with no external resources, for showing a non-engineer: the failure
+  stages first, each gap once, filters without JavaScript, a dark theme.
 - **Registry guardian**: `scripts/doctor.py` — catches drift between the
   detector code, `gap_registry.py`, `verification.py`, the research docs,
   and the tests. Part of CI.
@@ -61,18 +79,19 @@ project exists — is already in place:
   a common case for Oracle->PostgreSQL migrations).
 - **CI recipe**: [`docs/ci-integration.md`](docs/ci-integration.md) — a
   pipeline alongside `ora2pg` (a gate before conversion, `--check-
-  connect-by`, `--verify` after) and a sample GitHub Actions workflow
+  connect-by`, `--verify`, `--fix` and `--load-check` after) and a sample
+  GitHub Actions workflow
   that, via `--format sarif` + `upload-sarif`, gets findings inline in the
   PR with no custom bot or Action.
 - **Verification capability matrix**:
   [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md)
-  — for each of the 67 gaps, explicitly which verification mode it has
+  — for each of the 113 gaps, explicitly which verification mode it has
   (`verbatim`/`not_verifiable`/`generated_only`) and why, cross-checked
   against `VERIFICATION_MODE` in the code line by line (not written by
   eye).
 - **`failure_stage`**: at which stage a gap actually becomes visible —
   `deployment`/`runtime`/`semantic` (`conversion` is defined but has never
-  been needed, see `docs/failure-stage-notes.md`). Rolled out to all 67
+  been needed, see `docs/failure-stage-notes.md`). Rolled out to all 113
   gaps (except two deliberate exceptions — findings that aren't about the
   shape of the code but about `--estimate_cost` underestimating effort),
   `doctor.py` requires full coverage. Shown not just in `--explain`, but
@@ -82,17 +101,36 @@ project exists — is already in place:
   fields in `--save` snapshots. `schemas/report.schema.json`/`schemas/
   baseline.schema.json` updated to match.
 - **`--tui`**: an interactive screen built on `textual` (an optional
-  `[tui]` extra, not part of the base install) — pick a path with mouse/
-  keyboard instead of flags, scan with a button, click a finding to open
-  its full explanation with `GAP-NNN`/`failure_stage`. The first version
-  is deliberately narrow: scanning and browsing only, no `--save`/
-  `--baseline`/`--verify`/`--check-connect-by` from inside it, and no
-  multi-path selection, see the backlog below for expanding it.
+  `[tui]` extra, not part of the base install) — pick paths with mouse/
+  keyboard instead of flags ("Add to selection" for several), scan with a
+  button, compare against a baseline, run `--verify` and the CONNECT BY
+  check, save a baseline, and browse the results with the explanation
+  following the cursor.
+- **Version stamps**: every gap records the `ora2pg` and PostgreSQL
+  versions it was confirmed on and when (`gap_registry.py`,
+  `GAP_REGISTRY.md`, shown by `--explain`); a run that calls a different
+  installed `ora2pg` says so.
+- **A regression test per gap**: `doctor.py` fails the build unless every
+  registered gap has a research doc, a detector, a positive and a guard
+  test, both translations and a verification mode.
 
 ## Near-term
 
 Small, cheap steps that round out what already exists:
 
+- **Migration recipes and a checklist** — the natural next step after
+  `--load-check`: for each class of problem (not each detector) a
+  "problem -> PostgreSQL pattern -> alternatives" page with ready-made
+  replacement code (CONNECT BY -> `WITH RECURSIVE`, autonomous
+  transactions -> dblink/`pg_background`, PIVOT -> `crosstab`/`FILTER`,
+  global temporary tables -> an `ON COMMIT` pattern), and a checklist
+  generated from one run's findings that links to them.
+- **More `--fix` candidates**: go through the gaps `--load-check` reports
+  as failing at load time and pick out the ones whose fix is as
+  unambiguous as GAP-028's. Each one confirmed on the test bench first.
+- **`--annotate`**: comments next to each finding in the converted SQL
+  (`-- ora2pg-gap-report: GAP-023, see ...`) — rewrites nothing, puts the
+  context where the developer opens the file anyway.
 - The explain/evidence docs (`docs/research/gap-*.md`) were written for
   contributors, not the end user — worth checking how readable they are
   without codebase context.
@@ -117,25 +155,18 @@ waiting for its trigger.
 ### Migration workflow
 - `waiver`/suppression with an explicit expiry — an accepted and
   documented risk, not a forgotten one.
-- A migration checklist generated from a specific run's findings.
-- Migration recipes: `docs/recipes/` — for each class of problem (not
-  each detector) a separate "problem -> migration pattern -> alternatives"
-  document, distinct from the detectors' own evidence docs.
+- `--load-check` from inside `--tui`, and an HTML version of its report
+  next to the scan report.
 
 ### Ecosystem
 - An official GitHub Action example (a wrapper around the CLI + SARIF,
   not a separate service).
-- `--annotate`: safely inserting comments directly into the converted SQL
-  file next to findings (`-- ora2pg-gap-report: GAP-023, see ...`) —
-  doesn't rewrite anything, doesn't change the file's validity, just puts
-  context where the developer is going to open the file anyway.
 
 ### Trust and transparency
-- A version compatibility matrix: which `ora2pg` versions each behavior
-  was actually verified against.
-- Public metrics with no false precision: for example "every registered
-  GAP has a regression fixture" — but only for as long as that claim is
-  actually true (checked by `doctor.py`).
+- Re-verifying the registry against newer `ora2pg` releases and
+  PostgreSQL 17/18, so the version stamps say more than one pair.
+  `--load-check docker:postgres:17` already makes the PostgreSQL half
+  cheap to try.
 
 ## Prioritization rule
 

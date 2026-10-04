@@ -177,10 +177,14 @@ ora2pg_gap_report/
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── i18n.py                     # язык вывода (--lang/--set-lang): резолюция, английские
 │                               # строки UI и переводы объяснений детекторов
+├── load_check.py               # --load-check: загрузка сгенерированного кода в настоящий
+│                               #  PostgreSQL (docker или DSN) в одной откатываемой транзакции,
+│                               #  привязка каждой ошибки к GAP-NNN / --fix / более ранней ошибке
+├── pg_script.py                # разбивает PostgreSQL-скрипт на команды как psql; глушит то,
+│                               #  что сломало бы --load-check, не сдвигая номера строк
 ├── verification.py             # --verify: детекторный (не построчный) статус
 │                               # STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE
 ├── core.py                      # scan_source/count_objects/expand_paths/connect_by_check —
-├── cli.py                      # консольная команда ora2pg-gap-report
 ├── cli.py                      # консольная команда ora2pg-gap-report
 ├── effort_estimator.py          # грубая эвристика по severity, диапазон часов
 ├── html_report.py              # --format html: рельс стадий, каждый пробел один раз, фильтры на CSS

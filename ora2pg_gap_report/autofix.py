@@ -172,3 +172,12 @@ FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
     "mysql": (),
     "mssql": (fix_mssql_charindex_quotes, fix_mssql_empty_declare),
 }
+
+# The detector whose gap each fix undoes. --load-check uses it to say
+# "this statement failed to load, and --fix repairs it" with the right
+# GAP number.
+FIXER_DETECTOR: dict[Fixer, str] = {
+    fix_identity_double_parens: "identity_column",
+    fix_mssql_charindex_quotes: "mssql_charindex",
+    fix_mssql_empty_declare: "mssql_parameterless_procedure",
+}

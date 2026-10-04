@@ -195,6 +195,8 @@ _COUNTED: dict[str, dict[str, tuple[str, ...]]] = {
     "object": {"ru": ("объект", "объекта", "объектов"), "en": ("object", "objects")},
     "file": {"ru": ("файл", "файла", "файлов"), "en": ("file", "files")},
     "hour": {"ru": ("час", "часа", "часов"), "en": ("hour", "hours")},
+    "statement": {"ru": ("команда", "команды", "команд"), "en": ("statement", "statements")},
+    "error": {"ru": ("ошибка", "ошибки", "ошибок"), "en": ("error", "errors")},
 }
 
 
@@ -400,20 +402,20 @@ _UI: dict[str, dict[str, str]] = {
     "explain_conflict_error": {
         "ru": "[red]--explain — самостоятельный просмотр документации, не сканирование: "
         "его нельзя сочетать с путями к файлам, --fail-on, --save, --baseline, "
-        "--check-connect-by, --verify, --fix, --write, --format, --output, --severity или "
-        "--object[/red]",
+        "--check-connect-by, --verify, --fix, --write, --load-check, --format, --output, "
+        "--severity или --object[/red]",
         "en": "[red]--explain is a standalone documentation lookup, not a scan: it can't be "
         "combined with file paths, --fail-on, --save, --baseline, --check-connect-by, "
-        "--verify, --fix, --write, --format, --output, --severity, or --object[/red]",
+        "--verify, --fix, --write, --load-check, --format, --output, --severity, or --object[/red]",
     },
     "tui_conflict_error": {
         "ru": "[red]--tui — самостоятельный интерактивный режим: принимает не больше одного "
-        "пути (стартовая точка в дереве) и не сочетается с --explain, --verify, --fix, "
+        "пути (стартовая точка в дереве) и не сочетается с --explain, --verify, --fix, --load-check, "
         "--write, --fail-on, --save, --baseline, --check-connect-by, --severity, --object, "
         "--format или --output[/red]",
         "en": "[red]--tui is a standalone interactive mode: it takes at most one path (a "
         "starting point for the tree) and can't be combined with --explain, --verify, "
-        "--fix, --write, --fail-on, --save, --baseline, --check-connect-by, --severity, "
+        "--fix, --load-check, --write, --fail-on, --save, --baseline, --check-connect-by, --severity, "
         "--object, --format, or --output[/red]",
     },
     "tui_not_installed": {
@@ -602,6 +604,189 @@ _UI: dict[str, dict[str, str]] = {
     "fix_write_error": {
         "ru": "[red]Не удалось записать {path}: {exc}[/red]",
         "en": "[red]Couldn't write {path}: {exc}[/red]",
+    },
+    # --load-check (loading the generated output into a real PostgreSQL, see load_check.py)
+    "load_check_conflict_error": {
+        "ru": "[red]--load-check - отдельный режим, его нельзя сочетать с --explain, --verify, "
+        "--fix, --write, --tui, --fail-on, --save, --baseline, --check-connect-by, --severity "
+        "или --object[/red]",
+        "en": "[red]--load-check is a standalone mode, it can't be combined with --explain, "
+        "--verify, --fix, --write, --tui, --fail-on, --save, --baseline, --check-connect-by, "
+        "--severity, or --object[/red]",
+    },
+    "load_check_unsupported_format": {
+        "ru": "[red]--load-check поддерживает только --format terminal и --format json[/red]",
+        "en": "[red]--load-check only supports --format terminal and --format json[/red]",
+    },
+    "load_check_dsn_notice": {
+        "ru": "[dim]Загрузка в {target}: всё выполняется в одной транзакции и откатывается в конце, "
+        "но DDL держит блокировки до отката - используйте пустую тестовую базу, не рабочую.[/dim]",
+        "en": "[dim]Loading into {target}: everything runs in one transaction that is rolled back "
+        "at the end, but DDL holds its locks until then - use an empty scratch database, not a "
+        "live one.[/dim]",
+    },
+    "load_check_starting_docker": {
+        "ru": "Запуск одноразового PostgreSQL ({image}) в docker...",
+        "en": "Starting a throwaway PostgreSQL ({image}) in docker...",
+    },
+    "load_check_running": {
+        "ru": "Загрузка {files} в PostgreSQL...",
+        "en": "Loading {files} into PostgreSQL...",
+    },
+    "load_check_no_psql": {
+        "ru": "[red]Не найден psql ({psql}). Установите клиент PostgreSQL или используйте "
+        "--load-check docker - тогда psql не нужен.[/red]",
+        "en": "[red]psql not found ({psql}). Install the PostgreSQL client, or use "
+        "--load-check docker, which doesn't need it.[/red]",
+    },
+    "load_check_no_docker": {
+        "ru": "[red]Не найден docker ({docker}). Установите docker или передайте строку "
+        "подключения к тестовой базе: --load-check postgresql://user@host/scratch[/red]",
+        "en": "[red]docker not found ({docker}). Install docker, or pass a connection string "
+        "to a scratch database: --load-check postgresql://user@host/scratch[/red]",
+    },
+    "load_check_docker_failed": {
+        "ru": "[red]Не удалось запустить контейнер {image}:[/red]\n{detail}",
+        "en": "[red]Couldn't start the {image} container:[/red]\n{detail}",
+    },
+    "load_check_docker_not_ready": {
+        "ru": "[red]PostgreSQL в контейнере {image} не запустился за отведённое время. "
+        "Последние строки журнала:[/red]\n{detail}",
+        "en": "[red]PostgreSQL in the {image} container didn't come up in time. The last "
+        "lines of its log:[/red]\n{detail}",
+    },
+    "load_check_connect_failed": {
+        "ru": "[red]psql не смог подключиться к серверу:[/red]\n{detail}",
+        "en": "[red]psql couldn't connect to the server:[/red]\n{detail}",
+    },
+    "load_check_incomplete": {
+        "ru": "[red]psql остановился, не дойдя до конца файлов (оборвалось соединение?). "
+        "Результат неполный, поэтому не показан. Последний вывод psql:[/red]\n{detail}",
+        "en": "[red]psql stopped before reaching the end of the files (a dropped connection?). "
+        "The result is incomplete, so it isn't shown. psql's last output:[/red]\n{detail}",
+    },
+    "load_check_heading": {
+        "ru": "Проверка загрузкой в PostgreSQL",
+        "en": "Load check against PostgreSQL",
+    },
+    "load_check_panel_title": {"ru": "Итог", "en": "Summary"},
+    "load_check_server": {"ru": "Сервер", "en": "Server"},
+    "load_check_loaded": {"ru": "Загружено", "en": "Loaded"},
+    "load_check_loaded_value": {
+        "ru": "{files}, {statements}",
+        "en": "{files}, {statements}",
+    },
+    "load_check_failed_label": {"ru": "Не загрузилось", "en": "Didn't load"},
+    "load_check_cat_fixable": {"ru": "исправит --fix", "en": "--fix repairs it"},
+    "load_check_cat_gap": {"ru": "известный пробел", "en": "a known gap"},
+    "load_check_cat_unknown": {"ru": "нет в реестре", "en": "not in the registry"},
+    "load_check_cat_dependency": {"ru": "нет нужного объекта", "en": "a missing object"},
+    "load_check_cat_environment": {"ru": "не проверить здесь", "en": "can't be checked here"},
+    "load_check_section_fixable": {
+        "ru": "Исправит --fix",
+        "en": "--fix repairs these",
+    },
+    "load_check_section_gap": {
+        "ru": "Известные пробелы ora2pg",
+        "en": "Known ora2pg gaps",
+    },
+    "load_check_section_unknown": {
+        "ru": "Ошибки, которых нет в реестре",
+        "en": "Errors the registry doesn't know",
+    },
+    "load_check_section_dependency": {
+        "ru": "Ссылаются на объект, которого нет",
+        "en": "Refer to an object that doesn't exist",
+    },
+    "load_check_section_environment": {
+        "ru": "Не проверить внутри проверки",
+        "en": "Can't be checked inside the check",
+    },
+    "load_check_hint_fixable": {
+        "ru": "ora2pg-gap-report --fix --write {file}",
+        "en": "ora2pg-gap-report --fix --write {file}",
+    },
+    "load_check_hint_gap": {
+        "ru": "Что делать: ora2pg-gap-report --explain GAP-{number}",
+        "en": "What to do: ora2pg-gap-report --explain GAP-{number}",
+    },
+    "load_check_hint_detector": {
+        "ru": "Детектор: {detector}",
+        "en": "Detector: {detector}",
+    },
+    "load_check_note_unknown": {
+        "ru": "Этих ошибок нет в реестре пробелов. Если это ошибка конверсии ora2pg, а не "
+        "исходной схемы, расскажите о ней: https://github.com/Lunch418/ora2pg-gap-report/issues/2",
+        "en": "The gap registry doesn't know these errors. If one is ora2pg's conversion going "
+        "wrong rather than the source schema, please report it: "
+        "https://github.com/Lunch418/ora2pg-gap-report/issues/2",
+    },
+    "load_check_note_dependency": {
+        "ru": "Обычно это эхо ошибки выше (не создалась таблица или тип) или объект, который "
+        "лежит вне загруженных файлов. Сначала исправьте ошибки из разделов выше.",
+        "en": "Usually the echo of an error above (a table or type that failed to create) or "
+        "an object that lives outside the loaded files. Fix the sections above first.",
+    },
+    "load_check_note_environment": {
+        "ru": "Это не ошибка миграции: команда не может выполниться внутри транзакции проверки "
+        "(CREATE INDEX CONCURRENTLY, COMMIT внутри DO), сервер отказал в правах или нет "
+        "расширения, либо сработал тайм-аут. Такие команды не проверены.",
+        "en": "Not a migration error: the statement can't run inside the check's transaction "
+        "(CREATE INDEX CONCURRENTLY, a COMMIT inside DO), the server refused the privilege or "
+        "lacks an extension, or a timeout fired. These statements weren't checked.",
+    },
+    "load_check_more": {
+        "ru": "... и ещё {errors} - полный список: --format json",
+        "en": "... and {errors} more - the full list: --format json",
+    },
+    "load_check_clean": {
+        "ru": "Всё загрузилось: {statements} из {files}, ни одной ошибки.",
+        "en": "Everything loaded: {statements} from {files}, not a single error.",
+    },
+    "load_check_nothing_loaded": {
+        "ru": "Ни один файл не удалось загрузить - причины ниже.",
+        "en": "No file could be loaded - the reasons are below.",
+    },
+    "load_check_neutralised": {
+        "ru": "Не выполнялось (иначе проверка была бы неверной): {items}",
+        "en": "Not run (the check would be wrong otherwise): {items}",
+    },
+    "load_check_neutralised_meta": {"ru": "команды psql - {n}", "en": "psql commands - {n}"},
+    "load_check_neutralised_transaction": {
+        "ru": "управление транзакцией - {n}",
+        "en": "transaction control - {n}",
+    },
+    "load_check_neutralised_setting": {
+        "ru": "SET check_function_bodies - {n}",
+        "en": "SET check_function_bodies - {n}",
+    },
+    "load_check_include_skipped": {
+        "ru": "[yellow]{file}:{line}: {command} не выполнялся - передайте подключаемые файлы "
+        "или их каталог в --load-check вместе с этим.[/yellow]",
+        "en": "[yellow]{file}:{line}: {command} wasn't run - pass the included files, or their "
+        "directory, to --load-check along with this one.[/yellow]",
+    },
+    "load_check_skipped_unreadable": {
+        "ru": "[yellow]{file}: не прочитан ({detail}), не загружался.[/yellow]",
+        "en": "[yellow]{file}: couldn't be read ({detail}), not loaded.[/yellow]",
+    },
+    "load_check_skipped_unterminated": {
+        "ru": "[yellow]{file}: файл заканчивается внутри незакрытой кавычки или комментария "
+        "(начало на строке {line}), не загружался - psql склеил бы его со следующим файлом.[/yellow]",
+        "en": "[yellow]{file}: the file ends inside an unclosed quote or comment (opened on line "
+        "{line}), not loaded - psql would glue it to the next file.[/yellow]",
+    },
+    "load_check_footer": {
+        "ru": "Всё выполнялось в одной транзакции и откачено - в базе ничего не осталось. "
+        "Тела PL/pgSQL проверены компилятором (check_function_bodies = on), но ничего не "
+        "запускалось: то, что загрузилось, может вести себя иначе, чем в Oracle.",
+        "en": "Everything ran in one transaction that was rolled back - nothing was left in the "
+        "database. PL/pgSQL bodies were compiled (check_function_bodies = on), but nothing was "
+        "executed: what loaded may still behave differently from Oracle.",
+    },
+    "load_check_failed_summary": {
+        "ru": "\n[bold red]Сгенерированный код не загружается[/bold red] - {errors}.",
+        "en": "\n[bold red]The generated code doesn't load[/bold red] - {errors}.",
     },
     "set_lang_not_interactive": {
         "ru": "[red]--set-lang открывает интерактивный выбор языка — нужен настоящий "
@@ -933,6 +1118,24 @@ _UI: dict[str, dict[str, str]] = {
         "add --write to actually rewrite the files. A standalone mode -- not combinable "
         "with --explain/--verify/--tui/--fail-on/--save/--baseline/--check-connect-by/"
         "--severity/--object/--format/--output.",
+    },
+    "help_load_check": {
+        "ru": "Загрузить сгенерированный ora2pg PostgreSQL-код в настоящий PostgreSQL и "
+        "показать, какие команды не загрузились и каким пробелам (GAP-NNN) они соответствуют, "
+        "какие исправит --fix, какие - эхо более ранней ошибки. TARGET: docker - одноразовый "
+        "контейнер postgres:16-alpine (нужен только docker), docker:IMAGE - свой образ, или "
+        "строка подключения libpq/URI к пустой тестовой базе (нужен psql). Всё выполняется в "
+        "одной транзакции и откатывается, тела PL/pgSQL проверяются (check_function_bodies = "
+        "on). Код возврата 1, если что-то не загрузилось. Только --format terminal и json; "
+        "--dialect выбирает детекторы и исправления для разбора ошибок.",
+        "en": "Load ora2pg's generated PostgreSQL code into a real PostgreSQL and show which "
+        "statements failed, which gap (GAP-NNN) each one is, which --fix repairs and which "
+        "are only the echo of an earlier error. TARGET: docker - a throwaway postgres:16-alpine "
+        "container (needs only docker), docker:IMAGE - an image of your own, or a libpq "
+        "connection string/URI to an empty scratch database (needs psql). Everything runs in "
+        "one transaction that is rolled back, and PL/pgSQL bodies are checked "
+        "(check_function_bodies = on). Exit code 1 if anything failed to load. Only --format "
+        "terminal and json; --dialect picks the detectors and fixes used to explain the errors.",
     },
     "help_write": {
         "ru": "Вместе с --fix: реально перезаписать файлы на диске вместо печати diff. "

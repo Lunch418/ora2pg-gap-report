@@ -33,6 +33,7 @@ from .core import (
     scan_source,
 )
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
+from .load_check import LoadCheckError, order_files, parse_target, run_load_check
 from .gap_registry import (
     GAPS,
     gap_by_number,
@@ -47,6 +48,7 @@ from .report_generator import (
     to_csv,
     to_html,
     to_json,
+    to_load_check_json,
     to_markdown,
     to_sarif,
     to_verification_json,
@@ -57,7 +59,7 @@ from .report_generator import (
     write_sarif,
 )
 from .terminal_report import render as render_terminal
-from .terminal_report import render_baseline_diff, render_verification
+from .terminal_report import render_baseline_diff, render_load_check, render_verification
 from .verification import new_in_output, verify_against_baseline
 
 
@@ -234,6 +236,12 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
         "--write",
         action="store_true",
         help=i18n.t(lang, "help_write"),
+    )
+    parser.add_argument(
+        "--load-check",
+        default=None,
+        metavar="TARGET",
+        help=i18n.t(lang, "help_load_check"),
     )
     return parser
 
@@ -558,6 +566,114 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
     return 2 if had_error else 0
 
 
+def _handle_load_check(args: argparse.Namespace, err_console: Console, lang: str) -> int:
+    """--load-check TARGET: loads `args.paths` -- ora2pg's generated
+    PostgreSQL output, like --verify/--fix -- into a real PostgreSQL and
+    reports what failed, tied to the registry's gaps. See load_check.py
+    for how the target database is kept clean.
+
+    Exit codes follow the rest of the CLI: 0 everything loaded, 1 the
+    output does not load (the same "gate failed" meaning --fail-on gives
+    1), 2 the check could not run or some input was skipped."""
+    conflicting = any(
+        (
+            args.verify,
+            args.fix,
+            args.write,
+            args.save,
+            args.baseline,
+            args.fail_on,
+            args.check_connect_by,
+            args.severity,
+            args.object,
+        )
+    )
+    if conflicting:
+        err_console.print(i18n.t(lang, "load_check_conflict_error"))
+        return 2
+    if not args.paths:
+        err_console.print(i18n.t(lang, "no_paths_error"))
+        return 2
+    fmt = args.format if args.format is not None else "terminal"
+    if fmt not in ("terminal", "json"):
+        err_console.print(i18n.t(lang, "load_check_unsupported_format"))
+        return 2
+
+    target = parse_target(args.load_check)
+    files, empty_dirs = order_files(args.paths)
+    had_error = False
+    for empty_dir in empty_dirs:
+        err_console.print(i18n.t(lang, "empty_dir_warning", dir=escape(str(empty_dir))))
+        had_error = True
+    existing = []
+    for path in files:
+        if path.is_file():
+            existing.append(path)
+        else:
+            err_console.print(i18n.t(lang, "skipped_not_found", path=escape(str(path))))
+            had_error = True
+    if not existing:
+        err_console.print(i18n.t(lang, "nothing_scanned"))
+        return 2
+
+    if target.kind == "dsn":
+        err_console.print(i18n.t(lang, "load_check_dsn_notice", target=escape(target.describe())))
+    status_text = (
+        i18n.t(lang, "load_check_starting_docker", image=target.value)
+        if target.kind == "docker"
+        else i18n.t(lang, "load_check_running", files=i18n.count(lang, "file", len(existing)))
+    )
+    show_spinner = fmt == "terminal" and err_console.is_terminal
+    spinner_cm = (
+        err_console.status(Text(status_text, style="dim"), spinner="line", spinner_style="bold #D97757")
+        if show_spinner
+        else contextlib.nullcontext()
+    )
+    try:
+        with spinner_cm:
+            result = run_load_check(existing, target, dialect=args.dialect)
+    except LoadCheckError as exc:
+        kwargs = {k: escape(str(v)) for k, v in exc.kwargs.items()}
+        err_console.print(i18n.t(lang, exc.key, **kwargs))
+        return 2
+
+    if result.skipped_files:
+        had_error = True
+
+    if fmt == "json":
+        report = to_load_check_json(result)
+        if args.output:
+            try:
+                write_text_atomic(args.output, report)
+            except OSError as exc:
+                err_console.print(
+                    i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))
+                )
+                return 2
+        else:
+            print(report)
+    elif args.output:
+        try:
+            buffer = io.StringIO()
+            render_load_check(result, console=_file_console(buffer), lang=lang)
+            write_text_atomic(args.output, buffer.getvalue())
+        except OSError as exc:
+            err_console.print(
+                i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))
+            )
+            return 2
+    else:
+        render_load_check(result, lang=lang)
+
+    if had_error:
+        return 2
+    if result.failed:
+        failing = sum(1 for e in result.errors if e.category != "environment")
+        err_console.print(i18n.t(lang, "load_check_failed_summary", errors=i18n.count(lang, "error", failing)))
+        return 1
+    return 0
+
+
 def _write_diff(out_console: Console, diff: str) -> None:
     """Write a --fix diff as the scanned file's own bytes.
 
@@ -844,6 +960,7 @@ def _main(argv: list[str] | None = None) -> int:
                 args.verify,
                 args.fix,
                 args.write,
+                args.load_check,
                 args.severity,
                 args.object,
                 args.format,
@@ -886,6 +1003,7 @@ def _main(argv: list[str] | None = None) -> int:
                 args.verify,
                 args.fix,
                 args.write,
+                args.load_check,
                 args.format,
                 args.output,
                 args.severity,
@@ -897,6 +1015,9 @@ def _main(argv: list[str] | None = None) -> int:
             err_console.print(i18n.t(lang, "explain_conflict_error"))
             return 2
         return _handle_explain(args.explain, Console(), err_console, lang)
+
+    if args.load_check is not None:
+        return _handle_load_check(args, err_console, lang)
 
     if args.verify:
         return _handle_verify(args, err_console, lang)

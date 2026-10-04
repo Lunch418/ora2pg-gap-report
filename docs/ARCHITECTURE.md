@@ -175,6 +175,11 @@ ora2pg_gap_report/
 ├── ora2pg_wrapper.py            # runs ora2pg per object type, parses --estimate_cost
 ├── i18n.py                     # output language (--lang/--set-lang): resolution, English
 │                               # UI strings, and translations of detector explanations
+├── load_check.py               # --load-check: loads generated output into a real PostgreSQL
+│                               #  (docker or a DSN) in one rolled-back transaction, ties each
+│                               #  failing statement to a GAP-NNN / --fix / an earlier failure
+├── pg_script.py                # splits a PostgreSQL script the way psql does; blanks what
+│                               #  would defeat --load-check, keeping line numbers
 ├── verification.py             # --verify: detector-level (not line-level) status
 │                               # STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE
 ├── core.py                      # scan_source/count_objects/expand_paths/connect_by_check --

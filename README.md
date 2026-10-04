@@ -477,10 +477,10 @@ detectors — by construction, not by keyword luck.
   build doesn't have, is rejected for the same reason — verifying against
   part of a baseline would produce a confident number computed from
   incomplete input.
-- **`--fix` runs the mechanical fixes registered for `--dialect`.** MySQL
-  deliberately has none (see below), and says so instead of reporting
-  every file as "nothing to fix", which would read as "your output is
-  fine".
+- **`--fix` runs the mechanical fixes registered for `--dialect`.** Each
+  dialect has its own (see below); a dialect with none would say so instead
+  of reporting every file as "nothing to fix", which would read as "your
+  output is fine".
 - **`--tui`** has a dialect picker beside the severity and language ones,
   and applies the same rules — including taking the dialect from the
   baseline in verify mode.
@@ -671,7 +671,7 @@ a parser, and rewriting DDL about to be deployed is a much riskier thing to
 get wrong than a missed or extra flag (see `docs/ARCHITECTURE.md`). `--fix`
 is a narrow, deliberate exception: only corrections where the "buggy" shape
 is never what a correct migration would produce and the fix is a pure,
-unambiguous text transformation. Four qualify so far, and which of them
+unambiguous text transformation. Five qualify so far, and which of them
 run is decided by `--dialect`:
 
 | Dialect | Fix | What it undoes |
@@ -680,9 +680,9 @@ run is decided by `--dialect`:
 | `oracle` | GAP-024 | A recursive `WITH` is copied without the `RECURSIVE` keyword Oracle does not need and PostgreSQL does (`relation "tree" does not exist`). Adds the keyword to a `WITH` whose CTE refers to itself; one followed by Oracle's `SEARCH`/`CYCLE` clause is left alone |
 | `mssql` | GAP-100 | `CHARINDEX` is translated to the right function but with the quotes doubled — `position(''abc'' in x)`, which is not valid SQL. Removes the doubling, touching nothing else |
 | `mssql` | GAP-091 | A parameterless procedure gets an empty, unparseable `DECLARE ;` block. Deletes it — which is exactly what `ora2pg` itself emits for the same procedure when it takes a parameter |
-| `mysql` | — | None, deliberately: every confirmed MySQL gap needs either a design decision (what to replace the construct with) or data the generated file no longer carries |
+| `mysql` | GAP-075 | MySQL's `LIMIT offset, count` is copied as it is, and PostgreSQL rejects it (`LIMIT #,# syntax is not supported`). Rewrites it to `LIMIT count OFFSET offset`; every other MySQL gap needs a design decision or data the generated file no longer has, so it gets no fix |
 
-All four were verified the same way the gaps themselves were: the broken
+All five were verified the same way the gaps themselves were: the broken
 output failing to load into a real PostgreSQL 16, and the fixed output
 loading and running.
 

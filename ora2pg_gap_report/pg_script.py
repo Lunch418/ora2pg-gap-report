@@ -297,3 +297,71 @@ def sanitize(source: str, parsed: ParsedScript | None = None) -> tuple[str, list
             removed.append(Neutralised(statement.start_line, kind, _summary(source[statement.start : statement.end])))
     removed.sort(key=lambda r: r.line)
     return "".join(chars), removed
+
+
+def mask_literals(source: str) -> str:
+    """`source` with the inside of string literals, quoted identifiers and
+    comments replaced by spaces -- same length, same line breaks -- so a
+    pattern search over generated PostgreSQL finds code only. Dollar-quoted
+    text stays visible: in ora2pg's output that is a routine body, which is
+    exactly the code a fix has to see."""
+    chars = list(source)
+    n = len(source)
+    i = 0
+
+    def blank(start: int, end: int) -> None:
+        for k in range(start, min(end, n)):
+            if chars[k] not in "\r\n":
+                chars[k] = " "
+
+    while i < n:
+        ch = source[i]
+        if source.startswith("--", i):
+            nl = source.find("\n", i)
+            end = n if nl == -1 else nl
+            blank(i, end)
+            i = end
+        elif source.startswith("/*", i):
+            start, level = i, 1
+            i += 2
+            while i < n and level:
+                if source.startswith("/*", i):
+                    level += 1
+                    i += 2
+                elif source.startswith("*/", i):
+                    level -= 1
+                    i += 2
+                else:
+                    i += 1
+            blank(start, i)
+        elif ch == "'":
+            escapes = i > 0 and source[i - 1] in "eE" and (i < 2 or not _IDENT_CHAR_RE.match(source[i - 2]))
+            start = i
+            i += 1
+            while i < n:
+                if escapes and source[i] == "\\":
+                    i += 2
+                    continue
+                if source[i] == "'":
+                    if i + 1 < n and source[i + 1] == "'":
+                        i += 2
+                        continue
+                    break
+                i += 1
+            blank(start + 1, i)
+            i += 1
+        elif ch == '"':
+            start = i
+            i += 1
+            while i < n:
+                if source[i] == '"':
+                    if i + 1 < n and source[i + 1] == '"':
+                        i += 2
+                        continue
+                    break
+                i += 1
+            blank(start + 1, i)
+            i += 1
+        else:
+            i += 1
+    return "".join(chars)

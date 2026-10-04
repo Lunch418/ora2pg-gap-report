@@ -56,6 +56,11 @@ patch for fixes to existing ones.
   ora2pg 25.0's output for a recursive view fails to load into PostgreSQL 16
   (`relation "tree" does not exist`), the fixed one loads and walks the tree.
   A `WITH` followed by Oracle's `SEARCH`/`CYCLE` clause is left for a person.
+- **`--fix` repairs GAP-075**, the first fix for MySQL: `LIMIT offset, count`,
+  copied by ora2pg as it is and rejected by PostgreSQL (`LIMIT #,# syntax is not
+  supported`), becomes `LIMIT count OFFSET offset`. Only a number or a plain name
+  in either place, as MySQL allows, and never inside a string, a quoted name or a
+  comment. Confirmed on ora2pg 25.0 -m output and PostgreSQL 16.
 - **"Next" at the end of the terminal report**: the three commands that come
   after a scan, in order (a checklist, `--fix`, `--load-check`).
 

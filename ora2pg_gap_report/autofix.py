@@ -5,8 +5,9 @@ docs/ARCHITECTURE.md: the detectors aren't a real parser, and rewriting
 DDL that's about to be deployed carries a much higher cost of being wrong
 than a missed or extra flag does).
 
-Scope is deliberately narrow: four gaps so far (GAP-028 and GAP-024 for
-Oracle, GAP-100 and GAP-091 for T-SQL, see FIXERS_BY_DIALECT). GAP-028,
+Scope is deliberately narrow: five gaps so far (GAP-028 and GAP-024 for
+Oracle, GAP-075 for MySQL, GAP-100 and GAP-091 for T-SQL, see
+FIXERS_BY_DIALECT). GAP-028,
 the first, shows what qualifies: it qualifies specifically because the bug is
 a single, always-identical shape (ora2pg wraps its own correctly-derived
 options clause in one extra, entirely redundant pair of parens) with a
@@ -210,24 +211,61 @@ def fix_recursive_with_keyword(source: str) -> tuple[str, int]:
     return fixed, len(insert_at)
 
 
+# MySQL's `LIMIT offset, count`. MySQL accepts only a literal or a routine
+# variable in either place, never an expression, so the operands are a
+# number or a plain name, and what follows the count must not continue an
+# expression -- anything else is left alone rather than guessed at.
+_MYSQL_LIMIT_COMMA_RE = re.compile(
+    r"\b(?P<kw>LIMIT)(?P<sp>\s+)(?P<offset>\d+|[A-Za-z_]\w*)\s*,\s*(?P<count>\d+|[A-Za-z_]\w*)\b(?!\s*[-+*/%(.\[])",
+    re.IGNORECASE,
+)
+
+
+def fix_mysql_limit_comma(source: str) -> tuple[str, int]:
+    """Rewrite MySQL's `LIMIT offset, count`, which ora2pg copies as it is,
+    to PostgreSQL's `LIMIT count OFFSET offset` (GAP-075), returning
+    (fixed_source, number_of_fixes_applied).
+
+    Mechanical for the same reason as the others: PostgreSQL rejects the
+    comma form outright -- 'LIMIT #,# syntax is not supported', confirmed by
+    loading ora2pg 25.0's -m output into PostgreSQL 16 -- so the text never
+    means anything as it stands, and the rewrite only moves the two
+    operands into the order PostgreSQL spells. Searched for in code only:
+    string literals, quoted identifiers and comments are masked first
+    (pg_script.mask_literals)."""
+    from .pg_script import mask_literals
+
+    masked = mask_literals(source)
+    out: list[str] = []
+    pos = 0
+    count = 0
+    for m in _MYSQL_LIMIT_COMMA_RE.finditer(masked):
+        out.append(source[pos : m.start()])
+        out.append(f"{source[m.start('kw'):m.end('kw')]}{m.group('sp')}{m.group('count')} OFFSET {m.group('offset')}")
+        pos = m.end()
+        count += 1
+    out.append(source[pos:])
+    return "".join(out), count
+
+
 # Which mechanical fixes apply to which source dialect's generated output.
-# Keyed by the same dialect names core.DIALECTS carries. MySQL has no
-# entry with fixes on purpose, not by oversight: of its 19 confirmed
-# gaps, every one is either a construct ora2pg copies verbatim and whose
-# correct replacement is a real design decision (ON DUPLICATE KEY UPDATE
-# -> ON CONFLICT changes trigger/cascade behaviour; INSERT IGNORE ->
-# ON CONFLICT DO NOTHING is narrower than IGNORE), or a loss that cannot
-# be reconstructed from the generated output at all -- GAP-068's missing
-# CREATE TYPE needs the enum values, which only exist in the MySQL source
-# this file no longer is. Inventing a fix for those would be exactly the
-# "rewriting DDL that's about to be deployed" this module's docstring
-# rules out.
+# Keyed by the same dialect names core.DIALECTS carries. MySQL has a
+# single fix on purpose, not by oversight: `LIMIT a, b` (GAP-075) is pure
+# syntax, but every other confirmed MySQL gap is either a construct ora2pg
+# copies verbatim and whose correct replacement is a real design decision
+# (ON DUPLICATE KEY UPDATE -> ON CONFLICT changes trigger/cascade
+# behaviour; INSERT IGNORE -> ON CONFLICT DO NOTHING is narrower than
+# IGNORE), or a loss that cannot be reconstructed from the generated
+# output at all -- GAP-068's missing CREATE TYPE needs the enum values,
+# which only exist in the MySQL source this file no longer is. Inventing a
+# fix for those would be exactly the "rewriting DDL that's about to be
+# deployed" this module's docstring rules out.
 # What every fixer is: source in, (fixed source, number of fixes) out.
 Fixer = Callable[[str], tuple[str, int]]
 
 FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
     "oracle": (fix_identity_double_parens, fix_recursive_with_keyword),
-    "mysql": (),
+    "mysql": (fix_mysql_limit_comma,),
     "mssql": (fix_mssql_charindex_quotes, fix_mssql_empty_declare),
 }
 
@@ -237,6 +275,7 @@ FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
 FIXER_DETECTOR: dict[Fixer, str] = {
     fix_identity_double_parens: "identity_column",
     fix_recursive_with_keyword: "recursive_with",
+    fix_mysql_limit_comma: "mysql_limit_comma",
     fix_mssql_charindex_quotes: "mssql_charindex",
     fix_mssql_empty_declare: "mssql_parameterless_procedure",
 }

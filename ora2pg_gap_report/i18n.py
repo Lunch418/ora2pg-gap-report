@@ -1162,19 +1162,21 @@ _UI: dict[str, dict[str, str]] = {
     },
     "help_fix": {
         "ru": "Применить известные механические исправления к сгенерированному ora2pg "
-        "PostgreSQL-коду (не к Oracle-исходнику — как --verify, читает пути как результат "
-        "миграции). Сейчас единственное исправление — двойные скобки в GENERATED ... AS "
-        "IDENTITY (...) (GAP-028). По умолчанию ничего не меняет на диске, только печатает "
-        "unified diff; для реальной перезаписи файлов добавьте --write. Самостоятельный "
-        "режим — не сочетается с --explain/--verify/--tui/--fail-on/--save/--baseline/"
-        "--check-connect-by/--severity/--object/--format/--output.",
+        "PostgreSQL-коду (не к Oracle-исходнику - как --verify, читает пути как результат "
+        "миграции). Набор зависит от --dialect: для oracle - двойные скобки в GENERATED ... "
+        "AS IDENTITY (GAP-028) и пропущенный RECURSIVE в рекурсивном WITH (GAP-024), для "
+        "mssql - кавычки в CHARINDEX (GAP-100) и пустой DECLARE (GAP-091). По умолчанию ничего "
+        "не меняет на диске, только печатает unified diff; для реальной перезаписи файлов "
+        "добавьте --write. Самостоятельный режим - не сочетается с --explain/--verify/--tui/"
+        "--fail-on/--save/--baseline/--check-connect-by/--severity/--object/--format/--output.",
         "en": "Apply known mechanical fixes to ora2pg's *generated* PostgreSQL code (not "
-        "Oracle source -- like --verify, reads paths as post-migration output). Currently "
-        "the only fix is the double-paren bug in GENERATED ... AS IDENTITY (...) "
-        "(GAP-028). Prints a unified diff by default, without touching anything on disk; "
-        "add --write to actually rewrite the files. A standalone mode -- not combinable "
-        "with --explain/--verify/--tui/--fail-on/--save/--baseline/--check-connect-by/"
-        "--severity/--object/--format/--output.",
+        "Oracle source -- like --verify, reads paths as post-migration output). The set "
+        "depends on --dialect: for oracle, the double parens in GENERATED ... AS IDENTITY "
+        "(GAP-028) and the missing RECURSIVE in a recursive WITH (GAP-024); for mssql, the "
+        "CHARINDEX quotes (GAP-100) and the empty DECLARE (GAP-091). Prints a unified diff by "
+        "default, without touching anything on disk; add --write to actually rewrite the "
+        "files. A standalone mode -- not combinable with --explain/--verify/--tui/--fail-on/"
+        "--save/--baseline/--check-connect-by/--severity/--object/--format/--output.",
     },
     "help_load_check": {
         "ru": "Загрузить сгенерированный ora2pg PostgreSQL-код в настоящий PostgreSQL и "

@@ -5,8 +5,9 @@ docs/ARCHITECTURE.md: the detectors aren't a real parser, and rewriting
 DDL that's about to be deployed carries a much higher cost of being wrong
 than a missed or extra flag does).
 
-Scope is deliberately narrow: GAP-028 (identity_column) is the only
-candidate fixed here so far. It qualifies specifically because the bug is
+Scope is deliberately narrow: four gaps so far (GAP-028 and GAP-024 for
+Oracle, GAP-100 and GAP-091 for T-SQL, see FIXERS_BY_DIALECT). GAP-028,
+the first, shows what qualifies: it qualifies specifically because the bug is
 a single, always-identical shape (ora2pg wraps its own correctly-derived
 options clause in one extra, entirely redundant pair of parens) with a
 single, always-correct fix (strip exactly that outer pair) -- there is no
@@ -152,6 +153,63 @@ def fix_mssql_empty_declare(source: str) -> tuple[str, int]:
     return fixed, count
 
 
+# What may follow a WITH list in Oracle and needs a different spelling in
+# PostgreSQL (SEARCH ... SET, CYCLE ... SET ... TO ... DEFAULT): a WITH
+# carrying one is left for a human, since adding RECURSIVE alone would not
+# make it load.
+_SEARCH_OR_CYCLE_RE = re.compile(r"\s*(?:SEARCH|CYCLE)\b", re.IGNORECASE)
+
+
+def fix_recursive_with_keyword(source: str) -> tuple[str, int]:
+    """Add the RECURSIVE keyword PostgreSQL requires to a WITH whose CTE
+    refers to itself (GAP-024), returning (fixed_source, number_of_fixes).
+
+    Mechanical because of what the self-reference means on each side.
+    Oracle has no keyword: a CTE that names itself in its own body *is*
+    recursive, by definition. PostgreSQL, without RECURSIVE, resolves that
+    name to a table instead and fails ('relation "tree" does not exist',
+    confirmed by loading ora2pg 25.0's output into PostgreSQL 16), or, if a
+    table of that name happens to exist, silently reads the table. Adding
+    the keyword gives exactly Oracle's meaning, and RECURSIVE on a WITH
+    list changes nothing for its non-recursive members.
+
+    Which WITH is recursive is decided by the recursive_with detector's own
+    rules (a UNION, then the CTE's name in a FROM/JOIN/list position), so
+    the fix touches exactly what the detector reports. A WITH followed by
+    Oracle's SEARCH or CYCLE clause is skipped: those are spelled
+    differently in PostgreSQL and need a person."""
+    from .detectors.recursive_with import _NEXT_CTE_RE, _UNION_RE, _WITH_CTE_RE
+    from .plsql_lex import mask_dynamic_sql_visible
+
+    visible = mask_dynamic_sql_visible(source)
+    insert_at: list[int] = []
+    for m in _WITH_CTE_RE.finditer(visible):
+        ctes = [(m.group(1), m.end() - 1)]
+        pos = skip_balanced_parens(visible, m.end() - 1)
+        while True:
+            next_m = _NEXT_CTE_RE.match(visible, pos)
+            if next_m is None:
+                break
+            ctes.append((next_m.group(1), next_m.end() - 1))
+            pos = skip_balanced_parens(visible, next_m.end() - 1)
+        if _SEARCH_OR_CYCLE_RE.match(visible, pos):
+            continue
+        for name, body_start in ctes:
+            body = visible[body_start : skip_balanced_parens(visible, body_start)]
+            union = _UNION_RE.search(body)
+            if union is None:
+                continue
+            self_ref = re.compile(rf"(?:\bFROM\s+|\bJOIN\s+|,\s*){re.escape(name)}\b", re.IGNORECASE)
+            if self_ref.search(body, union.end()):
+                insert_at.append(m.start() + len("WITH"))
+                break
+
+    fixed = source
+    for at in reversed(insert_at):
+        fixed = fixed[:at] + " RECURSIVE" + fixed[at:]
+    return fixed, len(insert_at)
+
+
 # Which mechanical fixes apply to which source dialect's generated output.
 # Keyed by the same dialect names core.DIALECTS carries. MySQL has no
 # entry with fixes on purpose, not by oversight: of its 19 confirmed
@@ -168,7 +226,7 @@ def fix_mssql_empty_declare(source: str) -> tuple[str, int]:
 Fixer = Callable[[str], tuple[str, int]]
 
 FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
-    "oracle": (fix_identity_double_parens,),
+    "oracle": (fix_identity_double_parens, fix_recursive_with_keyword),
     "mysql": (),
     "mssql": (fix_mssql_charindex_quotes, fix_mssql_empty_declare),
 }
@@ -178,6 +236,7 @@ FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
 # GAP number.
 FIXER_DETECTOR: dict[Fixer, str] = {
     fix_identity_double_parens: "identity_column",
+    fix_recursive_with_keyword: "recursive_with",
     fix_mssql_charindex_quotes: "mssql_charindex",
     fix_mssql_empty_declare: "mssql_parameterless_procedure",
 }

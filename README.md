@@ -671,17 +671,18 @@ a parser, and rewriting DDL about to be deployed is a much riskier thing to
 get wrong than a missed or extra flag (see `docs/ARCHITECTURE.md`). `--fix`
 is a narrow, deliberate exception: only corrections where the "buggy" shape
 is never what a correct migration would produce and the fix is a pure,
-unambiguous text transformation. Three qualify so far, and which of them
+unambiguous text transformation. Four qualify so far, and which of them
 run is decided by `--dialect`:
 
 | Dialect | Fix | What it undoes |
 |---|---|---|
 | `oracle` | GAP-028 | `ora2pg` wraps an identity column's sequence options in an extra, redundant pair of parens (`GENERATED ALWAYS AS IDENTITY ((START WITH 1))`), which won't load. Strips exactly that outer pair |
+| `oracle` | GAP-024 | A recursive `WITH` is copied without the `RECURSIVE` keyword Oracle does not need and PostgreSQL does (`relation "tree" does not exist`). Adds the keyword to a `WITH` whose CTE refers to itself; one followed by Oracle's `SEARCH`/`CYCLE` clause is left alone |
 | `mssql` | GAP-100 | `CHARINDEX` is translated to the right function but with the quotes doubled — `position(''abc'' in x)`, which is not valid SQL. Removes the doubling, touching nothing else |
 | `mssql` | GAP-091 | A parameterless procedure gets an empty, unparseable `DECLARE ;` block. Deletes it — which is exactly what `ora2pg` itself emits for the same procedure when it takes a parameter |
 | `mysql` | — | None, deliberately: every confirmed MySQL gap needs either a design decision (what to replace the construct with) or data the generated file no longer carries |
 
-All three were verified the same way the gaps themselves were: the broken
+All four were verified the same way the gaps themselves were: the broken
 output failing to load into a real PostgreSQL 16, and the fixed output
 loading and running.
 

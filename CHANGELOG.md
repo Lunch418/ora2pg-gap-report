@@ -51,6 +51,11 @@ patch for fixes to existing ones.
   ticked boxes, ticks an item that is no longer found in a file scanned again,
   and leaves items in files not scanned this time as they were. A file that is
   not a checklist this tool wrote is never overwritten.
+- **`--fix` repairs GAP-024**: a recursive `WITH` that ora2pg copies without
+  the `RECURSIVE` keyword PostgreSQL requires gets it. Confirmed the usual way:
+  ora2pg 25.0's output for a recursive view fails to load into PostgreSQL 16
+  (`relation "tree" does not exist`), the fixed one loads and walks the tree.
+  A `WITH` followed by Oracle's `SEARCH`/`CYCLE` clause is left for a person.
 - **"Next" at the end of the terminal report**: the three commands that come
   after a scan, in order (a checklist, `--fix`, `--load-check`).
 

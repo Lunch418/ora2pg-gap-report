@@ -10,6 +10,7 @@ from ora2pg_gap_report.autofix import (
     FIXERS_BY_DIALECT,
     fix_identity_double_parens,
     fix_mssql_charindex_quotes,
+    fix_recursive_with_keyword,
     fix_mssql_empty_declare,
 )
 from ora2pg_gap_report.core import DIALECTS
@@ -27,8 +28,8 @@ def test_mysql_has_no_fixers_on_purpose():
     assert FIXERS_BY_DIALECT["mysql"] == ()
 
 
-def test_oracle_keeps_exactly_its_one_fixer():
-    assert FIXERS_BY_DIALECT["oracle"] == (fix_identity_double_parens,)
+def test_oracle_has_exactly_its_two_fixers():
+    assert FIXERS_BY_DIALECT["oracle"] == (fix_identity_double_parens, fix_recursive_with_keyword)
 
 
 # --- CHARINDEX -> position(), with ora2pg's doubled quotes (GAP-100) ---

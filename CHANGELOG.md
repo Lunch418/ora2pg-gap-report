@@ -9,6 +9,33 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Added
+
+- **`--load-check TARGET`: load the generated code into a real PostgreSQL.** Every
+  other mode reads text; this one asks PostgreSQL. It feeds `ora2pg`'s output to `psql`
+  and sorts every statement that fails into what to do about it: `--fix` repairs it, a
+  registered gap (with its GAP-NNN and `--explain`), an error the registry doesn't know,
+  the echo of an earlier failure (a missing table or type), or a statement the check
+  can't run (`CREATE INDEX CONCURRENTLY`, a refused privilege). Each error comes with the
+  file and line PostgreSQL pointed at.
+  - `docker` starts a throwaway `postgres:16-alpine` container (no port published,
+    removed afterwards), `docker:IMAGE` uses another image, anything else is a libpq
+    connection string for the local `psql`.
+  - Nothing is committed: all files run in one transaction with `ON_ERROR_ROLLBACK`,
+    rolled back at the end, and each file's own `COMMIT`/`BEGIN` and psql commands are
+    blanked out first (with spaces, so line numbers don't move).
+  - `ora2pg` writes `SET check_function_bodies = false` into every file, which lets a
+    PL/pgSQL body full of Oracle syntax load without being parsed. The check turns it
+    back on, so the "fails at compile time" gaps actually fail.
+  - A directory's files load in `ora2pg`'s object type order (types, sequences, tables,
+    views, routines, triggers, indexes, constraints, foreign keys, grants).
+  - Exit code `1` when something doesn't load, `2` when the check can't run. Terminal and
+    JSON output, with `schemas/load-check.schema.json`.
+
+### Fixed
+
+- `docs/ARCHITECTURE.ru.md` listed `cli.py` twice in the package tree.
+
 ## [0.13.0] - 2026-09-27
 
 ### Changed

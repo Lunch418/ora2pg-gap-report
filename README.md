@@ -72,6 +72,7 @@ empirically against real PL/SQL code
 | **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code; takes its dialect from the baseline (not a functional check, see below) |
 | **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags |
 | **Autofix** | `--fix`/`--write` — three known-safe mechanical fixes for `ora2pg`'s generated code, picked by `--dialect`, see below |
+| **Load check** | `--load-check docker` — loads the generated code into a real, throwaway PostgreSQL and ties every statement that fails to its GAP-NNN, to `--fix`, or to an earlier failure; nothing is committed, see below |
 
 ## Detectors
 
@@ -652,6 +653,86 @@ A runnable, real (not simulated) walk through the whole SCAN -> migrate ->
 VERIFY lifecycle — real `ora2pg 25.0` output, both the broken and a
 manually fixed version confirmed against a real PostgreSQL 16 server —
 [`examples/end-to-end/`](examples/end-to-end/).
+
+### Load check against a real PostgreSQL (`--load-check`)
+
+`--verify` and `--fix` read text. `--load-check` asks PostgreSQL itself: it
+loads `ora2pg`'s generated files into a real server and says, for every
+statement that fails, what it is and what to do about it.
+
+```sh
+ora2pg-gap-report --load-check docker generated_postgresql/
+ora2pg-gap-report --load-check docker:postgres:17 generated_postgresql/   # another image
+ora2pg-gap-report --load-check postgresql://me@localhost/scratch out/     # an existing server
+ora2pg-gap-report --load-check docker out/ -f json -o load.json           # for a pipeline
+```
+
+```text
+* Load check against PostgreSQL
+
+  Server       docker postgres:16-alpine (16.4)
+  Loaded       12 files, 418 statements
+  Didn't load  9
+    --fix repairs it       2
+    a known gap            4
+    not in the registry    1
+    a missing object       2
+
+● --fix repairs these  2
+  out/TABLE_output.sql:41  42601  syntax error at or near "("
+    GAP-028 · GENERATED ... AS IDENTITY (...) with options — a doubled-parenthesis bug
+    -> ora2pg-gap-report --fix --write out/TABLE_output.sql
+
+● Known ora2pg gaps  4
+  out/PACKAGE_output.sql:212  42601  syntax error at or near "IS"
+    GAP-003 · TYPE ... IS TABLE OF / BULK COLLECT INTO / FORALL
+    -> What to do: ora2pg-gap-report --explain GAP-003
+  ...
+```
+
+Each error lands in one of five groups, in the order worth working through:
+
+| Group | Meaning |
+|---|---|
+| `--fix` repairs it | One of the `--fix` fixes applies to the failing statement |
+| a known gap | A registered gap's construct sits in the failing statement — `--explain GAP-NNN` says what to do |
+| not in the registry | Fails, and matches nothing this tool knows. If it is `ora2pg`'s doing, [tell us](https://github.com/Lunch418/ora2pg-gap-report/issues/2) |
+| a missing object | Refers to a table, type or function that doesn't exist — usually the echo of an earlier failure, so fix the groups above first |
+| can't be checked here | Not a migration error: the statement can't run inside the check's transaction (`CREATE INDEX CONCURRENTLY`), the server refused a privilege, or a timeout fired. Doesn't affect the exit code |
+
+**Targets.** `docker` starts a fresh `postgres:16-alpine` container (the
+version every gap here was confirmed on), publishes no port, and removes it
+afterwards — only docker is needed, `psql` runs inside the container.
+`docker:IMAGE` uses an image of your own (say, one with `orafce`). Anything
+else is a libpq connection string or URI, used through the local `psql`.
+
+**Nothing is left behind.** All files run in one transaction with psql's
+`ON_ERROR_ROLLBACK`, so a failed statement doesn't stop the rest, and the
+transaction is rolled back at the end. Before loading, each file's own
+`COMMIT`/`BEGIN`/`END` and psql commands (`\set ON_ERROR_STOP`, `\i`,
+`\connect`) are blanked out — replaced with spaces, so line numbers stay
+exactly those of your file. Even so, with a connection string point it at
+an empty scratch database: DDL holds its locks until the rollback.
+
+**What "loaded" means.** `ora2pg` puts `SET check_function_bodies = false`
+at the top of every file it writes, which makes PostgreSQL accept a
+PL/pgSQL body without parsing it — so a procedure still full of Oracle
+syntax "loads". The check turns it back on, which is where most of this
+registry's "fails at compile time" gaps show up. Nothing is executed:
+a statement that loads can still behave differently from Oracle at run
+time, and the report says so.
+
+**Order.** Files named on the command line load in the order given. A
+directory's files load in `ora2pg`'s type order — types, sequences, tables,
+views, routines, triggers, indexes, constraints, foreign keys, grants — so a
+table exists before its indexes and foreign keys.
+
+Exit codes: `0` everything loaded, `1` something didn't (a CI gate, like
+`--fail-on`), `2` the check couldn't run (no docker or `psql`, no
+connection) or a file was skipped. `--format terminal` (default) and
+`--format json` ([schema](schemas/load-check.schema.json)); `--dialect`
+picks the detectors and fixes used to explain the errors. Standalone mode,
+like `--verify`/`--fix`.
 
 ## Exporting DDL directly from Oracle (optional)
 

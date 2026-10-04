@@ -30,12 +30,23 @@ ora2pg-gap-report schema/ --check-connect-by
 #    there in the already-generated PostgreSQL code -- not a guess, an
 #    actual STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE answer.
 ora2pg-gap-report --verify --baseline baseline.json generated_postgresql/
+
+# 5. Repair what is mechanically repairable, then load the result into a
+#    throwaway PostgreSQL. Exit code 1 if any statement doesn't load.
+ora2pg-gap-report --fix --write generated_postgresql/
+ora2pg-gap-report --load-check docker generated_postgresql/ -f json -o load-check.json
 ```
 
 Step 4 is a static check (the detectors are simply re-run against the
 generated file), not a behavioral one: it never connects to a database
 and never executes anything. Details and the list of `NOT_VERIFIABLE`
 detectors are in the README's `--verify` section.
+
+Step 5 is the one that does talk to a database: a disposable container
+(GitHub's `ubuntu-latest` runners have docker), with everything rolled
+back at the end. It catches what static detection can't: any statement
+PostgreSQL refuses, known gap or not. See the README's `--load-check`
+section.
 
 ## Findings inline in a GitHub PR (no custom bot)
 

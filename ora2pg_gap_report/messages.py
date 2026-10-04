@@ -4933,6 +4933,10 @@ def remediation_hint(detector: str, lang: str = "ru") -> str | None:
 # drifted apart; dbms_utl_calls, a classifier with no GAP-NNN of its own,
 # is the one title written only here.
 TITLES: dict[str, Message] = {
+    "connect_by": Message(
+        ru='`CONNECT BY` — баг подстановки `LEVEL` в `WITH RECURSIVE`',
+        en='`CONNECT BY` — `LEVEL` substitution bug in `WITH RECURSIVE`',
+    ),
     "autonomous_tx": Message(
         ru='`PRAGMA AUTONOMOUS_TRANSACTION` — недооценка стоимости в package body',
         en='`PRAGMA AUTONOMOUS_TRANSACTION` — cost underestimated in a package body',

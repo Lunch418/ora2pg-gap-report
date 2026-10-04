@@ -26,6 +26,8 @@ estimate is shown as the range it is, never collapsed to a midpoint.
 from collections import Counter
 
 from rich.console import Console, Group, RenderableType
+from rich.markup import escape
+from rich.padding import Padding
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -39,6 +41,7 @@ from .effort_estimator import (
     summarize_by_severity,
 )
 from .gap_registry import gap_by_detector, gap_metadata
+from .load_check import CATEGORIES, FAILING_CATEGORIES, LoadCheckResult, LoadError
 from .html_report import STAGES, GapGroup, group_by_gap, source_name, stage_key
 from .models import Finding
 from . import messages
@@ -514,3 +517,151 @@ def render_verification(
     console.print(table)
     console.print()
     console.print(f"[dim]{i18n.t(lang, 'verify_footer_note')}[/dim]")
+
+
+# --load-check ---------------------------------------------------------------
+
+_LOAD_CATEGORY_STYLE = {
+    "fixable": "bold #46A758",
+    "gap": "bold #E5484D",
+    "unknown": "bold #D9A21B",
+    "dependency": "grey62",
+    "environment": "dim",
+}
+# How many errors of one category the terminal lists before pointing at
+# --format json, which carries all of them.
+_LOAD_ERRORS_SHOWN = 10
+_INCLUDE_COMMANDS = ("\\i ", "\\ir ", "\\include ", "\\include_relative ")
+
+
+def _short_path(path: str) -> str:
+    """The path as given, unless it is long: then its last two parts."""
+    if len(path) <= 60:
+        return path
+    parts = path.replace("\\", "/").split("/")
+    return ".../" + "/".join(parts[-2:])
+
+
+def render_load_check(result: LoadCheckResult, console: Console | None = None, lang: str = "ru") -> None:
+    """The --load-check report: what failed, grouped by what to do about
+    it -- what --fix repairs first, then known gaps, then errors the
+    registry does not know, then the echoes of earlier failures and the
+    statements the check itself could not run. Each error once, with the
+    file and line PostgreSQL pointed at."""
+    console = console or Console()
+    console.print()
+    heading = Text()
+    heading.append("* ", style=f"bold {_ACCENT}")
+    heading.append(i18n.t(lang, "load_check_heading"), style="bold")
+    console.print(heading)
+    console.print()
+
+    files = i18n.count(lang, "file", len(result.files))
+    statements = i18n.count(lang, "statement", result.statements)
+    by_category: dict[str, list[LoadError]] = {c: [] for c in CATEGORIES}
+    for error in result.errors:
+        by_category[error.category].append(error)
+
+    summary = Table.grid(padding=(0, 2))
+    summary.add_column(style="dim")
+    summary.add_column()
+    server = result.target + (f" ({result.server_version})" if result.server_version else "")
+    summary.add_row(i18n.t(lang, "load_check_server"), Text(server))
+    summary.add_row(
+        i18n.t(lang, "load_check_loaded"),
+        Text(i18n.t(lang, "load_check_loaded_value", files=files, statements=statements)),
+    )
+    failing = sum(len(by_category[c]) for c in CATEGORIES if c in FAILING_CATEGORIES)
+    summary.add_row(
+        i18n.t(lang, "load_check_failed_label"),
+        Text(str(failing), style="bold #E5484D" if failing else "bold #46A758"),
+    )
+    for category in CATEGORIES:
+        if by_category[category]:
+            summary.add_row(
+                Text("  " + i18n.t(lang, f"load_check_cat_{category}")),
+                Text(str(len(by_category[category])), style=_LOAD_CATEGORY_STYLE[category]),
+            )
+    console.print(
+        Panel(
+            summary,
+            title=i18n.t(lang, "load_check_panel_title"),
+            title_align="left",
+            border_style=_ACCENT,
+            expand=False,
+        )
+    )
+
+    if not result.files:
+        console.print(Text(i18n.t(lang, "load_check_nothing_loaded"), style="bold #D9A21B"))
+    elif not result.errors:
+        console.print(Text(i18n.t(lang, "load_check_clean", statements=statements, files=files), style="bold #46A758"))
+
+    for category in CATEGORIES:
+        errors = by_category[category]
+        if not errors:
+            continue
+        console.print()
+        title = Text()
+        title.append("● ", style=_LOAD_CATEGORY_STYLE[category])
+        title.append(i18n.t(lang, f"load_check_section_{category}"), style="bold")
+        title.append(f"  {len(errors)}", style="dim")
+        console.print(title)
+        for error in errors[:_LOAD_ERRORS_SHOWN]:
+            line = Text("  ")
+            line.append(f"{_short_path(error.file)}:{error.line}", style=_CODE_STYLE)
+            line.append(f"  {error.sqlstate}  ", style="dim")
+            line.append(error.message)
+            console.print(line)
+            if error.context and category in ("gap", "unknown", "fixable"):
+                console.print(Padding(Text(error.context, style="dim"), (0, 0, 0, 4), expand=False))
+            if error.detector is not None:
+                about = Text()
+                if error.gap_number is not None:
+                    about.append(f"GAP-{error.gap_number} · ", style="bold")
+                    about.append_text(_title_text(error.detector, lang, style=""))
+                else:
+                    about.append(i18n.t(lang, "load_check_hint_detector", detector=error.detector))
+                console.print(Padding(about, (0, 0, 0, 4), expand=False))
+            if category == "fixable":
+                hint = Text("-> " + i18n.t(lang, "load_check_hint_fixable", file=error.file), style=_ACCENT)
+                console.print(Padding(hint, (0, 0, 0, 4), expand=False))
+            elif category == "gap" and error.gap_number is not None:
+                hint = Text("-> " + i18n.t(lang, "load_check_hint_gap", number=error.gap_number), style=_ACCENT)
+                console.print(Padding(hint, (0, 0, 0, 4), expand=False))
+        if len(errors) > _LOAD_ERRORS_SHOWN:
+            console.print(
+                Text(
+                    "  "
+                    + i18n.t(
+                        lang, "load_check_more", errors=i18n.count(lang, "error", len(errors) - _LOAD_ERRORS_SHOWN)
+                    ),
+                    style="dim",
+                )
+            )
+        if category in ("unknown", "dependency", "environment"):
+            note = Text(i18n.t(lang, f"load_check_note_{category}"), style="dim")
+            console.print(Padding(note, (0, 0, 0, 2), expand=False))
+
+    console.print()
+    for file, item in result.neutralised:
+        if item.kind == "meta" and item.text.lower().startswith(_INCLUDE_COMMANDS):
+            console.print(
+                i18n.t(lang, "load_check_include_skipped", file=escape(file), line=item.line, command=escape(item.text))
+            )
+    kinds = Counter(item.kind for _, item in result.neutralised)
+    if kinds:
+        items = ", ".join(
+            i18n.t(lang, f"load_check_neutralised_{kind}", n=kinds[kind])
+            for kind in ("meta", "transaction", "setting")
+            if kinds[kind]
+        )
+        console.print(Text(i18n.t(lang, "load_check_neutralised", items=items), style="dim"))
+    for skipped in result.skipped_files:
+        if skipped.reason == "unterminated":
+            console.print(i18n.t(lang, "load_check_skipped_unterminated", file=escape(skipped.file), line=skipped.line))
+        else:
+            console.print(
+                i18n.t(lang, "load_check_skipped_unreadable", file=escape(skipped.file), detail=escape(skipped.detail or ""))
+            )
+    console.print(Text(i18n.t(lang, "load_check_footer"), style="dim"))

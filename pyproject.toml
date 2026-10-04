@@ -86,6 +86,7 @@ filterwarnings = [
 # here so an unregistered-marker warning never hides a typo'd marker.
 markers = [
     "ora2pg: needs a real ora2pg binary on PATH (installed by the ora2pg CI job)",
+    "docker: starts a real PostgreSQL container (--load-check); skipped without a working docker on Linux",
 ]
 
 [tool.ruff.lint]

@@ -14,6 +14,7 @@ from . import html_report, messages
 from .baseline import group_key
 from .models import Finding
 
+from .load_check import CATEGORIES, LoadCheckResult
 from .verification import DetectorVerification, NewInOutput
 
 # A JSON object on its way to being serialized -- values are whatever
@@ -191,6 +192,35 @@ def to_verification_json(
         "new_in_output_detectors": len(entries),
         "results": [asdict(r) for r in results],
         "new_in_output": [asdict(e) for e in entries],
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+# Bumped when the shape of --load-check --format json changes; see
+# schemas/load-check.schema.json.
+LOAD_CHECK_SCHEMA_VERSION = 1
+
+
+def to_load_check_json(result: LoadCheckResult) -> str:
+    """--load-check's machine-readable output. `failed` is the same answer
+    the exit code gives (1 when it is true), so a pipeline can read either.
+    Every category is always present in `counts`, zeros included, for the
+    same reason to_verification_json() always carries new_in_output: a
+    consumer can tell "checked, none" from "not reported"."""
+    counts = {category: 0 for category in CATEGORIES}
+    for error in result.errors:
+        counts[error.category] += 1
+    payload = {
+        "schema_version": LOAD_CHECK_SCHEMA_VERSION,
+        "target": result.target,
+        "server_version": result.server_version,
+        "failed": result.failed,
+        "files": list(result.files),
+        "statements": result.statements,
+        "counts": counts,
+        "errors": [asdict(e) for e in result.errors],
+        "neutralised": [{"file": file, **asdict(n)} for file, n in result.neutralised],
+        "skipped_files": [asdict(s) for s in result.skipped_files],
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 

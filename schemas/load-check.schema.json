@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Lunch418/ora2pg-gap-report/blob/main/schemas/load-check.schema.json",
+  "title": "ora2pg-gap-report load check",
+  "description": "The shape of `ora2pg-gap-report --load-check TARGET ... --format json` output. See ora2pg_gap_report/load_check.py (LoadCheckResult, LoadError) and report_generator.py (to_load_check_json) for the source of truth this schema describes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "target",
+    "server_version",
+    "failed",
+    "files",
+    "statements",
+    "counts",
+    "errors",
+    "neutralised",
+    "skipped_files"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "Matches report_generator.LOAD_CHECK_SCHEMA_VERSION."
+    },
+    "target": {
+      "type": "string",
+      "description": "Where the files were loaded: 'docker IMAGE', or the connection string with its password replaced by ***."
+    },
+    "server_version": {
+      "type": ["string", "null"],
+      "description": "The server's version as psql reported it (SERVER_VERSION_NAME)."
+    },
+    "failed": {
+      "type": "boolean",
+      "description": "True when at least one error is in a category other than 'environment' -- the same answer as exit code 1."
+    },
+    "files": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "The files that were loaded, in load order."
+    },
+    "statements": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How many statements those files hold, as psql splits them."
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixable", "gap", "unknown", "dependency", "environment"],
+      "properties": {
+        "fixable": {"type": "integer", "minimum": 0},
+        "gap": {"type": "integer", "minimum": 0},
+        "unknown": {"type": "integer", "minimum": 0},
+        "dependency": {"type": "integer", "minimum": 0},
+        "environment": {"type": "integer", "minimum": 0}
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/error"}
+    },
+    "neutralised": {
+      "type": "array",
+      "description": "What was blanked out of the files before loading, so the check stays correct and leaves nothing behind.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "line", "kind", "text"],
+        "properties": {
+          "file": {"type": "string"},
+          "line": {"type": "integer", "minimum": 1},
+          "kind": {"enum": ["meta", "transaction", "setting"]},
+          "text": {"type": "string"}
+        }
+      }
+    },
+    "skipped_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "reason", "line", "detail"],
+        "properties": {
+          "file": {"type": "string"},
+          "reason": {"enum": ["unreadable", "unterminated"]},
+          "line": {"type": ["integer", "null"]},
+          "detail": {"type": ["string", "null"]}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "statement_line",
+        "sqlstate",
+        "message",
+        "detail",
+        "hint",
+        "context",
+        "category",
+        "detector",
+        "gap_number"
+      ],
+      "properties": {
+        "file": {"type": "string"},
+        "line": {"type": "integer", "minimum": 1, "description": "The line the error points at."},
+        "statement_line": {"type": "integer", "minimum": 1, "description": "The first line of the failing statement."},
+        "sqlstate": {"type": "string", "pattern": "^[0-9A-Z]{5}$"},
+        "message": {"type": "string"},
+        "detail": {"type": ["string", "null"]},
+        "hint": {"type": ["string", "null"]},
+        "context": {"type": ["string", "null"]},
+        "category": {
+          "enum": ["fixable", "gap", "unknown", "dependency", "environment"],
+          "description": "fixable: --fix repairs the statement. gap: a registered gap's construct is in it. unknown: matches nothing in the registry. dependency: refers to an object that doesn't exist. environment: the check could not run it (transaction rules, privileges, timeouts)."
+        },
+        "detector": {"type": ["string", "null"]},
+        "gap_number": {"type": ["string", "null"], "pattern": "^[0-9]{3}$"}
+      }
+    }
+  }
+}

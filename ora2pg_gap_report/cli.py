@@ -21,6 +21,7 @@ from rich.text import Text
 from . import i18n, ora2pg_wrapper
 from .atomic_write import open_text_atomic, write_text_atomic
 from .autofix import FIXERS_BY_DIALECT
+from .checklist import ChecklistError, read_previous, write_checklist
 from .baseline import BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
 from .core import (
     DIALECTS,
@@ -151,7 +152,7 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
     parser.add_argument(
         "-f",
         "--format",
-        choices=("terminal", "markdown", "json", "csv", "sarif", "html"),
+        choices=("terminal", "markdown", "json", "csv", "sarif", "html", "checklist"),
         default=None,
         help=i18n.t(lang, "help_format"),
     )
@@ -1078,6 +1079,7 @@ def _main(argv: list[str] | None = None) -> int:
     checked_ora2pg_version = False
     objects_scanned = 0
     files_scanned = 0
+    scanned_paths: list[str] = []
     had_error = False
     had_internal_error = False
 
@@ -1175,6 +1177,7 @@ def _main(argv: list[str] | None = None) -> int:
 
             all_findings.extend(file_findings)
             files_scanned += 1
+            scanned_paths.append(str(path))
 
             if args.check_connect_by:
                 if not checked_ora2pg_version:
@@ -1241,7 +1244,34 @@ def _main(argv: list[str] | None = None) -> int:
 
     display_findings = _apply_filters(all_findings, args.severity, args.object)
 
-    if fmt == "terminal":
+    if fmt == "checklist":
+        # Read before writing: the ticks in the previous checklist are the
+        # only record of what people marked done.
+        try:
+            previous = read_previous(args.output) if args.output else None
+        except ChecklistError:
+            err_console.print(i18n.t(lang, "checklist_not_ours", path=escape(str(args.output))))
+            return 2
+        buffer = io.StringIO()
+        write_checklist(
+            display_findings,
+            buffer,
+            lang=lang,
+            previous=previous,
+            scanned_files=scanned_paths,
+            version=_package_version(),
+        )
+        if args.output:
+            try:
+                write_text_atomic(args.output, buffer.getvalue())
+            except OSError as exc:
+                err_console.print(
+                    i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))
+                )
+                return 2
+        else:
+            sys.stdout.write(buffer.getvalue())
+    elif fmt == "terminal":
         if args.output:
             try:
                 # In memory first, then one atomic write -- see the same

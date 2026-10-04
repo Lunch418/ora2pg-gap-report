@@ -881,6 +881,40 @@ _UI: dict[str, dict[str, str]] = {
     "report_gap_why": {"ru": "Почему", "en": "Why"},
     "report_gap_fix": {"ru": "Что делать", "en": "What to do"},
     "report_gap_recipe": {"ru": "Рецепт", "en": "Recipe"},
+    # --format checklist (checklist.py)
+    "checklist_title": {"ru": "Чеклист миграции {source} -> PostgreSQL", "en": "Migration checklist: {source} -> PostgreSQL"},
+    "checklist_made": {
+        "ru": "Создан ora2pg-gap-report {version}, обновлён {date}.",
+        "en": "Made by ora2pg-gap-report {version}, updated {date}.",
+    },
+    "checklist_progress": {
+        "ru": "Сделано: {done} из {total} ({percent} %)",
+        "en": "Done: {done} of {total} ({percent} %)",
+    },
+    "checklist_how": {
+        "ru": "Отмечайте сделанное прямо в файле (`[x]`). Повторный запуск с тем же `-o` сохранит "
+        "отметки и сам отметит то, чего больше нет в просканированных файлах.",
+        "en": "Tick what is done right in the file (`[x]`). Running again with the same `-o` keeps "
+        "the ticks and ticks whatever the scanned files no longer contain.",
+    },
+    "checklist_empty": {
+        "ru": "Проблемных конструкций не найдено - отмечать нечего.",
+        "en": "No problematic constructs found - nothing to tick off.",
+    },
+    "checklist_gap_done": {"ru": "готово", "en": "done"},
+    "checklist_breaks_at": {"ru": "ломается: {stage}", "en": "breaks at: {stage}"},
+    "checklist_open_of": {"ru": "осталось {open} из {total}", "en": "{open} of {total} open"},
+    "checklist_details": {"ru": "Подробнее", "en": "Details"},
+    "checklist_line": {"ru": "(строка {lines})", "en": "(line {lines})"},
+    "checklist_lines": {"ru": "(строки {lines})", "en": "(lines {lines})"},
+    "checklist_gone": {"ru": "больше не найдено", "en": "no longer found"},
+    "checklist_not_scanned": {"ru": "файл в этот раз не сканировался", "en": "file not scanned this time"},
+    "checklist_not_ours": {
+        "ru": "[red]{path} уже существует и не похож на чеклист ora2pg-gap-report - не перезаписываю. "
+        "Укажите другой --output или удалите файл.[/red]",
+        "en": "[red]{path} already exists and isn't an ora2pg-gap-report checklist - not overwriting "
+        "it. Choose another --output, or remove the file.[/red]",
+    },
     "explain_recipe_line": {
         "ru": "[bold]Рецепт:[/bold] {title} - {where}",
         "en": "[bold]Recipe:[/bold] {title} - {where}",
@@ -968,11 +1002,16 @@ _UI: dict[str, dict[str, str]] = {
         "stdout это tty и не указан --output; иначе markdown. sarif — "
         "SARIF 2.1.0, для GitHub/GitLab code scanning. html — "
         "самодостаточная HTML-страница (без внешних ресурсов), для "
-        "показа заказчику/руководству.",
+        "показа заказчику/руководству. checklist - Markdown-чеклист работ по объектам; при "
+        "повторной генерации в тот же --output отмеченные галочки сохраняются, а то, чего "
+        "больше нет в просканированных файлах, отмечается само.",
         "en": "Report format. Defaults to colored terminal output if stdout is a "
         "tty and --output isn't given; markdown otherwise. sarif — SARIF "
         "2.1.0, for GitHub/GitLab code scanning. html — a self-contained "
-        "HTML page (no external resources), for showing a client/manager.",
+        "HTML page (no external resources), for showing a client/manager. "
+        "checklist - a Markdown checklist of the work, per object; regenerating it "
+        "into the same --output keeps the ticked boxes and ticks what the scanned "
+        "files no longer contain.",
     },
     "help_output": {"ru": "Куда сохранить отчёт (по умолчанию — stdout)", "en": "Where to save the report (default: stdout)"},
     "help_check_connect_by": {

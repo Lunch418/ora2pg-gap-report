@@ -403,7 +403,27 @@ def render_baseline_diff(diff: BaselineDiff, console: Console | None = None, lan
     )
 
 
+# What comes after a scan, in the order a migration gets there: keep a
+# list of the work, convert, repair what is mechanical, then ask a real
+# PostgreSQL. Shown after every report, so the next command is never
+# something to look up.
+_NEXT_STEPS = (
+    ("next_step_checklist", "ora2pg-gap-report ... -f checklist -o MIGRATION.md"),
+    ("next_step_fix", "ora2pg-gap-report --fix --write out/"),
+    ("next_step_load_check", "ora2pg-gap-report --load-check docker out/"),
+)
+
+
 def _render_footer_hints(console: Console, lang: str = "ru") -> None:
+    console.print()
+    console.print(Text(i18n.t(lang, "next_steps_heading"), style="bold"))
+    steps = Table.grid(padding=(0, 2))
+    steps.add_column(style=f"bold {_ACCENT}", no_wrap=True)
+    steps.add_column(style="dim")
+    steps.add_column(style=_CODE_STYLE, overflow="fold")
+    for n, (key, command) in enumerate(_NEXT_STEPS, 1):
+        steps.add_row(str(n), i18n.t(lang, key), command)
+    console.print(steps)
     console.print()
     console.print(
         f"[dim]{i18n.t(lang, 'footer_hint_severity_label')}[/dim] "

@@ -247,6 +247,19 @@ _UI: dict[str, dict[str, str]] = {
     "col_severity": {"ru": "Severity", "en": "Severity"},
     "col_detector": {"ru": "Детектор", "en": "Detector"},
     "effort_panel_title": {"ru": "Оценка ручной доработки", "en": "Manual rework estimate"},
+    "next_steps_heading": {"ru": "Дальше", "en": "Next"},
+    "next_step_checklist": {
+        "ru": "список работ, который помнит отметки",
+        "en": "a task list that remembers what is done",
+    },
+    "next_step_fix": {
+        "ru": "после ora2pg: механические исправления",
+        "en": "after ora2pg: the mechanical fixes",
+    },
+    "next_step_load_check": {
+        "ru": "проверка на настоящем PostgreSQL",
+        "en": "check it against a real PostgreSQL",
+    },
     "footer_hint_severity_label": {
         "ru": "Показать только высокую критичность:",
         "en": "Show only high severity:",

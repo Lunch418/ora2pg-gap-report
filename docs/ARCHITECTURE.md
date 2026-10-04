@@ -178,6 +178,10 @@ ora2pg_gap_report/
 ├── load_check.py               # --load-check: loads generated output into a real PostgreSQL
 │                               #  (docker or a DSN) in one rolled-back transaction, ties each
 │                               #  failing statement to a GAP-NNN / --fix / an earlier failure
+├── recipes.py                  # migration recipes (docs/recipes/): which detectors each covers,
+│                               #  where the page is; the reports link gaps to them
+├── checklist.py                # --format checklist: a Markdown task list that keeps its ticks
+│                               #  between runs (reads the previous --output first)
 ├── pg_script.py                # splits a PostgreSQL script the way psql does; blanks what
 │                               #  would defeat --load-check, keeping line numbers
 ├── verification.py             # --verify: detector-level (not line-level) status

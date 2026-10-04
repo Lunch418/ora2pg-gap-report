@@ -292,10 +292,15 @@ def test_to_html_is_self_contained_with_no_external_resources():
     # correctly (an external stylesheet/font/script), unlike a typical
     # web-facing report template.
     report = to_html([SAMPLE_FINDING])
-    assert "http://" not in report
-    assert "https://" not in report
     assert "<link" not in report
     assert "<script" not in report
+    assert "@import" not in report
+    assert not re.search(r"""(?:src|srcset)\s*=|url\(\s*['"]?https?:""", report)
+    # A plain hyperlink loads nothing (the recipe link in a gap's "what to
+    # do" box): every web address may appear only as an <a href> target.
+    addresses = re.findall(r"https?://", report)
+    links = re.findall(r'<a href="https://', report)
+    assert len(addresses) == len(links)
 
 
 def test_to_html_severity_badge_classes():

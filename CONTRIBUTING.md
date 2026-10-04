@@ -27,6 +27,17 @@ short:
 3. Every detector gets at least one positive test and at least one guard
    test against false positives.
 
+## Send a recipe
+
+A [recipe](docs/recipes/README.md) is a page per class of problem: the
+problem, the PostgreSQL pattern, what does not carry over. Write the
+PostgreSQL in ` ```sql ` blocks that run as written, in order, and check
+the pattern with `DO $$ BEGIN ASSERT ...; END $$;` blocks; code meant only
+to be read goes in ` ```plsql ` or ` ```pgsql `. Add the page in both
+languages, list its detectors in `ora2pg_gap_report/recipes.py`, and run
+`pytest tests/test_recipes.py -m docker`: it loads the code into a real
+PostgreSQL 16 (needs docker) and fails on any error.
+
 ## Style
 
 No external dependencies in `ora2pg_gap_report/` (other than `rich`, used

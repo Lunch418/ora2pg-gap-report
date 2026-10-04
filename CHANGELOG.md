@@ -32,9 +32,35 @@ patch for fixes to existing ones.
   - Exit code `1` when something doesn't load, `2` when the check can't run. Terminal and
     JSON output, with `schemas/load-check.schema.json`.
 
+- **Migration recipes.** Fifteen pages in `docs/recipes/`, one per class of
+  problem rather than per detector: hierarchical queries, collections and bulk
+  operations, autonomous transactions, package state, temporary tables, PIVOT,
+  multi-table DML and upserts, error handling, database links, built-in
+  packages, analytic functions, read-only and invisible objects, partitioning,
+  and the T-SQL and MySQL expressions ora2pg copies unchanged. Each says what
+  ora2pg does, gives the PostgreSQL pattern and names what does not carry over,
+  in English and Russian. Their SQL is part of the test suite: every page is
+  loaded into a real PostgreSQL 16 through `--load-check` and its `ASSERT`s
+  must hold, so a recipe that stops working fails the build.
+- **Every gap points at its recipe**: `--explain`, the terminal and HTML
+  reports, the TUI's detail box and `--load-check` show the recipe's title and
+  address where a gap has one.
+- **`--format checklist`**: the migration's work as a Markdown task list, one
+  box per object and gap, with what to do, the recipe and the `--explain`
+  command for each gap. Regenerating it into the same `--output` keeps the
+  ticked boxes, ticks an item that is no longer found in a file scanned again,
+  and leaves items in files not scanned this time as they were. A file that is
+  not a checklist this tool wrote is never overwritten.
+- **"Next" at the end of the terminal report**: the three commands that come
+  after a scan, in order (a checklist, `--fix`, `--load-check`).
+
 ### Fixed
 
 - `docs/ARCHITECTURE.ru.md` listed `cli.py` twice in the package tree.
+- GAP-005 (`connect_by`) had no title, so the reports showed its group under
+  the bare detector name; it now has the registry's title, and `doctor.py` no
+  longer exempts it.
+- The ROADMAP and the `--load-check` documentation use plain ASCII dashes.
 
 ## [0.13.0] - 2026-09-27
 

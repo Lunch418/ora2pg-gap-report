@@ -610,7 +610,7 @@ def check_titles_match_gap_registry_md() -> list[str]:
 
     problems: list[str] = []
     for name in sorted(_detector_names_on_disk()):
-        if name not in TITLES and name != "connect_by":
+        if name not in TITLES:
             problems.append(f"{name}: нет заголовка в messages.TITLES")
     for lang, filename in (("en", "GAP_REGISTRY.md"), ("ru", "GAP_REGISTRY.ru.md")):
         text = (REPO_ROOT / "docs" / "research" / filename).read_text(encoding="utf-8")

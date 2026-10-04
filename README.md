@@ -65,14 +65,15 @@ empirically against real PL/SQL code
 |---|---|
 | **Static analysis** | Looks for patterns in the source code (Oracle, MySQL/MariaDB or T-SQL), no `ora2pg` install required (except `connect_by`, see below) |
 | **Reproducible** | Every finding is confirmed by a real `ora2pg` + PostgreSQL run, not by reading the docs |
-| **6 output formats** | terminal, markdown, json, csv, `sarif`, `html` — the same set of findings every time |
+| **7 output formats** | terminal, markdown, json, csv, `sarif`, `html`, `checklist` - the same set of findings every time |
 | **CI gate** | `--fail-on` + SARIF for GitHub/GitLab code scanning |
 | **Works offline** | Self-contained bundle for closed networks (`scripts/build_offline_bundle.py`), see below |
 | **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED between runs |
 | **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code; takes its dialect from the baseline (not a functional check, see below) |
 | **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags |
 | **Autofix** | `--fix`/`--write` — three known-safe mechanical fixes for `ora2pg`'s generated code, picked by `--dialect`, see below |
-| **Load check** | `--load-check docker` — loads the generated code into a real, throwaway PostgreSQL and ties every statement that fails to its GAP-NNN, to `--fix`, or to an earlier failure; nothing is committed, see below |
+| **Recipes and a checklist** | A tested PostgreSQL pattern for each class of problem, and `-f checklist`: a task list that keeps its ticks between runs, see below |
+| **Load check** | `--load-check docker` - loads the generated code into a real, throwaway PostgreSQL and ties every statement that fails to its GAP-NNN, to `--fix`, or to an earlier failure; nothing is committed, see below |
 
 ## Detectors
 
@@ -422,6 +423,22 @@ from a package installed via `pip install`, rather than from a repo
 checkout, `--explain` shows a direct link to the document on GitHub instead
 of the document's text.
 
+### Migration recipes
+
+The research docs say what goes wrong. The
+[recipes](docs/recipes/README.md) say what to write instead: fifteen pages,
+one per class of problem (hierarchical queries, collections and
+`BULK COLLECT`, autonomous transactions, package state, temporary tables,
+`PIVOT`, `MERGE`/upserts, error handling, database links, `DBMS_*` calls,
+analytic functions, read-only and invisible objects, partitioning, T-SQL
+and MySQL expressions), each with the PostgreSQL pattern and what does
+not carry over. Every gap that has a recipe links to it from `--explain`,
+the terminal and HTML reports, the TUI, the checklist and `--load-check`.
+
+The code in the recipes is not illustration: the test suite loads every
+page's SQL into a real PostgreSQL 16 and runs the `ASSERT`s in it, in
+both languages, so a recipe that stops working fails the build.
+
 ### Source dialects (`--dialect`)
 
 `ora2pg` isn't Oracle-only: `-m`/`--mysql` and `-M`/`--mssql` point it at a
@@ -517,6 +534,41 @@ matched snippet — so a finding is recognized as "the same one" even if the
 code around it was rewritten. `--save`/`--baseline` always operate on the
 full set of findings, regardless of `--severity`/`--object` (those flags
 only affect what gets displayed in the report).
+
+### A checklist that remembers (`-f checklist`)
+
+For the weeks of work after the first scan, `-f checklist` writes a
+Markdown task list: one box per object and gap, grouped like the reports,
+each gap with what to do, its recipe and the `--explain` command. Commit it
+to the repository or paste it into an issue, and tick boxes as you go.
+
+```sh
+ora2pg-gap-report schema/ -f checklist -o MIGRATION.md
+# ... fix things, tick boxes in MIGRATION.md ...
+ora2pg-gap-report schema/ -f checklist -o MIGRATION.md   # same -o: progress is kept
+```
+
+```text
+**Done: 2 of 4 (50 %)**
+
+## GAP-003 `TYPE ... IS TABLE OF` / `BULK COLLECT INTO` / `FORALL`
+
+high · breaks at: run time · 1 of 2 open
+
+**What to do:** Rewrite TYPE/BULK COLLECT as a PostgreSQL array ...
+**Recipe:** [Collections and bulk operations](docs/recipes/collections-and-bulk.md)
+
+- [ ] `EQUITABLE_SALARY_TRG` - `triggers.sql` (line 215)
+- [x] `EQUITABLE_SALARIES_PKG` - `triggers.sql` (line 76)
+```
+
+Regenerating into the same `-o` reads the previous file first: a box you
+ticked stays ticked, an item no longer found in a file this run scanned
+again ticks itself ("no longer found"), and an item in a file not scanned
+this time keeps its state, so scanning a subset never marks the rest done.
+Run it from the same directory each time: items are keyed by object and
+by file path relative to it. An existing file that is not a checklist this
+tool wrote is never overwritten.
 
 ### CI gate
 
@@ -695,14 +747,14 @@ Each error lands in one of five groups, in the order worth working through:
 | Group | Meaning |
 |---|---|
 | `--fix` repairs it | One of the `--fix` fixes applies to the failing statement |
-| a known gap | A registered gap's construct sits in the failing statement — `--explain GAP-NNN` says what to do |
+| a known gap | A registered gap's construct sits in the failing statement - `--explain GAP-NNN` says what to do |
 | not in the registry | Fails, and matches nothing this tool knows. If it is `ora2pg`'s doing, [tell us](https://github.com/Lunch418/ora2pg-gap-report/issues/2) |
-| a missing object | Refers to a table, type or function that doesn't exist — usually the echo of an earlier failure, so fix the groups above first |
+| a missing object | Refers to a table, type or function that doesn't exist - usually the echo of an earlier failure, so fix the groups above first |
 | can't be checked here | Not a migration error: the statement can't run inside the check's transaction (`CREATE INDEX CONCURRENTLY`), the server refused a privilege, or a timeout fired. Doesn't affect the exit code |
 
 **Targets.** `docker` starts a fresh `postgres:16-alpine` container (the
 version every gap here was confirmed on), publishes no port, and removes it
-afterwards — only docker is needed, `psql` runs inside the container.
+afterwards - only docker is needed, `psql` runs inside the container.
 `docker:IMAGE` uses an image of your own (say, one with `orafce`). Anything
 else is a libpq connection string or URI, used through the local `psql`.
 
@@ -710,21 +762,21 @@ else is a libpq connection string or URI, used through the local `psql`.
 `ON_ERROR_ROLLBACK`, so a failed statement doesn't stop the rest, and the
 transaction is rolled back at the end. Before loading, each file's own
 `COMMIT`/`BEGIN`/`END` and psql commands (`\set ON_ERROR_STOP`, `\i`,
-`\connect`) are blanked out — replaced with spaces, so line numbers stay
+`\connect`) are blanked out - replaced with spaces, so line numbers stay
 exactly those of your file. Even so, with a connection string point it at
 an empty scratch database: DDL holds its locks until the rollback.
 
 **What "loaded" means.** `ora2pg` puts `SET check_function_bodies = false`
 at the top of every file it writes, which makes PostgreSQL accept a
-PL/pgSQL body without parsing it — so a procedure still full of Oracle
+PL/pgSQL body without parsing it - so a procedure still full of Oracle
 syntax "loads". The check turns it back on, which is where most of this
 registry's "fails at compile time" gaps show up. Nothing is executed:
 a statement that loads can still behave differently from Oracle at run
 time, and the report says so.
 
 **Order.** Files named on the command line load in the order given. A
-directory's files load in `ora2pg`'s type order — types, sequences, tables,
-views, routines, triggers, indexes, constraints, foreign keys, grants — so a
+directory's files load in `ora2pg`'s type order - types, sequences, tables,
+views, routines, triggers, indexes, constraints, foreign keys, grants - so a
 table exists before its indexes and foreign keys.
 
 Exit codes: `0` everything loaded, `1` something didn't (a CI gate, like

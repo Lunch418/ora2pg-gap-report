@@ -61,6 +61,7 @@ from .core import (
 from .core import sort_findings
 from .effort_estimator import estimate_hours
 from .gap_registry import gap_metadata
+from .recipes import recipe_for, recipe_url
 from .html_report import _version, group_by_gap, source_name, stage_key
 from . import messages
 from .models import Finding
@@ -946,6 +947,12 @@ class ResultsScreen(Screen[None]):
         if hint:
             text.append(f"\n\n{i18n.t(lang, 'report_gap_fix')}  ", style=f"bold {_ACCENT}")
             text.append(hint)
+        recipe = recipe_for(f.detector)
+        if recipe is not None:
+            url = recipe_url(recipe, lang)
+            text.append(f"\n{i18n.t(lang, 'report_gap_recipe')}  ", style=f"bold {_ACCENT}")
+            text.append(recipe.title(lang), style=f"link {url}")
+            text.append(f"\n{url}", style=_MUTED)
         text.append(f"\n\n{i18n.t(lang, 'report_gap_why')}  ", style=f"bold {_MUTED}")
         text.append(messages.text(f.message_id, lang), style="#CFCBC2")
         detail = self.query_one("#detail", Static)

@@ -880,6 +880,11 @@ _UI: dict[str, dict[str, str]] = {
     "report_filter_all": {"ru": "Все", "en": "All"},
     "report_gap_why": {"ru": "Почему", "en": "Why"},
     "report_gap_fix": {"ru": "Что делать", "en": "What to do"},
+    "report_gap_recipe": {"ru": "Рецепт", "en": "Recipe"},
+    "explain_recipe_line": {
+        "ru": "[bold]Рецепт:[/bold] {title} - {where}",
+        "en": "[bold]Recipe:[/bold] {title} - {where}",
+    },
     "report_gap_where": {"ru": "Где", "en": "Where"},
     "report_col_file": {"ru": "Файл", "en": "File"},
     "report_col_line": {"ru": "Строка", "en": "Line"},

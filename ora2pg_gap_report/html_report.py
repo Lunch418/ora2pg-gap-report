@@ -26,6 +26,7 @@ from . import i18n, messages
 from .effort_estimator import estimate_hours, summarize_by_severity
 from .gap_registry import gap_by_detector
 from .models import Finding
+from .recipes import recipe_for, recipe_url
 
 Write = Callable[[str], object]
 
@@ -138,6 +139,8 @@ h3 { font-size: 0.8rem; margin: 1.4rem 0 0.35rem; color: var(--muted); font-weig
 .fix { margin: 1rem 0 0.25rem; padding: 0.75rem 1rem 0.85rem; max-width: 50em; background: var(--surface);
        border: 1px solid var(--rule); border-radius: 10px; }
 .fix h3 { margin-top: 0; color: var(--accent); }
+.fix .recipe { margin-top: 0.5rem; }
+.fix a { color: var(--accent); }
 .badge { font-size: 0.76rem; font-weight: 650; padding: 0.12rem 0.55rem; border-radius: 999px; white-space: nowrap;
          color: var(--sev); background: color-mix(in srgb, var(--sev) 13%, transparent); }
 .sev-high { --sev: var(--high); } .sev-medium { --sev: var(--medium); } .sev-low { --sev: var(--low); }
@@ -432,8 +435,17 @@ def _write_gap(w: Write, lang: str, group_: GapGroup) -> None:
     # What to do first: it is what the reader acts on, and the explanation
     # under it is there for when the fix needs justifying.
     hint = messages.remediation_hint(detector, lang)
-    if hint:
-        w(f'<div class="fix"><h3>{i18n.t(lang, "report_gap_fix")}</h3>\n<p>{html.escape(hint)}</p></div>\n')
+    recipe = recipe_for(detector)
+    if hint or recipe is not None:
+        w(f'<div class="fix"><h3>{i18n.t(lang, "report_gap_fix")}</h3>\n')
+        if hint:
+            w(f"<p>{html.escape(hint)}</p>\n")
+        if recipe is not None:
+            w(
+                f'<p class="recipe">{i18n.t(lang, "report_gap_recipe")}: '
+                f'<a href="{html.escape(recipe_url(recipe, lang))}">{html.escape(recipe.title(lang))}</a></p>\n'
+            )
+        w("</div>\n")
     w(f'<h3>{i18n.t(lang, "report_gap_why")}</h3>\n')
     for message_id in dict.fromkeys(f.message_id for f in group):
         w(f"<p>{html.escape(messages.text(message_id, lang))}</p>\n")

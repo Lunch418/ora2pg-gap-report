@@ -44,6 +44,7 @@ from .gap_registry import (
     verified_ora2pg_versions,
 )
 from .models import Finding
+from .recipes import recipe_for, recipe_path, recipe_url
 from .report_generator import (
     to_csv,
     to_html,
@@ -397,6 +398,17 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
         else None
     )
 
+    recipe = recipe_for(gap.detector)
+    recipe_line = None
+    if recipe is not None:
+        local = recipe_path(recipe, lang)
+        recipe_line = i18n.t(
+            lang,
+            "explain_recipe_line",
+            title=escape(recipe.title(lang)),
+            where=escape(str(local) if local is not None else recipe_url(recipe, lang)),
+        )
+
     doc_path = research_doc_path(gap, lang)
     if doc_path is None:
         # docs/research/ isn't shipped in the pip-installed package (see
@@ -408,6 +420,8 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
         console.print(severity_line)
         if stage_line is not None:
             console.print(stage_line)
+        if recipe_line is not None:
+            console.print(recipe_line)
         console.print(i18n.t(lang, "explain_see_github", url=research_doc_url(gap)))
         return 0
 
@@ -416,6 +430,8 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
     console.print(severity_line)
     if stage_line is not None:
         console.print(stage_line)
+    if recipe_line is not None:
+        console.print(recipe_line)
     if not research_doc_is_translated(gap, lang):
         # Better to say so than to print a document in a language the
         # reader did not ask for and leave them to work it out.

@@ -44,6 +44,7 @@ from .gap_registry import gap_by_detector, gap_metadata
 from .load_check import CATEGORIES, FAILING_CATEGORIES, LoadCheckResult, LoadError
 from .html_report import STAGES, GapGroup, group_by_gap, source_name, stage_key
 from .models import Finding
+from .recipes import Recipe, recipe_for, recipe_url
 from . import messages
 from .verification import DetectorVerification, NewInOutput
 
@@ -288,6 +289,9 @@ def _render_gap_details(console: Console, gaps: list[GapGroup], lang: str) -> No
             fix.append(f"{i18n.t(lang, 'report_gap_fix')}: ", style=f"bold {_ACCENT}")
             fix.append(hint)
             body.append(fix)
+        recipe = recipe_for(g.detector)
+        if recipe is not None:
+            body.append(_recipe_text(recipe, lang))
         for message_id in dict.fromkeys(f.message_id for f in g.findings):
             body.append(Text(messages.text(message_id, lang)))
         where = Table.grid(padding=(0, 2))
@@ -315,6 +319,19 @@ def _render_gap_details(console: Console, gaps: list[GapGroup], lang: str) -> No
                 padding=(0, 1),
             )
         )
+
+
+def _recipe_text(recipe: Recipe, lang: str) -> Text:
+    """'Recipe: <title>' and the page's address on the next line -- spelled
+    out rather than only a terminal hyperlink, which many terminals and
+    every log file would drop."""
+    url = recipe_url(recipe, lang)
+    text = Text()
+    text.append(f"{i18n.t(lang, 'report_gap_recipe')}: ", style=f"bold {_ACCENT}")
+    text.append(recipe.title(lang), style=f"link {url}")
+    text.append("\n")
+    text.append(url, style="dim")
+    return text
 
 
 def _spaced(parts: list[RenderableType]) -> list[RenderableType]:
@@ -629,6 +646,9 @@ def render_load_check(result: LoadCheckResult, console: Console | None = None, l
             elif category == "gap" and error.gap_number is not None:
                 hint = Text("-> " + i18n.t(lang, "load_check_hint_gap", number=error.gap_number), style=_ACCENT)
                 console.print(Padding(hint, (0, 0, 0, 4), expand=False))
+            recipe = recipe_for(error.detector) if error.detector is not None and category == "gap" else None
+            if recipe is not None:
+                console.print(Padding(_recipe_text(recipe, lang), (0, 0, 0, 4), expand=False))
         if len(errors) > _LOAD_ERRORS_SHOWN:
             console.print(
                 Text(

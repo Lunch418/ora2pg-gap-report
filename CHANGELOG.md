@@ -51,6 +51,19 @@ patch for fixes to existing ones.
   ticked boxes, ticks an item that is no longer found in a file scanned again,
   and leaves items in files not scanned this time as they were. A file that is
   not a checklist this tool wrote is never overwritten.
+- **`--prepare`: fix the source before ora2pg reads it.** Some gaps cannot be
+  repaired in ora2pg's output because ora2pg has already lost what the repair
+  needs. `--prepare` rewrites the dump into the plainer form ora2pg's parser
+  expects, without changing what it defines: MySQL `DELIMITER` blocks
+  (GAP-106, 107), `DEFINER=` (GAP-108), `/*!50003 ... */` around definitions
+  (GAP-109) and `CREATE TABLE IF NOT EXISTS` (GAP-110); Oracle `q'[...]'`
+  strings (GAP-062) and `IF NOT EXISTS` (GAP-112); T-SQL `[bracketed]` names
+  (GAP-087). Same behaviour as `--fix`: a diff by default, `--write` to apply,
+  the file's encoding and line endings kept. Every rewrite was confirmed with
+  ora2pg 25.0 and PostgreSQL 16, and the tests repeat it against the real
+  ora2pg (in the CI job that has it) and against PostgreSQL with checks of
+  behaviour. Reports, `--explain`, the checklist and the "Next" block name the
+  command where it applies.
 - **`--fix` repairs GAP-024**: a recursive `WITH` that ora2pg copies without
   the `RECURSIVE` keyword PostgreSQL requires gets it. Confirmed the usual way:
   ora2pg 25.0's output for a recursive view fails to load into PostgreSQL 16

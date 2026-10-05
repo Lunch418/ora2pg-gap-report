@@ -72,6 +72,7 @@ empirically against real PL/SQL code
 | **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code; takes its dialect from the baseline (not a functional check, see below) |
 | **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags |
 | **Autofix** | `--fix`/`--write` — three known-safe mechanical fixes for `ora2pg`'s generated code, picked by `--dialect`, see below |
+| **Source preparation** | `--prepare` - rewrites what ora2pg's parser trips over in the dump itself (DELIMITER, DEFINER, `[brackets]`, `q'[...]'`), before ora2pg runs, see below |
 | **Recipes and a checklist** | A tested PostgreSQL pattern for each class of problem, and `-f checklist`: a task list that keeps its ticks between runs, see below |
 | **Load check** | `--load-check docker` - loads the generated code into a real, throwaway PostgreSQL and ties every statement that fails to its GAP-NNN, to `--fix`, or to an earlier failure; nothing is committed, see below |
 
@@ -663,6 +664,42 @@ honest check from a comfortable lie.
 `--verify` is a standalone mode: requires `--baseline`, incompatible with
 `--explain`/`--save`/`--fail-on`/`--check-connect-by`/`--severity`/`--object`,
 supports only `--format terminal` (default) and `--format json`.
+
+### Preparing the source (`--prepare`)
+
+Some gaps cannot be repaired in ora2pg's output, because ora2pg has
+already thrown away what the repair would need: a T-SQL script with
+bracketed names comes out with a column of type `[INT]` and the
+`nvarchar(100)` length gone, a MySQL trigger under `DELIMITER //` does not
+come out at all. Each of these converts correctly when the same source is
+written in the plainer form ora2pg's parser expects. `--prepare` writes it
+that way, before ora2pg reads the dump:
+
+| Dialect | Gaps | What it rewrites |
+|---|---|---|
+| `mysql` | GAP-106, 107 | `DELIMITER //` blocks: the directive goes, each statement ends with `;` |
+| `mysql` | GAP-108 | `DEFINER=user@host` is removed from `CREATE` |
+| `mysql` | GAP-109 | `/*!50003 CREATE ... */` around triggers, views and routines is unwrapped (session settings stay comments) |
+| `mysql` | GAP-110 | `CREATE TABLE IF NOT EXISTS` -> `CREATE TABLE` |
+| `oracle` | GAP-062 | `q'[it's]'` -> `'it''s'` |
+| `oracle` | GAP-112 | `CREATE TABLE IF NOT EXISTS` -> `CREATE TABLE` |
+| `mssql` | GAP-087 | `[dbo].[Orders]` -> `dbo.Orders`, `[nvarchar](100)` -> `nvarchar(100)` |
+
+```sh
+cp -r dump/ dump.prepared/                                        # work on a copy
+ora2pg-gap-report --prepare --dialect mysql dump.prepared/          # prints a diff
+ora2pg-gap-report --prepare --dialect mysql --write dump.prepared/  # rewrites the files
+ora2pg -m -i dump.prepared/schema.sql ...
+```
+
+The text means the same before and after: brackets, a `DELIMITER`
+directive, a version-comment wrapper or a definer change how it is
+written, not what it defines. Nothing inside a string or a comment is
+touched. Every rewrite was confirmed by running ora2pg 25.0 on both forms
+and loading the results into PostgreSQL 16, and the test suite repeats
+that: against the real ora2pg in CI, and against PostgreSQL with checks of
+behaviour (the trigger fires, the procedure updates its row). The scan
+report and `--explain` name the command for every gap it removes.
 
 ### Autofix (`--fix`)
 

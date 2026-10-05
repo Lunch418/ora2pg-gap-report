@@ -108,6 +108,11 @@ from .detectors.wm_concat import find_wm_concat
 from .detectors.read_only_view import find_read_only_views
 from .detectors.sdo_geometry import find_sdo_geometry_columns
 from .detectors.identity_on_null import find_identity_on_null
+from .detectors.package_constant_chain import find_package_constant_chain
+from .detectors.ref_cursor_type import find_ref_cursor_type
+from .detectors.repeated_package_call import find_repeated_package_call
+from .detectors.trigger_package_call import find_trigger_package_call
+from .detectors.statement_trigger import find_statement_trigger
 from .detectors.table_if_not_exists import find_table_if_not_exists
 from .detectors.mysql_create_table_if_not_exists import find_mysql_create_table_if_not_exists
 from .detectors.mysql_definer_procedure import find_mysql_definer_procedures
@@ -205,6 +210,11 @@ _ORACLE_DETECTORS = (
     find_sdo_geometry_columns,
     find_table_if_not_exists,
     find_identity_on_null,
+    find_package_constant_chain,
+    find_ref_cursor_type,
+    find_repeated_package_call,
+    find_trigger_package_call,
+    find_statement_trigger,
 )
 # MySQL detectors -- a source-language dialect, run against a MySQL/MariaDB
 # schema/procedure dump rather than an Oracle one. Deliberately a SEPARATE

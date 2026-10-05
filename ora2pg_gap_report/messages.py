@@ -3730,6 +3730,111 @@ MESSAGES: dict[str, Message] = {
             'change the code so it leaves the column out.'
         ),
     ),
+    "package_constant_chain": Message(
+        ru=(
+            'Константа или переменная пакета, чьё начальное значение вычисляется из другой константы того же паке'
+            "та (c_stamp CONSTANT VARCHAR2(30) := c_date || ' HH24:MI'). ora2pg переписывает чтение переменных па"
+            'кета в current_setting() (GAP-036), а для такой формы вставляет переписанную ссылку из инициализатор'
+            "а сразу после первой и оставляет оператор висеть в конце: current_setting('pkg.c_stamp')::varchar(30"
+            ")current_setting('pkg.c_date')::varchar(30)||. Это не выражение, поэтому каждая подпрограмма, читающ"
+            'ая константу, не загружается в PostgreSQL (\'syntax error at or near "("\') - подтверждено реальным пр'
+            'огоном ora2pg 25.0 + PostgreSQL 16 и живым Oracle 23ai, docs/research/gap-114-package-constant-chain'
+            '.md. Замените константу функцией, возвращающей готовое значение, или вычислите его в месте использов'
+            'ания.'
+        ),
+        en=(
+            'A package constant or variable whose initial value is computed from another constant of the same pac'
+            "kage (c_stamp CONSTANT VARCHAR2(30) := c_date || ' HH24:MI'). ora2pg rewrites reads of package varia"
+            "bles into current_setting() (GAP-036), and for this shape it splices the initializer's rewritten ref"
+            "erence right after the first one and leaves the operator dangling at the end: current_setting('pkg.c"
+            "_stamp')::varchar(30)current_setting('pkg.c_date')::varchar(30)||. That is not an expression, so eve"
+            'ry routine that reads the constant fails to load into PostgreSQL (\'syntax error at or near "("\') - c'
+            'onfirmed against a real ora2pg 25.0 + PostgreSQL 16 run and a live Oracle 23ai, docs/research/gap-11'
+            '4-package-constant-chain.md. Replace the constant with a function that returns the finished value, o'
+            'r compute it where it is used.'
+        ),
+    ),
+    "ref_cursor_type": Message(
+        ru=(
+            'TYPE имя IS REF CURSOR [RETURN ...] - тип курсорной переменной в пакете или подпрограмме. ora2pg пре'
+            'вращает его в CREATE OR REPLACE TYPE пакет.имя AS REFCURSOR, а это не PostgreSQL: CREATE OR REPLACE '
+            'TYPE не существует, а refcursor - один встроенный тип без именованных вариантов. Команда не загружае'
+            'тся (\'syntax error at or near "TYPE"\'), как и каждая функция, объявленная возвращающей этот тип (\'ty'
+            "pe ... does not exist') - подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 и живым Oracle "
+            '23ai, docs/research/gap-115-ref-cursor-type.md. Используйте refcursor везде, где назван тип; SYS_REF'
+            'CURSOR этой проблемы не имеет.'
+        ),
+        en=(
+            'TYPE name IS REF CURSOR [RETURN ...] - a cursor-variable type declared in a package or routine. ora2'
+            'pg turns it into CREATE OR REPLACE TYPE pkg.name AS REFCURSOR, which is not PostgreSQL: there is no '
+            'CREATE OR REPLACE TYPE, and refcursor is a single built-in type with no named variants. The statemen'
+            't fails to load (\'syntax error at or near "TYPE"\'), and so does every function declared to return th'
+            "e type ('type ... does not exist') - confirmed against a real ora2pg 25.0 + PostgreSQL 16 run and a "
+            'live Oracle 23ai, docs/research/gap-115-ref-cursor-type.md. Use refcursor wherever the type is named'
+            '; SYS_REFCURSOR does not have this problem.'
+        ),
+    ),
+    "repeated_package_call": Message(
+        ru=(
+            'Вызов процедуры своего же пакета с именем пакета и без скобок (pkg.proc;), когда та же подпрограмма '
+            'уже вызывала эту процедуру. ora2pg превращает вызов в теле пакета в CALL pkg.proc(), но для этой фор'
+            "мы - только первый: повтор выходит как pkg.proc(); без CALL, и PL/pgSQL его отвергает ('syntax error"
+            ' at or near "pkg"\'), подпрограмма не загружается - подтверждено реальным прогоном ora2pg 25.0 + Post'
+            'greSQL 16 и живым Oracle 23ai, docs/research/gap-116-repeated-package-call.md. Повтор без имени паке'
+            'та, со скобками или с аргументами конвертируется правильно. Допишите CALL перед повтором в сгенериро'
+            'ванном коде или пишите вызов в исходнике со скобками.'
+        ),
+        en=(
+            'A call to a procedure of the same package, qualified with the package name and written without paren'
+            'theses (pkg.proc;), when the same routine has already called that procedure. ora2pg turns a call ins'
+            'ide a package body into CALL pkg.proc(), but for this shape only the first one: the repeat comes out'
+            ' as pkg.proc(); with no CALL, which PL/pgSQL rejects (\'syntax error at or near "pkg"\'), so the routi'
+            'ne does not load - confirmed against a real ora2pg 25.0 + PostgreSQL 16 run and a live Oracle 23ai, '
+            'docs/research/gap-116-repeated-package-call.md. An unqualified repeat, or one with parentheses or ar'
+            'guments, converts correctly. Add CALL before the repeat in the generated code, or write the call wit'
+            'h parentheses in the source.'
+        ),
+    ),
+    "trigger_package_call": Message(
+        ru=(
+            'Тело триггера вызывает процедуру пакета как команду (audit_pkg.log_change(:NEW.id);, audit_pkg.touch'
+            ';). Внутри пакета ora2pg превращает такой вызов в CALL, потому что пакет есть в том же прогоне. Триг'
+            'гер конвертируется отдельно (-t TRIGGER), и вызов копируется как есть, а PL/pgSQL голый вызов процед'
+            'уры не принимает (\'syntax error at or near "audit_pkg"\'): не загружается ни функция триггера, ни сам'
+            ' триггер - подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 и живым Oracle 23ai, docs/rese'
+            'arch/gap-117-trigger-package-call.md. Функция в выражении (v := pkg.f(x);) переносится нормально. До'
+            'пишите CALL перед вызовом.'
+        ),
+        en=(
+            'A trigger body calls a package procedure as a statement (audit_pkg.log_change(:NEW.id);, audit_pkg.t'
+            'ouch;). Inside a package ora2pg turns such a call into CALL, because it has the package in the same '
+            'run. A trigger is converted on its own (-t TRIGGER), so the call is copied as written, and PL/pgSQL '
+            'rejects a bare procedure call (\'syntax error at or near "audit_pkg"\'): neither the trigger function '
+            'nor the trigger loads - confirmed against a real ora2pg 25.0 + PostgreSQL 16 run and a live Oracle 2'
+            '3ai, docs/research/gap-117-trigger-package-call.md. A function used in an expression (v := pkg.f(x);'
+            ') carries over fine. Add CALL before the call.'
+        ),
+    ),
+    "statement_trigger": Message(
+        ru=(
+            'Триггер уровня команды: BEFORE/AFTER INSERT/UPDATE/DELETE без FOR EACH ROW. Oracle выполняет его оди'
+            'н раз на команду, сколько бы строк она ни затронула. ora2pg 25.0 всё равно пишет триггер PostgreSQL '
+            'с FOR EACH ROW, и он срабатывает на каждую строку. Ничего не падает: триггер загружается, а INSERT п'
+            'яти строк, который в живом Oracle 23ai выполнил тело один раз, в PostgreSQL 16 выполняет его пять ра'
+            'з - каждый счётчик, запись журнала или сводка, которую он ведёт, умножается. Подтверждено, docs/rese'
+            'arch/gap-118-statement-trigger.md. Замените FOR EACH ROW на FOR EACH STATEMENT в CREATE TRIGGER и RE'
+            'TURN NEW на RETURN NULL в функции.'
+        ),
+        en=(
+            'A statement-level trigger: BEFORE/AFTER INSERT/UPDATE/DELETE without FOR EACH ROW. Oracle runs it on'
+            'ce per statement, however many rows the statement touches. ora2pg 25.0 writes the PostgreSQL trigger'
+            ' with FOR EACH ROW regardless, so it fires once per row. Nothing fails: the trigger loads, and an IN'
+            'SERT of five rows that ran its body once in a live Oracle 23ai runs it five times in PostgreSQL 16 -'
+            ' every counter, log line or summary it maintains is multiplied. Confirmed, docs/research/gap-118-sta'
+            'tement-trigger.md. Change FOR EACH ROW to FOR EACH STATEMENT in the CREATE TRIGGER and RETURN NEW to'
+            ' RETURN NULL in the function.'
+        ),
+    ),
     "temporal_validity.alter": Message(
         ru=(
             'PERIOD FOR (temporal validity, 12c) в записи DBMS_METADATA.GET_DDL — отдельной '
@@ -4907,6 +5012,51 @@ REMEDIATION_HINTS: dict[str, Message] = {
             ' the column out of the INSERT -- ON NULL is lost'
         ),
     ),
+    "package_constant_chain": Message(
+        ru=(
+            'Заменить константу функцией, возвращающей готовое значение (IMMUTABLE), - сгенерированное выражение '
+            'не загружается'
+        ),
+        en=(
+            'Replace the constant with an IMMUTABLE function returning the finished value - the generated express'
+            'ion does not load'
+        ),
+    ),
+    "ref_cursor_type": Message(
+        ru=(
+            'Удалить CREATE TYPE ... AS REFCURSOR и использовать refcursor везде, где назван тип'
+        ),
+        en=(
+            'Drop the CREATE TYPE ... AS REFCURSOR and use refcursor wherever the type is named'
+        ),
+    ),
+    "repeated_package_call": Message(
+        ru=(
+            'Добавить CALL перед повторным вызовом в сгенерированном коде или писать вызов со скобками: pkg.proc('
+            ')'
+        ),
+        en=(
+            'Add CALL before the repeated call in the generated code, or write it with parentheses: pkg.proc()'
+        ),
+    ),
+    "trigger_package_call": Message(
+        ru=(
+            'Добавить CALL перед вызовом процедуры пакета в теле триггера'
+        ),
+        en=(
+            'Add CALL before the package procedure call in the trigger body'
+        ),
+    ),
+    "statement_trigger": Message(
+        ru=(
+            'Заменить FOR EACH ROW на FOR EACH STATEMENT, а RETURN NEW на RETURN NULL - иначе тело выполняется на'
+            ' каждую строку'
+        ),
+        en=(
+            'Change FOR EACH ROW to FOR EACH STATEMENT and RETURN NEW to RETURN NULL - otherwise the body runs on'
+            'ce per row'
+        ),
+    ),
 }
 
 
@@ -5212,6 +5362,26 @@ TITLES: dict[str, Message] = {
     "identity_on_null": Message(
         ru='`GENERATED BY DEFAULT ON NULL AS IDENTITY` — `ON NULL` теряется, вставка явного NULL падает',
         en='`GENERATED BY DEFAULT ON NULL AS IDENTITY` — `ON NULL` lost, an explicit NULL insert fails',
+    ),
+    "package_constant_chain": Message(
+        ru='Константа пакета из другой константы - выражение склеивается и не загружается',
+        en='A package constant built from another constant - the expression is garbled and fails to load',
+    ),
+    "ref_cursor_type": Message(
+        ru='`TYPE ... IS REF CURSOR` - становится невалидным `CREATE TYPE ... AS REFCURSOR`',
+        en='`TYPE ... IS REF CURSOR` - becomes an invalid `CREATE TYPE ... AS REFCURSOR`',
+    ),
+    "repeated_package_call": Message(
+        ru='Повторный `pkg.proc;` без скобок - теряет `CALL`, подпрограмма не загружается',
+        en='A repeated `pkg.proc;` without parentheses - loses `CALL`, the routine does not load',
+    ),
+    "trigger_package_call": Message(
+        ru='Вызов процедуры пакета из триггера - копируется без `CALL`, триггер не загружается',
+        en='A package procedure called from a trigger - copied without `CALL`, the trigger does not load',
+    ),
+    "statement_trigger": Message(
+        ru='Триггер уровня команды становится `FOR EACH ROW` - срабатывает на каждую строку',
+        en='A statement-level trigger becomes `FOR EACH ROW` - fires once per row',
     ),
     "mysql_enum_type": Message(
         ru='`ENUM(...)` — ссылка на несуществующий синтезированный тип',

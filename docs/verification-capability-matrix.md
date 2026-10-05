@@ -10,7 +10,7 @@ something's unimplemented, but because the question itself, "is this
 still in the output," is a tautology for them: the construct is
 guaranteed to never appear in the output on any migration, regardless of
 whether someone fixed it by hand or not. `verification.py`'s docstring
-explains this in detail; this is a table for each of the 113 gaps, so
+explains this in detail; this is a table for each of the 118 gaps, so
 nobody has to read the code just to answer "can this specific one be
 verified."
 
@@ -108,12 +108,17 @@ verified."
 | 066 | `read_only_view` | `not_verifiable` | The WITH READ ONLY clause is dropped unconditionally. |
 | 067 | `sdo_geometry` | `not_verifiable` | Rewritten to the PostGIS `geometry` type; the SDO_GEOMETRY name never survives. |
 
-### Oracle (GAP-112..113)
+### Oracle (GAP-112..118)
 
 | # | Detector | Mode | Why |
 |---|---|---|---|
 | 112 | `table_if_not_exists` | `not_verifiable` | Mangled into `CREATE TABLE if (`, never IF NOT EXISTS. |
 | 113 | `identity_on_null` | `not_verifiable` | Rewritten to BY DEFAULT AS IDENTITY; ON NULL never survives. |
+| 114 | `package_constant_chain` | `not_verifiable` | The declaration is gone; only garbled current_setting() calls remain. |
+| 115 | `ref_cursor_type` | `not_verifiable` | Becomes CREATE TYPE ... AS REFCURSOR; TYPE ... IS REF CURSOR never survives. |
+| 116 | `repeated_package_call` | `not_verifiable` | The call gains parentheses; the parenthesis-free shape never survives. |
+| 117 | `trigger_package_call` | `verbatim` | The call is copied unchanged into the trigger function. |
+| 118 | `statement_trigger` | `not_verifiable` | The statement-level header is replaced by FOR EACH ROW. |
 
 ### MySQL/MariaDB (`ora2pg -m`)
 
@@ -169,7 +174,7 @@ verified."
 | 104 | `mssql_computed_column` | `not_verifiable` | Rewritten into a trigger; the `AS (expr)` column syntax never survives. |
 | 105 | `mssql_rowversion` | `not_verifiable` | Rewritten to bytea; the ROWVERSION name never survives. |
 
-Totals among the 113 gaps themselves: 50 `verbatim`, 62 `not_verifiable`
+Totals among the 118 gaps themselves: 51 `verbatim`, 66 `not_verifiable`
 (including `autonomous_tx`, but for a different reason, see above), 1
 `generated_only` (`connect_by`).
 

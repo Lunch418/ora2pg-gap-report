@@ -694,6 +694,51 @@ GapEntry(
         severity="high",
         failure_stage="runtime",
         dialect="oracle", last_verified="2026-09-26"),
+    # GAP-114..118: found by --load-check on real ora2pg output for
+    # open-source packages (OraOpenSource Logger, the compound-trigger
+    # samples), then each reduced to a minimal case and confirmed the usual
+    # way -- live Oracle 23ai, ora2pg 25.0 on the hand-written and the
+    # DBMS_METADATA.GET_DDL spelling, PostgreSQL 16.
+    GapEntry(
+        "114",
+        "package_constant_chain",
+        "package-constant-chain",
+        ("test_package_constant_chain.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-05"),
+    GapEntry(
+        "115",
+        "ref_cursor_type",
+        "ref-cursor-type",
+        ("test_ref_cursor_type.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-05"),
+    GapEntry(
+        "116",
+        "repeated_package_call",
+        "repeated-package-call",
+        ("test_repeated_package_call.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-05"),
+    GapEntry(
+        "117",
+        "trigger_package_call",
+        "trigger-package-call",
+        ("test_trigger_package_call.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-05"),
+    GapEntry(
+        "118",
+        "statement_trigger",
+        "statement-trigger",
+        ("test_statement_trigger.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="oracle", last_verified="2026-10-05"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

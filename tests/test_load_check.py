@@ -419,3 +419,41 @@ def test_real_postgres_loads_copy_data_and_keeps_reading_after_it(tmp_path):
     )
     result = run_load_check([data], parse_target("docker"))
     assert [(e.line, e.sqlstate) for e in result.errors] == [(7, "42P01")]
+
+
+def test_a_percent_type_on_a_missing_table_is_a_dependency(tmp_path, monkeypatch):
+    path = _write(
+        tmp_path,
+        "trg.sql",
+        "CREATE FUNCTION f() RETURNS int AS $body$\nDECLARE\n  x employees.salary%TYPE;\nBEGIN\n  RETURN 1;\nEND;\n$body$ LANGUAGE plpgsql;\n",
+    )
+    err = (
+        'psql:{script}:8: ERROR:  42601: syntax error at or near "%"\n'
+        "LINE 3:   x employees.salary%TYPE;\n"
+        'CONTEXT:  invalid type name "employees.salary%TYPE"'
+    )
+    monkeypatch.setattr(load_check, "_run", FakePsql({"trg.sql": err}))
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert error.category == "dependency"
+
+
+def test_a_flagged_construct_elsewhere_in_a_routine_does_not_claim_its_errors(tmp_path, monkeypatch):
+    # Found on real ora2pg output for OraOpenSource Logger: a $IF further
+    # down a procedure used to be blamed for a missing table on its header.
+    body = (
+        "CREATE FUNCTION f() RETURNS int AS $body$\n"
+        "BEGIN\n"
+        "  SELECT count(*) FROM logger_logs;\n"
+        "  $IF dbms_db_version.ver_le_10 $THEN NULL; $END\n"
+        "  RETURN 1;\n"
+        "END;\n"
+        "$body$ LANGUAGE plpgsql;\n"
+    )
+    path = _write(tmp_path, "f.sql", body)
+    err = (
+        'psql:{script}:8: ERROR:  42P01: relation "logger_logs" does not exist\n'
+        "LINE 3:   SELECT count(*) FROM logger_logs;"
+    )
+    monkeypatch.setattr(load_check, "_run", FakePsql({"f.sql": err}))
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert (error.line, error.category, error.gap_number) == (4, "dependency", None)

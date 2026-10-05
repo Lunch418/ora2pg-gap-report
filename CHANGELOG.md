@@ -84,6 +84,13 @@ patch for fixes to existing ones.
   and the `\.` that ends the data would have been blanked. The rows are now
   passed to psql as data, and data files load after the tables and before the
   indexes.
+- `--load-check` blamed a gap for any error in a routine that contained its
+  construct anywhere. Loading real ora2pg output for OraOpenSource Logger showed
+  a `$IF` deep in a procedure claiming a missing table on its header. Now a
+  missing-object error is a gap only when the construct is on that line, and a
+  syntax error only when it is on that line or just above. A `%TYPE` on a
+  missing table, which PL/pgSQL reports as a syntax error, counts as a missing
+  object.
 - `docs/ARCHITECTURE.ru.md` listed `cli.py` twice in the package tree.
 - GAP-005 (`connect_by`) had no title, so the reports showed its group under
   the bare detector name; it now has the registry's title, and `doctor.py` no

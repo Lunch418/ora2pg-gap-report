@@ -518,15 +518,31 @@ def _fixer_detector(statement_text: str, dialect: str) -> str | None:
     return None
 
 
-def _gap_finding(findings: Sequence[Finding], statement: Statement, line: int) -> Finding | None:
+# How far above the error line a construct may start and still be what
+# PostgreSQL choked on: a declaration like `TYPE t IS TABLE OF ...` can span
+# a couple of lines before the token the parser stops at.
+_LINES_BEFORE = 3
+
+
+def _gap_finding(findings: Sequence[Finding], statement: Statement, line: int, sqlstate: str) -> Finding | None:
+    """The finding that explains an error on `line`, or None.
+
+    A syntax error stops at the first token the parser cannot take, so its
+    cause is on that line or just above it -- never further down, and not
+    anywhere in a long routine that happens to contain some flagged
+    construct. An error about a missing object ("relation ... does not
+    exist") is a gap only when the gap's construct is on that very line;
+    otherwise it is a missing table or type, and is reported as such. Both
+    rules came from loading real ora2pg output for OraOpenSource Logger,
+    where a $IF further down a procedure claimed its unrelated errors."""
     inside = [f for f in findings if statement.start_line <= f.line <= statement.end_line]
-    if not inside:
-        return None
     exact = [f for f in inside if f.line == line]
     if exact:
         return exact[0]
-    before = [f for f in inside if f.line <= line]
-    return before[-1] if before else inside[0]
+    if sqlstate in _DEPENDENCY_STATES:
+        return None
+    near = [f for f in inside if line - _LINES_BEFORE <= f.line < line]
+    return near[-1] if near else None
 
 
 def _load_error(
@@ -565,12 +581,22 @@ def _classify(
     if fixer_detector is not None:
         return _load_error(raw, file, line, statement.start_line, FIXABLE, fixer_detector)
 
-    finding = _gap_finding(findings, statement, line)
+    finding = _gap_finding(findings, statement, line, raw.sqlstate)
     if finding is not None:
         return _load_error(raw, file, line, statement.start_line, GAP, finding.detector)
 
-    category = DEPENDENCY if raw.sqlstate in _DEPENDENCY_STATES else UNKNOWN
+    category = DEPENDENCY if raw.sqlstate in _DEPENDENCY_STATES or _missing_anchor(raw) else UNKNOWN
     return _load_error(raw, file, line, statement.start_line, category)
+
+
+# PL/pgSQL reports `x tab.col%TYPE` whose table does not exist as a syntax
+# error ('invalid type name "employees.salary%TYPE"'), not as a missing
+# relation -- but it is the same thing: an object outside what was loaded.
+_ANCHORED_TYPE_RE = re.compile(r'^invalid type name ".*%(?:ROW)?TYPE"$', re.IGNORECASE)
+
+
+def _missing_anchor(raw: _RawError) -> bool:
+    return raw.sqlstate == "42601" and bool(raw.context and _ANCHORED_TYPE_RE.match(raw.context))
 
 
 def classify_errors(raw_errors: Sequence[_RawError], prepared: Sequence[_PreparedFile], dialect: str) -> list[LoadError]:

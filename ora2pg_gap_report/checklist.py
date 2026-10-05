@@ -34,6 +34,7 @@ from .baseline import _normalized_source_file
 from .gap_registry import gap_by_detector
 from .html_report import STAGES, group_by_gap, severity_rank, source_name, stage_key, stage_of
 from .models import Finding
+from .prepare import prepare_command
 from .recipes import recipe_for, recipe_url
 
 MARKER = "<!-- ora2pg-gap-report checklist v1 -->"
@@ -202,6 +203,9 @@ def write_checklist(
             hint = messages.remediation_hint(detector, lang)
             if hint:
                 w(f"**{i18n.t(lang, 'report_gap_fix')}:** {hint}\n\n")
+            command = prepare_command(detector)
+            if command is not None:
+                w(f"**{i18n.t(lang, 'report_gap_prepare')}:** `{command}`\n\n")
             recipe = recipe_for(detector)
             if recipe is not None:
                 w(f"**{i18n.t(lang, 'report_gap_recipe')}:** [{recipe.title(lang)}]({recipe_url(recipe, lang)})\n\n")

@@ -72,6 +72,7 @@ empirically against real PL/SQL code
 | **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code; takes its dialect from the baseline (not a functional check, see below) |
 | **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags |
 | **Autofix** | `--fix`/`--write` — three known-safe mechanical fixes for `ora2pg`'s generated code, picked by `--dialect`, see below |
+| **Source preparation** | `--prepare` - rewrites what ora2pg's parser trips over in the dump itself (DELIMITER, DEFINER, `[brackets]`, `q'[...]'`), before ora2pg runs, see below |
 | **Recipes and a checklist** | A tested PostgreSQL pattern for each class of problem, and `-f checklist`: a task list that keeps its ticks between runs, see below |
 | **Load check** | `--load-check docker` - loads the generated code into a real, throwaway PostgreSQL and ties every statement that fails to its GAP-NNN, to `--fix`, or to an earlier failure; nothing is committed, see below |
 
@@ -477,10 +478,10 @@ detectors — by construction, not by keyword luck.
   build doesn't have, is rejected for the same reason — verifying against
   part of a baseline would produce a confident number computed from
   incomplete input.
-- **`--fix` runs the mechanical fixes registered for `--dialect`.** MySQL
-  deliberately has none (see below), and says so instead of reporting
-  every file as "nothing to fix", which would read as "your output is
-  fine".
+- **`--fix` runs the mechanical fixes registered for `--dialect`.** Each
+  dialect has its own (see below); a dialect with none would say so instead
+  of reporting every file as "nothing to fix", which would read as "your
+  output is fine".
 - **`--tui`** has a dialect picker beside the severity and language ones,
   and applies the same rules — including taking the dialect from the
   baseline in verify mode.
@@ -664,6 +665,42 @@ honest check from a comfortable lie.
 `--explain`/`--save`/`--fail-on`/`--check-connect-by`/`--severity`/`--object`,
 supports only `--format terminal` (default) and `--format json`.
 
+### Preparing the source (`--prepare`)
+
+Some gaps cannot be repaired in ora2pg's output, because ora2pg has
+already thrown away what the repair would need: a T-SQL script with
+bracketed names comes out with a column of type `[INT]` and the
+`nvarchar(100)` length gone, a MySQL trigger under `DELIMITER //` does not
+come out at all. Each of these converts correctly when the same source is
+written in the plainer form ora2pg's parser expects. `--prepare` writes it
+that way, before ora2pg reads the dump:
+
+| Dialect | Gaps | What it rewrites |
+|---|---|---|
+| `mysql` | GAP-106, 107 | `DELIMITER //` blocks: the directive goes, each statement ends with `;` |
+| `mysql` | GAP-108 | `DEFINER=user@host` is removed from `CREATE` |
+| `mysql` | GAP-109 | `/*!50003 CREATE ... */` around triggers, views and routines is unwrapped (session settings stay comments) |
+| `mysql` | GAP-110 | `CREATE TABLE IF NOT EXISTS` -> `CREATE TABLE` |
+| `oracle` | GAP-062 | `q'[it's]'` -> `'it''s'` |
+| `oracle` | GAP-112 | `CREATE TABLE IF NOT EXISTS` -> `CREATE TABLE` |
+| `mssql` | GAP-087 | `[dbo].[Orders]` -> `dbo.Orders`, `[nvarchar](100)` -> `nvarchar(100)` |
+
+```sh
+cp -r dump/ dump.prepared/                                        # work on a copy
+ora2pg-gap-report --prepare --dialect mysql dump.prepared/          # prints a diff
+ora2pg-gap-report --prepare --dialect mysql --write dump.prepared/  # rewrites the files
+ora2pg -m -i dump.prepared/schema.sql ...
+```
+
+The text means the same before and after: brackets, a `DELIMITER`
+directive, a version-comment wrapper or a definer change how it is
+written, not what it defines. Nothing inside a string or a comment is
+touched. Every rewrite was confirmed by running ora2pg 25.0 on both forms
+and loading the results into PostgreSQL 16, and the test suite repeats
+that: against the real ora2pg in CI, and against PostgreSQL with checks of
+behaviour (the trigger fires, the procedure updates its row). The scan
+report and `--explain` name the command for every gap it removes.
+
 ### Autofix (`--fix`)
 
 Everything above only flags and explains — this project is a detector, not
@@ -671,17 +708,18 @@ a parser, and rewriting DDL about to be deployed is a much riskier thing to
 get wrong than a missed or extra flag (see `docs/ARCHITECTURE.md`). `--fix`
 is a narrow, deliberate exception: only corrections where the "buggy" shape
 is never what a correct migration would produce and the fix is a pure,
-unambiguous text transformation. Three qualify so far, and which of them
+unambiguous text transformation. Five qualify so far, and which of them
 run is decided by `--dialect`:
 
 | Dialect | Fix | What it undoes |
 |---|---|---|
 | `oracle` | GAP-028 | `ora2pg` wraps an identity column's sequence options in an extra, redundant pair of parens (`GENERATED ALWAYS AS IDENTITY ((START WITH 1))`), which won't load. Strips exactly that outer pair |
+| `oracle` | GAP-024 | A recursive `WITH` is copied without the `RECURSIVE` keyword Oracle does not need and PostgreSQL does (`relation "tree" does not exist`). Adds the keyword to a `WITH` whose CTE refers to itself; one followed by Oracle's `SEARCH`/`CYCLE` clause is left alone |
 | `mssql` | GAP-100 | `CHARINDEX` is translated to the right function but with the quotes doubled — `position(''abc'' in x)`, which is not valid SQL. Removes the doubling, touching nothing else |
 | `mssql` | GAP-091 | A parameterless procedure gets an empty, unparseable `DECLARE ;` block. Deletes it — which is exactly what `ora2pg` itself emits for the same procedure when it takes a parameter |
-| `mysql` | — | None, deliberately: every confirmed MySQL gap needs either a design decision (what to replace the construct with) or data the generated file no longer carries |
+| `mysql` | GAP-075 | MySQL's `LIMIT offset, count` is copied as it is, and PostgreSQL rejects it (`LIMIT #,# syntax is not supported`). Rewrites it to `LIMIT count OFFSET offset`; every other MySQL gap needs a design decision or data the generated file no longer has, so it gets no fix |
 
-All three were verified the same way the gaps themselves were: the broken
+All five were verified the same way the gaps themselves were: the broken
 output failing to load into a real PostgreSQL 16, and the fixed output
 loading and running.
 

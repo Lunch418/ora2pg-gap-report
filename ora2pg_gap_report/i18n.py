@@ -252,6 +252,10 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "список работ, который помнит отметки",
         "en": "a task list that remembers what is done",
     },
+    "next_step_prepare": {
+        "ru": "до ora2pg: подготовить исходный дамп",
+        "en": "before ora2pg: prepare the source dump",
+    },
     "next_step_fix": {
         "ru": "после ora2pg: механические исправления",
         "en": "after ora2pg: the mechanical fixes",
@@ -593,8 +597,14 @@ _UI: dict[str, dict[str, str]] = {
         "--check-connect-by, --severity, --object, --format, or --output[/red]",
     },
     "fix_write_without_fix_error": {
-        "ru": "[red]--write работает только вместе с --fix[/red]",
-        "en": "[red]--write only makes sense together with --fix[/red]",
+        "ru": "[red]--write работает только вместе с --fix или --prepare[/red]",
+        "en": "[red]--write only makes sense together with --fix or --prepare[/red]",
+    },
+    "prepare_fix_conflict_error": {
+        "ru": "[red]--prepare правит исходный дамп до ora2pg, --fix - вывод ora2pg после; "
+        "это разные файлы, запускайте их по отдельности[/red]",
+        "en": "[red]--prepare edits the source dump before ora2pg, --fix edits ora2pg's output "
+        "after it; they are different files, run them separately[/red]",
     },
     "fix_diff_header": {
         "ru": "[cyan]{path}[/cyan]: найдено исправлений — {count}",
@@ -894,6 +904,7 @@ _UI: dict[str, dict[str, str]] = {
     "report_gap_why": {"ru": "Почему", "en": "Why"},
     "report_gap_fix": {"ru": "Что делать", "en": "What to do"},
     "report_gap_recipe": {"ru": "Рецепт", "en": "Recipe"},
+    "report_gap_prepare": {"ru": "До ora2pg", "en": "Before ora2pg"},
     # --format checklist (checklist.py)
     "checklist_title": {"ru": "Чеклист миграции {source} -> PostgreSQL", "en": "Migration checklist: {source} -> PostgreSQL"},
     "checklist_made": {
@@ -1162,19 +1173,23 @@ _UI: dict[str, dict[str, str]] = {
     },
     "help_fix": {
         "ru": "Применить известные механические исправления к сгенерированному ora2pg "
-        "PostgreSQL-коду (не к Oracle-исходнику — как --verify, читает пути как результат "
-        "миграции). Сейчас единственное исправление — двойные скобки в GENERATED ... AS "
-        "IDENTITY (...) (GAP-028). По умолчанию ничего не меняет на диске, только печатает "
-        "unified diff; для реальной перезаписи файлов добавьте --write. Самостоятельный "
-        "режим — не сочетается с --explain/--verify/--tui/--fail-on/--save/--baseline/"
-        "--check-connect-by/--severity/--object/--format/--output.",
+        "PostgreSQL-коду (не к Oracle-исходнику - как --verify, читает пути как результат "
+        "миграции). Набор зависит от --dialect: для oracle - двойные скобки в GENERATED ... "
+        "AS IDENTITY (GAP-028) и пропущенный RECURSIVE в рекурсивном WITH (GAP-024), для "
+        "mysql - LIMIT a, b (GAP-075), для mssql - кавычки в CHARINDEX (GAP-100) и пустой "
+        "DECLARE (GAP-091). По умолчанию ничего "
+        "не меняет на диске, только печатает unified diff; для реальной перезаписи файлов "
+        "добавьте --write. Самостоятельный режим - не сочетается с --explain/--verify/--tui/"
+        "--fail-on/--save/--baseline/--check-connect-by/--severity/--object/--format/--output.",
         "en": "Apply known mechanical fixes to ora2pg's *generated* PostgreSQL code (not "
-        "Oracle source -- like --verify, reads paths as post-migration output). Currently "
-        "the only fix is the double-paren bug in GENERATED ... AS IDENTITY (...) "
-        "(GAP-028). Prints a unified diff by default, without touching anything on disk; "
-        "add --write to actually rewrite the files. A standalone mode -- not combinable "
-        "with --explain/--verify/--tui/--fail-on/--save/--baseline/--check-connect-by/"
-        "--severity/--object/--format/--output.",
+        "Oracle source -- like --verify, reads paths as post-migration output). The set "
+        "depends on --dialect: for oracle, the double parens in GENERATED ... AS IDENTITY "
+        "(GAP-028) and the missing RECURSIVE in a recursive WITH (GAP-024); for mysql, "
+        "LIMIT a, b (GAP-075); for mssql, the CHARINDEX quotes (GAP-100) and the empty "
+        "DECLARE (GAP-091). Prints a unified diff by "
+        "default, without touching anything on disk; add --write to actually rewrite the "
+        "files. A standalone mode -- not combinable with --explain/--verify/--tui/--fail-on/"
+        "--save/--baseline/--check-connect-by/--severity/--object/--format/--output.",
     },
     "help_load_check": {
         "ru": "Загрузить сгенерированный ora2pg PostgreSQL-код в настоящий PostgreSQL и "
@@ -1194,11 +1209,26 @@ _UI: dict[str, dict[str, str]] = {
         "(check_function_bodies = on). Exit code 1 if anything failed to load. Only --format "
         "terminal and json; --dialect picks the detectors and fixes used to explain the errors.",
     },
+    "help_prepare": {
+        "ru": "Подготовить ИСХОДНЫЙ дамп к ora2pg: механически переписать то, на чём парсер "
+        "ora2pg спотыкается, не меняя смысла. Для mysql - директивы DELIMITER (GAP-106/107), "
+        "DEFINER (GAP-108), обёртки /*!50003 ... */ вокруг определений (GAP-109), CREATE TABLE "
+        "IF NOT EXISTS (GAP-110); для oracle - строки q'[...]' (GAP-062) и IF NOT EXISTS "
+        "(GAP-112); для mssql - имена в [скобках] (GAP-087). Как --fix: по умолчанию печатает "
+        "diff, --write перезаписывает файлы (работайте с копией дампа).",
+        "en": "Prepare the SOURCE dump for ora2pg: mechanically rewrite what ora2pg's parser "
+        "trips over, without changing its meaning. For mysql, DELIMITER directives "
+        "(GAP-106/107), DEFINER (GAP-108), /*!50003 ... */ wrappers around definitions "
+        "(GAP-109), CREATE TABLE IF NOT EXISTS (GAP-110); for oracle, q'[...]' strings "
+        "(GAP-062) and IF NOT EXISTS (GAP-112); for mssql, [bracketed] names (GAP-087). Like "
+        "--fix: prints a diff by default, --write rewrites the files (work on a copy of the "
+        "dump).",
+    },
     "help_write": {
-        "ru": "Вместе с --fix: реально перезаписать файлы на диске вместо печати diff. "
-        "Без --fix ни на что не влияет.",
-        "en": "With --fix: actually rewrite the files on disk instead of printing a diff. "
-        "Has no effect without --fix.",
+        "ru": "Вместе с --fix или --prepare: реально перезаписать файлы на диске вместо "
+        "печати diff. Без них ни на что не влияет.",
+        "en": "With --fix or --prepare: actually rewrite the files on disk instead of "
+        "printing a diff. Has no effect without them.",
     },
     # tui_app.py (--tui) chrome -- everything the interactive mode's own
     # screens show (button labels, status/error text, table headers) that

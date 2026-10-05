@@ -194,9 +194,13 @@ def test_fix_is_a_dry_run_without_write(tmp_path, capsys):
     assert "-DECLARE" in capsys.readouterr().out
 
 
-def test_fix_says_so_when_a_dialect_has_no_mechanical_fixes(tmp_path, capsys):
+def test_fix_says_so_when_a_dialect_has_no_mechanical_fixes(tmp_path, capsys, monkeypatch):
     # Reporting "nothing to fix" per file would read as "your output is
-    # fine", which is a different and wrong claim.
+    # fine", which is a different and wrong claim. Every dialect has a fix
+    # today, so the empty case is set up by hand.
+    from ora2pg_gap_report import cli
+
+    monkeypatch.setitem(cli.FIXERS_BY_DIALECT, "mysql", ())
     generated = tmp_path / "generated.sql"
     generated.write_text(_MSSQL_GENERATED_BROKEN, encoding="utf-8")
 

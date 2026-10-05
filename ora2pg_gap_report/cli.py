@@ -20,8 +20,9 @@ from rich.text import Text
 
 from . import i18n, ora2pg_wrapper
 from .atomic_write import open_text_atomic, write_text_atomic
-from .autofix import FIXERS_BY_DIALECT
+from .autofix import FIXERS_BY_DIALECT, Fixer
 from .checklist import ChecklistError, read_previous, write_checklist
+from .prepare import PREPARERS_BY_DIALECT, prepare_command
 from .baseline import BaselineLoadError, diff_against_baseline, load_baseline, save_baseline
 from .core import (
     DIALECTS,
@@ -235,6 +236,11 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
         help=i18n.t(lang, "help_fix"),
     )
     parser.add_argument(
+        "--prepare",
+        action="store_true",
+        help=i18n.t(lang, "help_prepare"),
+    )
+    parser.add_argument(
         "--write",
         action="store_true",
         help=i18n.t(lang, "help_write"),
@@ -410,6 +416,11 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
             where=escape(str(local) if local is not None else recipe_url(recipe, lang)),
         )
 
+    command = prepare_command(gap.detector)
+    if command is not None:
+        before_line = f"[bold]{i18n.t(lang, 'report_gap_prepare')}:[/bold] {escape(command)}"
+        recipe_line = before_line if recipe_line is None else f"{before_line}\n{recipe_line}"
+
     doc_path = research_doc_path(gap, lang)
     if doc_path is None:
         # docs/research/ isn't shipped in the pip-installed package (see
@@ -464,7 +475,7 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
     # we're here args.explain is always None. The --explain branch above
     # is the one that has to know about --verify (and does).
     conflicting = any(
-        (args.save, args.fail_on, args.check_connect_by, args.fix, args.write, args.severity, args.object)
+        (args.save, args.fail_on, args.check_connect_by, args.fix, args.prepare, args.write, args.severity, args.object)
     )
     if conflicting:
         err_console.print(i18n.t(lang, "verify_conflict_error"))
@@ -596,6 +607,7 @@ def _handle_load_check(args: argparse.Namespace, err_console: Console, lang: str
         (
             args.verify,
             args.fix,
+            args.prepare,
             args.write,
             args.save,
             args.baseline,
@@ -711,7 +723,13 @@ def _write_diff(out_console: Console, diff: str) -> None:
     buffer.flush()
 
 
-def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Console, lang: str) -> int:
+def _handle_fix(
+    args: argparse.Namespace,
+    out_console: Console,
+    err_console: Console,
+    lang: str,
+    registry: dict[str, tuple[Fixer, ...]] = FIXERS_BY_DIALECT,
+) -> int:
     """--fix: applies autofix.py's mechanical fixes to `args.paths`, treated
     like --verify's inputs as ora2pg's *generated* PostgreSQL output, not
     Oracle source (see autofix.py's module docstring for why). Dry-run by
@@ -723,7 +741,11 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
     mechanical fixes at all (MySQL, deliberately -- see
     autofix.FIXERS_BY_DIALECT) says so and exits cleanly rather than
     reporting every file as "nothing to fix", which would read as "your
-    output is fine"."""
+    output is fine".
+
+    --prepare runs through here too, with prepare.PREPARERS_BY_DIALECT as
+    `registry`: the same dry-run diff and --write, the same care for the
+    file's own bytes, applied to the source dump before ora2pg reads it."""
     conflicting = any(
         (
             args.fail_on,
@@ -743,7 +765,7 @@ def _handle_fix(args: argparse.Namespace, out_console: Console, err_console: Con
         err_console.print(i18n.t(lang, "no_paths_error"))
         return 2
 
-    fixers = FIXERS_BY_DIALECT[args.dialect]
+    fixers = registry[args.dialect]
     if not fixers:
         err_console.print(i18n.t(lang, "fix_no_fixers_for_dialect", dialect=args.dialect))
         return 2
@@ -976,6 +998,7 @@ def _main(argv: list[str] | None = None) -> int:
                 args.check_connect_by,
                 args.verify,
                 args.fix,
+                args.prepare,
                 args.write,
                 args.load_check,
                 args.severity,
@@ -1019,6 +1042,7 @@ def _main(argv: list[str] | None = None) -> int:
                 args.check_connect_by,
                 args.verify,
                 args.fix,
+                args.prepare,
                 args.write,
                 args.load_check,
                 args.format,
@@ -1038,6 +1062,14 @@ def _main(argv: list[str] | None = None) -> int:
 
     if args.verify:
         return _handle_verify(args, err_console, lang)
+
+    if args.prepare:
+        if args.fix:
+            # Different inputs: --prepare reads the source dump, --fix
+            # ora2pg's output. One run cannot be both.
+            err_console.print(i18n.t(lang, "prepare_fix_conflict_error"))
+            return 2
+        return _handle_fix(args, Console(), err_console, lang, PREPARERS_BY_DIALECT)
 
     if args.fix:
         return _handle_fix(args, Console(), err_console, lang)

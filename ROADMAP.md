@@ -50,6 +50,9 @@ project exists - is already in place:
 - **A checklist that remembers** (Unreleased): `-f checklist -o
   MIGRATION.md` writes the work as a Markdown task list; regenerating it
   keeps the ticks and ticks what the source no longer contains.
+- **Source preparation** (Unreleased): `--prepare` rewrites what ora2pg's
+  parser trips over in the dump itself, before ora2pg runs, for seven gaps
+  that cannot be repaired in its output afterwards.
 - **Autofix**: `--fix`/`--write` - three mechanical fixes for `ora2pg`'s
   generated code (GAP-028 for Oracle, GAP-091 and GAP-100 for T-SQL), dry
   run by default, preserving the file's encoding, line endings and BOM.

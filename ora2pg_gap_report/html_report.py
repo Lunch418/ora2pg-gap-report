@@ -26,6 +26,7 @@ from . import i18n, messages
 from .effort_estimator import estimate_hours, summarize_by_severity
 from .gap_registry import gap_by_detector
 from .models import Finding
+from .prepare import prepare_command
 from .recipes import recipe_for, recipe_url
 
 Write = Callable[[str], object]
@@ -436,10 +437,13 @@ def _write_gap(w: Write, lang: str, group_: GapGroup) -> None:
     # under it is there for when the fix needs justifying.
     hint = messages.remediation_hint(detector, lang)
     recipe = recipe_for(detector)
-    if hint or recipe is not None:
+    command = prepare_command(detector)
+    if hint or recipe is not None or command is not None:
         w(f'<div class="fix"><h3>{i18n.t(lang, "report_gap_fix")}</h3>\n')
         if hint:
             w(f"<p>{html.escape(hint)}</p>\n")
+        if command is not None:
+            w(f'<p class="recipe">{i18n.t(lang, "report_gap_prepare")}: <code>{html.escape(command)}</code></p>\n')
         if recipe is not None:
             w(
                 f'<p class="recipe">{i18n.t(lang, "report_gap_recipe")}: '

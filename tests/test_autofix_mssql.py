@@ -10,7 +10,9 @@ from ora2pg_gap_report.autofix import (
     FIXERS_BY_DIALECT,
     fix_identity_double_parens,
     fix_mssql_charindex_quotes,
+    fix_recursive_with_keyword,
     fix_mssql_empty_declare,
+    fix_mysql_limit_comma,
 )
 from ora2pg_gap_report.core import DIALECTS
 
@@ -21,14 +23,15 @@ def test_the_fixer_registry_covers_every_dialect():
     assert set(FIXERS_BY_DIALECT) == set(DIALECTS)
 
 
-def test_mysql_has_no_fixers_on_purpose():
-    # Documented in autofix.py: every confirmed MySQL gap needs either a
-    # design decision or data the generated file no longer carries.
-    assert FIXERS_BY_DIALECT["mysql"] == ()
+def test_mysql_has_only_its_one_syntax_fix_on_purpose():
+    # Documented in autofix.py: LIMIT a, b is pure syntax; every other
+    # confirmed MySQL gap needs either a design decision or data the
+    # generated file no longer carries.
+    assert FIXERS_BY_DIALECT["mysql"] == (fix_mysql_limit_comma,)
 
 
-def test_oracle_keeps_exactly_its_one_fixer():
-    assert FIXERS_BY_DIALECT["oracle"] == (fix_identity_double_parens,)
+def test_oracle_has_exactly_its_two_fixers():
+    assert FIXERS_BY_DIALECT["oracle"] == (fix_identity_double_parens, fix_recursive_with_keyword)
 
 
 # --- CHARINDEX -> position(), with ora2pg's doubled quotes (GAP-100) ---

@@ -44,6 +44,7 @@ from .gap_registry import gap_by_detector, gap_metadata
 from .load_check import CATEGORIES, FAILING_CATEGORIES, LoadCheckResult, LoadError
 from .html_report import STAGES, GapGroup, group_by_gap, source_name, stage_key
 from .models import Finding
+from .prepare import prepare_command
 from .recipes import Recipe, recipe_for, recipe_url
 from . import messages
 from .verification import DetectorVerification, NewInOutput
@@ -121,7 +122,7 @@ def render(
     _render_gap_list(console, gaps, lang)
     _render_gap_details(console, gaps, lang)
     _render_top_objects(findings, console, lang)
-    _render_footer_hints(console, lang)
+    _render_footer_hints(console, lang, findings)
 
 
 def _title_text(detector: str, lang: str, style: str = "bold") -> Text:
@@ -289,6 +290,12 @@ def _render_gap_details(console: Console, gaps: list[GapGroup], lang: str) -> No
             fix.append(f"{i18n.t(lang, 'report_gap_fix')}: ", style=f"bold {_ACCENT}")
             fix.append(hint)
             body.append(fix)
+        command = prepare_command(g.detector)
+        if command is not None:
+            before = Text()
+            before.append(f"{i18n.t(lang, 'report_gap_prepare')}: ", style=f"bold {_ACCENT}")
+            before.append(command, style=_CODE_STYLE)
+            body.append(before)
         recipe = recipe_for(g.detector)
         if recipe is not None:
             body.append(_recipe_text(recipe, lang))
@@ -414,14 +421,22 @@ _NEXT_STEPS = (
 )
 
 
-def _render_footer_hints(console: Console, lang: str = "ru") -> None:
+def _render_footer_hints(console: Console, lang: str = "ru", findings: list[Finding] | None = None) -> None:
     console.print()
     console.print(Text(i18n.t(lang, "next_steps_heading"), style="bold"))
     steps = Table.grid(padding=(0, 2))
     steps.add_column(style=f"bold {_ACCENT}", no_wrap=True)
     steps.add_column(style="dim")
     steps.add_column(style=_CODE_STYLE, overflow="fold")
-    for n, (key, command) in enumerate(_NEXT_STEPS, 1):
+    plan = list(_NEXT_STEPS)
+    # Only when this scan found something --prepare removes: then it is the
+    # first thing to do, before ora2pg ever reads the dump.
+    prepare = next(
+        (c for c in (prepare_command(d) for d in dict.fromkeys(f.detector for f in findings or ())) if c), None
+    )
+    if prepare is not None:
+        plan.insert(0, ("next_step_prepare", prepare))
+    for n, (key, command) in enumerate(plan, 1):
         steps.add_row(str(n), i18n.t(lang, key), command)
     console.print(steps)
     console.print()

@@ -585,6 +585,10 @@ def _classify(
     if finding is not None:
         return _load_error(raw, file, line, statement.start_line, GAP, finding.detector)
 
+    signature = _output_signature(prepared.source, statement, line)
+    if signature is not None:
+        return _load_error(raw, file, line, statement.start_line, GAP, signature)
+
     category = DEPENDENCY if raw.sqlstate in _DEPENDENCY_STATES or _missing_anchor(raw) else UNKNOWN
     return _load_error(raw, file, line, statement.start_line, category)
 
@@ -597,6 +601,46 @@ _ANCHORED_TYPE_RE = re.compile(r'^invalid type name ".*%(?:ROW)?TYPE"$', re.IGNO
 
 def _missing_anchor(raw: _RawError) -> bool:
     return raw.sqlstate == "42601" and bool(raw.context and _ANCHORED_TYPE_RE.match(raw.context))
+
+
+# What some gaps leave in ora2pg's *output*. The detectors look for the
+# Oracle construct, and for these gaps it does not survive conversion (they
+# are not_verifiable), so a load error caused by one cannot be tied to it by
+# re-running the detector. The footprint ora2pg leaves instead can be
+# recognised on the failing line or statement. Each one is the exact shape
+# recorded in the gap's research doc.
+_REFCURSOR_TYPE_RE = re.compile(r"\bCREATE\s+OR\s+REPLACE\s+TYPE\s+\S+\s+AS\s+REFCURSOR\b", re.IGNORECASE)
+# current_setting('pkg.c')::varchar(30) followed straight by a name or by
+# another current_setting( -- two operands spliced with no operator.
+_SPLICED_CONSTANT_RE = re.compile(
+    r"current_setting\('[^']*'\)::[A-Za-z_]\w*\b(?:\s*\(\s*\d+(?:\s*,\s*\d+)?\s*\))?(?:current_setting\(|[A-Za-z_])",
+    re.IGNORECASE,
+)
+# A bare procedure call statement: pkg.proc(...); or pkg.proc; -- what a
+# trigger keeps (GAP-117). Inside a package, GAP-116's repeat comes out as
+# pkg.proc(); with the empty parentheses ora2pg adds, and only that shape
+# is its footprint: a bare call with arguments there is something else (a
+# package outside the run, OWA's htp.p).
+_BARE_CALL_RE = re.compile(r"^\s*[A-Za-z_]\w*\s*\.\s*[A-Za-z_]\w*\s*(?:\(.*\))?\s*;\s*$")
+_EMPTY_PARENS_CALL_RE = re.compile(r"^\s*[A-Za-z_]\w*\s*\.\s*[A-Za-z_]\w*\s*\(\s*\)\s*;\s*$")
+_TRIGGER_FUNCTION_RE = re.compile(r"\bRETURNS\s+trigger\b", re.IGNORECASE)
+
+
+def _output_signature(source: str, statement: Statement, line: int) -> str | None:
+    """The detector whose gap left the footprint the failing line shows, or
+    None."""
+    text = source[statement.start : statement.end]
+    lines = source.split("\n")
+    at = lines[line - 1] if 0 < line <= len(lines) else ""
+    if _REFCURSOR_TYPE_RE.search(text):
+        return "ref_cursor_type"
+    if _SPLICED_CONSTANT_RE.search(at):
+        return "package_constant_chain"
+    if _TRIGGER_FUNCTION_RE.search(text):
+        return "trigger_package_call" if _BARE_CALL_RE.match(at) else None
+    if _EMPTY_PARENS_CALL_RE.match(at):
+        return "repeated_package_call"
+    return None
 
 
 def classify_errors(raw_errors: Sequence[_RawError], prepared: Sequence[_PreparedFile], dialect: str) -> list[LoadError]:

@@ -395,3 +395,27 @@ def test_real_postgres_tells_the_broken_example_from_the_fixed_one():
     fixed = run_load_check([EXAMPLE / "generated_fixed" / "bulk_test_pkg.sql"], parse_target("docker"))
     assert fixed.errors == () and not fixed.failed
     assert fixed.server_version and fixed.server_version.startswith("16")
+
+
+def test_data_files_load_after_tables_and_before_indexes(tmp_path):
+    root = tmp_path / "out"
+    root.mkdir()
+    for name in ("INDEXES_output.sql", "COPY_output.sql", "TABLE_output.sql"):
+        (root / name).write_text("SELECT 1;\n", encoding="utf-8")
+    ordered, _ = order_files([root])
+    assert [p.name for p in ordered] == ["TABLE_output.sql", "COPY_output.sql", "INDEXES_output.sql"]
+
+
+@pytest.mark.docker
+@pytest.mark.skipif(not _docker_usable(), reason="needs a working docker (Linux)")
+def test_real_postgres_loads_copy_data_and_keeps_reading_after_it(tmp_path):
+    data = tmp_path / "data.sql"
+    data.write_text(
+        "CREATE TABLE t (id int, name text);\n"
+        "COPY t (id, name) FROM STDIN;\n1\tone; two\n2\tO'Brien\n\\.\n"
+        "DO $$ BEGIN ASSERT (SELECT name FROM t WHERE id = 2) = 'O''Brien'; END $$;\n"
+        "SELECT * FROM missing_after_copy;\n",
+        encoding="utf-8",
+    )
+    result = run_load_check([data], parse_target("docker"))
+    assert [(e.line, e.sqlstate) for e in result.errors] == [(7, "42P01")]

@@ -188,6 +188,9 @@ for _rank, _names in enumerate(
         ("SEQUENCE", "SEQUENCES"),
         ("TABLE", "TABLES"),
         ("PARTITION", "PARTITIONS"),
+        # data, after the tables it fills and before the indexes and
+        # constraints that would slow the load or reject half-loaded rows
+        ("COPY", "INSERT", "DATA"),
         ("FDW", "FOREIGN"),
         ("VIEW", "VIEWS", "SYNONYM", "SYNONYMS"),
         ("MVIEW", "MVIEWS", "MATERIALIZED"),

@@ -126,3 +126,32 @@ def test_sanitize_keeps_non_utf8_bytes_through_surrogateescape():
 
 def test_leading_keywords_are_uppercased():
     assert _keywords("create or replace view v as select 1;") == [("CREATE", "OR", "REPLACE")]
+
+
+def test_copy_from_stdin_data_is_not_lexed_as_sql():
+    # ora2pg's data export: the rows after COPY ... FROM STDIN are data up
+    # to a line holding only \. -- a quote or a semicolon in them is text.
+    source = (
+        "COPY t (id, name) FROM STDIN;\n"
+        "1\tone; two\n"
+        "2\tO'Brien\n"
+        "\\.\n"
+        "SELECT 1;\n"
+    )
+    parsed = parse_script(source)
+    assert parsed.unterminated is None
+    assert [(s.start_line, s.keywords[0]) for s in parsed.statements] == [(1, "COPY"), (5, "SELECT")]
+    assert parsed.meta_commands == ()
+    clean, removed = sanitize(source)
+    assert clean == source and removed == []
+
+
+def test_copy_to_stdout_has_no_data_to_skip():
+    parsed = parse_script("COPY t TO STDOUT;\nSELECT 1;\n")
+    assert [s.keywords[0] for s in parsed.statements] == ["COPY", "SELECT"]
+
+
+def test_copy_data_without_an_end_marker_runs_to_the_end():
+    parsed = parse_script("COPY t FROM stdin;\n1\tx\n2\ty'\n")
+    assert parsed.unterminated is None
+    assert len(parsed.statements) == 1

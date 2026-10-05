@@ -79,6 +79,11 @@ patch for fixes to existing ones.
 
 ### Fixed
 
+- `--load-check` read the data of a `COPY ... FROM STDIN` (ora2pg's data
+  export) as SQL: a quote in a row made it skip the whole file as unterminated,
+  and the `\.` that ends the data would have been blanked. The rows are now
+  passed to psql as data, and data files load after the tables and before the
+  indexes.
 - `docs/ARCHITECTURE.ru.md` listed `cli.py` twice in the package tree.
 - GAP-005 (`connect_by`) had no title, so the reports showed its group under
   the bare detector name; it now has the registry's title, and `doctor.py` no

@@ -91,6 +91,7 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-116 | Повторный `pkg.proc;` без скобок - теряет `CALL`, подпрограмма не загружается | `repeated_package_call` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-116](gap-116-repeated-package-call.md) |
 | GAP-117 | Вызов процедуры пакета из триггера - копируется без `CALL`, триггер не загружается | `trigger_package_call` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-117](gap-117-trigger-package-call.md) |
 | GAP-118 | Триггер уровня команды становится `FOR EACH ROW` - срабатывает на каждую строку | `statement_trigger` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-118](gap-118-statement-trigger.md) |
+| GAP-119 | Константа пакета в умолчании параметра - копируется как есть, функция не загружается | `package_constant_default` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-119](gap-119-package-constant-default.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

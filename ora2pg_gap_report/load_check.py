@@ -585,7 +585,7 @@ def _classify(
     if finding is not None:
         return _load_error(raw, file, line, statement.start_line, GAP, finding.detector)
 
-    signature = _output_signature(prepared.source, statement, line)
+    signature = _output_signature(prepared.source, statement, line, raw.message)
     if signature is not None:
         return _load_error(raw, file, line, statement.start_line, GAP, signature)
 
@@ -626,7 +626,17 @@ _EMPTY_PARENS_CALL_RE = re.compile(r"^\s*[A-Za-z_]\w*\s*\.\s*[A-Za-z_]\w*\s*\(\s
 _TRIGGER_FUNCTION_RE = re.compile(r"\bRETURNS\s+trigger\b", re.IGNORECASE)
 
 
-def _output_signature(source: str, statement: Statement, line: int) -> str | None:
+# GAP-119: the name PostgreSQL could not resolve sits in a parameter's
+# DEFAULT -- "column "g_os" does not exist" for a bare name, "missing
+# FROM-clause entry for table "pkg"" for pkg.g_os.
+_UNRESOLVED_NAME_RE = re.compile(r'^(?:column|missing FROM-clause entry for table) "([^"]+)"')
+
+
+def _in_a_default(statement_text: str, name: str) -> bool:
+    return bool(re.search(rf"\bDEFAULT\s+{re.escape(name)}\b", statement_text, re.IGNORECASE))
+
+
+def _output_signature(source: str, statement: Statement, line: int, message: str = "") -> str | None:
     """The detector whose gap left the footprint the failing line shows, or
     None."""
     text = source[statement.start : statement.end]
@@ -634,6 +644,9 @@ def _output_signature(source: str, statement: Statement, line: int) -> str | Non
     at = lines[line - 1] if 0 < line <= len(lines) else ""
     if _REFCURSOR_TYPE_RE.search(text):
         return "ref_cursor_type"
+    unresolved = _UNRESOLVED_NAME_RE.match(message)
+    if unresolved is not None and _in_a_default(text, unresolved.group(1)):
+        return "package_constant_default"
     if _SPLICED_CONSTANT_RE.search(at):
         return "package_constant_chain"
     if _TRIGGER_FUNCTION_RE.search(text):

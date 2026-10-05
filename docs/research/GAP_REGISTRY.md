@@ -92,6 +92,7 @@ being after them.
 | GAP-116 | A repeated `pkg.proc;` without parentheses - loses `CALL`, the routine does not load | `repeated_package_call` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-116](gap-116-repeated-package-call.md) |
 | GAP-117 | A package procedure called from a trigger - copied without `CALL`, the trigger does not load | `trigger_package_call` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-117](gap-117-trigger-package-call.md) |
 | GAP-118 | A statement-level trigger becomes `FOR EACH ROW` - fires once per row | `statement_trigger` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-118](gap-118-statement-trigger.md) |
+| GAP-119 | A package constant as a parameter default - copied as it is, the function does not load | `package_constant_default` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-119](gap-119-package-constant-default.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

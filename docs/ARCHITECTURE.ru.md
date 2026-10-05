@@ -14,9 +14,9 @@
 принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
 госсектор.
 
-Детекторов сейчас 119 (полная таблица — в README.md, «Детекторы»; 118 из
+Детекторов сейчас 120 (полная таблица — в README.md, «Детекторы»; 119 из
 них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
-README.md, «Почему почти всё high»), в трёх исходных диалектах: 74 Oracle,
+README.md, «Почему почти всё high»), в трёх исходных диалектах: 75 Oracle,
 25 MySQL/MariaDB (`ora2pg -m`) и 19 T-SQL/SQL Server (`ora2pg -M`). У
 каждого диалекта свой лексер (`plsql_lex.py`, `mysql_lex.py`,
 `mssql_lex.py`) и свой кортеж детекторов в `core.py`; они разделены
@@ -127,6 +127,7 @@ ora2pg_gap_report/
 │   ├── repeated_package_call.py   # повторный pkg.proc; без скобок -- теряет CALL
 │   ├── trigger_package_call.py    # вызов процедуры пакета из триггера -- копируется без CALL
 │   ├── statement_trigger.py       # триггер уровня команды -- становится FOR EACH ROW
+│   ├── package_constant_default.py  # константа пакета в умолчании параметра -- копируется, не загружается
 │   │                             # -- диалект MySQL/MariaDB (ora2pg -m; см. mysql_lex.py) --
 │   ├── mysql_enum_type.py         # ENUM(...) -- нет CREATE TYPE для синтезированного типа
 │   ├── mysql_on_update_current_timestamp.py  # ON UPDATE CURRENT_TIMESTAMP -- копируется в DEFAULT как есть

@@ -228,6 +228,7 @@ VERIFICATION_MODE: dict[str, str] = {
     "repeated_package_call": NOT_VERIFIABLE,  # the call gains parentheses; the parenthesis-free shape never survives
     "trigger_package_call": VERBATIM,  # the call is copied unchanged into the trigger function
     "statement_trigger": NOT_VERIFIABLE,  # the statement-level header is replaced by FOR EACH ROW
+    "package_constant_default": NOT_VERIFIABLE,  # the default survives, but outside any package the detector reads
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists
     # for verify to compare against.

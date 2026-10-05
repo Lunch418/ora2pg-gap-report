@@ -28,7 +28,7 @@ T-SQL script from SSMS (TABLE / PROCEDURE / INDEX / ...)
             ora2pg-gap-report
                     │
                     ▼
-   118 confirmed types of ora2pg migration gaps
+   119 confirmed types of ora2pg migration gaps
    ┌──────────────────────────────────────────────────────────────────┐
    │ HIGH    GAP-006  database_link          — @dblink not in PG      │
    │ MEDIUM  GAP-025  invisible_index        — loses invisibility     │
@@ -155,6 +155,7 @@ empirically against real PL/SQL code
 | `repeated_package_call` | `pkg.proc;` written without parentheses, when the same routine already called it - the repeat loses `CALL` and the routine fails to load |
 | `trigger_package_call` | A trigger calling a package procedure - triggers are converted on their own, so the call is copied without `CALL` and the trigger fails to load |
 | `statement_trigger` | A statement-level trigger (no `FOR EACH ROW`) - ora2pg writes `FOR EACH ROW`, so it fires once per row instead of once per statement, silently |
+| `package_constant_default` | A package constant as a parameter default (`p_os := g_os_windows`) - copied as it is while the body's reads are rewritten; the function fails to load |
 
 The twenty-five below are the MySQL/MariaDB dialect (`--dialect mysql`, `ora2pg
 -m` — see "Source dialects" further down); every other detector in this
@@ -220,16 +221,16 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 118 registered gaps (`gap_registry.py`) — 74 from the Oracle source
+Of the 119 registered gaps (`gap_registry.py`) — 75 from the Oracle source
 dialect, 25 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 19 from
 T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); see "Source dialects"
-below — 112 are `high` and 6 are `medium` (`context_object`,
+below — 113 are `high` and 6 are `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 on the Oracle side, `mysql_set_type` on the MySQL side; the MSSQL batch has
 no `medium` at all) — `severity` is a `GapEntry` field now, cross-checked by
 `scripts/doctor.py` against the literal a detector's own source actually
 uses, not just a count taken on faith. Separately, there's one more detector
-on top of those 118, `dbms_utl_calls` — a
+on top of those 119, `dbms_utl_calls` — a
 classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
 no single reproducible minimal example — that's a deliberately broad
 category), also `medium`. `low` is a valid value in the
@@ -414,7 +415,7 @@ the `[tui]` extra installed prints a plain install hint, not a traceback.
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 118 — a single
+finding was confirmed against (currently 25.0/16 for all 119 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -648,18 +649,18 @@ same pattern already in the generated code. And even so, it doesn't work
 the same way for every detector:
 
 - **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
-  `json_table`, `identity_column`, and 49 more — 52 of the 119 detectors) —
+  `json_table`, `identity_column`, and 49 more — 52 of the 120 detectors) —
   for these, re-running the detector against the output is meaningful:
   `STILL_PRESENT` if the pattern remains, `NOT_DETECTED` if it's gone.
 - **Some `ora2pg` drops or rewrites away entirely** (`read_only_table`,
-  `table_partitioning`, and 64 more — 66 of the 119) — the construct isn't
+  `table_partitioning`, and 65 more — 67 of the 120) — the construct isn't
   in the output *by definition*, regardless of whether someone fixed the
   problem by hand some other way. For these, the honest status is `NOT_VERIFIABLE`, not a
   fabricated `NOT_DETECTED`: treating absence as proof of a fix would be
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 118 gaps —
+Which mode applies to which detector, and why, for all 119 gaps —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't

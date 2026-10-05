@@ -12,7 +12,7 @@ methodology, see the "Methodology" section of the project's main README).
   expected/actual, detector, regression tests (including guard tests
   against false positives), and verification on a large open-source
   corpus where applicable.
-- `gap-001-autonomous-transaction.md` … `gap-118-statement-trigger.md` —
+- `gap-001-autonomous-transaction.md` … `gap-119-package-constant-default.md` —
   the detailed research for each gap: minimal example, ora2pg output,
   observed problem, verdict.
 - `rejected-hypotheses.md` — hypotheses that were tested and not

@@ -43,6 +43,7 @@ def test_scan_source_runs_all_detectors_on_logger():
         "nested_subprogram",
         "package_state",
         "package_constant_chain",
+        "package_constant_default",
         "pragma_exception_init",
     }
     # package_constant_chain: gc_timestamp_format := gc_date_format || ':FF'
@@ -73,7 +74,9 @@ def test_scan_source_runs_all_detectors_on_logger():
     # constructed for the test.
     # package_constant_chain: gc_timestamp_format and gc_timestamp_tz_format,
     # each built from the format before it (GAP-114).
-    assert len(findings) == 8 + 17 + 1 + 229 + 5 + 25 + 1 + 2
+    # package_constant_default: eleven routines whose parameter defaults to
+    # logger.gc_empty_tab_param and friends (GAP-119).
+    assert len(findings) == 8 + 17 + 1 + 229 + 5 + 25 + 1 + 2 + 11
 
 
 def test_scan_source_sorts_high_severity_first():

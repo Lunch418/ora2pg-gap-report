@@ -3835,6 +3835,26 @@ MESSAGES: dict[str, Message] = {
             ' RETURN NULL in the function.'
         ),
     ),
+    "package_constant_default": Message(
+        ru=(
+            'Параметр подпрограммы пакета, чьё значение по умолчанию - константа или переменная пакета (p_os IN V'
+            'ARCHAR2 := g_os_windows). Чтение такой переменной в теле ora2pg переписывает в current_setting() (GA'
+            'P-036), а в умолчании параметра - нет: p_os text DEFAULT g_os_windows копируется как есть, и Postgre'
+            'SQL, у которого такого имени нет, отвергает функцию при загрузке (\'column "g_os_windows" does not ex'
+            'ist\', для pkg.c_name - \'missing FROM-clause entry for table "pkg"\') - подтверждено реальным прогоном'
+            ' ora2pg 25.0 + PostgreSQL 16 и живым Oracle 23ai, docs/research/gap-119-package-constant-default.md.'
+            ' Подставьте значение константы литералом или вызовом функции, которая его возвращает.'
+        ),
+        en=(
+            'A package routine parameter whose default is a package constant or variable (p_os IN VARCHAR2 := g_o'
+            's_windows). ora2pg rewrites a read of such a variable inside a body into current_setting() (GAP-036)'
+            ', but not in a parameter default: p_os text DEFAULT g_os_windows is copied as it is, and PostgreSQL,'
+            ' which has no such name, rejects the function at load time (\'column "g_os_windows" does not exist\', '
+            'for pkg.c_name \'missing FROM-clause entry for table "pkg"\') - confirmed against a real ora2pg 25.0 +'
+            ' PostgreSQL 16 run and a live Oracle 23ai, docs/research/gap-119-package-constant-default.md. Put th'
+            "e constant's value in as a literal, or a call to a function that returns it."
+        ),
+    ),
     "temporal_validity.alter": Message(
         ru=(
             'PERIOD FOR (temporal validity, 12c) в записи DBMS_METADATA.GET_DDL — отдельной '
@@ -5057,6 +5077,14 @@ REMEDIATION_HINTS: dict[str, Message] = {
             'ce per row'
         ),
     ),
+    "package_constant_default": Message(
+        ru=(
+            'Заменить в DEFAULT имя константы её значением или вызовом функции, возвращающей значение'
+        ),
+        en=(
+            "Replace the constant's name in the DEFAULT with its value, or a call to a function returning it"
+        ),
+    ),
 }
 
 
@@ -5382,6 +5410,10 @@ TITLES: dict[str, Message] = {
     "statement_trigger": Message(
         ru='Триггер уровня команды становится `FOR EACH ROW` - срабатывает на каждую строку',
         en='A statement-level trigger becomes `FOR EACH ROW` - fires once per row',
+    ),
+    "package_constant_default": Message(
+        ru='Константа пакета в умолчании параметра - копируется как есть, функция не загружается',
+        en='A package constant as a parameter default - copied as it is, the function does not load',
     ),
     "mysql_enum_type": Message(
         ru='`ENUM(...)` — ссылка на несуществующий синтезированный тип',

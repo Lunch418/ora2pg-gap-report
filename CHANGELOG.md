@@ -11,7 +11,7 @@ patch for fixes to existing ones.
 
 ### Added
 
-- **GAP-114..118, found by `--load-check` on real code.** Loading ora2pg's
+- **GAP-114..119, found by `--load-check` on real code.** Loading ora2pg's
   output for the open-source packages in `docs/research/samples/` showed errors
   no registered gap explained. Each was reduced to a minimal case and confirmed
   the usual way: live Oracle 23ai, ora2pg 25.0 on the hand-written and the
@@ -28,6 +28,10 @@ patch for fixes to existing ones.
     triggers are converted on their own, so the call is copied without `CALL`.
   - GAP-118 `statement_trigger`: a statement-level trigger comes out `FOR EACH
     ROW` - it loads, and fires once per row instead of once per statement.
+  - GAP-119 `package_constant_default`: a package constant as a parameter
+    default is copied as it is while reads in the body are rewritten; the
+    function fails to load (alexandria-plsql-utils' file_util_pkg, eleven
+    routines in Logger).
 - **`--load-check` recognises what not-verifiable gaps leave in the output**
   (`CREATE TYPE ... AS REFCURSOR`, spliced `current_setting()` calls, bare
   procedure calls), so their load errors are tied to the gap even though the

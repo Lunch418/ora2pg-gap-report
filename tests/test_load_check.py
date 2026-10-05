@@ -547,3 +547,24 @@ def test_footprints_of_bare_calls(tmp_path, monkeypatch):
     )
     (error,) = run_load_check([q], parse_target("dbname=x")).errors
     assert error.category == "unknown"
+
+
+def test_footprint_of_a_package_constant_default(tmp_path, monkeypatch):
+    body = (
+        "CREATE OR REPLACE FUNCTION file_pkg.sep (p_os text DEFAULT g_os_windows) RETURNS varchar AS $body$\n"
+        "BEGIN\n  RETURN p_os;\nEND;\n$body$ LANGUAGE plpgsql;\n"
+    )
+    path = _write(tmp_path, "f.sql", body)
+    err = 'psql:{script}:6: ERROR:  42703: column "g_os_windows" does not exist'
+    monkeypatch.setattr(load_check, "_run", FakePsql({"f.sql": err}))
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert (error.category, error.gap_number) == ("gap", "119")
+
+    qualified = body.replace("DEFAULT g_os_windows", "DEFAULT file_pkg.g_os_windows")
+    sub = tmp_path / "q"
+    sub.mkdir()
+    path = _write(sub, "f.sql", qualified)
+    err = 'psql:{script}:6: ERROR:  42P01: missing FROM-clause entry for table "file_pkg"'
+    monkeypatch.setattr(load_check, "_run", FakePsql({"f.sql": err}))
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert (error.category, error.gap_number) == ("gap", "119")

@@ -739,6 +739,14 @@ GapEntry(
         severity="high",
         failure_stage="semantic",
         dialect="oracle", last_verified="2026-10-05"),
+    GapEntry(
+        "119",
+        "package_constant_default",
+        "package-constant-default",
+        ("test_package_constant_default.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-05"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

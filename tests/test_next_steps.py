@@ -65,3 +65,13 @@ def test_prepare_comes_first_when_the_scan_found_something_it_removes():
 
 def test_no_prepare_step_when_nothing_needs_it():
     assert "--prepare" not in _report("en")
+
+
+def test_next_commands_carry_a_non_oracle_dialect():
+    from ora2pg_gap_report import messages
+
+    message_id = next(k for k in messages.MESSAGES if k.startswith("mysql_delimiter_trigger"))
+    tail = _report_for("mysql_delimiter_trigger", message_id).split("Next", 1)[1]
+    assert "ora2pg-gap-report --dialect mysql --fix --write out/" in tail
+    assert "ora2pg-gap-report --dialect mysql ... -f checklist" in tail
+    assert "--dialect" not in _report("en").split("Next", 1)[1]

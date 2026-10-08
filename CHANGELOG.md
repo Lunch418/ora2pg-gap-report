@@ -79,6 +79,9 @@ patch for fixes to existing ones.
 - Gap titles, finding texts, the interface strings and the hour range are
   written with a plain `-`, instead of a mix of long and short dashes; the scan
   time uses the language's decimal mark (`0,2 с` in Russian).
+- `--migrate` says why it stopped when some paths cannot be read, and its
+  "ora2pg not found" hint names an image that works:
+  `--ora2pg-bin docker:ghcr.io/lunch418/ora2pg-gap-report`.
 
 ## [0.14.0] - 2026-10-08
 

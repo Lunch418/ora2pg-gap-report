@@ -50,12 +50,18 @@ project exists - is already in place:
   MIGRATION.md` writes the work as a Markdown task list; regenerating it
   keeps the ticks and ticks what the source no longer contains.
 - **One-command migration**: `--migrate OUT_DIR` runs scan,
-  prepare, ora2pg, fix and load in order, into one directory.
+  prepare, ora2pg, fix and load in order, into one directory - and puts
+  back what only the source still knows (statement triggers, package
+  constants, MySQL ENUM types). Also from the TUI's Migrate screen.
+- **Docker image and GitHub Action**: `ghcr.io/lunch418/ora2pg-gap-report`
+  carries the tool, ora2pg and psql; the repository is an Action that
+  scans, uploads SARIF to code scanning and gates a pull request.
 - **Source preparation**: `--prepare` rewrites what ora2pg's
   parser trips over in the dump itself, before ora2pg runs, for seven gaps
   that cannot be repaired in its output afterwards.
-- **Autofix**: `--fix`/`--write` - three mechanical fixes for `ora2pg`'s
-  generated code (GAP-028 for Oracle, GAP-091 and GAP-100 for T-SQL), dry
+- **Autofix**: `--fix`/`--write` - six mechanical fixes for `ora2pg`'s
+  generated code (GAP-024, GAP-028 and GAP-123 for Oracle, GAP-075 for
+  MySQL, GAP-091 and GAP-100 for T-SQL), dry
   run by default, preserving the file's encoding, line endings and BOM.
 
 - **Verification, not guessing**: `--verify` compares the converted
@@ -160,16 +166,12 @@ waiting for its trigger.
 ### Migration workflow
 - `waiver`/suppression with an explicit expiry - an accepted and
   documented risk, not a forgotten one.
-- `--load-check` from inside `--tui`, and an HTML version of its report
-  next to the scan report.
+- `--load-check` on its own from inside `--tui` (today it runs there only
+  as part of Migrate).
 - More recipes, for the gap classes that have none yet (object types,
   `MODEL`, `MATCH_RECOGNIZE`, compound triggers, Oracle Text, `ROWNUM` in
   DML). Each one needs code that passes the recipe test, the same bar as
   the fifteen there now.
-
-### Ecosystem
-- An official GitHub Action example (a wrapper around the CLI + SARIF,
-  not a separate service).
 
 ### Trust and transparency
 - Re-verifying the registry against newer `ora2pg` releases and

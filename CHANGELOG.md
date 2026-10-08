@@ -67,6 +67,9 @@ patch for fixes to existing ones.
 - `--migrate`'s GAP-114 repair takes every spliced shape: ora2pg 25.0
   splices a chain of constants differently from run to run (it walks a Perl
   hash), and a nested chain (`c3 c2 c1||||`) was left half-replaced.
+- `--ora2pg-bin docker:IMAGE` starts ora2pg as the container's entrypoint,
+  so it works with any image that has ora2pg on PATH - this project's own
+  image included, whose entrypoint is the tool itself.
 
 ## [0.14.0] - 2026-10-08
 

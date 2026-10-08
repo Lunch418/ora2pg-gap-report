@@ -187,3 +187,16 @@ def test_source_aware_repairs_run_on_the_output(tmp_path, monkeypatch):
     converted = {p.name.split("_", 1)[1]: p.read_text(encoding="utf-8") for p in result.converted}
     assert "FOR EACH STATEMENT" in converted["TRIGGER_output.sql"]
     assert "current_setting" not in converted["PACKAGE_output.sql"]
+
+
+def test_a_docker_image_runs_ora2pg_as_its_entrypoint(tmp_path):
+    # This project's own image has ora2pg-gap-report as its entrypoint;
+    # `docker run IMAGE ora2pg ...` would hand "ora2pg" to the tool.
+    from ora2pg_gap_report.ora2pg_wrapper import ora2pg_command
+
+    command = ora2pg_command("docker:ghcr.io/lunch418/ora2pg-gap-report:0.15.0", [tmp_path])
+    assert command == [
+        "docker", "run", "--rm", "-v", f"{tmp_path.resolve()}:{tmp_path.resolve()}",
+        "--entrypoint", "ora2pg", "ghcr.io/lunch418/ora2pg-gap-report:0.15.0",
+    ]
+    assert ora2pg_command("/opt/ora2pg/bin/ora2pg", [tmp_path]) == ["/opt/ora2pg/bin/ora2pg"]

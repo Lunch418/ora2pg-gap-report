@@ -894,6 +894,8 @@ async def test_migrate_runs_the_pipeline_and_shows_its_summary(tmp_path, monkeyp
         summary = screen.result_text.plain
         assert ("Migration: Oracle -> PostgreSQL" if lang == "en" else "Oracle -> PostgreSQL") in summary
         assert (out / "report.html").exists() and (out / "MIGRATION.md").exists()
+        # worded for this screen, not for the command line
+        assert i18n.t(lang, "migrate_next_rerun_tui") in summary
         # --fix ran on the output, as on the command line
         assert "IDENTITY (START WITH 1)" in (out / "converted" / "03_TABLE_output.sql").read_text(encoding="utf-8")
 

@@ -892,7 +892,7 @@ class MigrateScreen(_SpinnerStatus, Screen[None]):
 
         width = max(60, self.size.width - 6)
         console = Console(file=io.StringIO(), record=True, width=width, force_terminal=True, color_system="truecolor")
-        render_migration(result, load, console=console, lang=lang, load_check_asked=load_check)
+        render_migration(result, load, console=console, lang=lang, load_check_asked=load_check, in_tui=True)
         self.app.call_from_thread(self._show_result, Text.from_ansi(console.export_text(styles=True)))
 
 

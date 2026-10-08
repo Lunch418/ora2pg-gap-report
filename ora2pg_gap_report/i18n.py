@@ -652,7 +652,7 @@ _UI: dict[str, dict[str, str]] = {
     "migrate_step_scan": {"ru": "Сканирование исходника...", "en": "Scanning the source..."},
     "migrate_step_prepare": {"ru": "Подготовка копии исходника...", "en": "Preparing a copy of the source..."},
     "migrate_step_convert": {"ru": "ora2pg: {detail}...", "en": "ora2pg: {detail}..."},
-    "migrate_step_fix": {"ru": "Механические исправления...", "en": "Mechanical fixes..."},
+    "migrate_step_fix": {"ru": "Исправления...", "en": "Repairs..."},
     "migrate_step_load": {"ru": "Загрузка в PostgreSQL...", "en": "Loading into PostgreSQL..."},
     "migrate_heading": {"ru": "Миграция {source} -> PostgreSQL", "en": "Migration: {source} -> PostgreSQL"},
     "migrate_row_scan": {"ru": "Скан", "en": "Scan"},
@@ -696,6 +696,14 @@ _UI: dict[str, dict[str, str]] = {
     "migrate_next_rerun": {
         "ru": "после правок исходника запустите ту же команду ещё раз",
         "en": "after changing the source, run the same command again",
+    },
+    "migrate_next_add_load_check_tui": {
+        "ru": "отметьте \"загрузить в PostgreSQL в docker\", чтобы проверить converted/ на настоящем PostgreSQL",
+        "en": 'tick "load into PostgreSQL in docker" to check converted/ against a real PostgreSQL',
+    },
+    "migrate_next_rerun_tui": {
+        "ru": "после правок исходника нажмите \"Запустить\" ещё раз",
+        "en": 'after changing the source, press "Run" again',
     },
     # --load-check (loading the generated output into a real PostgreSQL, see load_check.py)
     "load_check_conflict_error": {

@@ -9,6 +9,15 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Added
+
+- **An all-in-one docker image**, `ghcr.io/lunch418/ora2pg-gap-report`: the
+  tool, ora2pg 25.0 (built from the same pinned commit as CI) and psql, plus the
+  docker CLI so `--load-check docker` works through the host's socket. With it,
+  `--migrate` needs nothing installed but docker. Published on every release;
+  CI builds it on every pull request and runs `--migrate` with a load check
+  inside it.
+
 ## [0.14.0] - 2026-10-08
 
 ### Added

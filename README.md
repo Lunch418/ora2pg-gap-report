@@ -42,6 +42,20 @@ mode of its own:
 itself is needed for `--migrate` (on `PATH`, or `--ora2pg-bin
 docker:IMAGE`); scanning alone needs nothing but Python.
 
+**Or nothing but docker.** The image has the tool, ora2pg 25.0 and psql
+in it; give it the docker socket for `--load-check docker`:
+
+```sh
+docker run --rm --user "$(id -u):$(id -g)" --group-add "$(stat -c %g /var/run/docker.sock)" \
+  -v "$PWD:/work" -v /var/run/docker.sock:/var/run/docker.sock \
+  ghcr.io/lunch418/ora2pg-gap-report --migrate out/ --load-check docker schema/
+```
+
+`--user` and `--group-add` make the files in `out/` yours and let the
+container reach docker; for a scan alone, `docker run --rm -v
+"$PWD:/work" ghcr.io/lunch418/ora2pg-gap-report schema/` is enough. The
+image speaks English; add `--lang ru` for Russian.
+
 ![ora2pg-gap-report in a terminal: findings per failure stage, every gap once, and one gap in detail](docs/screenshots/terminal.en.png)
 
 ## The problem

@@ -42,6 +42,20 @@ ora2pg-gap-report --migrate out/ --load-check docker schema/
 `--migrate` нужен сам `ora2pg` (в `PATH` или `--ora2pg-bin docker:IMAGE`);
 для одного сканирования не нужно ничего, кроме Python.
 
+**Или ничего, кроме docker.** В образе есть сам инструмент, ora2pg 25.0 и
+psql; для `--load-check docker` дайте ему docker-сокет:
+
+```sh
+docker run --rm --user "$(id -u):$(id -g)" --group-add "$(stat -c %g /var/run/docker.sock)" \
+  -v "$PWD:/work" -v /var/run/docker.sock:/var/run/docker.sock \
+  ghcr.io/lunch418/ora2pg-gap-report --lang ru --migrate out/ --load-check docker schema/
+```
+
+`--user` и `--group-add` делают файлы в `out/` вашими и дают контейнеру
+доступ к docker; для одного сканирования хватит `docker run --rm -v
+"$PWD:/work" ghcr.io/lunch418/ora2pg-gap-report --lang ru schema/`. По
+умолчанию образ говорит по-английски.
+
 ![ora2pg-gap-report в терминале: находки по стадиям поломки, каждый пробел один раз и один пробел подробно](docs/screenshots/terminal.ru.png)
 
 ## Проблема

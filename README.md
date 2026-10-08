@@ -29,7 +29,7 @@ mode of its own:
 ```
  schema/ (Oracle DDL, a mysqldump, an SSMS script)
     |
-    |  1. scan       119 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
+    |  1. scan       123 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
     |  2. prepare    rewrite what ora2pg's parser trips over  (--prepare)
     |  3. convert    ora2pg, once per object type             -> out/converted/
     |  4. fix        repair ora2pg's known mechanical bugs    (--fix), and what the source says
@@ -174,6 +174,10 @@ empirically against real PL/SQL code
 | `trigger_package_call` | A trigger calling a package procedure - triggers are converted on their own, so the call is copied without `CALL` and the trigger fails to load |
 | `statement_trigger` | A statement-level trigger (no `FOR EACH ROW`) - ora2pg writes `FOR EACH ROW`, so it fires once per row instead of once per statement, silently |
 | `package_constant_default` | A package constant as a parameter default (`p_os := g_os_windows`) - copied as it is while the body's reads are rewritten; the function fails to load |
+| `package_type_anchor` | `%TYPE`/`%ROWTYPE` in a package RECORD field or SUBTYPE - copied into the `CREATE TYPE`/`CREATE DOMAIN` ora2pg makes of it; DDL has no `%TYPE`, it does not load |
+| `package_type_reference` | A package type (`SUBTYPE`, `RECORD`, `TABLE OF`) used in the package's own routines without its name - ora2pg creates it in the package schema and leaves the uses bare: `type does not exist` |
+| `supplied_package_call` | A procedure of a supplied package called as a statement (`DBMS_STATS.GATHER_TABLE_STATS(...)`, `UTL_FILE.FCLOSE(f)`, `HTP.P(...)`) - copied without `CALL`, the routine does not load |
+| `dbms_sleep` | `DBMS_LOCK.SLEEP` / `DBMS_SESSION.SLEEP` - ora2pg writes `pg_sleep(n);` without `PERFORM`, the routine does not load; `--fix` repairs it |
 
 The twenty-five below are the MySQL/MariaDB dialect (`--dialect mysql`, `ora2pg
 -m` — see "Source dialects" further down); every other detector in this
@@ -239,16 +243,16 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 119 registered gaps (`gap_registry.py`) — 75 from the Oracle source
+Of the 123 registered gaps (`gap_registry.py`) — 79 from the Oracle source
 dialect, 25 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 19 from
 T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); see "Source dialects"
-below — 113 are `high` and 6 are `medium` (`context_object`,
+below — 117 are `high` and 6 are `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 on the Oracle side, `mysql_set_type` on the MySQL side; the MSSQL batch has
 no `medium` at all) — `severity` is a `GapEntry` field now, cross-checked by
 `scripts/doctor.py` against the literal a detector's own source actually
 uses, not just a count taken on faith. Separately, there's one more detector
-on top of those 119, `dbms_utl_calls` — a
+on top of those 123, `dbms_utl_calls` — a
 classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
 no single reproducible minimal example — that's a deliberately broad
 category), also `medium`. `low` is a valid value in the
@@ -433,7 +437,7 @@ the `[tui]` extra installed prints a plain install hint, not a traceback.
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 119 — a single
+finding was confirmed against (currently 25.0/16 for all 123 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -667,18 +671,18 @@ same pattern already in the generated code. And even so, it doesn't work
 the same way for every detector:
 
 - **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
-  `json_table`, `identity_column`, and 49 more — 52 of the 120 detectors) —
+  `json_table`, `identity_column`, and 50 more — 53 of the 124 detectors) —
   for these, re-running the detector against the output is meaningful:
   `STILL_PRESENT` if the pattern remains, `NOT_DETECTED` if it's gone.
 - **Some `ora2pg` drops or rewrites away entirely** (`read_only_table`,
-  `table_partitioning`, and 65 more — 67 of the 120) — the construct isn't
+  `table_partitioning`, and 68 more — 70 of the 124) — the construct isn't
   in the output *by definition*, regardless of whether someone fixed the
   problem by hand some other way. For these, the honest status is `NOT_VERIFIABLE`, not a
   fabricated `NOT_DETECTED`: treating absence as proof of a fix would be
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 119 gaps —
+Which mode applies to which detector, and why, for all 123 gaps —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't
@@ -776,18 +780,19 @@ a parser, and rewriting DDL about to be deployed is a much riskier thing to
 get wrong than a missed or extra flag (see `docs/ARCHITECTURE.md`). `--fix`
 is a narrow, deliberate exception: only corrections where the "buggy" shape
 is never what a correct migration would produce and the fix is a pure,
-unambiguous text transformation. Five qualify so far, and which of them
+unambiguous text transformation. Six qualify so far, and which of them
 run is decided by `--dialect`:
 
 | Dialect | Fix | What it undoes |
 |---|---|---|
 | `oracle` | GAP-028 | `ora2pg` wraps an identity column's sequence options in an extra, redundant pair of parens (`GENERATED ALWAYS AS IDENTITY ((START WITH 1))`), which won't load. Strips exactly that outer pair |
 | `oracle` | GAP-024 | A recursive `WITH` is copied without the `RECURSIVE` keyword Oracle does not need and PostgreSQL does (`relation "tree" does not exist`). Adds the keyword to a `WITH` whose CTE refers to itself; one followed by Oracle's `SEARCH`/`CYCLE` clause is left alone |
+| `oracle` | GAP-123 | `DBMS_LOCK.SLEEP` becomes `pg_sleep(n);` - ora2pg's own `PERFORM` rule is shadowed by an earlier bare rewrite, and PL/pgSQL rejects a function called as a statement. Writes `PERFORM` before a `pg_sleep(` that starts a statement |
 | `mssql` | GAP-100 | `CHARINDEX` is translated to the right function but with the quotes doubled — `position(''abc'' in x)`, which is not valid SQL. Removes the doubling, touching nothing else |
 | `mssql` | GAP-091 | A parameterless procedure gets an empty, unparseable `DECLARE ;` block. Deletes it — which is exactly what `ora2pg` itself emits for the same procedure when it takes a parameter |
 | `mysql` | GAP-075 | MySQL's `LIMIT offset, count` is copied as it is, and PostgreSQL rejects it (`LIMIT #,# syntax is not supported`). Rewrites it to `LIMIT count OFFSET offset`; every other MySQL gap needs a design decision or data the generated file no longer has, so it gets no fix |
 
-All five were verified the same way the gaps themselves were: the broken
+All six were verified the same way the gaps themselves were: the broken
 output failing to load into a real PostgreSQL 16, and the fixed output
 loading and running.
 

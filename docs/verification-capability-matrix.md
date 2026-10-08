@@ -10,7 +10,7 @@ something's unimplemented, but because the question itself, "is this
 still in the output," is a tautology for them: the construct is
 guaranteed to never appear in the output on any migration, regardless of
 whether someone fixed it by hand or not. `verification.py`'s docstring
-explains this in detail; this is a table for each of the 119 gaps, so
+explains this in detail; this is a table for each of the 123 gaps, so
 nobody has to read the code just to answer "can this specific one be
 verified."
 
@@ -108,7 +108,7 @@ verified."
 | 066 | `read_only_view` | `not_verifiable` | The WITH READ ONLY clause is dropped unconditionally. |
 | 067 | `sdo_geometry` | `not_verifiable` | Rewritten to the PostGIS `geometry` type; the SDO_GEOMETRY name never survives. |
 
-### Oracle (GAP-112..119)
+### Oracle (GAP-112..123)
 
 | # | Detector | Mode | Why |
 |---|---|---|---|
@@ -120,6 +120,10 @@ verified."
 | 117 | `trigger_package_call` | `verbatim` | The call is copied unchanged into the trigger function. |
 | 118 | `statement_trigger` | `not_verifiable` | The statement-level header is replaced by FOR EACH ROW. |
 | 119 | `package_constant_default` | `not_verifiable` | The default survives, but outside any package the detector reads. |
+| 120 | `package_type_anchor` | `not_verifiable` | The RECORD/SUBTYPE becomes CREATE TYPE/DOMAIN; --load-check knows the copied anchor. |
+| 121 | `package_type_reference` | `not_verifiable` | The declaration becomes CREATE TYPE/DOMAIN; only the bare use is left. |
+| 122 | `supplied_package_call` | `verbatim` | The call statement is copied unchanged. |
+| 123 | `dbms_sleep` | `not_verifiable` | DBMS_LOCK.SLEEP becomes a bare pg_sleep, which --fix repairs. |
 
 ### MySQL/MariaDB (`ora2pg -m`)
 
@@ -175,7 +179,7 @@ verified."
 | 104 | `mssql_computed_column` | `not_verifiable` | Rewritten into a trigger; the `AS (expr)` column syntax never survives. |
 | 105 | `mssql_rowversion` | `not_verifiable` | Rewritten to bytea; the ROWVERSION name never survives. |
 
-Totals among the 119 gaps themselves: 51 `verbatim`, 67 `not_verifiable`
+Totals among the 123 gaps themselves: 52 `verbatim`, 70 `not_verifiable`
 (including `autonomous_tx`, but for a different reason, see above), 1
 `generated_only` (`connect_by`).
 

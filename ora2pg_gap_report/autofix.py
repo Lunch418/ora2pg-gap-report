@@ -5,8 +5,8 @@ docs/ARCHITECTURE.md: the detectors aren't a real parser, and rewriting
 DDL that's about to be deployed carries a much higher cost of being wrong
 than a missed or extra flag does).
 
-Scope is deliberately narrow: five gaps so far (GAP-028 and GAP-024 for
-Oracle, GAP-075 for MySQL, GAP-100 and GAP-091 for T-SQL, see
+Scope is deliberately narrow: six gaps so far (GAP-028, GAP-024 and
+GAP-123 for Oracle, GAP-075 for MySQL, GAP-100 and GAP-091 for T-SQL, see
 FIXERS_BY_DIALECT). GAP-028,
 the first, shows what qualifies: it qualifies specifically because the bug is
 a single, always-identical shape (ora2pg wraps its own correctly-derived
@@ -248,6 +248,32 @@ def fix_mysql_limit_comma(source: str) -> tuple[str, int]:
     return "".join(out), count
 
 
+
+# pg_sleep(...) at the start of a PL/pgSQL statement -- after a `;`,
+# BEGIN, THEN, ELSE or LOOP -- not after PERFORM or SELECT or inside an
+# expression.
+_BARE_PG_SLEEP_RE = re.compile(r"(?:;|\bBEGIN\b|\bTHEN\b|\bELSE\b|\bLOOP\b)\s*(?=pg_sleep\s*\()", re.IGNORECASE)
+
+
+def fix_bare_pg_sleep(source: str) -> tuple[str, int]:
+    """Write the PERFORM that ora2pg's own DBMS_LOCK.SLEEP rewrite loses
+    (GAP-123): `pg_sleep(1);` -> `PERFORM pg_sleep(1);`, returning
+    (fixed_source, number_of_fixes_applied).
+
+    Mechanical: PL/pgSQL rejects a function called as a statement
+    ('syntax error at or near "pg_sleep"', ora2pg 25.0 output loaded into
+    PostgreSQL 16), and PERFORM is the one way to call it there --
+    ora2pg's PLSQL.pm has that very rule, which its earlier bare rewrite
+    shadows. Masked like the others, so a string or a comment is left
+    alone."""
+    from .pg_script import mask_literals
+
+    masked = mask_literals(source)
+    ends = [m.end() for m in _BARE_PG_SLEEP_RE.finditer(masked)]
+    for at in reversed(ends):
+        source = source[:at] + "PERFORM " + source[at:]
+    return source, len(ends)
+
 # Which mechanical fixes apply to which source dialect's generated output.
 # Keyed by the same dialect names core.DIALECTS carries. MySQL has a
 # single fix on purpose, not by oversight: `LIMIT a, b` (GAP-075) is pure
@@ -264,7 +290,7 @@ def fix_mysql_limit_comma(source: str) -> tuple[str, int]:
 Fixer = Callable[[str], tuple[str, int]]
 
 FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
-    "oracle": (fix_identity_double_parens, fix_recursive_with_keyword),
+    "oracle": (fix_identity_double_parens, fix_recursive_with_keyword, fix_bare_pg_sleep),
     "mysql": (fix_mysql_limit_comma,),
     "mssql": (fix_mssql_charindex_quotes, fix_mssql_empty_declare),
 }
@@ -275,6 +301,7 @@ FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
 FIXER_DETECTOR: dict[Fixer, str] = {
     fix_identity_double_parens: "identity_column",
     fix_recursive_with_keyword: "recursive_with",
+    fix_bare_pg_sleep: "dbms_sleep",
     fix_mysql_limit_comma: "mysql_limit_comma",
     fix_mssql_charindex_quotes: "mssql_charindex",
     fix_mssql_empty_declare: "mssql_parameterless_procedure",

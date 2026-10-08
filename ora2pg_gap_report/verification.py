@@ -228,6 +228,10 @@ VERIFICATION_MODE: dict[str, str] = {
     "repeated_package_call": NOT_VERIFIABLE,  # the call gains parentheses; the parenthesis-free shape never survives
     "trigger_package_call": VERBATIM,  # the call is copied unchanged into the trigger function
     "statement_trigger": NOT_VERIFIABLE,  # the statement-level header is replaced by FOR EACH ROW
+    "package_type_anchor": NOT_VERIFIABLE,  # the RECORD/SUBTYPE becomes CREATE TYPE/DOMAIN; --load-check knows its footprint
+    "package_type_reference": NOT_VERIFIABLE,  # the declaration becomes CREATE TYPE/DOMAIN; the bare use is all that is left
+    "supplied_package_call": VERBATIM,  # the call statement is copied unchanged
+    "dbms_sleep": NOT_VERIFIABLE,  # DBMS_LOCK.SLEEP becomes a bare pg_sleep, which --fix repairs
     "package_constant_default": NOT_VERIFIABLE,  # the default survives, but outside any package the detector reads
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists

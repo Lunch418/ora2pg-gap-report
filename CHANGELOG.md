@@ -28,6 +28,19 @@ patch for fixes to existing ones.
   sample packages: 43 repairs, no GAP-114/119 load errors left. The run's
   summary counts them next to the mechanical ones.
 
+- **Four new gaps, GAP-120..123**, from the `--load-check` errors on the
+  sample packages that no gap explained; each confirmed on a live Oracle
+  23ai, ora2pg 25.0 and PostgreSQL 16: `%TYPE` in a package RECORD or
+  SUBTYPE is copied into `CREATE TYPE`/`CREATE DOMAIN` (GAP-120); a package
+  type used in its own routines loses the package name (GAP-121); a
+  supplied package's procedure called as a statement (`DBMS_STATS`,
+  `UTL_FILE`, `HTP`, ...) is copied without `CALL` (GAP-122);
+  `DBMS_LOCK.SLEEP` becomes `pg_sleep(n);` without `PERFORM` (GAP-123),
+  which `--fix` now repairs. `--load-check` ties their errors to them, the
+  leftovers of a `$IF` to GAP-035 and a collection method on a package
+  collection to GAP-003: on the sample packages 2 errors are left unknown,
+  down from 9.
+
 ### Fixed
 
 - `--migrate`: `-t PACKAGE` now gets only the packages. Given the whole
@@ -37,6 +50,11 @@ patch for fixes to existing ones.
 - The statement-trigger detector (GAP-118) no longer flags PostgreSQL's
   own `FOR EACH STATEMENT ... EXECUTE FUNCTION` triggers, so `--load-check`
   stops blaming GAP-118 for errors in them.
+- `dbms_utl_calls` no longer counts `DBMS_OUTPUT.DISABLE` as converted:
+  ora2pg copies it, and the routine does not load (now GAP-122).
+- `--migrate`'s GAP-114 repair takes every spliced shape: ora2pg 25.0
+  splices a chain of constants differently from run to run (it walks a Perl
+  hash), and a nested chain (`c3 c2 c1||||`) was left half-replaced.
 
 ## [0.14.0] - 2026-10-08
 

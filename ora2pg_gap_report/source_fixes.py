@@ -142,15 +142,21 @@ _ROUTINE_HEAD_RE = re.compile(
 def restore_constants(sql: str, constants: list[Constant]) -> tuple[str, int]:
     count = 0
     # GAP-114 first, for every constant: the read spliced with the
-    # initializer's pieces and a dangling ||. Replacing plain reads first
-    # would turn the spliced pieces into literals and hide the shape.
-    for c in constants:
-        key = re.escape(f"{c.package}.{c.name}")
+    # initializer's pieces and dangling ||s. Replacing plain reads first
+    # would turn the spliced pieces into literals and hide the shape. Which
+    # pieces ora2pg 25.0 splices in varies from run to run (it walks a Perl
+    # hash): for c3 := c2 || 'x', c2 := c1 || 'y' the same input gives
+    # `c3::t c2||`, `c3::t c2::t||` or the whole chain, `c3::t c2::t c1::t||||`.
+    # One pass over all the constants, leftmost first, so the outermost
+    # read of a chain takes its whole spliced tail.
+    literals = {f"{c.package}.{c.name}": c.literal for c in constants}
+    if literals:
+        keys = "|".join(re.escape(k) for k in sorted(literals, key=len, reverse=True))
         spliced = re.compile(
-            rf"current_setting\('{key}'\){_CAST}(?:current_setting\('[^']*'\){_CAST}|[A-Za-z_]\w*)\|\|",
+            rf"current_setting\('({keys})'\){_CAST}(?:current_setting\('[^']*'\){_CAST}|[A-Za-z_]\w*)+(?:\|\|)+",
             re.IGNORECASE,
         )
-        sql, n = spliced.subn(c.literal, sql)
+        sql, n = spliced.subn(lambda m: literals[m.group(1).lower()], sql)
         count += n
     # Then a plain read: nothing ever set_config()s a constant, so the read
     # fails at run time (GAP-036). The cast stays, for the type.

@@ -221,6 +221,14 @@ VERIFICATION_MODE: dict[str, str] = {
     "mysql_temporary_table": NOT_VERIFIABLE,  # TEMPORARY is dropped; a plain CREATE TABLE is left
     "table_if_not_exists": NOT_VERIFIABLE,  # mangled into `CREATE TABLE if (`, never IF NOT EXISTS
     "identity_on_null": NOT_VERIFIABLE,  # rewritten to BY DEFAULT AS IDENTITY; ON NULL never survives
+    # GAP-114..118, confirmed 2026-10-05. Each is rewritten or mangled into
+    # something the Oracle-side pattern no longer matches.
+    "package_constant_chain": NOT_VERIFIABLE,  # the declaration is gone; only garbled current_setting() calls remain
+    "ref_cursor_type": NOT_VERIFIABLE,  # becomes CREATE TYPE ... AS REFCURSOR; TYPE ... IS REF CURSOR never survives
+    "repeated_package_call": NOT_VERIFIABLE,  # the call gains parentheses; the parenthesis-free shape never survives
+    "trigger_package_call": VERBATIM,  # the call is copied unchanged into the trigger function
+    "statement_trigger": NOT_VERIFIABLE,  # the statement-level header is replaced by FOR EACH ROW
+    "package_constant_default": NOT_VERIFIABLE,  # the default survives, but outside any package the detector reads
     # GENERATED_ONLY -- already only ever analyzes generated output
     # (--check-connect-by); no pre-migration Oracle-side finding exists
     # for verify to compare against.

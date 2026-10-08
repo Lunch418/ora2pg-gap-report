@@ -42,8 +42,13 @@ def test_scan_source_runs_all_detectors_on_logger():
         "conditional_compilation",
         "nested_subprogram",
         "package_state",
+        "package_constant_chain",
+        "package_constant_default",
         "pragma_exception_init",
     }
+    # package_constant_chain: gc_timestamp_format := gc_date_format || ':FF'
+    # and the TZ format built from it (GAP-114) -- the very lines whose
+    # ora2pg output failed to load in a --load-check of this package.
     # autonomous_tx + dbms_utl_calls (verified in their own tests) +
     # bulk_collect: logger.pkb genuinely declares a local associative array
     # ('type ts_array is table of timestamp index by varchar2(100);') —
@@ -67,7 +72,11 @@ def test_scan_source_runs_all_detectors_on_logger():
     # after conversion that handler would catch a SQLSTATE PostgreSQL never
     # raises. Found by running the new detector over the corpus, not
     # constructed for the test.
-    assert len(findings) == 8 + 17 + 1 + 229 + 5 + 25 + 1
+    # package_constant_chain: gc_timestamp_format and gc_timestamp_tz_format,
+    # each built from the format before it (GAP-114).
+    # package_constant_default: eleven routines whose parameter defaults to
+    # logger.gc_empty_tab_param and friends (GAP-119).
+    assert len(findings) == 8 + 17 + 1 + 229 + 5 + 25 + 1 + 2 + 11
 
 
 def test_scan_source_sorts_high_severity_first():

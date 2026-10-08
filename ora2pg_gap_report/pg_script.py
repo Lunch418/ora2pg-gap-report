@@ -37,6 +37,9 @@ import re
 # does not start with a digit (`$1` is a parameter, not a quote).
 _DOLLAR_TAG_RE = re.compile(r"\$(?:[A-Za-z_\x80-\U0010ffff][A-Za-z0-9_\x80-\U0010ffff]*)?\$")
 _WORD_RE = re.compile(r"[A-Za-z_]+")
+# COPY ... FROM STDIN: psql reads the lines after it as data, up to a line
+# holding only \. -- they are not SQL, and must not be lexed as SQL.
+_COPY_FROM_STDIN_RE = re.compile(r"^\s*COPY\b.*\bFROM\s+STDIN\b", re.IGNORECASE | re.DOTALL)
 _IDENT_CHAR_RE = re.compile(r"[A-Za-z0-9_\x80-\U0010ffff$]")
 
 # Statements that control the transaction itself. Inside a load check
@@ -235,8 +238,11 @@ def parse_script(source: str) -> ParsedScript:
         elif ch == ")":
             depth = max(0, depth - 1)
         elif ch == ";" and depth == 0:
+            text = source[stmt_start : i + 1] if stmt_start is not None else ""
             close_statement(i + 1)
             i += 1
+            if _COPY_FROM_STDIN_RE.match(text):
+                i = _skip_copy_data(source, i)
             continue
         i += 1
 
@@ -244,6 +250,23 @@ def parse_script(source: str) -> ParsedScript:
     # terminated or not -- so an unterminated last statement still runs.
     close_statement(n)
     return ParsedScript(tuple(statements), tuple(metas))
+
+
+def _skip_copy_data(source: str, pos: int) -> int:
+    r"""The offset just past the data of a COPY ... FROM STDIN whose
+    statement ended at `pos`: psql starts the data on the next line and
+    ends it at a line that is exactly \. (or at the end of the file)."""
+    nl = source.find("\n", pos)
+    if nl == -1:
+        return len(source)
+    i = nl + 1
+    while i < len(source):
+        nl = source.find("\n", i)
+        end = len(source) if nl == -1 else nl
+        if source[i:end].rstrip("\r") == "\\.":
+            return end
+        i = end + 1
+    return len(source)
 
 
 def _neutralisation(statement: Statement) -> str | None:

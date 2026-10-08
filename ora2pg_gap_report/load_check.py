@@ -188,6 +188,9 @@ for _rank, _names in enumerate(
         ("SEQUENCE", "SEQUENCES"),
         ("TABLE", "TABLES"),
         ("PARTITION", "PARTITIONS"),
+        # data, after the tables it fills and before the indexes and
+        # constraints that would slow the load or reject half-loaded rows
+        ("COPY", "INSERT", "DATA"),
         ("FDW", "FOREIGN"),
         ("VIEW", "VIEWS", "SYNONYM", "SYNONYMS"),
         ("MVIEW", "MVIEWS", "MATERIALIZED"),
@@ -515,15 +518,31 @@ def _fixer_detector(statement_text: str, dialect: str) -> str | None:
     return None
 
 
-def _gap_finding(findings: Sequence[Finding], statement: Statement, line: int) -> Finding | None:
+# How far above the error line a construct may start and still be what
+# PostgreSQL choked on: a declaration like `TYPE t IS TABLE OF ...` can span
+# a couple of lines before the token the parser stops at.
+_LINES_BEFORE = 3
+
+
+def _gap_finding(findings: Sequence[Finding], statement: Statement, line: int, sqlstate: str) -> Finding | None:
+    """The finding that explains an error on `line`, or None.
+
+    A syntax error stops at the first token the parser cannot take, so its
+    cause is on that line or just above it -- never further down, and not
+    anywhere in a long routine that happens to contain some flagged
+    construct. An error about a missing object ("relation ... does not
+    exist") is a gap only when the gap's construct is on that very line;
+    otherwise it is a missing table or type, and is reported as such. Both
+    rules came from loading real ora2pg output for OraOpenSource Logger,
+    where a $IF further down a procedure claimed its unrelated errors."""
     inside = [f for f in findings if statement.start_line <= f.line <= statement.end_line]
-    if not inside:
-        return None
     exact = [f for f in inside if f.line == line]
     if exact:
         return exact[0]
-    before = [f for f in inside if f.line <= line]
-    return before[-1] if before else inside[0]
+    if sqlstate in _DEPENDENCY_STATES:
+        return None
+    near = [f for f in inside if line - _LINES_BEFORE <= f.line < line]
+    return near[-1] if near else None
 
 
 def _load_error(
@@ -562,12 +581,79 @@ def _classify(
     if fixer_detector is not None:
         return _load_error(raw, file, line, statement.start_line, FIXABLE, fixer_detector)
 
-    finding = _gap_finding(findings, statement, line)
+    finding = _gap_finding(findings, statement, line, raw.sqlstate)
     if finding is not None:
         return _load_error(raw, file, line, statement.start_line, GAP, finding.detector)
 
-    category = DEPENDENCY if raw.sqlstate in _DEPENDENCY_STATES else UNKNOWN
+    signature = _output_signature(prepared.source, statement, line, raw.message)
+    if signature is not None:
+        return _load_error(raw, file, line, statement.start_line, GAP, signature)
+
+    category = DEPENDENCY if raw.sqlstate in _DEPENDENCY_STATES or _missing_anchor(raw) else UNKNOWN
     return _load_error(raw, file, line, statement.start_line, category)
+
+
+# PL/pgSQL reports `x tab.col%TYPE` whose table does not exist as a syntax
+# error ('invalid type name "employees.salary%TYPE"'), not as a missing
+# relation -- but it is the same thing: an object outside what was loaded.
+_ANCHORED_TYPE_RE = re.compile(r'^invalid type name ".*%(?:ROW)?TYPE"$', re.IGNORECASE)
+
+
+def _missing_anchor(raw: _RawError) -> bool:
+    return raw.sqlstate == "42601" and bool(raw.context and _ANCHORED_TYPE_RE.match(raw.context))
+
+
+# What some gaps leave in ora2pg's *output*. The detectors look for the
+# Oracle construct, and for these gaps it does not survive conversion (they
+# are not_verifiable), so a load error caused by one cannot be tied to it by
+# re-running the detector. The footprint ora2pg leaves instead can be
+# recognised on the failing line or statement. Each one is the exact shape
+# recorded in the gap's research doc.
+_REFCURSOR_TYPE_RE = re.compile(r"\bCREATE\s+OR\s+REPLACE\s+TYPE\s+\S+\s+AS\s+REFCURSOR\b", re.IGNORECASE)
+# current_setting('pkg.c')::varchar(30) followed straight by a name or by
+# another current_setting( -- two operands spliced with no operator.
+_SPLICED_CONSTANT_RE = re.compile(
+    r"current_setting\('[^']*'\)::[A-Za-z_]\w*\b(?:\s*\(\s*\d+(?:\s*,\s*\d+)?\s*\))?(?:current_setting\(|[A-Za-z_])",
+    re.IGNORECASE,
+)
+# A bare procedure call statement: pkg.proc(...); or pkg.proc; -- what a
+# trigger keeps (GAP-117). Inside a package, GAP-116's repeat comes out as
+# pkg.proc(); with the empty parentheses ora2pg adds, and only that shape
+# is its footprint: a bare call with arguments there is something else (a
+# package outside the run, OWA's htp.p).
+_BARE_CALL_RE = re.compile(r"^\s*[A-Za-z_]\w*\s*\.\s*[A-Za-z_]\w*\s*(?:\(.*\))?\s*;\s*$")
+_EMPTY_PARENS_CALL_RE = re.compile(r"^\s*[A-Za-z_]\w*\s*\.\s*[A-Za-z_]\w*\s*\(\s*\)\s*;\s*$")
+_TRIGGER_FUNCTION_RE = re.compile(r"\bRETURNS\s+trigger\b", re.IGNORECASE)
+
+
+# GAP-119: the name PostgreSQL could not resolve sits in a parameter's
+# DEFAULT -- "column "g_os" does not exist" for a bare name, "missing
+# FROM-clause entry for table "pkg"" for pkg.g_os.
+_UNRESOLVED_NAME_RE = re.compile(r'^(?:column|missing FROM-clause entry for table) "([^"]+)"')
+
+
+def _in_a_default(statement_text: str, name: str) -> bool:
+    return bool(re.search(rf"\bDEFAULT\s+{re.escape(name)}\b", statement_text, re.IGNORECASE))
+
+
+def _output_signature(source: str, statement: Statement, line: int, message: str = "") -> str | None:
+    """The detector whose gap left the footprint the failing line shows, or
+    None."""
+    text = source[statement.start : statement.end]
+    lines = source.split("\n")
+    at = lines[line - 1] if 0 < line <= len(lines) else ""
+    if _REFCURSOR_TYPE_RE.search(text):
+        return "ref_cursor_type"
+    unresolved = _UNRESOLVED_NAME_RE.match(message)
+    if unresolved is not None and _in_a_default(text, unresolved.group(1)):
+        return "package_constant_default"
+    if _SPLICED_CONSTANT_RE.search(at):
+        return "package_constant_chain"
+    if _TRIGGER_FUNCTION_RE.search(text):
+        return "trigger_package_call" if _BARE_CALL_RE.match(at) else None
+    if _EMPTY_PARENS_CALL_RE.match(at):
+        return "repeated_package_call"
+    return None
 
 
 def classify_errors(raw_errors: Sequence[_RawError], prepared: Sequence[_PreparedFile], dialect: str) -> list[LoadError]:

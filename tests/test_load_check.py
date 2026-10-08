@@ -395,3 +395,176 @@ def test_real_postgres_tells_the_broken_example_from_the_fixed_one():
     fixed = run_load_check([EXAMPLE / "generated_fixed" / "bulk_test_pkg.sql"], parse_target("docker"))
     assert fixed.errors == () and not fixed.failed
     assert fixed.server_version and fixed.server_version.startswith("16")
+
+
+def test_data_files_load_after_tables_and_before_indexes(tmp_path):
+    root = tmp_path / "out"
+    root.mkdir()
+    for name in ("INDEXES_output.sql", "COPY_output.sql", "TABLE_output.sql"):
+        (root / name).write_text("SELECT 1;\n", encoding="utf-8")
+    ordered, _ = order_files([root])
+    assert [p.name for p in ordered] == ["TABLE_output.sql", "COPY_output.sql", "INDEXES_output.sql"]
+
+
+@pytest.mark.docker
+@pytest.mark.skipif(not _docker_usable(), reason="needs a working docker (Linux)")
+def test_real_postgres_loads_copy_data_and_keeps_reading_after_it(tmp_path):
+    data = tmp_path / "data.sql"
+    data.write_text(
+        "CREATE TABLE t (id int, name text);\n"
+        "COPY t (id, name) FROM STDIN;\n1\tone; two\n2\tO'Brien\n\\.\n"
+        "DO $$ BEGIN ASSERT (SELECT name FROM t WHERE id = 2) = 'O''Brien'; END $$;\n"
+        "SELECT * FROM missing_after_copy;\n",
+        encoding="utf-8",
+    )
+    result = run_load_check([data], parse_target("docker"))
+    assert [(e.line, e.sqlstate) for e in result.errors] == [(7, "42P01")]
+
+
+def test_a_percent_type_on_a_missing_table_is_a_dependency(tmp_path, monkeypatch):
+    path = _write(
+        tmp_path,
+        "trg.sql",
+        "CREATE FUNCTION f() RETURNS int AS $body$\nDECLARE\n  x employees.salary%TYPE;\nBEGIN\n  RETURN 1;\nEND;\n$body$ LANGUAGE plpgsql;\n",
+    )
+    err = (
+        'psql:{script}:8: ERROR:  42601: syntax error at or near "%"\n'
+        "LINE 3:   x employees.salary%TYPE;\n"
+        'CONTEXT:  invalid type name "employees.salary%TYPE"'
+    )
+    monkeypatch.setattr(load_check, "_run", FakePsql({"trg.sql": err}))
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert error.category == "dependency"
+
+
+def test_a_flagged_construct_elsewhere_in_a_routine_does_not_claim_its_errors(tmp_path, monkeypatch):
+    # Found on real ora2pg output for OraOpenSource Logger: a $IF further
+    # down a procedure used to be blamed for a missing table on its header.
+    body = (
+        "CREATE FUNCTION f() RETURNS int AS $body$\n"
+        "BEGIN\n"
+        "  SELECT count(*) FROM logger_logs;\n"
+        "  $IF dbms_db_version.ver_le_10 $THEN NULL; $END\n"
+        "  RETURN 1;\n"
+        "END;\n"
+        "$body$ LANGUAGE plpgsql;\n"
+    )
+    path = _write(tmp_path, "f.sql", body)
+    err = (
+        'psql:{script}:8: ERROR:  42P01: relation "logger_logs" does not exist\n'
+        "LINE 3:   SELECT count(*) FROM logger_logs;"
+    )
+    monkeypatch.setattr(load_check, "_run", FakePsql({"f.sql": err}))
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert (error.line, error.category, error.gap_number) == (4, "dependency", None)
+
+
+# --- footprints of not_verifiable gaps in ora2pg's output -------------------
+
+
+def _one_error(tmp_path, monkeypatch, body, line, message):
+    path = _write(tmp_path, "gen.sql", body)
+    err = f'psql:{{script}}:{line}: ERROR:  42601: {message}'
+    monkeypatch.setattr(load_check, "_run", FakePsql({"gen.sql": err}))
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    return error.category, error.gap_number
+
+
+def test_footprint_of_a_ref_cursor_type(tmp_path, monkeypatch):
+    body = "CREATE OR REPLACE TYPE emp_api.emp_cur AS REFCURSOR;\n"
+    assert _one_error(tmp_path, monkeypatch, body, 2, 'syntax error at or near "TYPE"') == ("gap", "115")
+
+
+def test_footprint_of_a_spliced_constant(tmp_path, monkeypatch):
+    body = (
+        "CREATE FUNCTION f() RETURNS varchar AS $body$\nBEGIN\n"
+        "    RETURN current_setting('fmt_pkg.c_stamp')::varchar(30)current_setting('fmt_pkg.c_date')::varchar(30)||;\n"
+        "END;\n$body$ LANGUAGE plpgsql;\n"
+    )
+    err_line = "LINE 3:     RETURN current_setting"
+    path = _write(tmp_path, "gen.sql", body)
+    monkeypatch.setattr(
+        load_check,
+        "_run",
+        FakePsql({"gen.sql": f'psql:{{script}}:6: ERROR:  42601: syntax error at or near "("\n{err_line}'}),
+    )
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert (error.category, error.gap_number) == ("gap", "114")
+
+
+def test_an_ordinary_cast_is_not_a_spliced_constant(tmp_path, monkeypatch):
+    # Found on Logger: 'current_setting(...)::varchar(2);' used to match.
+    body = (
+        "CREATE FUNCTION f() RETURNS text AS $body$\nBEGIN\n"
+        "    l_x := l_x || current_setting('logger.gc_cflf')::varchar(2);\n"
+        "END;\n$body$ LANGUAGE plpgsql;\n"
+    )
+    path = _write(tmp_path, "gen.sql", body)
+    err = 'psql:{script}:6: ERROR:  42601: "l_x" is not a known variable\nLINE 3:     l_x := l_x'
+    monkeypatch.setattr(load_check, "_run", FakePsql({"gen.sql": err}))
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert error.category == "unknown"
+
+
+def test_footprints_of_bare_calls(tmp_path, monkeypatch):
+    trigger = (
+        "CREATE OR REPLACE FUNCTION trigger_fct_t() RETURNS trigger AS $BODY$\nBEGIN\n"
+        "  audit_pkg.touch;\nRETURN NEW;\nEND\n$BODY$\n LANGUAGE 'plpgsql';\n"
+    )
+    path = _write(tmp_path, "trg.sql", trigger)
+    monkeypatch.setattr(
+        load_check,
+        "_run",
+        FakePsql({"trg.sql": 'psql:{script}:8: ERROR:  42601: syntax error at or near "audit_pkg"\nLINE 3:   audit_pkg.touch;'}),
+    )
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert error.gap_number == "117"
+
+    procedure = (
+        "CREATE OR REPLACE PROCEDURE job_pkg.run_all () AS $body$\nBEGIN\n"
+        "    CALL job_pkg.refresh();\n    job_pkg.refresh();\n  END;\n$body$\nLANGUAGE PLPGSQL\n;\n"
+    )
+    path2 = tmp_path / "proc"
+    path2.mkdir()
+    p = _write(path2, "proc.sql", procedure)
+    monkeypatch.setattr(
+        load_check,
+        "_run",
+        FakePsql({"proc.sql": 'psql:{script}:9: ERROR:  42601: syntax error at or near "job_pkg"\nLINE 4:     job_pkg.refresh();'}),
+    )
+    (error,) = run_load_check([p], parse_target("dbname=x")).errors
+    assert error.gap_number == "116"
+
+    # A bare call with arguments inside a package is not GAP-116 (Logger's htp.p).
+    other = procedure.replace("    job_pkg.refresh();\n", "    htp.p('<br />');\n")
+    path3 = tmp_path / "other"
+    path3.mkdir()
+    q = _write(path3, "proc.sql", other)
+    monkeypatch.setattr(
+        load_check,
+        "_run",
+        FakePsql({"proc.sql": "psql:{script}:9: ERROR:  42601: syntax error at or near \"htp\"\nLINE 4:     htp.p('<br />');"}),
+    )
+    (error,) = run_load_check([q], parse_target("dbname=x")).errors
+    assert error.category == "unknown"
+
+
+def test_footprint_of_a_package_constant_default(tmp_path, monkeypatch):
+    body = (
+        "CREATE OR REPLACE FUNCTION file_pkg.sep (p_os text DEFAULT g_os_windows) RETURNS varchar AS $body$\n"
+        "BEGIN\n  RETURN p_os;\nEND;\n$body$ LANGUAGE plpgsql;\n"
+    )
+    path = _write(tmp_path, "f.sql", body)
+    err = 'psql:{script}:6: ERROR:  42703: column "g_os_windows" does not exist'
+    monkeypatch.setattr(load_check, "_run", FakePsql({"f.sql": err}))
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert (error.category, error.gap_number) == ("gap", "119")
+
+    qualified = body.replace("DEFAULT g_os_windows", "DEFAULT file_pkg.g_os_windows")
+    sub = tmp_path / "q"
+    sub.mkdir()
+    path = _write(sub, "f.sql", qualified)
+    err = 'psql:{script}:6: ERROR:  42P01: missing FROM-clause entry for table "file_pkg"'
+    monkeypatch.setattr(load_check, "_run", FakePsql({"f.sql": err}))
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert (error.category, error.gap_number) == ("gap", "119")

@@ -248,14 +248,18 @@ def group_by_gap(findings: list[Finding]) -> list[GapGroup]:
     )
 
 
-def source_name(findings: list[Finding]) -> str:
-    """How the reports name the source database: the dialect most of the
-    findings' gaps belong to."""
+def source_dialect(findings: list[Finding]) -> str:
+    """The dialect most of the findings' gaps belong to ("oracle" when
+    nothing says otherwise)."""
     dialects = Counter(
         (gap.dialect if (gap := gap_by_detector(f.detector)) is not None else "oracle") for f in findings
     )
-    dialect = dialects.most_common(1)[0][0] if dialects else "oracle"
-    return _SOURCE_NAME.get(dialect, "Oracle")
+    return dialects.most_common(1)[0][0] if dialects else "oracle"
+
+
+def source_name(findings: list[Finding]) -> str:
+    """How the reports name the source database."""
+    return _SOURCE_NAME.get(source_dialect(findings), "Oracle")
 
 
 def _filter_rules(severities: list[str], stages: list[str]) -> str:

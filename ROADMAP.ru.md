@@ -31,7 +31,7 @@
 Ядро "evidence-based verification layer" - то, ради чего вообще
 затевался проект - уже стоит:
 
-- **113 подтверждённых пробелов в трёх диалектах**: 69 для Oracle, 25 для
+- **119 подтверждённых пробелов в трёх диалектах**: 75 для Oracle, 25 для
   MySQL/MariaDB (`--dialect mysql`, как `ora2pg -m`) и 19 для SQL Server
   (`--dialect mssql`, как `ora2pg -M`), плюс классификатор
   `dbms_utl_calls`. Каждый воспроизведён на настоящем прогоне `ora2pg`
@@ -77,7 +77,7 @@
   или Action для этого (см. "Ближайшее" - не хватает только
   задокументированного примера).
 - **Evidence pages**: `--explain GAP-NNN` + `docs/research/gap-*.md`
-  (113 штук, каждый на английском и русском) - минимальный пример,
+  (119 штук, каждый на английском и русском) - минимальный пример,
   реальный вывод `ora2pg`, что происходит в PostgreSQL, обоснование
   severity.
 - **Reproduce для CONNECT BY**: `--check-connect-by` реально прогоняет
@@ -102,13 +102,13 @@
   своего бота или Action.
 - **Verification capability matrix**:
   [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.ru.md)
-  - по каждому из 113 gap'ов явно, какой режим верификации у него
+  - по каждому из 119 gap'ов явно, какой режим верификации у него
   (`verbatim`/`not_verifiable`/`generated_only`) и почему, сверено с
   `VERIFICATION_MODE` в коде построчно (не написано на глаз).
 - **`failure_stage`**: на каком этапе gap реально становится заметен -
   `deployment`/`runtime`/`semantic` (`conversion` определён, но ни разу
   не понадобился - см. `docs/failure-stage-notes.md`). Раскатано на все
-  113 gap'ов (кроме двух намеренных исключений - находки не о форме кода,
+  119 gap'ов (кроме двух намеренных исключений - находки не о форме кода,
   а о недооценке `--estimate_cost`), `doctor.py` требует полное покрытие.
   Показывается не только в `--explain`, но и в основном отчёте: колонки
   в `--format markdown`/`html`, поля в `--format json`/`csv`, `properties`

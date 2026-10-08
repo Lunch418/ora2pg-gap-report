@@ -11,6 +11,31 @@ patch for fixes to existing ones.
 
 ### Added
 
+- **GAP-114..119, found by `--load-check` on real code.** Loading ora2pg's
+  output for the open-source packages in `docs/research/samples/` showed errors
+  no registered gap explained. Each was reduced to a minimal case and confirmed
+  the usual way: live Oracle 23ai, ora2pg 25.0 on the hand-written and the
+  `DBMS_METADATA.GET_DDL` spelling, PostgreSQL 16.
+  - GAP-114 `package_constant_chain`: a package constant built from another
+    (`c_stamp := c_date || ' HH24'`) - ora2pg splices the two `current_setting()`
+    calls into a non-expression, and every routine reading it fails to load
+    (two in OraOpenSource Logger).
+  - GAP-115 `ref_cursor_type`: `TYPE x IS REF CURSOR` becomes `CREATE OR REPLACE
+    TYPE ... AS REFCURSOR`, which PostgreSQL has no syntax for.
+  - GAP-116 `repeated_package_call`: `pkg.proc;` without parentheses, when the
+    same routine already called it - the repeat loses `CALL`.
+  - GAP-117 `trigger_package_call`: a trigger calling a package procedure -
+    triggers are converted on their own, so the call is copied without `CALL`.
+  - GAP-118 `statement_trigger`: a statement-level trigger comes out `FOR EACH
+    ROW` - it loads, and fires once per row instead of once per statement.
+  - GAP-119 `package_constant_default`: a package constant as a parameter
+    default is copied as it is while reads in the body are rewritten; the
+    function fails to load (alexandria-plsql-utils' file_util_pkg, eleven
+    routines in Logger).
+- **`--load-check` recognises what not-verifiable gaps leave in the output**
+  (`CREATE TYPE ... AS REFCURSOR`, spliced `current_setting()` calls, bare
+  procedure calls), so their load errors are tied to the gap even though the
+  Oracle construct itself is gone.
 - **`--load-check TARGET`: load the generated code into a real PostgreSQL.** Every
   other mode reads text; this one asks PostgreSQL. It feeds `ora2pg`'s output to `psql`
   and sorts every statement that fails into what to do about it: `--fix` repairs it, a
@@ -79,6 +104,18 @@ patch for fixes to existing ones.
 
 ### Fixed
 
+- `--load-check` read the data of a `COPY ... FROM STDIN` (ora2pg's data
+  export) as SQL: a quote in a row made it skip the whole file as unterminated,
+  and the `\.` that ends the data would have been blanked. The rows are now
+  passed to psql as data, and data files load after the tables and before the
+  indexes.
+- `--load-check` blamed a gap for any error in a routine that contained its
+  construct anywhere. Loading real ora2pg output for OraOpenSource Logger showed
+  a `$IF` deep in a procedure claiming a missing table on its header. Now a
+  missing-object error is a gap only when the construct is on that line, and a
+  syntax error only when it is on that line or just above. A `%TYPE` on a
+  missing table, which PL/pgSQL reports as a syntax error, counts as a missing
+  object.
 - `docs/ARCHITECTURE.ru.md` listed `cli.py` twice in the package tree.
 - GAP-005 (`connect_by`) had no title, so the reports showed its group under
   the bare detector name; it now has the registry's title, and `doctor.py` no

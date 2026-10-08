@@ -42,6 +42,7 @@ from .effort_estimator import (
 )
 from .gap_registry import gap_by_detector, gap_metadata
 from .load_check import CATEGORIES, FAILING_CATEGORIES, LoadCheckResult, LoadError
+from .html_report import source_dialect
 from .html_report import STAGES, GapGroup, group_by_gap, source_name, stage_key
 from .models import Finding
 from .prepare import prepare_command
@@ -428,7 +429,12 @@ def _render_footer_hints(console: Console, lang: str = "ru", findings: list[Find
     steps.add_column(style=f"bold {_ACCENT}", no_wrap=True)
     steps.add_column(style="dim")
     steps.add_column(style=_CODE_STYLE, overflow="fold")
-    plan = list(_NEXT_STEPS)
+    # A MySQL or T-SQL scan needs its dialect on the commands that follow,
+    # or --fix runs Oracle's fixes and --load-check explains with Oracle's
+    # detectors.
+    dialect = source_dialect(findings or [])
+    flag = "" if dialect == "oracle" else f" --dialect {dialect}"
+    plan = [(key, command.replace("ora2pg-gap-report", f"ora2pg-gap-report{flag}", 1)) for key, command in _NEXT_STEPS]
     # Only when this scan found something --prepare removes: then it is the
     # first thing to do, before ora2pg ever reads the dump.
     prepare = next(

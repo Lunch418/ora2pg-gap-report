@@ -44,6 +44,41 @@ jobs:
 
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
 
+  docker-image:
+    # ghcr.io/<owner>/ora2pg-gap-report:<version> and :latest -- the
+    # all-in-one image from the Dockerfile. Plain docker commands rather
+    # than third-party actions: nothing here needs more than login, build
+    # and push, and every extra action is one more thing to pin and trust.
+    if: github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Build and push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Via env, not interpolated into the script, for the same reason
+          # as RELEASE_TAG in offline-bundle below.
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          OWNER: ${{ github.repository_owner }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${OWNER,,}/ora2pg-gap-report"
+          version="${RELEASE_TAG#v}"
+          case "$version" in (*[!0-9.]*|"") echo "::error::unexpected tag $RELEASE_TAG"; exit 1;; esac
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.version=${version}" \
+            -t "$image:$version" -t "$image:latest" .
+          docker run --rm "$image:$version" --version | grep -q "$version"
+          docker push "$image:$version"
+          docker push "$image:latest"
+
   offline-bundle:
     if: github.event.release.prerelease == false
     runs-on: ubuntu-latest

@@ -142,7 +142,8 @@ def test_cli_migrate_refuses_scan_flags_and_foreign_dirs(tmp_path, fake, capsys)
     foreign.mkdir()
     (foreign / "x").write_text("x", encoding="utf-8")
     assert main(["--lang", "en", "--migrate", str(foreign), str(src)]) == 2
-    assert "leaving it alone" in capsys.readouterr().err
+    # Rich wraps a long path (macOS's temp dirs) mid-sentence.
+    assert "leaving it alone" in " ".join(capsys.readouterr().err.split())
 
 
 def test_cli_migrate_explains_a_missing_ora2pg(tmp_path, monkeypatch, capsys):
@@ -153,7 +154,7 @@ def test_cli_migrate_explains_a_missing_ora2pg(tmp_path, monkeypatch, capsys):
 
     monkeypatch.setattr(migrate, "run_convert", missing)
     assert main(["--lang", "en", "--migrate", str(tmp_path / "out"), str(_source(tmp_path))]) == 2
-    assert "--ora2pg-bin docker:IMAGE" in capsys.readouterr().err
+    assert "--ora2pg-bin docker:IMAGE" in " ".join(capsys.readouterr().err.split())
 
 
 @pytest.mark.ora2pg

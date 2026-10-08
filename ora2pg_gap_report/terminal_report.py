@@ -116,7 +116,7 @@ def render(
         if objects_scanned is not None:
             empty_message.append(i18n.t(lang, "objects_scanned_inline", n=objects_scanned))
         if elapsed_seconds is not None:
-            empty_message.append(i18n.t(lang, "elapsed_inline", s=elapsed_seconds), style="dim")
+            empty_message.append(i18n.t(lang, "elapsed_inline", s=i18n.number(lang, round(elapsed_seconds, 1))), style="dim")
         console.print(Panel(empty_message, border_style="#46A758"))
         return
 
@@ -167,7 +167,7 @@ def _render_heading(
         if elapsed_seconds is not None:
             if objects_scanned is None:
                 lede.append(i18n.t(lang, "term_scanned", objects="").rstrip(" :") + ":")
-            lede.append(i18n.t(lang, "term_elapsed", s=elapsed_seconds))
+            lede.append(i18n.t(lang, "term_elapsed", s=i18n.number(lang, round(elapsed_seconds, 1))))
         lede.append(".")
     console.print(lede)
     console.print()

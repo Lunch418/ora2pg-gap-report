@@ -76,6 +76,9 @@ patch for fixes to existing ones.
   and a Run button), not for the command line.
 - `scripts/screenshots.py` retakes the TUI pictures too, and the README
   shows the migrate screen.
+- Gap titles, finding texts, the interface strings and the hour range are
+  written with a plain `-`, instead of a mix of long and short dashes; the scan
+  time uses the language's decimal mark (`0,2 с` in Russian).
 
 ## [0.14.0] - 2026-10-08
 

@@ -40,31 +40,31 @@ class Message:
 MESSAGES: dict[str, Message] = {
     "accessible_by": Message(
         ru=(
-            "ACCESSIBLE BY (Oracle 12c+) — «белый список» вызывающих: "
+            "ACCESSIBLE BY (Oracle 12c+) - «белый список» вызывающих: "
             "подпрограмма объявляется доступной только перечисленным "
             "пакетам/процедурам, остальные получают ошибку компиляции при попытке "
             "её вызвать. Это средство инкапсуляции внутри схемы, работающее "
             "поверх обычных GRANT. ora2pg копирует секцию в вывод как есть, прямо "
             "в заголовок функции (подтверждено реальным прогоном ora2pg 25.0 + "
             "PostgreSQL 16, docs/research/gap-043-accessible-by.md). PostgreSQL "
-            "такого синтаксиса не знает — CREATE PROCEDURE/FUNCTION падает "
+            "такого синтаксиса не знает - CREATE PROCEDURE/FUNCTION падает "
             "синтаксической ошибкой уже при загрузке. Прямого аналога нет: "
             "ограничение «кто именно из кода может вызвать» в PostgreSQL не "
-            "выражается — ближайшее по смыслу решение это вынести подпрограмму в "
+            "выражается - ближайшее по смыслу решение это вынести подпрограмму в "
             "отдельную схему и раздать права через GRANT/REVOKE, что даёт защиту "
             "на уровне ролей, а не на уровне конкретных вызывающих подпрограмм."
         ),
         en=(
-            "ACCESSIBLE BY (Oracle 12c+) — a caller whitelist: the subprogram is "
+            "ACCESSIBLE BY (Oracle 12c+) - a caller whitelist: the subprogram is "
             "declared accessible only to the listed packages/procedures, and "
             "anything else gets a compile error when it tries to call it. This is "
             "intra-schema encapsulation layered on top of ordinary GRANTs. ora2pg "
             "copies the clause into its output verbatim, right into the function "
             "header (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-043-accessible-by.md). PostgreSQL has no such "
-            "syntax — CREATE PROCEDURE/FUNCTION fails with a syntax error at load "
+            "syntax - CREATE PROCEDURE/FUNCTION fails with a syntax error at load "
             "time. There is no direct equivalent: \"which code specifically may "
-            "call this\" isn't expressible in PostgreSQL — the closest approach is "
+            "call this\" isn't expressible in PostgreSQL - the closest approach is "
             "moving the subprogram into its own schema and controlling access "
             "with GRANT/REVOKE, which protects at the role level rather than per "
             "calling subprogram."
@@ -72,43 +72,43 @@ MESSAGES: dict[str, Message] = {
     ),
     "alt_quote_literal": Message(
         ru=(
-            "q'[...]' — альтернативные кавычки Oracle: способ записать строку с "
+            "q'[...]' - альтернативные кавычки Oracle: способ записать строку с "
             "апострофами внутри, не удваивая их. ora2pg копирует такой литерал в "
             "вывод как есть (подтверждено реальным прогоном ora2pg 25.0 + "
             "PostgreSQL 16, docs/research/gap-062-alt-quote-literal.md). "
             "PostgreSQL этот синтаксис не понимает: q воспринимается как "
             "отдельный идентификатор, а дальше начинается обычный строковый "
-            "литерал, и разбор уезжает — в PL/pgSQL-теле это 'mismatched "
+            "литерал, и разбор уезжает - в PL/pgSQL-теле это 'mismatched "
             "parentheses' при первом вызове (загрузка проходит чисто, потому что "
             "ora2pg выставляет check_function_bodies = false). Заменяется на "
             "обычный литерал с удвоенными апострофами или, что ближе по духу, на "
-            "долларовые кавычки PostgreSQL: $q$it's a test$q$ — внутри них "
+            "долларовые кавычки PostgreSQL: $q$it's a test$q$ - внутри них "
             "экранировать не нужно ничего."
         ),
         en=(
-            "q'[...]' — Oracle's alternative quoting: a way to write a string "
+            "q'[...]' - Oracle's alternative quoting: a way to write a string "
             "containing apostrophes without doubling them. ora2pg copies such a "
             "literal into its output unchanged (confirmed against a real ora2pg "
             "25.0 + PostgreSQL 16 run, "
             "docs/research/gap-062-alt-quote-literal.md). PostgreSQL does not "
             "understand this syntax: q is read as a separate identifier and an "
             "ordinary string literal starts after it, so parsing goes off the "
-            "rails — inside a PL/pgSQL body that shows up as 'mismatched "
+            "rails - inside a PL/pgSQL body that shows up as 'mismatched "
             "parentheses' on the first call (loading succeeds cleanly, because "
             "ora2pg sets check_function_bodies = false). Replace it with an "
             "ordinary literal using doubled apostrophes or, closer in spirit, "
-            "with PostgreSQL dollar quoting: $q$it's a test$q$ — nothing inside "
+            "with PostgreSQL dollar quoting: $q$it's a test$q$ - nothing inside "
             "needs escaping there."
         ),
     ),
     "anydata_type": Message(
         ru=(
-            "SYS.ANYDATA / ANYDATASET / ANYTYPE — самоописывающийся контейнер "
+            "SYS.ANYDATA / ANYDATASET / ANYTYPE - самоописывающийся контейнер "
             "Oracle, способный хранить значение любого типа вместе с информацией "
             "о самом типе. ora2pg переносит имя типа в вывод как есть "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-051-anydata-type.md). В PostgreSQL нет ни такого "
-            "типа, ни схемы SYS, поэтому CREATE TABLE падает сразу на загрузке — "
+            "типа, ни схемы SYS, поэтому CREATE TABLE падает сразу на загрузке - "
             "'schema \"sys\" does not exist' для квалифицированной записи или 'type "
             "\"anydata\" does not exist' для короткой. Механической замены нет: "
             "обычно столбец переразмечают в jsonb (если важно хранить "
@@ -117,13 +117,13 @@ MESSAGES: dict[str, Message] = {
             "варианта."
         ),
         en=(
-            "SYS.ANYDATA / ANYDATASET / ANYTYPE — Oracle's self-describing "
+            "SYS.ANYDATA / ANYDATASET / ANYTYPE - Oracle's self-describing "
             "container, able to hold a value of any type together with "
             "information about that type. ora2pg carries the type name into its "
             "output unchanged (confirmed against a real ora2pg 25.0 + PostgreSQL "
             "16 run, docs/research/gap-051-anydata-type.md). PostgreSQL has "
             "neither such a type nor a SYS schema, so CREATE TABLE fails "
-            "immediately at load time — 'schema \"sys\" does not exist' for the "
+            "immediately at load time - 'schema \"sys\" does not exist' for the "
             "qualified spelling, 'type \"anydata\" does not exist' for the short "
             "one. There is no mechanical replacement: the column is usually "
             "remodelled as jsonb (when storing arbitrary structure really is the "
@@ -133,33 +133,33 @@ MESSAGES: dict[str, Message] = {
     ),
     "authid_clause": Message(
         ru=(
-            "AUTHID CURRENT_USER / AUTHID DEFINER — оговорка прав выполнения у "
+            "AUTHID CURRENT_USER / AUTHID DEFINER - оговорка прав выполнения у "
             "процедуры, функции или пакета. Из всех gap'ов этого реестра "
             "последствие здесь самое неприятное: ora2pg не конвертирует объект с "
-            "такой оговоркой, а молча выбрасывает его целиком — в выводе остаётся "
+            "такой оговоркой, а молча выбрасывает его целиком - в выводе остаётся "
             "только '-- Nothing found of type PROCEDURE', и даже строки уровня "
             "DEBUG в логе не появляется (подтверждено реальным прогоном ora2pg "
             "25.0 + PostgreSQL 16 с контрольным замером: та же процедура без "
             "AUTHID конвертируется штатно, "
             "docs/research/gap-059-authid-clause.md). Ошибки не будет ни на "
-            "конвертации, ни на загрузке — процедуры просто не окажется в целевой "
+            "конвертации, ни на загрузке - процедуры просто не окажется в целевой "
             "базе, и обнаружится это при первом вызове из приложения. В "
-            "PostgreSQL прямые аналоги есть: AUTHID DEFINER — это SECURITY "
-            "DEFINER, AUTHID CURRENT_USER — это SECURITY INVOKER (поведение по "
+            "PostgreSQL прямые аналоги есть: AUTHID DEFINER - это SECURITY "
+            "DEFINER, AUTHID CURRENT_USER - это SECURITY INVOKER (поведение по "
             "умолчанию), так что оговорку нужно убрать из исходника перед "
             "конвертацией и дописать нужный вариант в готовую функцию."
         ),
         en=(
-            "AUTHID CURRENT_USER / AUTHID DEFINER — the execution-rights clause "
+            "AUTHID CURRENT_USER / AUTHID DEFINER - the execution-rights clause "
             "on a procedure, function or package. Of every gap in this registry "
             "the consequence here is the nastiest: ora2pg does not convert an "
-            "object carrying this clause, it silently drops the object entirely — "
+            "object carrying this clause, it silently drops the object entirely - "
             "all that is left in the output is '-- Nothing found of type "
             "PROCEDURE', and not even a DEBUG-level line appears in the log "
             "(confirmed against a real ora2pg 25.0 + PostgreSQL 16 run with a "
             "control case: the same procedure without AUTHID converts normally, "
             "docs/research/gap-059-authid-clause.md). No error is raised at "
-            "conversion or at load time — the procedure simply is not in the "
+            "conversion or at load time - the procedure simply is not in the "
             "target database, and that gets discovered on the first call from the "
             "application. PostgreSQL does have direct equivalents: AUTHID DEFINER "
             "is SECURITY DEFINER, AUTHID CURRENT_USER is SECURITY INVOKER (the "
@@ -172,11 +172,11 @@ MESSAGES: dict[str, Message] = {
             "ora2pg перенесёт эту процедуру/функцию через dblink-обёртку "
             "(переименует в *_atx, уберёт COMMIT из тела, добавит функцию-прокси, "
             "вызывающую её через dblink()). Стратегия рабочая, но не бесшовная: "
-            "требуется расширение dblink и ручная настройка connection string — "
+            "требуется расширение dblink и ручная настройка connection string - "
             "то есть сетевая зависимость между процедурами, которая может быть "
             "неприемлема в контуре с жёсткими требованиями к изоляции. При этом "
             "SHOW_REPORT и --estimate_cost систематически недооценивают стоимость "
-            "этой конструкции именно для функций/процедур внутри PACKAGE BODY — "
+            "этой конструкции именно для функций/процедур внутри PACKAGE BODY - "
             "сама PRAGMA стоит в декларативной секции (до BEGIN), которая не "
             "попадает в подсчёт стоимости (declare/code split в "
             "Ora2Pg.pm::_lookup_function)."
@@ -186,11 +186,11 @@ MESSAGES: dict[str, Message] = {
             "(renaming it to *_atx, stripping COMMIT from the body, and adding a "
             "proxy function that calls it via dblink()). The strategy works, but "
             "isn't seamless: it requires the dblink extension and manual "
-            "connection-string setup — i.e. a network dependency between "
+            "connection-string setup - i.e. a network dependency between "
             "procedures, which may be unacceptable in an environment with strict "
             "isolation requirements. SHOW_REPORT and --estimate_cost also "
             "systematically underestimate the cost of this construct specifically "
-            "for functions/procedures inside a PACKAGE BODY — the PRAGMA itself "
+            "for functions/procedures inside a PACKAGE BODY - the PRAGMA itself "
             "sits in the declarative section (before BEGIN), which isn't counted "
             "toward cost at all (the declare/code split in "
             "Ora2Pg.pm::_lookup_function)."
@@ -198,35 +198,35 @@ MESSAGES: dict[str, Message] = {
     ),
     "bitmap_index": Message(
         ru=(
-            "CREATE BITMAP INDEX — битовый индекс Oracle, рассчитанный на столбцы "
+            "CREATE BITMAP INDEX - битовый индекс Oracle, рассчитанный на столбцы "
             "малой кардинальности (пол, статус, флаг) и на комбинирование "
             "нескольких таких индексов побитовыми операциями. ora2pg заменяет его "
             "на 'CREATE INDEX ... USING gin(...)' (подтверждено реальным прогоном "
             "ora2pg 25.0 + PostgreSQL 16, docs/research/gap-046-bitmap-index.md). "
             "Для обычного скалярного столбца это не работает: PostgreSQL падает "
             "при загрузке с 'data type ... has no default operator class for "
-            "access method \"gin\"' — у gin по умолчанию нет класса операторов ни "
+            "access method \"gin\"' - у gin по умолчанию нет класса операторов ни "
             "для varchar, ни для чисел, он рассчитан на составные типы (массивы, "
             "jsonb, tsvector). То есть индекс не просто станет другим по "
-            "характеристикам — его создание не пройдёт вообще. У PostgreSQL нет "
-            "битовых индексов как типа; на практике замена — обычный btree "
+            "характеристикам - его создание не пройдёт вообще. У PostgreSQL нет "
+            "битовых индексов как типа; на практике замена - обычный btree "
             "(планировщик умеет комбинировать несколько btree через bitmap scan "
             "самостоятельно, во время выполнения), либо gin с явным классом "
             "операторов из расширения btree_gin, если комбинирование нужно на "
             "уровне самого индекса."
         ),
         en=(
-            "CREATE BITMAP INDEX — Oracle's bitmap index, designed for "
+            "CREATE BITMAP INDEX - Oracle's bitmap index, designed for "
             "low-cardinality columns (gender, status, a flag) and for combining "
             "several such indexes with bitwise operations. ora2pg replaces it "
             "with 'CREATE INDEX ... USING gin(...)' (confirmed against a real "
             "ora2pg 25.0 + PostgreSQL 16 run, docs/research/gap-046-bitmap- "
             "index.md). For an ordinary scalar column that doesn't work: "
             "PostgreSQL fails at load time with 'data type ... has no default "
-            "operator class for access method \"gin\"' — GIN has no default "
+            "operator class for access method \"gin\"' - GIN has no default "
             "operator class for varchar or numeric, it's designed for composite "
             "types (arrays, jsonb, tsvector). So the index doesn't merely end up "
-            "with different characteristics — it fails to be created at all. "
+            "with different characteristics - it fails to be created at all. "
             "PostgreSQL has no bitmap index as an index type; in practice the "
             "replacement is a plain btree (the planner can combine several btrees "
             "via a bitmap scan on its own, at execution time), or gin with an "
@@ -236,19 +236,19 @@ MESSAGES: dict[str, Message] = {
     ),
     "bulk_collect.bulk_collect": Message(
         ru=(
-            "BULK COLLECT INTO — массовая выборка в коллекцию. ora2pg лишь "
+            "BULK COLLECT INTO - массовая выборка в коллекцию. ora2pg лишь "
             "добавляет ключевое слово STRICT (относящееся к обычному SELECT INTO "
-            "в PL/pgSQL, а не к BULK COLLECT) и не переписывает конструкцию — "
+            "в PL/pgSQL, а не к BULK COLLECT) и не переписывает конструкцию - "
             "результат не является корректным PL/pgSQL (подтверждено реальным "
             "прогоном, docs/research/gap-003-bulk-collect-forall.md). Обычно "
             "переписывается на 'SELECT array_agg(...) INTO ...' или цикл с "
             "накоплением в массив вручную."
         ),
         en=(
-            "BULK COLLECT INTO — a bulk fetch into a collection. ora2pg only adds "
+            "BULK COLLECT INTO - a bulk fetch into a collection. ora2pg only adds "
             "the STRICT keyword (which applies to a plain SELECT INTO in "
             "PL/pgSQL, not to BULK COLLECT) and doesn't rewrite the construct "
-            "itself — the result isn't valid PL/pgSQL (confirmed by a real run, "
+            "itself - the result isn't valid PL/pgSQL (confirmed by a real run, "
             "docs/research/gap-003-bulk-collect-forall.md). Usually rewritten as "
             "'SELECT array_agg(...) INTO ...' or a manual loop that accumulates "
             "into an array."
@@ -256,76 +256,76 @@ MESSAGES: dict[str, Message] = {
     ),
     "bulk_collect.forall": Message(
         ru=(
-            "FORALL — массовое DML-выполнение по коллекции. В PL/pgSQL такой "
+            "FORALL - массовое DML-выполнение по коллекции. В PL/pgSQL такой "
             "конструкции нет, ora2pg копирует её как есть (подтверждено реальным "
             "прогоном, docs/research/gap-003-bulk-collect-forall.md). Обычно "
             "переписывается на обычный цикл FOR ... LOOP или на DML с UNNEST() по "
-            "массиву — оценка производительности отдельно, PostgreSQL это тоже "
+            "массиву - оценка производительности отдельно, PostgreSQL это тоже "
             "умеет делать быстро, просто другим синтаксисом."
         ),
         en=(
-            "FORALL — bulk DML execution over a collection. PL/pgSQL has no such "
+            "FORALL - bulk DML execution over a collection. PL/pgSQL has no such "
             "construct; ora2pg copies it verbatim (confirmed by a real run, "
             "docs/research/gap-003-bulk-collect-forall.md). Usually rewritten as "
-            "a plain FOR ... LOOP or as DML driven by UNNEST() over an array — "
+            "a plain FOR ... LOOP or as DML driven by UNNEST() over an array - "
             "performance is a separate question; PostgreSQL can do this fast too, "
             "just with different syntax."
         ),
     ),
     "bulk_collect.type_decl": Message(
         ru=(
-            "TYPE ... IS TABLE OF ... — локальное объявление вложенной "
+            "TYPE ... IS TABLE OF ... - локальное объявление вложенной "
             "коллекции/ассоциативного массива. ora2pg практически не трогает эту "
-            "конструкцию — синтаксис копируется как есть, а такого объявления "
+            "конструкцию - синтаксис копируется как есть, а такого объявления "
             "типа не существует в PL/pgSQL (подтверждено реальным прогоном ora2pg "
             "+ PostgreSQL 16, docs/research/gap-003-bulk-collect-forall.md). "
             "CREATE PROCEDURE/FUNCTION проходит без единой ошибки (ora2pg "
             "отключает check_function_bodies в своём выводе), а при первом же "
-            "реальном вызове падает прямо на этом объявлении — до того, как тело "
+            "реальном вызове падает прямо на этом объявлении - до того, как тело "
             "процедуры вообще начнёт выполняться. Нужно вручную переписать на "
             "массив PostgreSQL (type[]) или временную таблицу."
         ),
         en=(
-            "TYPE ... IS TABLE OF ... — a local declaration of a nested "
+            "TYPE ... IS TABLE OF ... - a local declaration of a nested "
             "collection/associative array. ora2pg essentially leaves this "
-            "construct untouched — the syntax is copied verbatim, and no such "
+            "construct untouched - the syntax is copied verbatim, and no such "
             "type declaration exists in PL/pgSQL (confirmed by a real ora2pg + "
             "PostgreSQL 16 run, docs/research/gap-003-bulk-collect-forall.md). "
             "CREATE PROCEDURE/FUNCTION succeeds without a single error (ora2pg "
             "disables check_function_bodies in its output), and it fails right on "
-            "this declaration at the very first real call — before the procedure "
+            "this declaration at the very first real call - before the procedure "
             "body even starts executing. Needs to be manually rewritten as a "
             "PostgreSQL array (type[]) or a temporary table."
         ),
     ),
     "collection_type": Message(
         ru=(
-            "CREATE TYPE ... AS/IS TABLE OF / VARRAY(n) OF — коллекционный тип "
+            "CREATE TYPE ... AS/IS TABLE OF / VARRAY(n) OF - коллекционный тип "
             "Oracle (nested table или varray), в отличие от объектного типа (см. "
             "GAP-009/object_type.py) не помечается ora2pg как 'Unsupported' и не "
-            "копируется в вывод вообще — строка полностью пропадает, а в логе "
+            "копируется в вывод вообще - строка полностью пропадает, а в логе "
             "остаётся только служебная строка уровня DEBUG ('unhandled line') "
             "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-021-collection-type.md). Это серьёзнее большинства "
             "других gap'ов в этом реестре: любая таблица, использующая такой тип "
-            "в качестве типа столбца, падает сразу при загрузке DDL — 'type ... "
-            "does not exist' — а не при первом вызове процедуры. У PostgreSQL нет "
-            "прямого аналога коллекционных типов Oracle — обычно переписывается "
+            "в качестве типа столбца, падает сразу при загрузке DDL - 'type ... "
+            "does not exist' - а не при первом вызове процедуры. У PostgreSQL нет "
+            "прямого аналога коллекционных типов Oracle - обычно переписывается "
             "на встроенный тип массива (datatype[]) или на отдельную связанную "
             "таблицу."
         ),
         en=(
-            "CREATE TYPE ... AS/IS TABLE OF / VARRAY(n) OF — an Oracle collection "
+            "CREATE TYPE ... AS/IS TABLE OF / VARRAY(n) OF - an Oracle collection "
             "type (nested table or varray). Unlike an object type (see "
-            "GAP-009/object_type.py), ora2pg doesn't mark it 'Unsupported' — it "
+            "GAP-009/object_type.py), ora2pg doesn't mark it 'Unsupported' - it "
             "isn't copied into the output at all: the line simply disappears, "
             "leaving only a DEBUG-level log line ('unhandled line') (confirmed by "
             "a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-021-collection-type.md). This is more severe than "
             "most other gaps in this registry: any table that uses this type as a "
-            "column type fails immediately on DDL load — 'type ... does not "
-            "exist' — not on the procedure's first call. PostgreSQL has no direct "
-            "equivalent of Oracle's collection types — usually rewritten as a "
+            "column type fails immediately on DDL load - 'type ... does not "
+            "exist' - not on the procedure's first call. PostgreSQL has no direct "
+            "equivalent of Oracle's collection types - usually rewritten as a "
             "built-in array type (datatype[]) or a separate linked table."
         ),
     ),
@@ -337,16 +337,16 @@ MESSAGES: dict[str, Message] = {
             "(-t TRIGGER -i file.sql) его regex-парсер (read_trigger_from_file) "
             "рассчитан на классическую форму 'ON <table> [FOR EACH ROW] [WHEN "
             "(...)] BEGIN...END' и на составном триггере тихо возвращает 0 "
-            "найденных триггеров — без единой ошибки или предупреждения "
+            "найденных триггеров - без единой ошибки или предупреждения "
             "(эмпирически подтверждено, "
             "docs/research/step0-show-report-baseline.md, раздел 5). В режиме "
             "живого подключения счётчик объектов SHOW_REPORT покажет этот триггер "
             "как обычный валидный (данные берутся из каталога Oracle, а не из "
-            "попытки конвертации) — то есть само число объектов проблему не "
+            "попытки конвертации) - то есть само число объектов проблему не "
             "выдаст. По структуре export_trigger() в Ora2Pg.pm крайне вероятно, "
             "что и в живом режиме конвертация тела COMPOUND TRIGGER даёт "
             "синтаксически неверный или тихо испорченный код. Нужен ручной "
-            "перенос — как правило, на несколько независимых обычных триггеров "
+            "перенос - как правило, на несколько независимых обычных триггеров "
             "(BEFORE/AFTER × STATEMENT/ROW) с общим состоянием через пакетную "
             "переменную или временную таблицу вместо секций компаунд-триггера."
         ),
@@ -357,15 +357,15 @@ MESSAGES: dict[str, Message] = {
             "TRIGGER -i file.sql), its regex parser (read_trigger_from_file) is "
             "built for the classic form 'ON <table> [FOR EACH ROW] [WHEN (...)] "
             "BEGIN...END', and on a compound trigger it silently returns 0 "
-            "triggers found — no error, no warning (confirmed empirically, "
+            "triggers found - no error, no warning (confirmed empirically, "
             "docs/research/step0-show-report-baseline.md, section 5). In "
             "live-connection mode, SHOW_REPORT's object count will list this "
             "trigger as an ordinary, valid one (the data comes from the Oracle "
-            "catalog, not from an actual conversion attempt) — so the object "
+            "catalog, not from an actual conversion attempt) - so the object "
             "count alone won't reveal the problem. Based on how export_trigger() "
             "is structured in Ora2Pg.pm, it's highly likely that live-mode "
             "conversion of a COMPOUND TRIGGER body also produces syntactically "
-            "invalid or silently broken code. Needs a manual migration — "
+            "invalid or silently broken code. Needs a manual migration - "
             "typically to several independent ordinary triggers (BEFORE/AFTER × "
             "STATEMENT/ROW) sharing state through a package variable or a "
             "temporary table instead of compound-trigger sections."
@@ -373,17 +373,17 @@ MESSAGES: dict[str, Message] = {
     ),
     "conditional_compilation": Message(
         ru=(
-            "Директивы условной компиляции PL/SQL ($IF/$ELSIF/$ELSE/$END) — "
+            "Директивы условной компиляции PL/SQL ($IF/$ELSIF/$ELSE/$END) - "
             "препроцессор, обрабатываемый компилятором Oracle до собственно "
             "компиляции тела: код в невыбранной ветке не просто пропускается на "
             "выполнении, он вообще не компилируется. ora2pg копирует директивы в "
             "вывод буквально, как обычный текст (подтверждено реальным прогоном "
             "ora2pg + PostgreSQL 16, "
-            "docs/research/gap-035-conditional-compilation.md) — у PL/pgSQL нет "
+            "docs/research/gap-035-conditional-compilation.md) - у PL/pgSQL нет "
             "препроцессора условной компиляции вообще, это не валидный синтаксис "
             "ни в каком виде. CREATE PROCEDURE/FUNCTION проходит без единой "
             "ошибки (ora2pg отключает check_function_bodies в своём выводе), а "
-            "падает только при первом реальном вызове — 'syntax error at or near "
+            "падает только при первом реальном вызове - 'syntax error at or near "
             "\"$\"'. Особенно коварно для веток, управляемых редко переключаемыми "
             "флагами (например режимом отладки): отказ может случиться далеко не "
             "сразу после миграции. Нужно вручную развернуть нужную ветку в "
@@ -392,16 +392,16 @@ MESSAGES: dict[str, Message] = {
         ),
         en=(
             "Oracle PL/SQL conditional-compilation directives "
-            "($IF/$ELSIF/$ELSE/$END) — a preprocessor Oracle's compiler runs "
+            "($IF/$ELSIF/$ELSE/$END) - a preprocessor Oracle's compiler runs "
             "before the body is compiled at all: code in a branch that isn't "
             "selected isn't just skipped at runtime, it's never compiled in the "
             "first place. ora2pg copies the directives into the output verbatim, "
             "as plain text (confirmed by a real ora2pg + PostgreSQL 16 run, "
-            "docs/research/gap-035-conditional-compilation.md) — PL/pgSQL has no "
+            "docs/research/gap-035-conditional-compilation.md) - PL/pgSQL has no "
             "conditional-compilation preprocessor at all, this isn't valid syntax "
             "in any form. CREATE PROCEDURE/FUNCTION runs without a single error "
             "(ora2pg disables check_function_bodies in its own output), it only "
-            "fails on the first real call — 'syntax error at or near \"$\"'. "
+            "fails on the first real call - 'syntax error at or near \"$\"'. "
             "Especially treacherous for branches gated by rarely-toggled flags "
             "(e.g. a debug mode): the failure may not surface until well after "
             "migration. The needed branch needs to be manually unrolled into "
@@ -411,41 +411,41 @@ MESSAGES: dict[str, Message] = {
     ),
     "connect_by": Message(
         ru=(
-            "Сгенерированный ora2pg WITH RECURSIVE ссылается на LEVEL — "
+            "Сгенерированный ora2pg WITH RECURSIVE ссылается на LEVEL - "
             "псевдоколонку Oracle, которой нет ни в PostgreSQL, ни в самом CTE. "
             "ora2pg переименовывает LEVEL в столбец-счётчик глубины в анкорной "
-            "ветке CTE, но не везде — известный баг подстановки его regex-based "
+            "ветке CTE, но не везде - известный баг подстановки его regex-based "
             "конвертера CONNECT BY (docs/research/step0-show-report-baseline.md, "
             "раздел 3; воспроизведено на реальном прогоне ora2pg). "
             "Сгенерированный SQL в этом виде не выполнится в PostgreSQL без "
-            "ручной правки — LEVEL нужно заменить на настоящее имя "
+            "ручной правки - LEVEL нужно заменить на настоящее имя "
             "колонки-счётчика. Строка в этой находке относится к сгенерированному "
-            "ora2pg коду, а не к исходному Oracle-файлу — используйте имя объекта "
+            "ora2pg коду, а не к исходному Oracle-файлу - используйте имя объекта "
             "и фрагмент ниже, чтобы найти проблему, а не номер строки."
         ),
         en=(
-            "The WITH RECURSIVE that ora2pg generates references LEVEL — an "
+            "The WITH RECURSIVE that ora2pg generates references LEVEL - an "
             "Oracle pseudocolumn that exists neither in PostgreSQL nor in the CTE "
             "itself. ora2pg renames LEVEL to a depth-counter column in the CTE's "
-            "anchor branch, but not everywhere — a known substitution bug in its "
+            "anchor branch, but not everywhere - a known substitution bug in its "
             "regex-based CONNECT BY converter "
             "(docs/research/step0-show-report-baseline.md, section 3; reproduced "
             "on a real ora2pg run). The generated SQL as it stands won't run in "
-            "PostgreSQL without a manual fix — LEVEL needs to be replaced with "
+            "PostgreSQL without a manual fix - LEVEL needs to be replaced with "
             "the actual counter column's name. The line number in this finding "
-            "refers to ora2pg's *generated* code, not the original Oracle file — "
+            "refers to ora2pg's *generated* code, not the original Oracle file - "
             "use the object name and snippet below to locate the problem, not the "
             "line number."
         ),
     ),
     "connect_by_nocycle": Message(
         ru=(
-            "CONNECT BY NOCYCLE / ORDER SIBLINGS BY — расширения иерархических "
+            "CONNECT BY NOCYCLE / ORDER SIBLINGS BY - расширения иерархических "
             "запросов Oracle сверх базового CONNECT BY. В отличие от обычного "
             "CONNECT BY (см. GAP-005/detectors/connect_by.py, где конвертация "
             "работает с известным багом LEVEL), эти конструкции ломают "
             "конвертацию гораздо серьёзнее: ora2pg не просто переносит их "
-            "неточно, а разваливает структуру всего PL/SQL-блока — "
+            "неточно, а разваливает структуру всего PL/SQL-блока - "
             "сгенерированный WITH RECURSIVE оказывается вставлен ДО DECLARE, а "
             "тело процедуры получает нарушенную вложенность DECLARE/CURSOR "
             "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
@@ -454,12 +454,12 @@ MESSAGES: dict[str, Message] = {
             "Нужен полностью ручной переход на WITH RECURSIVE."
         ),
         en=(
-            "CONNECT BY NOCYCLE / ORDER SIBLINGS BY — extensions to Oracle's "
+            "CONNECT BY NOCYCLE / ORDER SIBLINGS BY - extensions to Oracle's "
             "hierarchical queries beyond plain CONNECT BY. Unlike plain CONNECT "
             "BY (see GAP-005/detectors/connect_by.py, where conversion works but "
             "has a known LEVEL bug), these constructs break conversion far more "
             "severely: ora2pg doesn't just translate them inaccurately, it breaks "
-            "the structure of the whole PL/SQL block — the generated WITH "
+            "the structure of the whole PL/SQL block - the generated WITH "
             "RECURSIVE ends up inserted BEFORE DECLARE, and the procedure body "
             "gets a broken DECLARE/CURSOR nesting (confirmed by a real ora2pg + "
             "PostgreSQL 16 run, docs/research/gap-014-connect-by-nocycle.md). It "
@@ -470,86 +470,86 @@ MESSAGES: dict[str, Message] = {
     ),
     "connect_by_pseudocolumn": Message(
         ru=(
-            "CONNECT_BY_ROOT / CONNECT_BY_ISLEAF / CONNECT_BY_ISCYCLE — "
+            "CONNECT_BY_ROOT / CONNECT_BY_ISLEAF / CONNECT_BY_ISCYCLE - "
             "иерархические операторы и псевдостолбцы Oracle: корневое значение "
             "ветки, признак листа, признак цикла. ora2pg разворачивает сам "
             "CONNECT BY в WITH RECURSIVE, но эти три конструкции переносит в "
             "сгенерированный код как есть, без замены (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-039-connect-by-pseudocolumn.md). PostgreSQL их не "
-            "знает — падает при загрузке (синтаксическая ошибка на "
+            "знает - падает при загрузке (синтаксическая ошибка на "
             "CONNECT_BY_ROOT, «column does not exist» на ISLEAF/ISCYCLE). "
             "Переписывается вручную: корень ветки протаскивается через "
             "дополнительный столбец рекурсивного CTE, признак листа считается "
-            "отдельным NOT EXISTS-подзапросом, признак цикла — через CYCLE-секцию "
+            "отдельным NOT EXISTS-подзапросом, признак цикла - через CYCLE-секцию "
             "рекурсивного CTE (PostgreSQL 14+). Отдельно: SYS_CONNECT_BY_PATH "
-            "этим детектором НЕ помечается — его ora2pg конвертирует корректно."
+            "этим детектором НЕ помечается - его ora2pg конвертирует корректно."
         ),
         en=(
-            "CONNECT_BY_ROOT / CONNECT_BY_ISLEAF / CONNECT_BY_ISCYCLE — Oracle's "
+            "CONNECT_BY_ROOT / CONNECT_BY_ISLEAF / CONNECT_BY_ISCYCLE - Oracle's "
             "hierarchical operator and pseudocolumns: the branch's root value, "
             "the leaf flag, the cycle flag. ora2pg does expand the surrounding "
             "CONNECT BY into a WITH RECURSIVE, but carries these three through "
             "into the generated code unchanged (confirmed against a real ora2pg "
             "25.0 + PostgreSQL 16 run, "
             "docs/research/gap-039-connect-by-pseudocolumn.md). PostgreSQL "
-            "doesn't know them — it fails at load time (a syntax error on "
+            "doesn't know them - it fails at load time (a syntax error on "
             "CONNECT_BY_ROOT, \"column does not exist\" on ISLEAF/ISCYCLE). "
             "Rewritten by hand: carry the branch root through an extra "
             "recursive-CTE column, compute the leaf flag with a NOT EXISTS "
             "subquery, and the cycle flag with the CTE's own CYCLE clause "
             "(PostgreSQL 14+). Note: SYS_CONNECT_BY_PATH is deliberately NOT "
-            "flagged by this detector — ora2pg converts that one correctly."
+            "flagged by this detector - ora2pg converts that one correctly."
         ),
     ),
     "context_object": Message(
         ru=(
-            "CREATE CONTEXT — объявление application context (часто основа "
+            "CREATE CONTEXT - объявление application context (часто основа "
             "VPD/row-level security через SYS_CONTEXT в связке с "
             "DBMS_SESSION.SET_CONTEXT). ora2pg не конвертирует эту конструкцию "
-            "вообще — она полностью пропадает из вывода, без сгенерированного "
+            "вообще - она полностью пропадает из вывода, без сгенерированного "
             "PostgreSQL-эквивалента (подтверждено реальным прогоном ora2pg, "
             "docs/research/gap-015-context.md). В логах есть только служебная "
-            "строка уровня DEBUG ('unhandled line'), а не предупреждение — легко "
+            "строка уровня DEBUG ('unhandled line'), а не предупреждение - легко "
             "пропустить при реальной миграции. У PostgreSQL нет прямого аналога "
-            "application context — обычно переписывается на "
+            "application context - обычно переписывается на "
             "current_setting()/set_config() с ручным управлением видимостью, или "
             "на Row-Level Security (CREATE POLICY) для сценария VPD."
         ),
         en=(
-            "CREATE CONTEXT — an application context declaration (often the basis "
+            "CREATE CONTEXT - an application context declaration (often the basis "
             "for VPD/row-level security via SYS_CONTEXT combined with "
             "DBMS_SESSION.SET_CONTEXT). ora2pg doesn't convert this construct at "
-            "all — it disappears from the output entirely, with no generated "
+            "all - it disappears from the output entirely, with no generated "
             "PostgreSQL equivalent (confirmed by a real ora2pg run, "
             "docs/research/gap-015-context.md). The logs contain only a "
-            "DEBUG-level line ('unhandled line'), not a warning — easy to miss "
+            "DEBUG-level line ('unhandled line'), not a warning - easy to miss "
             "during a real migration. PostgreSQL has no direct equivalent of an "
-            "application context — usually rewritten using "
+            "application context - usually rewritten using "
             "current_setting()/set_config() with manual visibility management, or "
             "Row-Level Security (CREATE POLICY) for a VPD-style scenario."
         ),
     ),
     "cross_apply": Message(
         ru=(
-            "CROSS APPLY / OUTER APPLY (Oracle 12c+) — вызов табличного "
+            "CROSS APPLY / OUTER APPLY (Oracle 12c+) - вызов табличного "
             "подзапроса для каждой строки внешнего запроса с возможностью "
             "ссылаться на её столбцы, аналог LATERAL JOIN. ora2pg копирует "
             "конструкцию как есть, без изменений (подтверждено реальным прогоном "
             "ora2pg + PostgreSQL 16, docs/research/gap-022-cross-apply.md). "
-            "PostgreSQL не имеет синтаксиса APPLY вообще — падает с "
+            "PostgreSQL не имеет синтаксиса APPLY вообще - падает с "
             "синтаксической ошибкой уже на этапе компиляции тела функции при "
             "первом вызове. Нужно вручную переписать на 'JOIN LATERAL (...) ON "
             "true' (CROSS APPLY) или 'LEFT JOIN LATERAL (...) ON true' (OUTER "
             "APPLY)."
         ),
         en=(
-            "CROSS APPLY / OUTER APPLY (Oracle 12c+) — invokes a table subquery "
+            "CROSS APPLY / OUTER APPLY (Oracle 12c+) - invokes a table subquery "
             "once per row of the outer query, with the ability to reference that "
             "row's columns; equivalent to a LATERAL JOIN. ora2pg copies the "
             "construct verbatim, unchanged (confirmed by a real ora2pg + "
             "PostgreSQL 16 run, docs/research/gap-022-cross-apply.md). PostgreSQL "
-            "has no APPLY syntax at all — it fails with a syntax error at the "
+            "has no APPLY syntax at all - it fails with a syntax error at the "
             "function body's compilation stage on the first call. Needs to be "
             "manually rewritten as 'JOIN LATERAL (...) ON true' (for CROSS APPLY) "
             "or 'LEFT JOIN LATERAL (...) ON true' (for OUTER APPLY)."
@@ -557,20 +557,20 @@ MESSAGES: dict[str, Message] = {
     ),
     "cursor_expression": Message(
         ru=(
-            "CURSOR(SELECT ...) — курсорное выражение Oracle: вложенный запрос, "
+            "CURSOR(SELECT ...) - курсорное выражение Oracle: вложенный запрос, "
             "возвращаемый как отдельный столбец-курсор, который клиент потом "
             "открывает и читает построчно. ora2pg копирует конструкцию в вывод "
             "как есть (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL "
             "16, docs/research/gap-055-cursor-expression.md). В PostgreSQL "
             "курсорных выражений нет, и запрос падает синтаксической ошибкой на "
             "SELECT внутри CURSOR(. Переписывается либо на обычное соединение с "
-            "агрегацией дочерних строк в массив/json (array_agg, json_agg) — чаще "
-            "всего именно это и имелось в виду, — либо на отдельную функцию, "
+            "агрегацией дочерних строк в массив/json (array_agg, json_agg) - чаще "
+            "всего именно это и имелось в виду, - либо на отдельную функцию, "
             "возвращающую refcursor, если клиент действительно читает вложенный "
             "набор построчно."
         ),
         en=(
-            "CURSOR(SELECT ...) — an Oracle cursor expression: a nested query "
+            "CURSOR(SELECT ...) - an Oracle cursor expression: a nested query "
             "returned as a separate cursor column that the client then opens and "
             "reads row by row. ora2pg copies the construct into its output "
             "unchanged (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
@@ -578,14 +578,14 @@ MESSAGES: dict[str, Message] = {
             "cursor expressions, and the query fails with a syntax error at the "
             "SELECT inside CURSOR(. It is rewritten either as an ordinary join "
             "with the child rows aggregated into an array or json (array_agg, "
-            "json_agg) — which is most often what was actually meant — or as a "
+            "json_agg) - which is most often what was actually meant - or as a "
             "separate function returning a refcursor, if the client really does "
             "read the nested set row by row."
         ),
     ),
     "cursor_rowtype": Message(
         ru=(
-            "<курсор>%ROWTYPE — объявление переменной по структуре курсора. "
+            "<курсор>%ROWTYPE - объявление переменной по структуре курсора. "
             "ora2pg копирует конструкцию в вывод как есть (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-064-cursor-rowtype.md). PL/pgSQL понимает %ROWTYPE "
@@ -594,14 +594,14 @@ MESSAGES: dict[str, Message] = {
             "процедура падает с 'relation \"c\" does not exist'. Сама загрузка "
             "проходит чисто: ora2pg выставляет в своём выводе "
             "check_function_bodies = false, так что тело не разбирается на CREATE "
-            "PROCEDURE. Заменяется на RECORD — в PL/pgSQL переменная типа RECORD "
+            "PROCEDURE. Заменяется на RECORD - в PL/pgSQL переменная типа RECORD "
             "принимает строку любого курсора, и FETCH в неё работает без "
             "изменений. Обратите внимание: обычное <таблица>%ROWTYPE ora2pg "
-            "переносит корректно, и этот детектор его не помечает — только "
+            "переносит корректно, и этот детектор его не помечает - только "
             "%ROWTYPE от курсора, объявленного в том же файле."
         ),
         en=(
-            "<cursor>%ROWTYPE — declaring a variable after the shape of a cursor. "
+            "<cursor>%ROWTYPE - declaring a variable after the shape of a cursor. "
             "ora2pg copies the construct into its output unchanged (confirmed "
             "against a real ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-064-cursor-rowtype.md). PL/pgSQL understands "
@@ -610,35 +610,35 @@ MESSAGES: dict[str, Message] = {
             "the procedure fails with 'relation \"c\" does not exist'. Loading "
             "itself is clean: ora2pg sets check_function_bodies = false in its "
             "output, so the body is not parsed at CREATE PROCEDURE. Replace it "
-            "with RECORD — in PL/pgSQL a RECORD variable accepts a row from any "
+            "with RECORD - in PL/pgSQL a RECORD variable accepts a row from any "
             "cursor and FETCH into it works unchanged. Note that ordinary "
             "<table>%ROWTYPE is carried over correctly by ora2pg and this "
-            "detector does not flag it — only %ROWTYPE against a cursor declared "
+            "detector does not flag it - only %ROWTYPE against a cursor declared "
             "in the same file."
         ),
     ),
     "database_link": Message(
         ru=(
-            "table@dblink_name — прямая ссылка на объект в удалённой базе через "
-            "database link. ora2pg копирует ссылку как есть — '@dblink_name' не "
+            "table@dblink_name - прямая ссылка на объект в удалённой базе через "
+            "database link. ora2pg копирует ссылку как есть - '@dblink_name' не "
             "валидный синтаксис SQL в PostgreSQL вообще (подтверждено реальным "
             "прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-006-database-link.md). CREATE PROCEDURE/FUNCTION "
             "проходит без ошибки (ora2pg отключает check_function_bodies в своём "
             "выводе), падает только при первом реальном вызове. Автоматической "
-            "замены нет и в принципе быть не может — нужна ручная настройка "
+            "замены нет и в принципе быть не может - нужна ручная настройка "
             "postgres_fdw/dblink с реальными connection-параметрами удалённой "
             "базы."
         ),
         en=(
-            "table@dblink_name — a direct reference to an object in a remote "
-            "database via a database link. ora2pg copies the reference verbatim — "
+            "table@dblink_name - a direct reference to an object in a remote "
+            "database via a database link. ora2pg copies the reference verbatim - "
             "'@dblink_name' isn't valid SQL syntax in PostgreSQL at all "
             "(confirmed by a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-006-database-link.md). CREATE PROCEDURE/FUNCTION "
             "succeeds without error (ora2pg disables check_function_bodies in its "
             "output), and it only fails on the first real call. There's no "
-            "automatic replacement, and there fundamentally can't be one — it "
+            "automatic replacement, and there fundamentally can't be one - it "
             "needs manual postgres_fdw/dblink setup with the remote database's "
             "real connection parameters."
         ),
@@ -646,7 +646,7 @@ MESSAGES: dict[str, Message] = {
     "dbms_utl_calls": Message(
         ru=(
             "Специальной конвертации в ora2pg для этого конкретного вызова не "
-            "найдено (проверено по исходникам Ora2Pg/PLSQL.pm на шаге 0) — он "
+            "найдено (проверено по исходникам Ora2Pg/PLSQL.pm на шаге 0) - он "
             "попадёт только в обезличенный счётчик DBMS_/UTL_ (вес 3 в "
             "estimate_cost), а сам код останется как есть и не скомпилируется в "
             "PostgreSQL без ручного переписывания или подключения расширения "
@@ -654,7 +654,7 @@ MESSAGES: dict[str, Message] = {
         ),
         en=(
             "No dedicated conversion for this specific call was found in ora2pg "
-            "(checked against Ora2Pg/PLSQL.pm's own source at step 0) — it only "
+            "(checked against Ora2Pg/PLSQL.pm's own source at step 0) - it only "
             "feeds into the generic DBMS_/UTL_ counter (weight 3 in "
             "estimate_cost), while the code itself is left as-is and won't "
             "compile in PostgreSQL without manual rewriting or the orafce "
@@ -664,25 +664,25 @@ MESSAGES: dict[str, Message] = {
     ),
     "default_on_null": Message(
         ru=(
-            "DEFAULT ON NULL — в отличие от обычного DEFAULT, подставляется и "
+            "DEFAULT ON NULL - в отличие от обычного DEFAULT, подставляется и "
             "тогда, когда столбцу явно передан NULL, а не только когда столбец "
             "пропущен в INSERT. ora2pg копирует секцию ON NULL в вывод как есть "
             "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-            "docs/research/gap-031-default-on-null.md) — PostgreSQL не "
+            "docs/research/gap-031-default-on-null.md) - PostgreSQL не "
             "поддерживает такой синтаксис у DEFAULT вообще. В отличие от "
-            "большинства других находок здесь — это не тихая потеря поведения, а "
+            "большинства других находок здесь - это не тихая потеря поведения, а "
             "немедленный 'ERROR: syntax error at or near \"ON\"' уже на этапе "
             "применения самого CREATE TABLE. Нужно вручную переписать на "
             "BEFORE-триггер или GENERATED ALWAYS AS (COALESCE(...)) STORED."
         ),
         en=(
-            "DEFAULT ON NULL — unlike a plain DEFAULT, this is applied even when "
+            "DEFAULT ON NULL - unlike a plain DEFAULT, this is applied even when "
             "the column is explicitly given NULL, not only when it's omitted from "
             "the INSERT. ora2pg copies the ON NULL section into the output "
             "verbatim (confirmed by a real ora2pg + PostgreSQL 16 run, "
-            "docs/research/gap-031-default-on-null.md) — PostgreSQL doesn't "
+            "docs/research/gap-031-default-on-null.md) - PostgreSQL doesn't "
             "support this DEFAULT syntax at all. Unlike most other findings in "
-            "this registry, this isn't a silent loss of behavior — it's an "
+            "this registry, this isn't a silent loss of behavior - it's an "
             "immediate 'ERROR: syntax error at or near \"ON\"' at the point CREATE "
             "TABLE itself is applied. Needs to be manually rewritten as a BEFORE "
             "trigger or GENERATED ALWAYS AS (COALESCE(...)) STORED."
@@ -690,69 +690,69 @@ MESSAGES: dict[str, Message] = {
     ),
     "external_table": Message(
         ru=(
-            "CREATE TABLE ... ORGANIZATION EXTERNAL — внешняя таблица Oracle, "
+            "CREATE TABLE ... ORGANIZATION EXTERNAL - внешняя таблица Oracle, "
             "читающая данные напрямую из файла (ORACLE_LOADER/ORACLE_DATAPUMP), а "
             "не хранящая их в самой БД. ora2pg отбрасывает всю секцию "
             "ORGANIZATION EXTERNAL целиком, включая TYPE/DEFAULT DIRECTORY/ACCESS "
-            "PARAMETERS/LOCATION — таблица создаётся как обычная, физически "
+            "PARAMETERS/LOCATION - таблица создаётся как обычная, физически "
             "хранимая, без единого предупреждения и без сигнала в --estimate_cost "
             "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-018-external-table.md). Это не синтаксическая "
-            "ошибка — CREATE TABLE выполняется без проблем, но результат совсем "
+            "ошибка - CREATE TABLE выполняется без проблем, но результат совсем "
             "другой: источник данных (файл) исчезает бесследно, таблица остаётся "
             "пустой и никогда не подхватит содержимое файла. Ближайший эквивалент "
-            "в PostgreSQL — foreign table через file_fdw (или конкретный fdw для "
-            "нужного формата) — настраивается вручную."
+            "в PostgreSQL - foreign table через file_fdw (или конкретный fdw для "
+            "нужного формата) - настраивается вручную."
         ),
         en=(
-            "CREATE TABLE ... ORGANIZATION EXTERNAL — an Oracle external table "
+            "CREATE TABLE ... ORGANIZATION EXTERNAL - an Oracle external table "
             "that reads data directly from a file (ORACLE_LOADER/ORACLE_DATAPUMP) "
             "rather than storing it in the database itself. ora2pg drops the "
             "entire ORGANIZATION EXTERNAL section, including TYPE/DEFAULT "
-            "DIRECTORY/ACCESS PARAMETERS/LOCATION — the table is created as an "
+            "DIRECTORY/ACCESS PARAMETERS/LOCATION - the table is created as an "
             "ordinary, physically-stored one, with no warning and no signal in "
             "--estimate_cost (confirmed by a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-018-external-table.md). This isn't a syntax error "
-            "— CREATE TABLE runs without a problem, but the result is something "
+            "- CREATE TABLE runs without a problem, but the result is something "
             "entirely different: the data source (the file) vanishes without a "
             "trace, the table stays empty and will never pick up the file's "
             "contents. The closest PostgreSQL equivalent is a foreign table via "
-            "file_fdw (or a specific fdw for the format needed) — set up "
+            "file_fdw (or a specific fdw for the format needed) - set up "
             "manually."
         ),
     ),
     "flashback_query": Message(
         ru=(
-            "AS OF TIMESTAMP/SCN — flashback-запрос, читающий таблицу такой, "
+            "AS OF TIMESTAMP/SCN - flashback-запрос, читающий таблицу такой, "
             "какой она была в прошлом. ora2pg копирует конструкцию как есть (с "
             "побочным искажением текста при подстановке SYSTIMESTAMP в некоторых "
-            "случаях — подтверждено реальным прогоном, "
-            "docs/research/gap-011-flashback-query.md) — в PostgreSQL нет "
+            "случаях - подтверждено реальным прогоном, "
+            "docs/research/gap-011-flashback-query.md) - в PostgreSQL нет "
             "встроенного эквивалента вообще. CREATE PROCEDURE/FUNCTION проходит "
             "без ошибки, падает только при первом реальном вызове. Нужен "
             "отдельный архитектурный механизм (temporal tables через расширение, "
-            "собственные таблицы истории/аудита) — не синтаксическая замена."
+            "собственные таблицы истории/аудита) - не синтаксическая замена."
         ),
         en=(
-            "AS OF TIMESTAMP/SCN — a flashback query that reads a table as it "
+            "AS OF TIMESTAMP/SCN - a flashback query that reads a table as it "
             "looked in the past. ora2pg copies the construct verbatim (with an "
             "incidental text mangling when substituting SYSTIMESTAMP in some "
-            "cases — confirmed by a real run, "
-            "docs/research/gap-011-flashback-query.md) — PostgreSQL has no "
+            "cases - confirmed by a real run, "
+            "docs/research/gap-011-flashback-query.md) - PostgreSQL has no "
             "built-in equivalent at all. CREATE PROCEDURE/FUNCTION succeeds "
             "without error, and it only fails on the first real call. Needs a "
             "separate architectural mechanism (temporal tables via an extension, "
-            "custom history/audit tables) — not a syntax substitution."
+            "custom history/audit tables) - not a syntax substitution."
         ),
     ),
     "for_update_wait": Message(
         ru=(
-            "FOR UPDATE ... WAIT n — блокировка строк с ожиданием не дольше n "
+            "FOR UPDATE ... WAIT n - блокировка строк с ожиданием не дольше n "
             "секунд. ora2pg копирует оговорку в вывод как есть (подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-056-for-update-wait.md). У PostgreSQL для FOR "
-            "UPDATE есть только NOWAIT и SKIP LOCKED — варианта «подожди ровно n "
-            "секунд» нет, — поэтому запрос падает синтаксической ошибкой на слове "
+            "UPDATE есть только NOWAIT и SKIP LOCKED - варианта «подожди ровно n "
+            "секунд» нет, - поэтому запрос падает синтаксической ошибкой на слове "
             "WAIT. Эквивалент делается на уровне сессии, а не запроса: SET LOCAL "
             "lock_timeout = 'n s' перед SELECT ... FOR UPDATE. Разница не только "
             "в синтаксисе: по истечении времени Oracle возвращает ORA-30006, а "
@@ -760,12 +760,12 @@ MESSAGES: dict[str, Message] = {
             "ошибки в вызывающем коде тоже нужно поправить."
         ),
         en=(
-            "FOR UPDATE ... WAIT n — row locking that waits no longer than n "
+            "FOR UPDATE ... WAIT n - row locking that waits no longer than n "
             "seconds. ora2pg copies the clause into its output unchanged "
             "(confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-056-for-update-wait.md). PostgreSQL's FOR UPDATE "
-            "offers only NOWAIT and SKIP LOCKED — there is no \"wait exactly n "
-            "seconds\" variant — so the query fails with a syntax error at the "
+            "offers only NOWAIT and SKIP LOCKED - there is no \"wait exactly n "
+            "seconds\" variant - so the query fails with a syntax error at the "
             "word WAIT. The equivalent is set at session level rather than per "
             "query: SET LOCAL lock_timeout = 'n s' before SELECT ... FOR UPDATE. "
             "The difference is not only syntactic: on expiry Oracle returns "
@@ -775,31 +775,31 @@ MESSAGES: dict[str, Message] = {
     ),
     "global_temp_table": Message(
         ru=(
-            "CREATE GLOBAL TEMPORARY TABLE без ON COMMIT PRESERVE ROWS — то есть "
+            "CREATE GLOBAL TEMPORARY TABLE без ON COMMIT PRESERVE ROWS - то есть "
             "либо явный ON COMMIT DELETE ROWS, либо секция ON COMMIT вообще "
             "опущена (по умолчанию в Oracle это тоже DELETE ROWS). ora2pg "
             "конвертирует в CREATE TEMPORARY TABLE, но полностью теряет секцию ON "
-            "COMMIT — не подставляет её PostgreSQL-эквивалент (подтверждено "
+            "COMMIT - не подставляет её PostgreSQL-эквивалент (подтверждено "
             "реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-012-global-temp-table.md). У обычной CREATE "
-            "TEMPORARY TABLE в PostgreSQL поведение по умолчанию — как раз "
+            "TEMPORARY TABLE в PostgreSQL поведение по умолчанию - как раз "
             "PRESERVE ROWS, противоположное Oracle-семантике DELETE ROWS. Это не "
-            "синтаксическая ошибка — код молча компилируется и выполняется, но "
+            "синтаксическая ошибка - код молча компилируется и выполняется, но "
             "строки, которые в Oracle должны были очищаться после каждого COMMIT, "
             "в PostgreSQL остаются до конца сессии. Нужно вручную добавить 'ON "
             "COMMIT DELETE ROWS' в определение таблицы."
         ),
         en=(
-            "CREATE GLOBAL TEMPORARY TABLE without ON COMMIT PRESERVE ROWS — "
+            "CREATE GLOBAL TEMPORARY TABLE without ON COMMIT PRESERVE ROWS - "
             "meaning either an explicit ON COMMIT DELETE ROWS, or the ON COMMIT "
             "section omitted entirely (Oracle's default is also DELETE ROWS). "
             "ora2pg converts it to CREATE TEMPORARY TABLE but drops the ON COMMIT "
-            "section completely — it never substitutes PostgreSQL's equivalent "
+            "section completely - it never substitutes PostgreSQL's equivalent "
             "(confirmed by a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-012-global-temp-table.md). An ordinary CREATE "
-            "TEMPORARY TABLE in PostgreSQL defaults to exactly PRESERVE ROWS — "
+            "TEMPORARY TABLE in PostgreSQL defaults to exactly PRESERVE ROWS - "
             "the opposite of Oracle's DELETE ROWS semantics. This isn't a syntax "
-            "error — the code silently compiles and runs, but rows that in Oracle "
+            "error - the code silently compiles and runs, but rows that in Oracle "
             "should have been cleared after every COMMIT now stay until the end "
             "of the session in PostgreSQL. Needs 'ON COMMIT DELETE ROWS' added to "
             "the table definition by hand."
@@ -807,25 +807,25 @@ MESSAGES: dict[str, Message] = {
     ),
     "goto_statement": Message(
         ru=(
-            "GOTO — безусловный переход на метку <<label>> внутри PL/SQL-блока. "
+            "GOTO - безусловный переход на метку <<label>> внутри PL/SQL-блока. "
             "ora2pg копирует и метку, и сам GOTO в вывод как есть (подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-063-goto-statement.md). В PL/pgSQL оператора GOTO "
-            "нет вообще. CREATE PROCEDURE при этом проходит без ошибок — ora2pg "
+            "нет вообще. CREATE PROCEDURE при этом проходит без ошибок - ora2pg "
             "выставляет в своём выводе check_function_bodies = false, поэтому "
-            "тело не разбирается на загрузке, — и падение происходит при первом "
+            "тело не разбирается на загрузке, - и падение происходит при первом "
             "же реальном вызове. Переписывается на управляющие конструкции: "
-            "переход назад — на LOOP/CONTINUE, переход вперёд через кусок кода — "
+            "переход назад - на LOOP/CONTINUE, переход вперёд через кусок кода - "
             "на IF/ELSE или на выделение этого куска во вложенный блок с EXIT."
         ),
         en=(
-            "GOTO — an unconditional jump to a <<label>> inside a PL/SQL block. "
+            "GOTO - an unconditional jump to a <<label>> inside a PL/SQL block. "
             "ora2pg copies both the label and the GOTO itself into its output "
             "unchanged (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-063-goto-statement.md). PL/pgSQL has no GOTO "
             "statement at all. CREATE PROCEDURE nevertheless succeeds without "
-            "errors — ora2pg sets check_function_bodies = false in its output, so "
-            "the body is not parsed at load time — and the failure happens on the "
+            "errors - ora2pg sets check_function_bodies = false in its output, so "
+            "the body is not parsed at load time - and the failure happens on the "
             "very first real call. It is rewritten with control structures: a "
             "backward jump becomes LOOP/CONTINUE, a forward jump over a chunk of "
             "code becomes IF/ELSE or that chunk extracted into a nested block "
@@ -835,61 +835,61 @@ MESSAGES: dict[str, Message] = {
     "identity_column": Message(
         ru=(
             "GENERATED ALWAYS/BY DEFAULT AS IDENTITY (...) с явными опциями "
-            "последовательности (START WITH/INCREMENT BY/MAXVALUE и т.д.) — "
+            "последовательности (START WITH/INCREMENT BY/MAXVALUE и т.д.) - "
             "ora2pg переносит их в PostgreSQL-эквивалент, но оборачивает секцию "
             "опций в лишнюю пару скобок: 'GENERATED ALWAYS AS IDENTITY ((START "
             "WITH 1 INCREMENT BY 1))' вместо корректного 'GENERATED ALWAYS AS "
             "IDENTITY (START WITH 1 INCREMENT BY 1)' (подтверждено реальным "
             "прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-028-identity-column.md). Это не пропуск "
-            "конвертации, а именно баг самой подстановки — сам CREATE TABLE "
+            "конвертации, а именно баг самой подстановки - сам CREATE TABLE "
             "падает немедленно при загрузке DDL, ещё до вызова любой функции: "
             "'ERROR: syntax error at or near \"(\"'. Отдельно проверено: GENERATED "
             "ALWAYS AS IDENTITY без явных опций (пустые скобки не нужны) "
-            "конвертируется корректно — баг специфичен именно для случая с "
+            "конвертируется корректно - баг специфичен именно для случая с "
             "опциями. Нужно вручную убрать лишнюю внешнюю пару скобок."
         ),
         en=(
             "GENERATED ALWAYS/BY DEFAULT AS IDENTITY (...) with explicit sequence "
-            "options (START WITH/INCREMENT BY/MAXVALUE etc.) — ora2pg carries "
+            "options (START WITH/INCREMENT BY/MAXVALUE etc.) - ora2pg carries "
             "these over to the PostgreSQL equivalent, but wraps the options "
             "section in an extra, unwanted pair of parentheses: 'GENERATED ALWAYS "
             "AS IDENTITY ((START WITH 1 INCREMENT BY 1))' instead of the correct "
             "'GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1)' "
             "(confirmed by a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-028-identity-column.md). This isn't a skipped "
-            "conversion, it's a genuine substitution bug — CREATE TABLE itself "
+            "conversion, it's a genuine substitution bug - CREATE TABLE itself "
             "fails immediately on DDL load, before any function is even called: "
             "'ERROR: syntax error at or near \"(\"'. Separately verified: GENERATED "
             "ALWAYS AS IDENTITY without explicit options (no parentheses needed) "
-            "converts correctly — the bug is specific to the case with options. "
+            "converts correctly - the bug is specific to the case with options. "
             "Needs the extra outer pair of parentheses removed by hand."
         ),
     ),
     "ignore_nulls": Message(
         ru=(
-            "IGNORE NULLS / RESPECT NULLS — оговорка обработки NULL у "
+            "IGNORE NULLS / RESPECT NULLS - оговорка обработки NULL у "
             "аналитических функций Oracle (LAG, LEAD, FIRST_VALUE, LAST_VALUE, "
             "NTH_VALUE). ora2pg копирует её в вывод как есть (подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-048-ignore-nulls.md). В PostgreSQL 16 такого "
             "синтаксиса нет ни в каком виде, поэтому запрос падает синтаксической "
             "ошибкой прямо на слове IGNORE/RESPECT. Переписывается вручную, и это "
-            "не косметика: IGNORE NULLS нужно эмулировать — обычно через агрегат "
+            "не косметика: IGNORE NULLS нужно эмулировать - обычно через агрегат "
             "с FILTER, через дополнительный проход оконной функцией по "
             "«последнему не-NULL» (count(col) FILTER (WHERE col IS NOT NULL) как "
             "группирующий ключ + first_value внутри группы) или через боковой "
             "подзапрос."
         ),
         en=(
-            "IGNORE NULLS / RESPECT NULLS — the null-treatment clause on Oracle's "
+            "IGNORE NULLS / RESPECT NULLS - the null-treatment clause on Oracle's "
             "analytic functions (LAG, LEAD, FIRST_VALUE, LAST_VALUE, NTH_VALUE). "
             "ora2pg copies it into its output unchanged (confirmed against a real "
             "ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-048-ignore-nulls.md). PostgreSQL 16 has no such "
             "syntax in any form, so the query fails with a syntax error right at "
             "the IGNORE/RESPECT keyword. Rewriting it by hand is more than "
-            "cosmetic: IGNORE NULLS has to be emulated — usually with an "
+            "cosmetic: IGNORE NULLS has to be emulated - usually with an "
             "aggregate plus FILTER, with a second window pass over the \"last "
             "non-NULL\" value (count(col) FILTER (WHERE col IS NOT NULL) as a "
             "grouping key plus first_value within the group), or with a lateral "
@@ -898,34 +898,34 @@ MESSAGES: dict[str, Message] = {
     ),
     "index_organized_table": Message(
         ru=(
-            "CREATE TABLE ... ORGANIZATION INDEX — индекс-организованная таблица "
+            "CREATE TABLE ... ORGANIZATION INDEX - индекс-организованная таблица "
             "(IOT): данные физически хранятся в структуре первичного ключа, а не "
             "в отдельной куче со ссылками на неё из индекса. ora2pg отбрасывает "
-            "секцию ORGANIZATION INDEX целиком — таблица конвертируется как "
+            "секцию ORGANIZATION INDEX целиком - таблица конвертируется как "
             "обычная куча с отдельным индексом по первичному ключу (подтверждено "
             "реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-037-index-organized-table.md). Не синтаксическая "
-            "ошибка и не потеря данных — ограничения целостности сохраняются, "
+            "ошибка и не потеря данных - ограничения целостности сохраняются, "
             "таблица работает корректно. Теряется архитектурная характеристика "
             "хранения: у PostgreSQL нет настоящих индекс-организованных таблиц "
             "(обычный PRIMARY KEY всегда создаёт отдельный индекс над отдельной "
-            "кучей) — для производительность-чувствительных таблиц-кэшей, "
+            "кучей) - для производительность-чувствительных таблиц-кэшей, "
             "изначально спроектированных как IOT именно ради этого свойства, "
             "стоит перепроверить производительность на реальной нагрузке после "
             "миграции."
         ),
         en=(
-            "CREATE TABLE ... ORGANIZATION INDEX — an index-organized table "
+            "CREATE TABLE ... ORGANIZATION INDEX - an index-organized table "
             "(IOT): data lives physically inside the primary key's own structure, "
             "not in a separate heap the index points into. ora2pg drops the "
-            "ORGANIZATION INDEX section entirely — the table converts as an "
+            "ORGANIZATION INDEX section entirely - the table converts as an "
             "ordinary heap table with a separate primary-key index (confirmed by "
             "a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-037-index-organized-table.md). Not a syntax error "
-            "and not data loss — integrity constraints are preserved, the table "
+            "and not data loss - integrity constraints are preserved, the table "
             "works correctly. A storage architecture characteristic is lost: "
             "PostgreSQL has no true index-organized tables (an ordinary PRIMARY "
-            "KEY always creates a separate index over a separate heap) — for "
+            "KEY always creates a separate index over a separate heap) - for "
             "performance-sensitive lookup/cache tables originally designed as an "
             "IOT for exactly that property, worth re-checking performance under "
             "real load after migration."
@@ -933,25 +933,25 @@ MESSAGES: dict[str, Message] = {
     ),
     "insert_all": Message(
         ru=(
-            "INSERT ALL / INSERT FIRST — многотабличная вставка Oracle (условная "
+            "INSERT ALL / INSERT FIRST - многотабличная вставка Oracle (условная "
             "или безусловная, WHEN ... THEN INTO ... либо просто несколько INTO "
-            "подряд). PostgreSQL не имеет такого синтаксиса вообще — ora2pg "
+            "подряд). PostgreSQL не имеет такого синтаксиса вообще - ora2pg "
             "копирует конструкцию как есть, без единого предупреждения "
             "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-016-insert-all.md). Это не просто неточный перевод "
-            "— PL/pgSQL пытается разобрать 'INTO таблица' как INTO для переменной "
+            "- PL/pgSQL пытается разобрать 'INTO таблица' как INTO для переменной "
             "(как в SELECT ... INTO), а не как ветку многотабличной вставки, и "
             "падает уже на этапе компиляции тела функции. Нужно вручную "
             "переписать на набор отдельных INSERT INTO ... SELECT ..., по одному "
             "на каждую ветку."
         ),
         en=(
-            "INSERT ALL / INSERT FIRST — Oracle's multi-table insert (conditional "
+            "INSERT ALL / INSERT FIRST - Oracle's multi-table insert (conditional "
             "or unconditional, WHEN ... THEN INTO ... or just several INTO "
-            "clauses in a row). PostgreSQL has no such syntax at all — ora2pg "
+            "clauses in a row). PostgreSQL has no such syntax at all - ora2pg "
             "copies the construct verbatim, with no warning (confirmed by a real "
             "ora2pg + PostgreSQL 16 run, docs/research/gap-016-insert-all.md). "
-            "This isn't just an inaccurate translation — PL/pgSQL tries to parse "
+            "This isn't just an inaccurate translation - PL/pgSQL tries to parse "
             "'INTO table' as an INTO for a variable (as in SELECT ... INTO), not "
             "as a multi-table-insert branch, and fails at the function body's "
             "compilation stage. Needs to be manually rewritten as a set of "
@@ -960,13 +960,13 @@ MESSAGES: dict[str, Message] = {
     ),
     "invisible_column": Message(
         ru=(
-            "Столбец INVISIBLE — Oracle исключает такой столбец из SELECT * и из "
+            "Столбец INVISIBLE - Oracle исключает такой столбец из SELECT * и из "
             "позиционного INSERT без явного списка столбцов, показывая его только "
             "при явном упоминании по имени. ora2pg отбрасывает модификатор "
-            "INVISIBLE целиком — столбец конвертируется как обычный, видимый "
+            "INVISIBLE целиком - столбец конвертируется как обычный, видимый "
             "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-020-invisible-column.md; в самом PostgreSQL нет "
-            "аналога INVISIBLE вообще). Это не ошибка — CREATE TABLE выполняется "
+            "аналога INVISIBLE вообще). Это не ошибка - CREATE TABLE выполняется "
             "без проблем, но поведение меняется тихо: SELECT * начинает "
             "возвращать столбец, который в Oracle был из него исключён. Для "
             "столбцов, специально скрытых от старого клиентского кода при "
@@ -975,13 +975,13 @@ MESSAGES: dict[str, Message] = {
             "прежний набор столбцов в SELECT *."
         ),
         en=(
-            "An INVISIBLE column — Oracle excludes such a column from SELECT * "
+            "An INVISIBLE column - Oracle excludes such a column from SELECT * "
             "and from a positional INSERT with no explicit column list, showing "
             "it only when referenced by name explicitly. ora2pg drops the "
-            "INVISIBLE modifier entirely — the column converts as an ordinary, "
+            "INVISIBLE modifier entirely - the column converts as an ordinary, "
             "visible one (confirmed by a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-020-invisible-column.md; PostgreSQL itself has no "
-            "INVISIBLE equivalent at all). This isn't an error — CREATE TABLE "
+            "INVISIBLE equivalent at all). This isn't an error - CREATE TABLE "
             "runs without a problem, but the behavior changes silently: SELECT * "
             "starts returning a column that Oracle excluded from it. For columns "
             "deliberately hidden from old client code when adding a new column (a "
@@ -991,58 +991,58 @@ MESSAGES: dict[str, Message] = {
     ),
     "invisible_index": Message(
         ru=(
-            "Индекс INVISIBLE — Oracle не использует такой индекс в планах "
+            "Индекс INVISIBLE - Oracle не использует такой индекс в планах "
             "выполнения по умолчанию (пока сессия явно не включит "
             "OPTIMIZER_USE_INVISIBLE_INDEXES), но продолжает его поддерживать при "
-            "DML — типичный сценарий: добавить индекс невидимым, проверить "
+            "DML - типичный сценарий: добавить индекс невидимым, проверить "
             "нагрузку, потом сделать VISIBLE. ora2pg отбрасывает модификатор "
-            "INVISIBLE целиком — индекс конвертируется как обычный, видимый "
+            "INVISIBLE целиком - индекс конвертируется как обычный, видимый "
             "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-025-invisible-index.md; в самом PostgreSQL нет "
-            "аналога INVISIBLE для индексов вообще). Не ошибка — CREATE INDEX "
+            "аналога INVISIBLE для индексов вообще). Не ошибка - CREATE INDEX "
             "выполняется без проблем, но поведение меняется тихо: оптимизатор "
             "PostgreSQL сразу начинает учитывать индекс, которого в Oracle-плане "
-            "по умолчанию не было бы — потенциально другой план выполнения там, "
+            "по умолчанию не было бы - потенциально другой план выполнения там, "
             "где это не ожидалось."
         ),
         en=(
-            "An INVISIBLE index — Oracle doesn't use such an index in execution "
+            "An INVISIBLE index - Oracle doesn't use such an index in execution "
             "plans by default (unless a session explicitly enables "
-            "OPTIMIZER_USE_INVISIBLE_INDEXES), but still maintains it on DML — a "
+            "OPTIMIZER_USE_INVISIBLE_INDEXES), but still maintains it on DML - a "
             "typical use case is adding an index invisibly, checking the load "
             "impact, then making it VISIBLE. ora2pg drops the INVISIBLE modifier "
-            "entirely — the index converts as an ordinary, visible one (confirmed "
+            "entirely - the index converts as an ordinary, visible one (confirmed "
             "by a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-025-invisible-index.md; PostgreSQL itself has no "
-            "INVISIBLE equivalent for indexes at all). Not an error — CREATE "
+            "INVISIBLE equivalent for indexes at all). Not an error - CREATE "
             "INDEX runs without a problem, but the behavior changes silently: "
             "PostgreSQL's optimizer immediately starts factoring in an index that "
-            "wouldn't have been in Oracle's default plan — potentially a "
+            "wouldn't have been in Oracle's default plan - potentially a "
             "different execution plan where none was expected."
         ),
     ),
     "json_table": Message(
         ru=(
-            "JSON_TABLE(...) — табличная проекция JSON-документа в реляционные "
+            "JSON_TABLE(...) - табличная проекция JSON-документа в реляционные "
             "строки/столбцы. ora2pg копирует вызов как есть (подтверждено "
             "реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-017-json-table.md). На PostgreSQL 16 и старше "
-            "падает с синтаксической ошибкой прямо на COLUMNS — функции "
+            "падает с синтаксической ошибкой прямо на COLUMNS - функции "
             "JSON_TABLE в PostgreSQL нет вообще (появилась только в PostgreSQL "
-            "17, и то с другим синтаксисом секции COLUMNS, не идентичным Oracle — "
+            "17, и то с другим синтаксисом секции COLUMNS, не идентичным Oracle - "
             "не проверялось эмпирически в этом исследовании, но использовать как "
             "прямую замену без сверки нельзя). До PostgreSQL 17 нужен полностью "
             "ручной переход на jsonb_to_recordset()/jsonb_array_elements() с "
             "явным приведением типов."
         ),
         en=(
-            "JSON_TABLE(...) — projects a JSON document into relational "
+            "JSON_TABLE(...) - projects a JSON document into relational "
             "rows/columns. ora2pg copies the call verbatim (confirmed by a real "
             "ora2pg + PostgreSQL 16 run, docs/research/gap-017-json-table.md). On "
             "PostgreSQL 16 and earlier it fails with a syntax error right at "
-            "COLUMNS — PostgreSQL has no JSON_TABLE function at all (it only "
+            "COLUMNS - PostgreSQL has no JSON_TABLE function at all (it only "
             "appeared in PostgreSQL 17, and even then with a different "
-            "COLUMNS-section syntax that isn't identical to Oracle's — not "
+            "COLUMNS-section syntax that isn't identical to Oracle's - not "
             "verified empirically in this research, but it can't be used as a "
             "drop-in replacement without checking). Before PostgreSQL 17, needs a "
             "fully manual rewrite to jsonb_to_recordset()/jsonb_array_elements() "
@@ -1051,27 +1051,27 @@ MESSAGES: dict[str, Message] = {
     ),
     "keep_dense_rank": Message(
         ru=(
-            "KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) — Oracle-специфичный "
+            "KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) - Oracle-специфичный "
             "вариант агрегатной функции: взять значение агрегата не по всей "
             "группе, а по строке, первой (или последней) в заданном порядке "
-            "внутри группы (классика — «зарплата самого раннего нанятого в "
+            "внутри группы (классика - «зарплата самого раннего нанятого в "
             "отделе»). ora2pg копирует конструкцию в вывод как есть (подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-040-keep-dense-rank.md). У PostgreSQL нет "
-            "KEEP-синтаксиса — падает синтаксической ошибкой при загрузке. "
+            "KEEP-синтаксиса - падает синтаксической ошибкой при загрузке. "
             "Переписывается вручную: чаще всего через оконную функцию "
             "FIRST_VALUE/LAST_VALUE с той же ORDER BY в OVER-разделе, либо через "
             "DISTINCT ON, либо через агрегаты PostgreSQL с FILTER."
         ),
         en=(
-            "KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) — Oracle's aggregate "
+            "KEEP (DENSE_RANK FIRST/LAST ORDER BY ...) - Oracle's aggregate "
             "modifier that takes the aggregate not over the whole group but over "
             "the row that comes first (or last) in a given order within that "
             "group (the classic case: \"the salary of the earliest hire in each "
             "department\"). ora2pg copies the construct into its output unchanged "
             "(confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-040-keep-dense-rank.md). PostgreSQL has no KEEP "
-            "syntax — it fails to load with a syntax error. Rewritten by hand: "
+            "syntax - it fails to load with a syntax error. Rewritten by hand: "
             "usually a FIRST_VALUE/LAST_VALUE window function with the same ORDER "
             "BY inside OVER, or DISTINCT ON, or a PostgreSQL aggregate with "
             "FILTER."
@@ -1079,30 +1079,30 @@ MESSAGES: dict[str, Message] = {
     ),
     "local_time_zone": Message(
         ru=(
-            "TIMESTAMP WITH LOCAL TIME ZONE — Oracle хранит момент времени в "
+            "TIMESTAMP WITH LOCAL TIME ZONE - Oracle хранит момент времени в "
             "нормализованном виде и на чтении автоматически пересчитывает его в "
             "часовой пояс текущей сессии. ora2pg конвертирует такой столбец в "
-            "простой timestamp — БЕЗ часового пояса (подтверждено реальным "
+            "простой timestamp - БЕЗ часового пояса (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-044-local-time-zone.md). Ошибки не будет никогда: "
             "CREATE TABLE проходит, INSERT проходит, SELECT возвращает значение. "
-            "Но пересчёт в часовой пояс сессии молча исчезает — одно и то же "
+            "Но пересчёт в часовой пояс сессии молча исчезает - одно и то же "
             "значение теперь отдаётся одинаковым во всех сессиях, независимо от "
             "их TIME ZONE, тогда как в Oracle оно сдвигалось. Для системы, где "
             "клиенты в разных поясах, это тихое расхождение в данных, которое "
             "проявится только как жалоба пользователя на неверное время. "
-            "Правильная замена в PostgreSQL — timestamptz (timestamp with time "
+            "Правильная замена в PostgreSQL - timestamptz (timestamp with time "
             "zone): именно он делает то же, что Oracle LTZ."
         ),
         en=(
-            "TIMESTAMP WITH LOCAL TIME ZONE — Oracle stores the instant "
+            "TIMESTAMP WITH LOCAL TIME ZONE - Oracle stores the instant "
             "normalised and automatically converts it into the current session's "
             "time zone on read. ora2pg converts such a column into a plain "
-            "timestamp — WITHOUT any time zone (confirmed against a real ora2pg "
+            "timestamp - WITHOUT any time zone (confirmed against a real ora2pg "
             "25.0 + PostgreSQL 16 run, docs/research/gap-044-local-time- "
             "zone.md). No error is ever raised: CREATE TABLE succeeds, INSERT "
             "succeeds, SELECT returns a value. But the session-time-zone "
-            "conversion silently disappears — the same value now comes back "
+            "conversion silently disappears - the same value now comes back "
             "identical in every session regardless of its TIME ZONE, where in "
             "Oracle it would have shifted. For a system with clients in different "
             "time zones this is a silent data discrepancy that surfaces only as a "
@@ -1113,7 +1113,7 @@ MESSAGES: dict[str, Message] = {
     ),
     "long_raw_type": Message(
         ru=(
-            "LONG RAW — унаследованный двоичный тип Oracle. ora2pg объявляет для "
+            "LONG RAW - унаследованный двоичный тип Oracle. ora2pg объявляет для "
             "него отображение 'LONG RAW:bytea' и в своей документации, и в коде "
             "(lib/Ora2Pg/Oracle.pm), но при конвертации DDL из файла столбец "
             "превращается в text, а не в bytea (подтверждено реальным прогоном "
@@ -1121,14 +1121,14 @@ MESSAGES: dict[str, Message] = {
             "docs/research/gap-050-long-raw-type.md). То есть это расхождение "
             "самого ora2pg с собственной документацией, а не сознательный выбор. "
             "CREATE TABLE проходит чисто, и проблема всплывает уже на переносе "
-            "данных: в text нельзя положить произвольные байты — нулевой байт или "
+            "данных: в text нельзя положить произвольные байты - нулевой байт или "
             "любая последовательность, не являющаяся корректным UTF-8, даёт "
             "'invalid byte sequence for encoding \"UTF8\"' (для сравнения: RAW(n) и "
             "BLOB тот же ora2pg в том же прогоне отображает в bytea правильно). "
             "Тип столбца нужно поправить на bytea вручную."
         ),
         en=(
-            "LONG RAW — Oracle's legacy binary type. ora2pg declares the mapping "
+            "LONG RAW - Oracle's legacy binary type. ora2pg declares the mapping "
             "'LONG RAW:bytea' both in its documentation and in its code "
             "(lib/Ora2Pg/Oracle.pm), yet when converting DDL from a file the "
             "column comes out as text rather than bytea (confirmed against a real "
@@ -1136,7 +1136,7 @@ MESSAGES: dict[str, Message] = {
             "docs/research/gap-050-long-raw-type.md). This is ora2pg disagreeing "
             "with its own documentation, not a deliberate choice. CREATE TABLE "
             "loads cleanly and the problem surfaces during the data migration "
-            "instead: arbitrary bytes cannot go into a text column — a zero byte, "
+            "instead: arbitrary bytes cannot go into a text column - a zero byte, "
             "or any sequence that is not valid UTF-8, produces 'invalid byte "
             "sequence for encoding \"UTF8\"' (for comparison, the same ora2pg run "
             "maps RAW(n) and BLOB to bytea correctly). The column type has to be "
@@ -1145,60 +1145,60 @@ MESSAGES: dict[str, Message] = {
     ),
     "match_recognize": Message(
         ru=(
-            "MATCH_RECOGNIZE (Oracle 12c+) — сопоставление строк с шаблоном прямо "
+            "MATCH_RECOGNIZE (Oracle 12c+) - сопоставление строк с шаблоном прямо "
             "в SQL (PARTITION BY / ORDER BY / MEASURES / PATTERN / DEFINE): поиск "
             "последовательностей строк, соответствующих регулярному выражению над "
             "потоком, для анализа трендов, сессий, последовательностей событий. "
             "ora2pg копирует конструкцию в вывод как есть, без изменений "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-038-match-recognize.md). У PostgreSQL нет никакого "
-            "аналога row pattern matching — падает синтаксической ошибкой уже при "
+            "аналога row pattern matching - падает синтаксической ошибкой уже при "
             "загрузке сгенерированного DDL. Переписывается вручную через оконные "
             "функции (LAG/LEAD над разделами) плюс фильтрацию, либо через "
-            "рекурсивный CTE — прямой замены на одну конструкцию не существует."
+            "рекурсивный CTE - прямой замены на одну конструкцию не существует."
         ),
         en=(
-            "MATCH_RECOGNIZE (Oracle 12c+) — row pattern matching directly in SQL "
+            "MATCH_RECOGNIZE (Oracle 12c+) - row pattern matching directly in SQL "
             "(PARTITION BY / ORDER BY / MEASURES / PATTERN / DEFINE): finding "
             "sequences of rows that match a regular-expression-like pattern over "
             "an ordered stream, used for trend, session and event-sequence "
             "analysis. ora2pg copies the clause into its output unchanged "
             "(confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-038-match-recognize.md). PostgreSQL has no row "
-            "pattern matching of any kind — the generated DDL fails to load with "
+            "pattern matching of any kind - the generated DDL fails to load with "
             "a syntax error. Rewritten by hand using window functions (LAG/LEAD "
-            "over the partition) plus filtering, or a recursive CTE — there is no "
+            "over the partition) plus filtering, or a recursive CTE - there is no "
             "single-construct replacement."
         ),
     ),
     "materialized_view_log": Message(
         ru=(
-            "CREATE MATERIALIZED VIEW LOG ON ... — журнал изменений таблицы, "
+            "CREATE MATERIALIZED VIEW LOG ON ... - журнал изменений таблицы, "
             "нужный для FAST REFRESH материализованных представлений, построенных "
-            "на ней. ora2pg не конвертирует эту конструкцию вообще — она "
+            "на ней. ora2pg не конвертирует эту конструкцию вообще - она "
             "полностью пропадает из вывода, без единого предупреждения "
             "(подтверждено реальным прогоном ora2pg, "
             "docs/research/gap-027-materialized-view-log.md). В логе есть только "
             "служебная строка уровня DEBUG ('unhandled line'), не предупреждение "
-            "— легко пропустить при реальной миграции. Если на этой таблице "
+            "- легко пропустить при реальной миграции. Если на этой таблице "
             "где-то построено материализованное представление с REFRESH FAST, оно "
             "перестанет работать в режиме быстрого обновления (FAST), поскольку в "
             "PostgreSQL у материализованных представлений нет инкрементального "
-            "REFRESH FAST вообще — только полный REFRESH (`REFRESH MATERIALIZED "
+            "REFRESH FAST вообще - только полный REFRESH (`REFRESH MATERIALIZED "
             "VIEW`), что делает саму журнальную таблицу ненужной, но означает "
             "архитектурно другой подход к обновлению данных."
         ),
         en=(
-            "CREATE MATERIALIZED VIEW LOG ON ... — a change log for a table, "
+            "CREATE MATERIALIZED VIEW LOG ON ... - a change log for a table, "
             "needed for FAST REFRESH of materialized views built on it. ora2pg "
-            "doesn't convert this construct at all — it disappears from the "
+            "doesn't convert this construct at all - it disappears from the "
             "output entirely, with no warning (confirmed by a real ora2pg run, "
             "docs/research/gap-027-materialized-view-log.md). The log contains "
-            "only a DEBUG-level line ('unhandled line'), not a warning — easy to "
+            "only a DEBUG-level line ('unhandled line'), not a warning - easy to "
             "miss during a real migration. If a materialized view with REFRESH "
             "FAST is built anywhere on this table, it will stop working in "
             "fast-refresh (FAST) mode, because PostgreSQL's materialized views "
-            "have no incremental REFRESH FAST at all — only a full REFRESH "
+            "have no incremental REFRESH FAST at all - only a full REFRESH "
             "(`REFRESH MATERIALIZED VIEW`), which makes the log table itself "
             "unnecessary but means an architecturally different approach to "
             "keeping data up to date."
@@ -1206,68 +1206,68 @@ MESSAGES: dict[str, Message] = {
     ),
     "merge_delete_clause": Message(
         ru=(
-            "MERGE ... WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ... — "
+            "MERGE ... WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ... - "
             "составная Oracle-конструкция, удаляющая часть только что обновлённых "
             "строк. ora2pg копирует её как есть (подтверждено реальным прогоном "
             "ora2pg + PostgreSQL 16, "
             "docs/research/gap-002-merge-delete-clause.md), а в MERGE PostgreSQL "
-            "(15+) такого нет — каждая ветка WHEN является одним действием "
+            "(15+) такого нет - каждая ветка WHEN является одним действием "
             "(UPDATE/DELETE/INSERT/DO NOTHING), а не составным "
             "UPDATE-затем-DELETE. Подтверждено на реальном PostgreSQL 16: CREATE "
             "PROCEDURE проходит без единой ошибки (ora2pg отключает "
             "check_function_bodies в своём выводе), синтаксическая ошибка "
-            "всплывает только при первом реальном вызове — то есть в проде, а не "
+            "всплывает только при первом реальном вызове - то есть в проде, а не "
             "на этапе компиляции. Обычный MERGE (UPDATE+INSERT, без DELETE WHERE) "
-            "— не проблема, конвертируется и выполняется корректно. Нужно вручную "
+            "- не проблема, конвертируется и выполняется корректно. Нужно вручную "
             "разбить на две ветки WHEN MATCHED со взаимоисключающими условиями "
             "вместо составной конструкции."
         ),
         en=(
-            "MERGE ... WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ... — a "
+            "MERGE ... WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ... - a "
             "compound Oracle construct that deletes a subset of the rows it just "
             "updated. ora2pg copies it verbatim (confirmed by a real ora2pg + "
             "PostgreSQL 16 run, docs/research/gap-002-merge-delete-clause.md), "
-            "but PostgreSQL's MERGE (15+) has nothing like it — each WHEN branch "
+            "but PostgreSQL's MERGE (15+) has nothing like it - each WHEN branch "
             "is a single action (UPDATE/DELETE/INSERT/DO NOTHING), not a compound "
             "UPDATE-then-DELETE. Confirmed on real PostgreSQL 16: CREATE "
             "PROCEDURE succeeds without a single error (ora2pg disables "
             "check_function_bodies in its output), and the syntax error only "
-            "surfaces on the first real call — i.e. in production, not at compile "
+            "surfaces on the first real call - i.e. in production, not at compile "
             "time. A plain MERGE (UPDATE+INSERT, no DELETE WHERE) isn't a problem "
-            "— it converts and runs correctly. Needs to be manually split into "
+            "- it converts and runs correctly. Needs to be manually split into "
             "two WHEN MATCHED branches with mutually exclusive conditions instead "
             "of the compound construct."
         ),
     ),
     "model_clause": Message(
         ru=(
-            "MODEL — spreadsheet-стиль вычислений внутри SQL (PARTITION BY / "
+            "MODEL - spreadsheet-стиль вычислений внутри SQL (PARTITION BY / "
             "DIMENSION BY / MEASURES / RULES). ora2pg не трогает конструкцию "
             "вообще (подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-007-model-clause.md). CREATE PROCEDURE/FUNCTION "
             "проходит без ошибки (ora2pg отключает check_function_bodies в своём "
             "выводе), падает только при первом реальном вызове. В отличие от "
             "большинства других находок этого проекта, у MODEL нет прямого "
-            "архитектурного эквивалента в PostgreSQL вообще — единственный путь "
+            "архитектурного эквивалента в PostgreSQL вообще - единственный путь "
             "это переписать логику вручную на оконные функции или рекурсивные "
             "CTE, а не механическая подстановка синтаксиса."
         ),
         en=(
-            "MODEL — spreadsheet-style computation inside SQL (PARTITION BY / "
+            "MODEL - spreadsheet-style computation inside SQL (PARTITION BY / "
             "DIMENSION BY / MEASURES / RULES). ora2pg leaves the construct "
             "completely untouched (confirmed by a real ora2pg + PostgreSQL 16 "
             "run, docs/research/gap-007-model-clause.md). CREATE "
             "PROCEDURE/FUNCTION succeeds without error (ora2pg disables "
             "check_function_bodies in its output), and it only fails on the first "
             "real call. Unlike most other findings in this project, MODEL has no "
-            "direct architectural equivalent in PostgreSQL at all — the only path "
+            "direct architectural equivalent in PostgreSQL at all - the only path "
             "is to manually rewrite the logic using window functions or recursive "
             "CTEs, not a mechanical syntax substitution."
         ),
     ),
     "mssql_bracket_identifier": Message(
         ru=(
-            "Идентификаторы в квадратных скобках ([dbo].[Orders], [Id], [int]) — "
+            "Идентификаторы в квадратных скобках ([dbo].[Orders], [Id], [int]) - "
             "штатный способ записи имён в T-SQL, и именно так их выводит SSMS и "
             "Generate Scripts по умолчанию, то есть так выглядит практически "
             "любой реальный скрипт. При файловом экспорте (-M -i <файл>) ora2pg "
@@ -1277,12 +1277,12 @@ MESSAGES: dict[str, Message] = {
             "есть таблица с именем [orders] в схеме [dbo] и столбец типа [INT], "
             "которого не существует. Подтверждено реальным прогоном ora2pg 25.0 + "
             "PostgreSQL 16 (docs/research/gap-087-mssql-bracket-identifier.md): "
-            "загрузка падает сразу — 'syntax error at or near \"[\"'. Та же "
+            "загрузка падает сразу - 'syntax error at or near \"[\"'. Та же "
             "таблица, записанная без скобок, конвертируется корректно, так что "
             "дело именно в них. Причина видна в исходниках ora2pg: снятие скобок "
             "(s/[\\[\\]]+//g) есть в MSSQL.pm, но только в подпрограммах, "
             "работающих с живым подключением (_column_info, _get_views, "
-            "_get_functions, _get_procedures, _column_attributes и другие) — "
+            "_get_functions, _get_procedures, _column_attributes и другие) - "
             "файловый путь через -i до них не доходит. Отсюда и обход: либо "
             "экспортировать через живое подключение к SQL Server, либо снять "
             "скобки в скрипте до конвертации."
@@ -1312,10 +1312,10 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_charindex": Message(
         ru=(
-            "CHARINDEX(<что искать>, <где искать>) — поиск подстроки в T-SQL. В "
+            "CHARINDEX(<что искать>, <где искать>) - поиск подстроки в T-SQL. В "
             "отличие от прочих встроенных функций этой партии, ora2pg (-M) её "
-            "переводить пытается — и выбирает верную цель, position(... in ...), "
-            "— но удваивает кавычки вокруг искомой строки: из CHARINDEX('abc', "
+            "переводить пытается - и выбирает верную цель, position(... in ...), "
+            "- но удваивает кавычки вокруг искомой строки: из CHARINDEX('abc', "
             "@nm) получается position(''abc'' in p_nm) (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-100-mssql-charindex.md). Это уже не валидный SQL: "
@@ -1323,7 +1323,7 @@ MESSAGES: dict[str, Message] = {
             "чисто (check_function_bodies = false в выводе ora2pg), ошибка "
             "вылезает при первом вызове. Чинится снятием лишних кавычек: "
             "position('abc' in p_nm). Имейте в виду, что у CHARINDEX есть третий "
-            "аргумент — позиция начала поиска, — которому у position() прямого "
+            "аргумент - позиция начала поиска, - которому у position() прямого "
             "соответствия нет и который переносится через substring()."
         ),
         en=(
@@ -1345,17 +1345,17 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_collation": Message(
         ru=(
-            "COLLATE на столбце — правило сравнения и сортировки строк в SQL "
+            "COLLATE на столбце - правило сравнения и сортировки строк в SQL "
             "Server. ora2pg (-M) выбрасывает оговорку из определения столбца, а "
-            "сам столбец отображает в citext — регистронезависимый тип "
+            "сам столбец отображает в citext - регистронезависимый тип "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-103-mssql-collation.md). Для исходных правил с "
             "_CI_ (case-insensitive) это попадание в цель, а вот для _CS_ "
-            "(case-sensitive) — молчаливая подмена смысла на противоположный. "
+            "(case-sensitive) - молчаливая подмена смысла на противоположный. "
             "Проверено на живых данных: столбец с COLLATE "
             "SQL_Latin1_General_CP1_CS_AS после миграции находит строку 'ABC' по "
             "запросу WHERE code = 'abc' (1 строка), тогда как SQL Server с этим "
-            "правилом не нашёл бы ничего. Ошибки при этом нет ни на одном этапе — "
+            "правилом не нашёл бы ничего. Ошибки при этом нет ни на одном этапе - "
             "меняется только выдача запросов, и заметно это в бою: ломаются "
             "проверки уникальности, поиск по коду, сравнение идентификаторов. "
             "Чинится заменой citext на text с явным COLLATE нужной "
@@ -1381,22 +1381,22 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_computed_column": Message(
         ru=(
-            "Вычисляемый столбец (<имя> AS (<выражение>), с PERSISTED или без) — "
+            "Вычисляемый столбец (<имя> AS (<выражение>), с PERSISTED или без) - "
             "столбец SQL Server, значение которого считается из других столбцов. "
-            "ora2pg (-M) строит под него триггер BEFORE INSERT OR UPDATE — сам по "
-            "себе подход рабочий, — но тип самого столбца выводит как citext "
+            "ora2pg (-M) строит под него триггер BEFORE INSERT OR UPDATE - сам по "
+            "себе подход рабочий, - но тип самого столбца выводит как citext "
             "независимо от того, что считает выражение (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-104-mssql-computed-column.md). Проверено: для "
             "total AS (price * qty) PERSISTED, где price numeric(10,2) и qty int, "
             "в готовой таблице столбец total имеет тип citext, то есть текст. "
-            "Ошибки нет ни на загрузке, ни при вставке — значение посчитается и "
-            "запишется, — но дальше это уже строка: сортировка идёт "
+            "Ошибки нет ни на загрузке, ни при вставке - значение посчитается и "
+            "запишется, - но дальше это уже строка: сортировка идёт "
             "лексикографически ('100' < '20'), сравнение с числом и SUM() по "
             "столбцу падают или дают не то. Кроме того, в тело триггера попадает "
             "служебное слово PERSISTED, которое PostgreSQL молча трактует как "
             "псевдоним столбца. Чинится заменой типа столбца на тот, что реально "
-            "считает выражение, а лучше — переносом на штатный GENERATED ALWAYS "
+            "считает выражение, а лучше - переносом на штатный GENERATED ALWAYS "
             "AS (...) STORED."
         ),
         en=(
@@ -1421,19 +1421,19 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_datediff": Message(
         ru=(
-            "DATEDIFF(<единица>, <начало>, <конец>) — разница дат в T-SQL. ora2pg "
+            "DATEDIFF(<единица>, <начало>, <конец>) - разница дат в T-SQL. ora2pg "
             "(-M) копирует вызов в тело процедуры дословно (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-099-mssql-datediff.md), хотя соседние DATEADD и "
-            "DATEPART в том же операторе переводит правильно — в арифметику с "
+            "DATEPART в том же операторе переводит правильно - в арифметику с "
             "INTERVAL и в date_part(). Функции DATEDIFF в PostgreSQL нет; "
             "загрузка проходит чисто (check_function_bodies = false в выводе "
-            "ora2pg), падение — при первом вызове. Переписывается через "
-            "вычитание: разница в днях — (<конец>::date - <начало>::date), в "
-            "остальных единицах — через EXTRACT(EPOCH FROM (<конец> - <начало>)) "
+            "ora2pg), падение - при первом вызове. Переписывается через "
+            "вычитание: разница в днях - (<конец>::date - <начало>::date), в "
+            "остальных единицах - через EXTRACT(EPOCH FROM (<конец> - <начало>)) "
             "с делением. Обратите внимание на семантику: T-SQL DATEDIFF считает "
             "пересечённые границы единиц, а не полные интервалы, поэтому "
-            "DATEDIFF(year, ...) между 31 декабря и 1 января даёт 1 — прямое "
+            "DATEDIFF(year, ...) между 31 декабря и 1 января даёт 1 - прямое "
             "вычитание даст 0."
         ),
         en=(
@@ -1455,18 +1455,18 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_filtered_index": Message(
         ru=(
-            "Фильтрованный индекс (CREATE INDEX ... WHERE <условие>) — индекс по "
+            "Фильтрованный индекс (CREATE INDEX ... WHERE <условие>) - индекс по "
             "части строк таблицы. ora2pg (-M) выбрасывает такой оператор целиком: "
             "в выводе не появляется никакого индекса вообще (подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-101-mssql-filtered-index.md). Обиднее всего, что "
             "переносить тут почти нечего: в PostgreSQL есть ровно такие же "
-            "частичные индексы и ровно с тем же синтаксисом — CREATE INDEX ... ON "
-            "... WHERE ..., — а обычный CREATE NONCLUSTERED INDEX ... INCLUDE "
+            "частичные индексы и ровно с тем же синтаксисом - CREATE INDEX ... ON "
+            "... WHERE ..., - а обычный CREATE NONCLUSTERED INDEX ... INCLUDE "
             "(...) тот же ora2pg в том же прогоне переносит корректно. Ошибки не "
             "будет ни на загрузке, ни потом: схема поднимется без индекса, и "
             "разница проявится как деградация планов на больших таблицах, а если "
-            "индекс был UNIQUE — ещё и как исчезнувшее ограничение уникальности. "
+            "индекс был UNIQUE - ещё и как исчезнувшее ограничение уникальности. "
             "Восстанавливается дословным переносом оператора после загрузки "
             "схемы."
         ),
@@ -1489,7 +1489,7 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_foreign_key": Message(
         ru=(
-            "FOREIGN KEY — внешний ключ, объявленный в списке столбцов CREATE "
+            "FOREIGN KEY - внешний ключ, объявленный в списке столбцов CREATE "
             "TABLE (в том числе в форме CONSTRAINT <имя> FOREIGN KEY ... "
             "REFERENCES ... ON DELETE CASCADE, которую выдаёт SSMS). Если в "
             "конфиге ora2pg не задан PG_VERSION (тогда он равен 11) или задан 12 "
@@ -1502,9 +1502,9 @@ MESSAGES: dict[str, Message] = {
             "и _create_foreign_keys() принимает таблицу за партиционированную. "
             "Ошибки не будет ни на загрузке, ни потом: схема поднимется, "
             "приложение заработает, и ссылочная целостность просто перестанет "
-            "существовать — вместе с каскадными удалениями. Чинится одной "
+            "существовать - вместе с каскадными удалениями. Чинится одной "
             "строкой в конфиге ora2pg: PG_VERSION с реальной целевой версией, 13 "
-            "или выше. Если цель и правда PostgreSQL 12 и ниже — восстановить "
+            "или выше. Если цель и правда PostgreSQL 12 и ниже - восстановить "
             "вручную: ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... "
             "REFERENCES ... после загрузки всех таблиц."
         ),
@@ -1531,14 +1531,14 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_identity_column": Message(
         ru=(
-            "IDENTITY(<начало>, <шаг>) — автоинкрементный столбец SQL Server. "
+            "IDENTITY(<начало>, <шаг>) - автоинкрементный столбец SQL Server. "
             "ora2pg (-M) выбрасывает это свойство целиком: столбец становится "
             "обычным integer, и ни serial, ни GENERATED ... AS IDENTITY, ни "
             "отдельной последовательности в выводе не появляется (подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-090-mssql-identity-column.md). Схема при этом "
             "загружается без единой ошибки, поэтому проблему видно только при "
-            "первой же обычной вставке — проверено на живых данных: INSERT INTO "
+            "первой же обычной вставке - проверено на живых данных: INSERT INTO "
             "invoices (amount) VALUES (9.99) падает с 'null value in column \"id\" "
             "violates not-null constraint', тогда как в SQL Server ровно тот же "
             "INSERT проходит. Обратите внимание на разницу с MySQL-стороной того "
@@ -1568,13 +1568,13 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_if_statement": Message(
         ru=(
-            "IF — условный оператор T-SQL. ora2pg (-M) не доводит перевод до "
+            "IF - условный оператор T-SQL. ora2pg (-M) не доводит перевод до "
             "конца ни в одной из двух его форм, причём ломается по-разному "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
-            "docs/research/gap-092-mssql-if-statement.md). С блоком — IF @x < 0 "
-            "BEGIN ... END — слово THEN подставляется правильно, но закрывающее "
+            "docs/research/gap-092-mssql-if-statement.md). С блоком - IF @x < 0 "
+            "BEGIN ... END - слово THEN подставляется правильно, но закрывающее "
             "END так и остаётся END вместо END IF, и разбор падает с 'syntax "
-            "error at or near \"END\"'. Без блока — IF @x < 0 <оператор>; — не "
+            "error at or near \"END\"'. Без блока - IF @x < 0 <оператор>; - не "
             "подставляется и THEN, и падение другое: 'missing \"THEN\" at end of "
             "SQL expression'. Загрузка в обоих случаях проходит чисто "
             "(check_function_bodies = false в выводе ora2pg), ошибка вылезает при "
@@ -1598,7 +1598,7 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_iif": Message(
         ru=(
-            "IIF(<условие>, <если да>, <если нет>) — тернарный выбор в T-SQL. "
+            "IIF(<условие>, <если да>, <если нет>) - тернарный выбор в T-SQL. "
             "ora2pg (-M) копирует вызов в тело процедуры дословно (подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-098-mssql-iif.md). Функции IIF в PostgreSQL нет, и "
@@ -1625,15 +1625,15 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_newid_default": Message(
         ru=(
-            "NEWID() / NEWSEQUENTIALID() — генерация GUID по умолчанию в SQL "
-            "Server. ora2pg (-M) выбирает правильную цель — uuid_generate_v4(), — "
+            "NEWID() / NEWSEQUENTIALID() - генерация GUID по умолчанию в SQL "
+            "Server. ora2pg (-M) выбирает правильную цель - uuid_generate_v4(), - "
             "но строку CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\", без которой "
             "этой функции не существует, в вывод не добавляет (подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-088-mssql-newid-default.md). CREATE TABLE падает "
             "немедленно, при загрузке схемы: 'function uuid_generate_v4() does "
             "not exist'. Показательно, что в том же прогоне ora2pg сам выводит "
-            "CREATE EXTENSION citext, когда он ему нужен под строковые типы, — то "
+            "CREATE EXTENSION citext, когда он ему нужен под строковые типы, - то "
             "есть механизм подключения расширений у него есть и просто не "
             "применяется здесь. Чинится одной строкой CREATE EXTENSION IF NOT "
             "EXISTS \"uuid-ossp\" перед загрузкой схемы; как вариант, в PostgreSQL "
@@ -1658,16 +1658,16 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_output_clause": Message(
         ru=(
-            "OUTPUT INSERTED.<столбец> / OUTPUT DELETED.<столбец> — возврат "
+            "OUTPUT INSERTED.<столбец> / OUTPUT DELETED.<столбец> - возврат "
             "затронутых строк прямо из INSERT/UPDATE/DELETE в T-SQL. ora2pg (-M) "
             "копирует оговорку в тело процедуры дословно (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-097-mssql-output-clause.md). В PostgreSQL та же "
             "идея пишется как RETURNING, и слова OUTPUT он не понимает. Загрузка "
             "проходит чисто (check_function_bodies = false в выводе ora2pg), "
-            "падение — при первом вызове. Переписывается на RETURNING <столбец>, "
+            "падение - при первом вызове. Переписывается на RETURNING <столбец>, "
             "но с оглядкой на две вещи: RETURNING не различает INSERTED и DELETED "
-            "(для UPDATE он возвращает новые значения — старые придётся брать "
+            "(для UPDATE он возвращает новые значения - старые придётся брать "
             "иначе), и в отличие от OUTPUT ... INTO <таблица> его результат "
             "нельзя направить в таблицу одним оператором."
         ),
@@ -1689,16 +1689,16 @@ MESSAGES: dict[str, Message] = {
     "mssql_parameterless_procedure": Message(
         ru=(
             "Процедура без параметров. Само по себе это ничем не примечательно, "
-            "но ora2pg (-M) генерирует для неё пустой блок объявлений — DECLARE, "
-            "пустая строка и одинокая точка с запятой, — который PL/pgSQL "
+            "но ora2pg (-M) генерирует для неё пустой блок объявлений - DECLARE, "
+            "пустая строка и одинокая точка с запятой, - который PL/pgSQL "
             "разобрать не может (подтверждено реальным прогоном ora2pg 25.0 + "
             "PostgreSQL 16, "
             "docs/research/gap-091-mssql-parameterless-procedure.md). Проверено "
             "прямым сравнением: у процедуры с параметром блока DECLARE в выводе "
             "нет вовсе и тело начинается сразу с BEGIN, а у точно такой же "
             "процедуры без параметров появляется сломанный DECLARE. Загрузка "
-            "проходит без ошибок — ora2pg выставляет в своём выводе "
-            "check_function_bodies = false, поэтому тело не разбирается, — и "
+            "проходит без ошибок - ora2pg выставляет в своём выводе "
+            "check_function_bodies = false, поэтому тело не разбирается, - и "
             "падение происходит при первом же реальном вызове: 'syntax error at "
             "or near \";\"'. Под это попадает каждая процедура без параметров, то "
             "есть, как правило, все служебные и отчётные. Чинится удалением "
@@ -1725,17 +1725,17 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_raiserror": Message(
         ru=(
-            "RAISERROR / THROW — операторы возбуждения ошибки в T-SQL. ora2pg "
+            "RAISERROR / THROW - операторы возбуждения ошибки в T-SQL. ora2pg "
             "(-M) копирует оба в тело процедуры дословно (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-093-mssql-raiserror.md). В PL/pgSQL нет ни того, "
-            "ни другого. Загрузка проходит чисто — ora2pg выставляет в своём "
-            "выводе check_function_bodies = false, — и падение происходит при "
+            "ни другого. Загрузка проходит чисто - ora2pg выставляет в своём "
+            "выводе check_function_bodies = false, - и падение происходит при "
             "первом же реальном вызове. Переписывается на RAISE EXCEPTION "
             "'<текст>' USING ERRCODE = '<sqlstate>'. При переносе стоит помнить о "
             "разнице: severity в RAISERROR (второй аргумент) в PostgreSQL "
-            "соответствует не коду ошибки, а уровню сообщения — RAISE NOTICE / "
-            "WARNING / EXCEPTION, — а номера ошибок из THROW (>= 50000) нужно "
+            "соответствует не коду ошибки, а уровню сообщения - RAISE NOTICE / "
+            "WARNING / EXCEPTION, - а номера ошибок из THROW (>= 50000) нужно "
             "отобразить на пятизначные SQLSTATE самостоятельно."
         ),
         en=(
@@ -1755,19 +1755,19 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_rowversion": Message(
         ru=(
-            "ROWVERSION — столбец SQL Server, значение которого сервер сам меняет "
+            "ROWVERSION - столбец SQL Server, значение которого сервер сам меняет "
             "при каждом изменении строки; на нём обычно построена оптимистичная "
             "блокировка (UPDATE ... WHERE rv = <прочитанное значение>). ora2pg "
             "(-M) отображает его в обычный bytea (подтверждено реальным прогоном "
             "ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-105-mssql-rowversion.md). Тип по размеру подходит, "
-            "но главного — самообновления — у bytea нет: после миграции значение "
+            "но главного - самообновления - у bytea нет: после миграции значение "
             "не меняется никогда. Ошибки не будет ни на одном этапе, и это самое "
             "опасное: проверка WHERE rv = <старое значение> теперь совпадает "
             "всегда, то есть конфликт одновременных правок перестаёт "
             "обнаруживаться и правки молча затирают друг друга. Восстанавливается "
             "триггером BEFORE UPDATE, увеличивающим счётчик версии, либо "
-            "переходом на xmin — системный столбец PostgreSQL, который меняется "
+            "переходом на xmin - системный столбец PostgreSQL, который меняется "
             "при каждом обновлении строки сам. Отдельно проверьте столбцы типа "
             "timestamp: в T-SQL это устаревший синоним ROWVERSION, и этот "
             "детектор его намеренно не помечает, чтобы не путать со столбцом, "
@@ -1795,7 +1795,7 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_scope_identity": Message(
         ru=(
-            "SCOPE_IDENTITY() / @@IDENTITY / IDENT_CURRENT() — способы узнать "
+            "SCOPE_IDENTITY() / @@IDENTITY / IDENT_CURRENT() - способы узнать "
             "значение, выданное IDENTITY при последней вставке в SQL Server. "
             "ora2pg (-M) копирует вызов в тело процедуры дословно (подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
@@ -1806,7 +1806,7 @@ MESSAGES: dict[str, Message] = {
             "Переписывается лучше всего на INSERT ... RETURNING <столбец> INTO "
             "<переменная>: значение берётся прямо из выполненной вставки. Учтите, "
             "что сам столбец IDENTITY при этом тоже теряется (GAP-090), так что "
-            "возвращать может быть уже нечего — эти два места правятся вместе."
+            "возвращать может быть уже нечего - эти два места правятся вместе."
         ),
         en=(
             "SCOPE_IDENTITY() / @@IDENTITY / IDENT_CURRENT() -- the ways to read "
@@ -1825,7 +1825,7 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_top_clause": Message(
         ru=(
-            "SELECT TOP <n> — ограничение числа строк в T-SQL. ora2pg (-M) "
+            "SELECT TOP <n> - ограничение числа строк в T-SQL. ora2pg (-M) "
             "копирует конструкцию в тело процедуры дословно (подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-095-mssql-top-clause.md). В PostgreSQL оператора "
@@ -1834,7 +1834,7 @@ MESSAGES: dict[str, Message] = {
             "(check_function_bodies = false в выводе ora2pg), ошибка вылезает при "
             "первом вызове. Переписывается на LIMIT <n> в конце запроса. Отдельно "
             "проверьте TOP без ORDER BY: в T-SQL так пишут часто, и при переносе "
-            "на LIMIT порядок строк остаётся столь же неопределённым — если на "
+            "на LIMIT порядок строк остаётся столь же неопределённым - если на "
             "него полагались, нужен явный ORDER BY. Форма TOP (<n>) PERCENT "
             "прямого аналога не имеет вовсе и требует отдельного пересчёта."
         ),
@@ -1855,17 +1855,17 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_try_catch": Message(
         ru=(
-            "BEGIN TRY ... END TRY BEGIN CATCH ... END CATCH — обработка ошибок в "
+            "BEGIN TRY ... END TRY BEGIN CATCH ... END CATCH - обработка ошибок в "
             "T-SQL. ora2pg (-M) копирует всю конструкцию в тело процедуры "
             "дословно, включая END TRY и END CATCH (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-094-mssql-try-catch.md). В PL/pgSQL обработка "
-            "ошибок пишется иначе — BEGIN ... EXCEPTION WHEN <условие> THEN ... "
-            "END, — и такого синтаксиса там нет. Загрузка проходит чисто "
-            "(check_function_bodies = false в выводе ora2pg), падение — при "
+            "ошибок пишется иначе - BEGIN ... EXCEPTION WHEN <условие> THEN ... "
+            "END, - и такого синтаксиса там нет. Загрузка проходит чисто "
+            "(check_function_bodies = false в выводе ora2pg), падение - при "
             "первом реальном вызове. Переписывается на блок BEGIN ... EXCEPTION "
             "WHEN OTHERS THEN ... END, причём вызовы вида ERROR_MESSAGE() внутри "
-            "CATCH заменяются на SQLERRM, а ERROR_NUMBER() — на SQLSTATE."
+            "CATCH заменяются на SQLERRM, а ERROR_NUMBER() - на SQLSTATE."
         ),
         en=(
             "BEGIN TRY ... END TRY BEGIN CATCH ... END CATCH -- T-SQL's error "
@@ -1883,19 +1883,19 @@ MESSAGES: dict[str, Message] = {
     ),
     "mssql_update_set": Message(
         ru=(
-            "UPDATE ... SET — обычное обновление строк. ora2pg (-M) путает это "
+            "UPDATE ... SET - обычное обновление строк. ora2pg (-M) путает это "
             "SET с одноимённым оператором присваивания переменной в T-SQL (SET @x "
             "= 1) и переписывает конструкцию по правилам присваивания: само слово "
             "SET из запроса пропадает, а первое присваивание получает := вместо = "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-089-mssql-update-set.md). Из UPDATE orders SET "
             "amount = @x, nm = 'y' WHERE id = 1 получается UPDATE orders amount "
-            ":= p_x, nm = 'y' WHERE id = 1. Загрузка проходит чисто — ora2pg "
-            "выставляет в своём выводе check_function_bodies = false, — а при "
+            ":= p_x, nm = 'y' WHERE id = 1. Загрузка проходит чисто - ora2pg "
+            "выставляет в своём выводе check_function_bodies = false, - а при "
             "первом же реальном вызове процедура падает с 'syntax error at or "
             "near \":=\"'. Под это попадает каждый UPDATE в каждой процедуре, так "
             "что после конвертации их придётся просмотреть все: правится "
-            "возвратом к обычному SQL — UPDATE <таблица> SET <столбец> = "
+            "возвратом к обычному SQL - UPDATE <таблица> SET <столбец> = "
             "<значение>."
         ),
         en=(
@@ -1916,26 +1916,26 @@ MESSAGES: dict[str, Message] = {
     ),
     "multiset_operator": Message(
         ru=(
-            "Операторы над коллекциями Oracle — CAST(MULTISET(...)), MULTISET "
+            "Операторы над коллекциями Oracle - CAST(MULTISET(...)), MULTISET "
             "UNION/INTERSECT/EXCEPT, MEMBER OF, SUBMULTISET OF: работа с "
             "вложенными таблицами и VARRAY как со множествами прямо в SQL. ora2pg "
             "копирует эти конструкции в вывод как есть, без изменений "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-041-multiset-operator.md). У PostgreSQL нет ни "
-            "одного из этих операторов — падает синтаксической ошибкой при "
+            "одного из этих операторов - падает синтаксической ошибкой при "
             "загрузке. Переписывается вручную под модель массивов PostgreSQL: "
             "CAST(MULTISET(...)) -> ARRAY(SELECT ...), MULTISET UNION -> оператор "
             "|| над массивами или отдельный UNION-подзапрос, MEMBER OF -> '= "
             "ANY(массив)', SUBMULTISET OF -> оператор <@ над массивами."
         ),
         en=(
-            "Oracle's collection operators — CAST(MULTISET(...)), MULTISET "
+            "Oracle's collection operators - CAST(MULTISET(...)), MULTISET "
             "UNION/INTERSECT/EXCEPT, MEMBER OF, SUBMULTISET OF: treating nested "
             "tables and VARRAYs as sets directly in SQL. ora2pg copies these "
             "constructs into its output unchanged (confirmed against a real "
             "ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-041-multiset-operator.md). PostgreSQL has none of "
-            "these operators — it fails to load with a syntax error. Rewritten by "
+            "these operators - it fails to load with a syntax error. Rewritten by "
             "hand against PostgreSQL's array model: CAST(MULTISET(...)) -> "
             "ARRAY(SELECT ...), MULTISET UNION -> the || operator over arrays or a "
             "separate UNION subquery, MEMBER OF -> '= ANY(array)', SUBMULTISET OF "
@@ -1944,7 +1944,7 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_auto_increment_start": Message(
         ru=(
-            "AUTO_INCREMENT=<n> в опциях таблицы — следующее значение, которое "
+            "AUTO_INCREMENT=<n> в опциях таблицы - следующее значение, которое "
             "выдаст счётчик; в дампе непустой таблицы оно всегда больше "
             "максимального существующего id. ora2pg (-m) переносит сам столбец "
             "корректно (он становится serial), но стартовое значение теряет: в "
@@ -1952,7 +1952,7 @@ MESSAGES: dict[str, Message] = {
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-080-mysql-auto-increment-start.md). Схема "
             "загружается без единой ошибки, и последовательность начинает отсчёт "
-            "с 1 — то есть с значений, которые в перенесённых данных уже заняты. "
+            "с 1 - то есть с значений, которые в перенесённых данных уже заняты. "
             "Первая же вставка после миграции падает на нарушении первичного "
             "ключа, и так до тех пор, пока счётчик не догонит реальные данные. "
             "Чинится одной строкой на таблицу после загрузки данных: SELECT "
@@ -1979,17 +1979,17 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_collate": Message(
         ru=(
-            "COLLATE / CHARACTER SET на столбце — правило сравнения и сортировки "
+            "COLLATE / CHARACTER SET на столбце - правило сравнения и сортировки "
             "строк. ora2pg (-m) выбрасывает эту часть определения столбца из "
             "вывода целиком (подтверждено реальным прогоном ora2pg 25.0 + "
             "PostgreSQL 16, docs/research/gap-085-mysql-collate.md). Ошибки не "
             "будет ни на загрузке, ни потом, но сравнение строк молча меняет "
             "смысл: типовые для MySQL правила вида utf8mb4_general_ci / "
             "utf8mb4_0900_ai_ci регистронезависимы, а сравнение в PostgreSQL по "
-            "умолчанию — регистрозависимо. Проверено на живых данных: строка "
+            "умолчанию - регистрозависимо. Проверено на живых данных: строка "
             "'Alice', найденная в MySQL запросом WHERE name = 'alice', после "
             "миграции не находится вообще (0 строк). То есть ломается не схема, а "
-            "выдача запросов — логины, поиск по имени, проверки уникальности "
+            "выдача запросов - логины, поиск по имени, проверки уникальности "
             "начинают вести себя иначе, и заметно это только в бою. "
             "Восстанавливается либо явным COLLATE на столбце (в PostgreSQL "
             "доступны ICU-правила с нужной чувствительностью), либо типом citext, "
@@ -2016,18 +2016,18 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_date_format": Message(
         ru=(
-            "DATE_FORMAT(<дата>, <формат>) — форматирование даты в строку по "
+            "DATE_FORMAT(<дата>, <формат>) - форматирование даты в строку по "
             "MySQL-овским спецификаторам (%Y, %m, %d, %H, %i, %s). ora2pg (-m) "
             "пытается перевести вызов и выдаёт то, что вызовом функции уже не "
             "является: имени to_char в выводе нет вообще, остаётся голая скобка с "
-            "двумя выражениями через запятую — (d::varchar::timestamp, "
+            "двумя выражениями через запятую - (d::varchar::timestamp, "
             "'YYYY-MM-%d HH24:MI:SS'), то есть конструктор строки-кортежа. Заодно "
             "переведены не все спецификаторы: %Y/%m/%H/%i/%s стали "
             "YYYY/MM/HH24/MI/SS, а %d остался как был (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-081-mysql-date-format.md). Хуже всего то, что "
             "ошибки не будет ни на одном этапе: и загрузка, и вызов проходят "
-            "успешно, потому что кортеж — совершенно законное выражение. "
+            "успешно, потому что кортеж - совершенно законное выражение. "
             "Проверено на живых данных: вместо строки 2024-03-05 00:00:00 запрос "
             "возвращает пару из самой даты и недопереведённой строки формата. То "
             "есть в отчётах, выгрузках и API-ответах молча оказывается не то, что "
@@ -2058,21 +2058,21 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_declare_handler": Message(
         ru=(
-            "DECLARE ... HANDLER — обработчик условий в хранимой процедуре "
+            "DECLARE ... HANDLER - обработчик условий в хранимой процедуре "
             "MySQL/MariaDB (CONTINUE/EXIT HANDLER FOR SQLEXCEPTION, FOR NOT "
             "FOUND, для конкретного SQLSTATE). ora2pg (-m) выбрасывает объявление "
             "из вывода целиком: на его месте в сгенерированном теле остаются "
             "пустые строки, и никакого BEGIN ... EXCEPTION WHEN ... взамен не "
             "появляется (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL "
             "16, docs/research/gap-084-mysql-declare-handler.md; проверены обе "
-            "разновидности — CONTINUE HANDLER FOR NOT FOUND и EXIT HANDLER FOR "
+            "разновидности - CONTINUE HANDLER FOR NOT FOUND и EXIT HANDLER FOR "
             "SQLEXCEPTION). Ошибки нет ни на загрузке, ни при вызове: процедура "
             "просто теряет всю обработку ошибок разом, и последствия ровно "
-            "противоположны исходному замыслу — то, что MySQL глушил и продолжал "
+            "противоположны исходному замыслу - то, что MySQL глушил и продолжал "
             "выполнение, теперь вылетает наружу и обрывает транзакцию "
             "вызывающего. Восстанавливается блоком BEGIN ... EXCEPTION WHEN "
             "<условие> THEN ... END вокруг нужного участка кода. Для NOT FOUND "
-            "отдельного условия в PL/pgSQL нет — оно проверяется через FOUND или "
+            "отдельного условия в PL/pgSQL нет - оно проверяется через FOUND или "
             "GET DIAGNOSTICS сразу после запроса, так что этот случай "
             "переписывается не в EXCEPTION, а в обычный IF."
         ),
@@ -2098,16 +2098,16 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_enum_type": Message(
         ru=(
-            "ENUM(...) — столбец с перечислимым типом MySQL/MariaDB. ora2pg (-m) "
+            "ENUM(...) - столбец с перечислимым типом MySQL/MariaDB. ora2pg (-m) "
             "синтезирует под него именованный PostgreSQL-тип "
             "<таблица>_<столбец>_t и подставляет это имя в определение столбца, "
             "но сам оператор CREATE TYPE ... AS ENUM (...), которым этот тип "
-            "должен быть объявлен, в вывод не попадает — подтверждено реальным "
+            "должен быть объявлен, в вывод не попадает - подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16 "
             "(docs/research/gap-068-mysql-enum-type.md). CREATE TABLE падает "
             "немедленно, при загрузке схемы: 'type \"<таблица>_<столбец>_t\" does "
-            "not exist'. Значения перечисления при этом никуда не теряются — они "
-            "видны прямо в исходном ENUM(...), — так что руками нужно лишь "
+            "not exist'. Значения перечисления при этом никуда не теряются - они "
+            "видны прямо в исходном ENUM(...), - так что руками нужно лишь "
             "вставить недостающий CREATE TYPE перед CREATE TABLE."
         ),
         en=(
@@ -2126,7 +2126,7 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_foreign_key": Message(
         ru=(
-            "FOREIGN KEY — внешний ключ, объявленный в списке столбцов CREATE "
+            "FOREIGN KEY - внешний ключ, объявленный в списке столбцов CREATE "
             "TABLE (в том числе в форме CONSTRAINT <имя> FOREIGN KEY ... "
             "REFERENCES ... ON DELETE CASCADE, которую выдаёт mysqldump). Если в "
             "конфиге ora2pg не задан PG_VERSION (тогда он равен 11) или задан 12 "
@@ -2140,10 +2140,10 @@ MESSAGES: dict[str, Message] = {
             "живой MariaDB, docs/research/gap-082-mysql-foreign-key.md). Ошибки "
             "при этом не будет ни на загрузке, ни потом: схема поднимется, "
             "приложение заработает, и ссылочная целостность просто перестанет "
-            "существовать — вместе с каскадными удалениями, если они были. "
+            "существовать - вместе с каскадными удалениями, если они были. "
             "Чинится одной строкой в конфиге ora2pg: PG_VERSION с реальной "
             "целевой версией, 13 или выше. Если цель и правда PostgreSQL 12 и "
-            "ниже — восстановить вручную: ALTER TABLE <таблица> ADD CONSTRAINT "
+            "ниже - восстановить вручную: ALTER TABLE <таблица> ADD CONSTRAINT "
             "<имя> FOREIGN KEY (<столбцы>) REFERENCES <родитель> (<столбцы>) ON "
             "DELETE ... после загрузки всех таблиц."
         ),
@@ -2173,16 +2173,16 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_fulltext_index": Message(
         ru=(
-            "FULLTEXT KEY/INDEX — полнотекстовый индекс MySQL/MariaDB, "
+            "FULLTEXT KEY/INDEX - полнотекстовый индекс MySQL/MariaDB, "
             "объявленный прямо в списке столбцов CREATE TABLE. ora2pg (-m) не "
             "распознаёт эту конструкцию как индекс: имя индекса и список столбцов "
             "теряются, а сами слова 'FULLTEXT KEY'/'FULLTEXT INDEX' остаются в "
-            "выводе на месте, где ожидалось очередное определение столбца — "
+            "выводе на месте, где ожидалось очередное определение столбца - "
             "подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 "
             "(docs/research/gap-072-mysql-fulltext-index.md). CREATE TABLE падает "
             "немедленно, при загрузке схемы: 'type \"key\" does not exist' "
             "(PostgreSQL читает 'fulltext' как имя нового столбца, а "
-            "'KEY'/'INDEX' — как имя несуществующего типа для него). "
+            "'KEY'/'INDEX' - как имя несуществующего типа для него). "
             "Восстанавливается вручную: столбцы полнотекстового индекса видны в "
             "исходном FULLTEXT KEY (...), переносятся на CREATE INDEX ... USING "
             "gin (to_tsvector('...', ...)) после CREATE TABLE."
@@ -2205,20 +2205,20 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_insert_ignore": Message(
         ru=(
-            "INSERT IGNORE — MySQL/MariaDB-специфичная форма вставки, которая "
+            "INSERT IGNORE - MySQL/MariaDB-специфичная форма вставки, которая "
             "превращает ошибки в предупреждения и молча пропускает проблемные "
             "строки. ora2pg (-m) копирует оператор в тело процедуры/функции "
             "дословно (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL "
             "16, docs/research/gap-077-mysql-insert-ignore.md). Такого синтаксиса "
             "у INSERT в PostgreSQL нет. CREATE PROCEDURE/FUNCTION проходит без "
-            "ошибок — ora2pg выставляет в своём выводе check_function_bodies = "
-            "false, поэтому тело не разбирается на загрузке, — и падение "
-            "происходит при первом же реальном вызове. Ближайший аналог — INSERT "
+            "ошибок - ora2pg выставляет в своём выводе check_function_bodies = "
+            "false, поэтому тело не разбирается на загрузке, - и падение "
+            "происходит при первом же реальном вызове. Ближайший аналог - INSERT "
             "... ON CONFLICT DO NOTHING, но он уже по охвату: IGNORE в MySQL "
             "глушит не только конфликт уникальности, но и другие ошибки вставки, "
             "вплоть до обрезания слишком длинных значений и подстановки нулей "
             "вместо некорректных дат. Если код полагался именно на это широкое "
-            "поведение, дословный перевод изменит смысл — стоит разобраться, "
+            "поведение, дословный перевод изменит смысл - стоит разобраться, "
             "какие именно ошибки там глушились."
         ),
         en=(
@@ -2241,19 +2241,19 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_key_index": Message(
         ru=(
-            "KEY <имя> (<столбцы>) — обычный (не уникальный) индекс, объявленный "
+            "KEY <имя> (<столбцы>) - обычный (не уникальный) индекс, объявленный "
             "в списке столбцов CREATE TABLE. Это ровно то написание, которое по "
             "умолчанию выдаёт mysqldump, и именно оно ломается: ora2pg (-m) не "
-            "распознаёт его как индекс — имя индекса и список столбцов теряются, "
+            "распознаёт его как индекс - имя индекса и список столбцов теряются, "
             "а в выводе на месте очередного определения столбца остаётся обрубок "
             "'key <ИМЯ_ИНДЕКСА>' (подтверждено реальным прогоном ora2pg 25.0 + "
             "PostgreSQL 16, docs/research/gap-073-mysql-key-index.md). CREATE "
             "TABLE падает немедленно, при загрузке схемы: 'type \"<имя_индекса>\" "
-            "does not exist' — PostgreSQL читает 'key' как имя нового столбца, а "
+            "does not exist' - PostgreSQL читает 'key' как имя нового столбца, а "
             "имя индекса как имя несуществующего типа для него. Безымянная форма "
             "KEY (<столбцы>) не ломает загрузку, но пропадает из вывода целиком, "
-            "молча. Обратите внимание: синоним INDEX <имя> (<столбцы>) — та же "
-            "самая конструкция MySQL — конвертируется корректно, в CREATE INDEX, "
+            "молча. Обратите внимание: синоним INDEX <имя> (<столбцы>) - та же "
+            "самая конструкция MySQL - конвертируется корректно, в CREATE INDEX, "
             "и этим детектором не помечается; UNIQUE KEY тоже переносится "
             "(теряется только имя ограничения). Чинится переписыванием в CREATE "
             "INDEX <имя> ON <таблица> (<столбцы>) после CREATE TABLE."
@@ -2280,7 +2280,7 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_last_insert_id": Message(
         ru=(
-            "LAST_INSERT_ID() — функция MySQL/MariaDB, возвращающая значение "
+            "LAST_INSERT_ID() - функция MySQL/MariaDB, возвращающая значение "
             "AUTO_INCREMENT, выданное последней вставкой в текущем соединении. "
             "ora2pg (-m) копирует вызов в тело процедуры/функции дословно "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
@@ -2289,7 +2289,7 @@ MESSAGES: dict[str, Message] = {
             "'function last_insert_id() does not exist'; загрузка при этом "
             "проходит чисто, потому что ora2pg выставляет в своём выводе "
             "check_function_bodies = false. Переписывается лучше всего на INSERT "
-            "... RETURNING <столбец> INTO <переменная> — так значение берётся "
+            "... RETURNING <столбец> INTO <переменная> - так значение берётся "
             "прямо из выполненной вставки, без обращения к состоянию сессии. "
             "Варианты currval('<последовательность>') и lastval() тоже работают, "
             "но у lastval() своя тонкость: он относится к последней "
@@ -2317,15 +2317,15 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_limit_comma": Message(
         ru=(
-            "LIMIT <смещение>, <количество> — MySQL/MariaDB-специфичная форма "
+            "LIMIT <смещение>, <количество> - MySQL/MariaDB-специфичная форма "
             "постраничной выборки через запятую. ora2pg (-m) копирует её в тело "
             "процедуры/функции дословно (подтверждено реальным прогоном ora2pg "
             "25.0 + PostgreSQL 16, docs/research/gap-075-mysql-limit-comma.md). "
             "PostgreSQL такую запись не принимает и сообщает об этом прямо: "
             "'LIMIT #,# syntax is not supported'. CREATE PROCEDURE/FUNCTION при "
-            "этом проходит без ошибок — ora2pg выставляет в своём выводе "
+            "этом проходит без ошибок - ora2pg выставляет в своём выводе "
             "check_function_bodies = false, поэтому тело не разбирается на "
-            "загрузке, — и падение происходит при первом же реальном вызове. "
+            "загрузке, - и падение происходит при первом же реальном вызове. "
             "Переписывается на LIMIT <количество> OFFSET <смещение>. Обратите "
             "внимание на порядок: в MySQL-форме первым идёт смещение, поэтому "
             "механическая замена запятой на OFFSET без перестановки аргументов "
@@ -2348,17 +2348,17 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_on_duplicate_key_update": Message(
         ru=(
-            "INSERT ... ON DUPLICATE KEY UPDATE — MySQL/MariaDB-специфичный "
+            "INSERT ... ON DUPLICATE KEY UPDATE - MySQL/MariaDB-специфичный "
             "upsert: обновить существующую строку, если вставка конфликтует с "
             "уникальным ключом/PRIMARY KEY, иначе вставить новую. ora2pg (-m) "
             "копирует весь оператор ON DUPLICATE KEY UPDATE в тело "
-            "процедуры/функции дословно, без какого-либо преобразования — "
+            "процедуры/функции дословно, без какого-либо преобразования - "
             "подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 "
             "(docs/research/gap-070-mysql-on-duplicate-key-update.md). Такого "
             "синтаксиса у INSERT в PostgreSQL нет вообще. CREATE "
-            "PROCEDURE/FUNCTION при этом проходит без ошибок — ora2pg выставляет "
+            "PROCEDURE/FUNCTION при этом проходит без ошибок - ora2pg выставляет "
             "в своём выводе check_function_bodies = false, поэтому тело не "
-            "разбирается на загрузке, — и падение происходит при первом же "
+            "разбирается на загрузке, - и падение происходит при первом же "
             "реальном вызове: 'syntax error at or near \"DUPLICATE\"'. "
             "Переписывается на INSERT ... ON CONFLICT (<уникальный_ключ>) DO "
             "UPDATE SET ...."
@@ -2381,10 +2381,10 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_on_update_current_timestamp": Message(
         ru=(
-            "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP — "
+            "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP - "
             "MySQL/MariaDB-специфичное авто-обновление столбца на каждый UPDATE "
             "строки, часть самого DEFAULT. ora2pg (-m) копирует 'ON UPDATE "
-            "CURRENT_TIMESTAMP' в вывод дословно, прямо внутри DEFAULT — "
+            "CURRENT_TIMESTAMP' в вывод дословно, прямо внутри DEFAULT - "
             "подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 "
             "(docs/research/gap-069-mysql-on-update-current-timestamp.md). В "
             "PostgreSQL у DEFAULT нет такого синтаксиса вообще, и CREATE TABLE "
@@ -2409,19 +2409,19 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_prepare_from": Message(
         ru=(
-            "PREPARE <имя> FROM <строка> — подготовка динамического SQL в "
+            "PREPARE <имя> FROM <строка> - подготовка динамического SQL в "
             "хранимой процедуре MySQL/MariaDB (обычно в связке с EXECUTE и "
             "DEALLOCATE PREPARE). ora2pg (-m) копирует конструкцию в тело "
             "процедуры дословно, лишь заменяя пользовательскую переменную @s на "
             "обычную (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-078-mysql-prepare-from.md). Оператор PREPARE в "
-            "PostgreSQL тоже есть, но синтаксис у него другой — PREPARE <имя> AS "
-            "<запрос>, — и запрос задаётся текстом самого SQL, а не строковой "
+            "PostgreSQL тоже есть, но синтаксис у него другой - PREPARE <имя> AS "
+            "<запрос>, - и запрос задаётся текстом самого SQL, а не строковой "
             "переменной. Поэтому падение конкретное и узнаваемое: 'syntax error "
             "at or near \"FROM\"'. Загрузка проходит чисто (ora2pg выставляет в "
             "своём выводе check_function_bodies = false), ошибка вылезает при "
             "первом вызове. Переписывается не на PostgreSQL-овский PREPARE, а на "
-            "EXECUTE <строка> внутри PL/pgSQL — это штатный способ выполнить "
+            "EXECUTE <строка> внутри PL/pgSQL - это штатный способ выполнить "
             "собранный в переменной SQL; параметры передаются через USING, и это "
             "же снимает риск SQL-инъекции при склейке строки."
         ),
@@ -2445,15 +2445,15 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_replace_into": Message(
         ru=(
-            "REPLACE INTO — MySQL/MariaDB-специфичный оператор: вставить строку, "
-            "а если строка с таким же уникальным ключом уже есть — удалить её и "
+            "REPLACE INTO - MySQL/MariaDB-специфичный оператор: вставить строку, "
+            "а если строка с таким же уникальным ключом уже есть - удалить её и "
             "вставить новую. ora2pg (-m) копирует оператор в тело "
             "процедуры/функции дословно (подтверждено реальным прогоном ora2pg "
             "25.0 + PostgreSQL 16, docs/research/gap-076-mysql-replace-into.md). "
             "Такого оператора в PostgreSQL нет. CREATE PROCEDURE/FUNCTION "
-            "проходит без ошибок — ora2pg выставляет в своём выводе "
+            "проходит без ошибок - ora2pg выставляет в своём выводе "
             "check_function_bodies = false, поэтому тело не разбирается на "
-            "загрузке, — и падение происходит при первом же реальном вызове. "
+            "загрузке, - и падение происходит при первом же реальном вызове. "
             "Переписывается на INSERT ... ON CONFLICT (<ключ>) DO UPDATE SET ..., "
             "но перевод не дословный, и разницу стоит держать в голове: REPLACE "
             "именно удаляет старую строку и вставляет новую, поэтому по ней "
@@ -2486,19 +2486,19 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_set_type": Message(
         ru=(
-            "SET('a','b',...) — тип MySQL/MariaDB для набора значений: в столбце "
+            "SET('a','b',...) - тип MySQL/MariaDB для набора значений: в столбце "
             "может лежать любое подмножество перечисленного списка сразу "
             "(хранится битовой маской). ora2pg (-m) отображает его в обычный text "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-086-mysql-set-type.md). Ошибки нет ни на загрузке, "
-            "ни потом, и уже накопленные данные переносятся как есть — теряется "
+            "ни потом, и уже накопленные данные переносятся как есть - теряется "
             "ровно проверка: после миграции в столбец можно записать любую "
             "строку, включая значение не из списка и мусор. Severity здесь "
             "medium, а не high, в отличие от родственного ENUM (GAP-068): ENUM "
             "ломает загрузку схемы наглухо, а тут схема поднимается и работает, и "
             "вопрос только в проверке будущих записей. Восстанавливается либо "
             "CHECK-ограничением, либо массивом с проверкой на допустимые "
-            "элементы, либо отдельной таблицей связей — что честнее всего, если "
+            "элементы, либо отдельной таблицей связей - что честнее всего, если "
             "значений много."
         ),
         en=(
@@ -2521,16 +2521,16 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_signal": Message(
         ru=(
-            "SIGNAL/RESIGNAL — MySQL/MariaDB-специфичные операторы возбуждения и "
+            "SIGNAL/RESIGNAL - MySQL/MariaDB-специфичные операторы возбуждения и "
             "повторного возбуждения условия (аналог RAISE в PL/pgSQL). ora2pg "
             "(-m) копирует SIGNAL/RESIGNAL в тело процедуры/функции дословно "
-            "(теряя по пути ключевое слово SET перед MESSAGE_TEXT) — подтверждено "
+            "(теряя по пути ключевое слово SET перед MESSAGE_TEXT) - подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16 "
             "(docs/research/gap-071-mysql-signal.md). Ни SIGNAL, ни RESIGNAL в "
             "PL/pgSQL не существуют вообще. CREATE PROCEDURE/FUNCTION при этом "
-            "проходит без ошибок — ora2pg выставляет в своём выводе "
+            "проходит без ошибок - ora2pg выставляет в своём выводе "
             "check_function_bodies = false, поэтому тело не разбирается на "
-            "загрузке, — и падение происходит при первом же реальном вызове: "
+            "загрузке, - и падение происходит при первом же реальном вызове: "
             "'syntax error at or near \"SIGNAL\"' (или \"RESIGNAL\"). Переписывается "
             "на RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>', MESSAGE = "
             "'<текст>'."
@@ -2552,18 +2552,18 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_spatial_index": Message(
         ru=(
-            "SPATIAL KEY/INDEX — пространственный индекс MySQL/MariaDB, "
+            "SPATIAL KEY/INDEX - пространственный индекс MySQL/MariaDB, "
             "объявленный в списке столбцов CREATE TABLE. ora2pg (-m) не "
             "распознаёт конструкцию как индекс: имя индекса и список столбцов "
             "теряются, а слова 'spatial KEY' остаются в выводе на месте, где "
-            "ожидалось очередное определение столбца — подтверждено реальным "
+            "ожидалось очередное определение столбца - подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16 "
             "(docs/research/gap-074-mysql-spatial-index.md). CREATE TABLE падает "
             "немедленно, при загрузке схемы: 'type \"key\" does not exist'. "
             "Отличается от родственного GAP-072 (FULLTEXT) не только ключевым "
             "словом, но и починкой: пространственный индекс восстанавливается как "
             "CREATE INDEX ... USING gist (<столбец>) поверх PostGIS-типа, и "
-            "отдельно нужно проверить сам тип столбца — MySQL-овские "
+            "отдельно нужно проверить сам тип столбца - MySQL-овские "
             "POINT/GEOMETRY переносятся не всегда так, как ожидается."
         ),
         en=(
@@ -2583,19 +2583,19 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_zero_date": Message(
         ru=(
-            "'0000-00-00' — «нулевая» дата MySQL/MariaDB: не настоящая дата, а "
+            "'0000-00-00' - «нулевая» дата MySQL/MariaDB: не настоящая дата, а "
             "признак «значение не задано», который MySQL допускает в "
             "DATE/DATETIME по историческим причинам. ora2pg (-m) молча подменяет "
-            "её на '1970-01-01' — настоящую, осмысленную дату (начало эпохи "
-            "Unix), — подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 "
+            "её на '1970-01-01' - настоящую, осмысленную дату (начало эпохи "
+            "Unix), - подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 "
             "(docs/research/gap-083-mysql-zero-date.md): в сгенерированном DDL "
             "стоит DEFAULT '1970-01-01', и вставленная после миграции строка "
             "получает именно эту дату (проверено на живых данных). Ошибки нет ни "
-            "на загрузке, ни потом — расхождение чисто смысловое и потому "
+            "на загрузке, ни потом - расхождение чисто смысловое и потому "
             "незаметное: запросы вида WHERE d = '0000-00-00' (поиск "
             "незаполненных) перестают находить что-либо, а отчёты по датам "
             "начинают показывать 1970 год как реальное событие. Правильный "
-            "перенос — NULL (плюс, если нужно, NOT NULL снимается) или отдельный "
+            "перенос - NULL (плюс, если нужно, NOT NULL снимается) или отдельный "
             "признак «не задано»; проверьте заодно и сами данные, а не только "
             "DEFAULT."
         ),
@@ -2620,15 +2620,15 @@ MESSAGES: dict[str, Message] = {
         ru=(
             "Локально объявленная процедура/функция внутри декларативной секции "
             "другого блока (пакета, процедуры, функции). ora2pg не просто "
-            "копирует её как есть — вложенная процедура/функция 'утекает' наружу "
+            "копирует её как есть - вложенная процедура/функция 'утекает' наружу "
             "как отдельный объект верхнего уровня, а содержащий её блок пропадает "
             "из вывода вообще (подтверждено реальным прогоном ora2pg + PostgreSQL "
             "16, docs/research/gap-034-nested-subprogram.md). Хуже того, тело "
-            "вложенного объекта в выводе искажено — после его собственного END к "
+            "вложенного объекта в выводе искажено - после его собственного END к "
             "нему приклеивается executable-секция содержащего блока как единый "
             "(синтаксически неверный) текст. CREATE PROCEDURE/FUNCTION проходит "
             "без единой ошибки (ora2pg отключает check_function_bodies в своём "
-            "выводе), а падает только при первом реальном вызове — 'syntax error "
+            "выводе), а падает только при первом реальном вызове - 'syntax error "
             "at or near \"BEGIN\"' на этапе компиляции тела. Нужно вручную вынести "
             "вложенную логику в отдельную функцию/процедуру PostgreSQL верхнего "
             "уровня."
@@ -2636,23 +2636,23 @@ MESSAGES: dict[str, Message] = {
         en=(
             "A locally declared procedure/function inside another block's own "
             "declare section (a package, procedure, or function). ora2pg doesn't "
-            "just copy it as-is — the nested procedure/function 'leaks' out as a "
+            "just copy it as-is - the nested procedure/function 'leaks' out as a "
             "separate top-level object, and the block that contained it "
             "disappears from the output entirely (confirmed by a real ora2pg + "
             "PostgreSQL 16 run, docs/research/gap-034-nested-subprogram.md). "
-            "Worse, the nested object's own body is corrupted in the output — the "
+            "Worse, the nested object's own body is corrupted in the output - the "
             "containing block's executable section gets glued onto it right after "
             "its own END, as one (syntactically invalid) block of text. CREATE "
             "PROCEDURE/FUNCTION runs without a single error (ora2pg disables "
             "check_function_bodies in its own output), it only fails on the first "
-            "real call — 'syntax error at or near \"BEGIN\"' at body-compilation "
+            "real call - 'syntax error at or near \"BEGIN\"' at body-compilation "
             "time. The nested logic needs to be manually moved out into a "
             "separate, top-level PostgreSQL function/procedure."
         ),
     ),
     "nlssort": Message(
         ru=(
-            "NLSSORT(...) — задание порядка сортировки по правилам конкретного "
+            "NLSSORT(...) - задание порядка сортировки по правилам конкретного "
             "языка. ora2pg переписывает вызов в PostgreSQL-овую оговорку COLLATE, "
             "подставляя имя языка из NLS_SORT прямо как имя collation: "
             "NLSSORT(name, 'NLS_SORT=GERMAN') превращается в name COLLATE "
@@ -2661,12 +2661,12 @@ MESSAGES: dict[str, Message] = {
             "PostgreSQL не совпадают: в PostgreSQL нет collation с именем GERMAN, "
             "и запрос падает с ошибкой 'collation \"GERMAN\" for encoding \"UTF8\" "
             "does not exist'. Нужно вручную сопоставить каждое Oracle-имя с "
-            "реальной локалью PostgreSQL (для немецкого — \"de-DE-x-icu\" или "
+            "реальной локалью PostgreSQL (для немецкого - \"de-DE-x-icu\" или "
             "\"de_DE.utf8\", в зависимости от того, собран ли сервер с ICU) и при "
             "необходимости создать её через CREATE COLLATION."
         ),
         en=(
-            "NLSSORT(...) — sorting by a specific language's collation rules. "
+            "NLSSORT(...) - sorting by a specific language's collation rules. "
             "ora2pg rewrites the call into PostgreSQL's COLLATE clause, "
             "substituting the language name from NLS_SORT directly as the "
             "collation name: NLSSORT(name, 'NLS_SORT=GERMAN') becomes name "
@@ -2682,10 +2682,10 @@ MESSAGES: dict[str, Message] = {
     ),
     "object_table": Message(
         ru=(
-            "CREATE TABLE ... OF <тип> — объектная таблица Oracle: каждая строка "
+            "CREATE TABLE ... OF <тип> - объектная таблица Oracle: каждая строка "
             "является экземпляром объектного типа, а атрибуты типа становятся "
             "столбцами таблицы. ora2pg не конвертирует конструкцию и не "
-            "отбрасывает её — он разрушает структуру таблицы: ключевое слово OF "
+            "отбрасывает её - он разрушает структуру таблицы: ключевое слово OF "
             "попадает в вывод как ИМЯ СТОЛБЦА, а объявления ограничений (например "
             "'person_id PRIMARY KEY') теряются целиком (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
@@ -2698,10 +2698,10 @@ MESSAGES: dict[str, Message] = {
             "атрибут типа плюс явные ограничения."
         ),
         en=(
-            "CREATE TABLE ... OF <type> — an Oracle object table: every row is an "
+            "CREATE TABLE ... OF <type> - an Oracle object table: every row is an "
             "instance of an object type, and the type's attributes become the "
             "table's columns. ora2pg neither converts the construct nor drops it "
-            "— it corrupts the table's structure: the OF keyword ends up in the "
+            "- it corrupts the table's structure: the OF keyword ends up in the "
             "output as a COLUMN NAME, and the constraint declarations (e.g. "
             "'person_id PRIMARY KEY') are lost entirely (confirmed against a real "
             "ora2pg 25.0 + PostgreSQL 16 run, "
@@ -2716,66 +2716,66 @@ MESSAGES: dict[str, Message] = {
     ),
     "object_type": Message(
         ru=(
-            "CREATE TYPE ... AS OBJECT / TYPE BODY — объектный тип Oracle "
+            "CREATE TYPE ... AS OBJECT / TYPE BODY - объектный тип Oracle "
             "(атрибуты + MEMBER-методы). ora2pg сам явно помечает это '-- "
             "Unsupported, please edit to match PostgreSQL syntax' и копирует "
-            "Oracle-синтаксис как есть — но что важнее, у --estimate_cost (и, "
+            "Oracle-синтаксис как есть - но что важнее, у --estimate_cost (и, "
             "судя по коду, у SHOW_REPORT) вообще нет механизма оценки стоимости "
             "для объектов типа TYPE (подтверждено прогоном --estimate_cost -t "
             "TYPE, вернувшим ноль строк отчёта, см. "
             "docs/research/gap-009-object-type.md). Значит такие объекты не "
-            "просто помечены как проблема — они полностью выпадают из любой "
+            "просто помечены как проблема - они полностью выпадают из любой "
             "числовой оценки трудозатрат. У PostgreSQL нет объектных типов с "
-            "методами — обычно переписывается на composite type + отдельные "
+            "методами - обычно переписывается на composite type + отдельные "
             "функции, архитектурно другой подход, не механическая замена "
             "синтаксиса."
         ),
         en=(
-            "CREATE TYPE ... AS OBJECT / TYPE BODY — an Oracle object type "
+            "CREATE TYPE ... AS OBJECT / TYPE BODY - an Oracle object type "
             "(attributes plus MEMBER methods). ora2pg explicitly marks it '-- "
             "Unsupported, please edit to match PostgreSQL syntax' and copies the "
-            "Oracle syntax verbatim — but more importantly, --estimate_cost (and, "
+            "Oracle syntax verbatim - but more importantly, --estimate_cost (and, "
             "judging by the code, SHOW_REPORT too) has no cost-estimation "
             "mechanism for TYPE objects at all (confirmed by running "
             "--estimate_cost -t TYPE, which returned zero report rows, see "
             "docs/research/gap-009-object-type.md). So these objects aren't just "
-            "flagged as a problem — they fall out of any numeric effort estimate "
-            "entirely. PostgreSQL has no object types with methods — usually "
+            "flagged as a problem - they fall out of any numeric effort estimate "
+            "entirely. PostgreSQL has no object types with methods - usually "
             "rewritten as a composite type plus separate functions, an "
             "architecturally different approach, not a mechanical syntax swap."
         ),
     ),
     "oracle_text": Message(
         ru=(
-            "Oracle Text — полнотекстовый поиск через домен-индекс (CREATE INDEX "
+            "Oracle Text - полнотекстовый поиск через домен-индекс (CREATE INDEX "
             "... INDEXTYPE IS CTXSYS.CONTEXT/CTXCAT/CTXRULE) и функции "
             "CONTAINS()/CATSEARCH()/MATCHES(). ora2pg отбрасывает секцию "
-            "INDEXTYPE целиком — индекс создаётся как обычный B-tree по столбцу, "
+            "INDEXTYPE целиком - индекс создаётся как обычный B-tree по столбцу, "
             "без единого предупреждения; вызовы CONTAINS()/CATSEARCH()/MATCHES() "
             "копируются как есть (подтверждено реальным прогоном ora2pg + "
             "PostgreSQL 16, docs/research/gap-023-oracle-text.md). Обычный B-tree "
-            "индекс не даёт полнотекстового поиска вообще — не синтаксическая "
+            "индекс не даёт полнотекстового поиска вообще - не синтаксическая "
             "ошибка, а тихая потеря всей функциональности; вызовы "
             "CONTAINS()/CATSEARCH()/MATCHES() падают при первом вызове: 'function "
             "contains(text, unknown) does not exist'. У PostgreSQL есть "
-            "архитектурный эквивалент — полнотекстовый поиск через "
+            "архитектурный эквивалент - полнотекстовый поиск через "
             "tsvector/tsquery и GIN-индекс (`to_tsvector`/`@@`), но это требует "
             "ручного переписывания, не механической замены синтаксиса."
         ),
         en=(
-            "Oracle Text — full-text search via a domain index (CREATE INDEX ... "
+            "Oracle Text - full-text search via a domain index (CREATE INDEX ... "
             "INDEXTYPE IS CTXSYS.CONTEXT/CTXCAT/CTXRULE) and the "
             "CONTAINS()/CATSEARCH()/MATCHES() functions. ora2pg drops the "
-            "INDEXTYPE section entirely — the index is created as an ordinary "
+            "INDEXTYPE section entirely - the index is created as an ordinary "
             "B-tree on the column, with no warning; calls to "
             "CONTAINS()/CATSEARCH()/MATCHES() are copied verbatim (confirmed by a "
             "real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-023-oracle-text.md). An ordinary B-tree index "
-            "provides no full-text search at all — not a syntax error, but a "
+            "provides no full-text search at all - not a syntax error, but a "
             "silent loss of the entire feature; calls to "
             "CONTAINS()/CATSEARCH()/MATCHES() fail on the first call: 'function "
             "contains(text, unknown) does not exist'. PostgreSQL has an "
-            "architectural equivalent — full-text search via tsvector/tsquery and "
+            "architectural equivalent - full-text search via tsvector/tsquery and "
             "a GIN index (`to_tsvector`/`@@`), but it requires manual rewriting, "
             "not a mechanical syntax swap."
         ),
@@ -2783,44 +2783,44 @@ MESSAGES: dict[str, Message] = {
     "package_state": Message(
         ru=(
             "Переменная, объявленная на верхнем уровне PACKAGE BODY (не внутри "
-            "конкретной процедуры/функции) — состояние на уровне сессии, общее "
+            "конкретной процедуры/функции) - состояние на уровне сессии, общее "
             "для всех процедур пакета. ora2pg заменяет чтение/запись такой "
             "переменной на current_setting()/set_config() с пользовательским "
-            "GUC-параметром — идея разумная (третий аргумент set_config — false, "
+            "GUC-параметром - идея разумная (третий аргумент set_config - false, "
             "что соответствует времени жизни пакетной переменной в Oracle, вся "
             "сессия), но реализация сломана в двух местах (подтверждено реальным "
             "прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-036-package-state.md). Во-первых, set_config() "
             "принимает text вторым аргументом, а ora2pg не добавляет явное "
-            "приведение типа для нетекстовых переменных — 'ERROR: function "
+            "приведение типа для нетекстовых переменных - 'ERROR: function "
             "set_config(unknown, bigint, boolean) does not exist' при любом "
             "вызове записывающей процедуры, без исключений. Во-вторых, даже после "
             "ручного добавления приведения типа: необъявленная числовая пакетная "
             "переменная в Oracle по умолчанию NULL, а чтение ещё не "
             "установленного пользовательского GUC-параметра в PostgreSQL "
             "завершается ошибкой 'unrecognized configuration parameter', а не "
-            "NULL — проявляется, когда чтение происходит раньше первой записи в "
+            "NULL - проявляется, когда чтение происходит раньше первой записи в "
             "той же сессии. Нужно вручную добавить приведение типа к set_config() "
             "и missing_ok => true к current_setting(), либо спроектировать "
             "состояние иначе (временная таблица, параметр приложения)."
         ),
         en=(
             "A variable declared at PACKAGE BODY top level (not inside any "
-            "specific procedure/function) — session-scoped state shared across "
+            "specific procedure/function) - session-scoped state shared across "
             "every procedure in the package. ora2pg rewrites reads/writes of such "
             "a variable into current_setting()/set_config() calls against a "
-            "custom GUC parameter — a reasonable idea (set_config's third "
+            "custom GUC parameter - a reasonable idea (set_config's third "
             "argument is false, matching a package variable's Oracle lifetime of "
             "the whole session), but the implementation is broken in two places "
             "(confirmed by a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-036-package-state.md). First, set_config() takes "
             "text as its second argument, and ora2pg adds no explicit cast for "
-            "non-text variables — 'ERROR: function set_config(unknown, bigint, "
+            "non-text variables - 'ERROR: function set_config(unknown, bigint, "
             "boolean) does not exist' on any call to the writing procedure, no "
             "exceptions. Second, even after manually adding the cast: an unset "
             "numeric package variable defaults to NULL in Oracle, while reading "
             "an as-yet-unset custom GUC parameter in PostgreSQL fails with "
-            "'unrecognized configuration parameter' instead of returning NULL — "
+            "'unrecognized configuration parameter' instead of returning NULL - "
             "surfaces whenever a read happens before the first write in the same "
             "session. The cast needs to be added to set_config() by hand, along "
             "with missing_ok => true on current_setting(), or the state needs to "
@@ -2829,9 +2829,9 @@ MESSAGES: dict[str, Message] = {
     ),
     "pivot_clause": Message(
         ru=(
-            "PIVOT/UNPIVOT — поворот строк в столбцы (и обратно) прямо в SQL. "
+            "PIVOT/UNPIVOT - поворот строк в столбцы (и обратно) прямо в SQL. "
             "ora2pg копирует конструкцию как есть (подтверждено реальным прогоном "
-            "ora2pg + PostgreSQL 16, docs/research/gap-008-pivot-unpivot.md) — в "
+            "ora2pg + PostgreSQL 16, docs/research/gap-008-pivot-unpivot.md) - в "
             "PostgreSQL нет встроенного PIVOT/UNPIVOT вообще. CREATE "
             "PROCEDURE/FUNCTION проходит без ошибки (ora2pg отключает "
             "check_function_bodies в своём выводе), падает только при первом "
@@ -2839,9 +2839,9 @@ MESSAGES: dict[str, Message] = {
             "(FILTER/CASE WHEN) или расширение tablefunc (crosstab())."
         ),
         en=(
-            "PIVOT/UNPIVOT — turns rows into columns (and back) directly in SQL. "
+            "PIVOT/UNPIVOT - turns rows into columns (and back) directly in SQL. "
             "ora2pg copies the construct verbatim (confirmed by a real ora2pg + "
-            "PostgreSQL 16 run, docs/research/gap-008-pivot-unpivot.md) — "
+            "PostgreSQL 16 run, docs/research/gap-008-pivot-unpivot.md) - "
             "PostgreSQL has no built-in PIVOT/UNPIVOT at all. CREATE "
             "PROCEDURE/FUNCTION succeeds without error (ora2pg disables "
             "check_function_bodies in its output), and it only fails on the first "
@@ -2851,25 +2851,25 @@ MESSAGES: dict[str, Message] = {
     ),
     "pragma_exception_init": Message(
         ru=(
-            "PRAGMA EXCEPTION_INIT — привязка объявленного исключения к номеру "
+            "PRAGMA EXCEPTION_INIT - привязка объявленного исключения к номеру "
             "ошибки Oracle, чтобы ловить её по имени в WHEN. ora2pg выбрасывает "
-            "сам PRAGMA и переписывает обработчик в WHEN SQLSTATE '50001' — "
+            "сам PRAGMA и переписывает обработчик в WHEN SQLSTATE '50001' - "
             "причём в одну и ту же константу '50001' независимо от того, какой "
             "номер ORA стоял в PRAGMA (проверено на -1 и на -60, подтверждено "
             "реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-060-pragma-exception-init.md). Процедура создаётся "
             "без единой ошибки, а обработчик становится мёртвым кодом: PostgreSQL "
             "такой SQLSTATE не возбуждает никогда, у него свои коды (нарушение "
-            "уникальности — 23505, взаимоблокировка — 40P01). На практике это "
+            "уникальности - 23505, взаимоблокировка - 40P01). На практике это "
             "значит, что обработанная в Oracle ошибка после миграции молча "
             "вылетает наружу и роняет вызывающий код. Каждый номер ORA нужно "
             "вручную сопоставить с настоящим кодом PostgreSQL и заменить '50001' "
             "на него (или на именованное условие вроде unique_violation)."
         ),
         en=(
-            "PRAGMA EXCEPTION_INIT — binding a declared exception to an Oracle "
+            "PRAGMA EXCEPTION_INIT - binding a declared exception to an Oracle "
             "error number so it can be caught by name in WHEN. ora2pg drops the "
-            "pragma itself and rewrites the handler as WHEN SQLSTATE '50001' — "
+            "pragma itself and rewrites the handler as WHEN SQLSTATE '50001' - "
             "and into that same constant '50001' regardless of which ORA number "
             "the pragma carried (checked with -1 and with -60, confirmed against "
             "a real ora2pg 25.0 + PostgreSQL 16 run, "
@@ -2885,33 +2885,33 @@ MESSAGES: dict[str, Message] = {
     ),
     "public_synonym": Message(
         ru=(
-            "CREATE [PUBLIC] SYNONYM — ora2pg конвертирует его в CREATE OR "
+            "CREATE [PUBLIC] SYNONYM - ora2pg конвертирует его в CREATE OR "
             "REPLACE VIEW, но теряет схему целевого объекта целиком: 'FOR "
             "hr.employees' становится неквалифицированным 'FROM employees' "
             "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-032-public-synonym.md). Когда имя синонима "
-            "совпадает с базовым именем цели (самый частый случай в реальности — "
+            "совпадает с базовым именем цели (самый частый случай в реальности - "
             "в этом обычно и есть весь смысл синонима), получается "
             "самоссылающийся VIEW: 'ERROR: relation ... does not exist' прямо на "
             "этапе применения DDL. Когда имена различаются, отказа не будет, но "
             "то, к какой именно таблице привяжется представление, целиком зависит "
-            "от search_path в момент CREATE VIEW, а не от исходной Oracle-схемы — "
+            "от search_path в момент CREATE VIEW, а не от исходной Oracle-схемы - "
             "при миграции нескольких схем в одну базу представление может молча "
             "привязаться не к той одноимённой таблице, без единой ошибки. Нужно "
             "вручную квалифицировать целевую таблицу схемой в определении VIEW."
         ),
         en=(
-            "CREATE [PUBLIC] SYNONYM — ora2pg converts it to CREATE OR REPLACE "
+            "CREATE [PUBLIC] SYNONYM - ora2pg converts it to CREATE OR REPLACE "
             "VIEW, but drops the target object's schema entirely: 'FOR "
             "hr.employees' becomes an unqualified 'FROM employees' (confirmed by "
             "a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-032-public-synonym.md). When the synonym shares "
-            "its target's base name (the common real-world convention — that's "
+            "its target's base name (the common real-world convention - that's "
             "usually the entire point of a synonym), the result is a "
             "self-referencing view: 'ERROR: relation ... does not exist' right at "
             "DDL-apply time. When the names differ, there's no failure, but which "
             "table the view actually binds to depends entirely on the runtime "
-            "search_path at CREATE VIEW time, not the original Oracle schema — "
+            "search_path at CREATE VIEW time, not the original Oracle schema - "
             "migrating several schemas into one database can leave the view "
             "silently bound to the wrong same-named table, with no error at all. "
             "The target table needs to be manually schema-qualified in the view "
@@ -2920,64 +2920,64 @@ MESSAGES: dict[str, Message] = {
     ),
     "read_only_table": Message(
         ru=(
-            "CREATE TABLE ... READ ONLY — Oracle блокирует любой "
+            "CREATE TABLE ... READ ONLY - Oracle блокирует любой "
             "INSERT/UPDATE/DELETE в такую таблицу на уровне сервера (ORA-12081), "
             "независимо от привилегий пользователя. ora2pg отбрасывает секцию "
-            "READ ONLY целиком — таблица конвертируется как обычная, доступная "
+            "READ ONLY целиком - таблица конвертируется как обычная, доступная "
             "для записи (подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-            "docs/research/gap-026-read-only-table.md; проверено напрямую — "
+            "docs/research/gap-026-read-only-table.md; проверено напрямую - "
             "INSERT в сконвертированную таблицу проходит успешно там, где в "
             "Oracle он был бы гарантированно заблокирован). Не синтаксическая "
-            "ошибка — CREATE TABLE выполняется без проблем, но потеряна гарантия "
+            "ошибка - CREATE TABLE выполняется без проблем, но потеряна гарантия "
             "целостности данных на уровне БД, которая могла быть единственной "
             "защитой (например, для таблицы-снапшота или исторического архива). В "
-            "PostgreSQL прямого аналога нет — обычно переписывается через REVOKE "
+            "PostgreSQL прямого аналога нет - обычно переписывается через REVOKE "
             "INSERT/UPDATE/DELETE от всех ролей (включая владельца) или через "
             "BEFORE-триггер, отклоняющий DML."
         ),
         en=(
-            "CREATE TABLE ... READ ONLY — Oracle blocks any INSERT/UPDATE/DELETE "
+            "CREATE TABLE ... READ ONLY - Oracle blocks any INSERT/UPDATE/DELETE "
             "against such a table at the server level (ORA-12081), regardless of "
-            "the user's privileges. ora2pg drops the READ ONLY section entirely — "
+            "the user's privileges. ora2pg drops the READ ONLY section entirely - "
             "the table converts as an ordinary, writable one (confirmed by a real "
             "ora2pg + PostgreSQL 16 run, "
-            "docs/research/gap-026-read-only-table.md; verified directly — an "
+            "docs/research/gap-026-read-only-table.md; verified directly - an "
             "INSERT into the converted table succeeds where it would have been "
-            "reliably blocked in Oracle). Not a syntax error — CREATE TABLE runs "
+            "reliably blocked in Oracle). Not a syntax error - CREATE TABLE runs "
             "without a problem, but a database-level data-integrity guarantee is "
             "lost, one that may have been the table's only protection (e.g. for a "
             "snapshot table or a historical archive). PostgreSQL has no direct "
-            "equivalent — usually rewritten via REVOKE INSERT/UPDATE/DELETE from "
+            "equivalent - usually rewritten via REVOKE INSERT/UPDATE/DELETE from "
             "all roles (including the owner) or a BEFORE trigger that rejects "
             "DML."
         ),
     ),
     "read_only_view": Message(
         ru=(
-            "CREATE VIEW ... WITH READ ONLY — представление, через которое Oracle "
+            "CREATE VIEW ... WITH READ ONLY - представление, через которое Oracle "
             "запрещает менять данные: INSERT/UPDATE/DELETE по нему падают с "
             "ORA-42399. ora2pg просто выбрасывает оговорку из вывода "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-066-read-only-view.md). Ошибки не будет ни на "
             "загрузке, ни потом: простое представление в PostgreSQL по умолчанию "
             "автоматически обновляемое, поэтому INSERT через него молча проходит "
-            "и пишет строку в базовую таблицу — проверено, строка действительно "
+            "и пишет строку в базовую таблицу - проверено, строка действительно "
             "появляется. Защита, которая в Oracle была объявлена в самом "
             "определении объекта, после миграции исчезает бесследно. "
             "Восстанавливается либо правами (REVOKE INSERT, UPDATE, DELETE ON "
             "<view> FROM ...), либо триггером INSTEAD OF, возбуждающим "
-            "исключение. Родственный gap про таблицы — "
+            "исключение. Родственный gap про таблицы - "
             "GAP-026/read_only_table.py."
         ),
         en=(
-            "CREATE VIEW ... WITH READ ONLY — a view through which Oracle forbids "
+            "CREATE VIEW ... WITH READ ONLY - a view through which Oracle forbids "
             "changing data: INSERT/UPDATE/DELETE against it fail with ORA-42399. "
             "ora2pg simply drops the clause from its output (confirmed against a "
             "real ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-066-read-only-view.md). No error appears at load "
             "time or later: a simple view in PostgreSQL is automatically "
             "updatable by default, so an INSERT through it silently succeeds and "
-            "writes a row into the base table — verified, the row really does "
+            "writes a row into the base table - verified, the row really does "
             "appear. Protection that in Oracle was declared in the object's own "
             "definition vanishes without trace after the migration. It is "
             "restored either with privileges (REVOKE INSERT, UPDATE, DELETE ON "
@@ -2987,63 +2987,63 @@ MESSAGES: dict[str, Message] = {
     ),
     "recursive_with": Message(
         ru=(
-            "WITH cte AS (...) — рекурсивная факторизация подзапроса Oracle "
+            "WITH cte AS (...) - рекурсивная факторизация подзапроса Oracle "
             "(recursive subquery factoring), не через CONNECT BY (см. GAP-005 про "
             "этот отдельный случай), а через прямую самоссылку CTE на себя после "
-            "UNION [ALL]. Oracle не требует явного ключевого слова RECURSIVE — "
+            "UNION [ALL]. Oracle не требует явного ключевого слова RECURSIVE - "
             "рекурсия определяется автоматически по самоссылке. ora2pg копирует "
             "WITH как есть, без добавления RECURSIVE (подтверждено реальным "
             "прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-024-recursive-with.md). PostgreSQL требует "
-            "RECURSIVE явно — без него самоссылка на CTE во второй ветке UNION "
+            "RECURSIVE явно - без него самоссылка на CTE во второй ветке UNION "
             "падает: 'there is a WITH item named ..., but it cannot be referenced "
             "from this part of the query' с подсказкой 'Use WITH RECURSIVE'. Если "
             "запрос дополнительно использует секцию CYCLE, после добавления "
             "RECURSIVE вручную придётся ещё и переставить её после закрывающей "
-            "скобки тела CTE и добавить обязательную в PostgreSQL секцию USING — "
+            "скобки тела CTE и добавить обязательную в PostgreSQL секцию USING - "
             "у Oracle CYCLE стоит перед AS и не требует USING."
         ),
         en=(
-            "WITH cte AS (...) — Oracle's recursive subquery factoring, not via "
+            "WITH cte AS (...) - Oracle's recursive subquery factoring, not via "
             "CONNECT BY (see GAP-005 for that separate case), but via a CTE "
             "directly referencing itself after UNION [ALL]. Oracle doesn't "
-            "require an explicit RECURSIVE keyword — recursion is inferred "
+            "require an explicit RECURSIVE keyword - recursion is inferred "
             "automatically from the self-reference. ora2pg copies the WITH "
             "verbatim, without adding RECURSIVE (confirmed by a real ora2pg + "
             "PostgreSQL 16 run, docs/research/gap-024-recursive-with.md). "
-            "PostgreSQL requires RECURSIVE explicitly — without it, the CTE's "
+            "PostgreSQL requires RECURSIVE explicitly - without it, the CTE's "
             "self-reference in the second UNION branch fails: 'there is a WITH "
             "item named ..., but it cannot be referenced from this part of the "
             "query', with a 'Use WITH RECURSIVE' hint. If the query also uses a "
             "CYCLE clause, after adding RECURSIVE by hand you'll also need to "
             "move it after the CTE body's closing parenthesis and add "
-            "PostgreSQL's mandatory USING clause — in Oracle, CYCLE sits before "
+            "PostgreSQL's mandatory USING clause - in Oracle, CYCLE sits before "
             "AS and doesn't need USING."
         ),
     ),
     "rowid_type": Message(
         ru=(
-            "ROWID/UROWID как тип столбца — ora2pg конвертирует его в oid "
+            "ROWID/UROWID как тип столбца - ora2pg конвертирует его в oid "
             "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
-            "docs/research/gap-029-rowid-urowid.md). oid — это 4-байтовое целое "
+            "docs/research/gap-029-rowid-urowid.md). oid - это 4-байтовое целое "
             "число для внутренних идентификаторов системных объектов PostgreSQL, "
             "не имеющее ничего общего с форматом или семантикой Oracle ROWID. "
             "CREATE TABLE проходит без ошибок, но реальное значение ROWID "
             "(например 'AAAWJ0AABAAAKgaAAA') не проходит INSERT в такой столбец "
-            "('invalid input syntax for type oid') — тип-заменитель несовместим с "
+            "('invalid input syntax for type oid') - тип-заменитель несовместим с "
             "данными, которые должен хранить. Нужно вручную выбрать подходящий "
             "тип (обычно text, если значение используется только как непрозрачный "
             "идентификатор, без арифметики или сравнения диапазонов)."
         ),
         en=(
-            "ROWID/UROWID as a column's data type — ora2pg converts it to oid "
+            "ROWID/UROWID as a column's data type - ora2pg converts it to oid "
             "(confirmed by a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-029-rowid-urowid.md). oid is a 4-byte integer "
             "PostgreSQL uses for its own system objects' internal identifiers, "
             "with nothing in common with Oracle ROWID's format or semantics. "
             "CREATE TABLE runs without errors, but a real ROWID value (e.g. "
             "'AAAWJ0AABAAAKgaAAA') fails INSERT into such a column ('invalid "
-            "input syntax for type oid') — the replacement type is incompatible "
+            "input syntax for type oid') - the replacement type is incompatible "
             "with the data it's supposed to hold. A suitable type needs to be "
             "chosen by hand (usually text, if the value is only ever used as an "
             "opaque identifier, with no arithmetic or range comparison)."
@@ -3051,11 +3051,11 @@ MESSAGES: dict[str, Message] = {
     ),
     "rownum_dml": Message(
         ru=(
-            "ROWNUM в UPDATE/DELETE — ограничение числа изменяемых строк "
+            "ROWNUM в UPDATE/DELETE - ограничение числа изменяемых строк "
             "по-Oracle'овски. ora2pg переписывает 'WHERE ROWNUM <= n' в 'LIMIT n' "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-057-rownum-dml.md). Для SELECT это верная замена, "
-            "но у UPDATE и DELETE в PostgreSQL оговорки LIMIT нет вообще — "
+            "но у UPDATE и DELETE в PostgreSQL оговорки LIMIT нет вообще - "
             "сгенерированный 'UPDATE ... LIMIT 10' падает синтаксической ошибкой "
             "на слове LIMIT. Переписывается через подзапрос по первичному ключу: "
             "DELETE FROM t WHERE id IN (SELECT id FROM t WHERE ... LIMIT n). "
@@ -3065,12 +3065,12 @@ MESSAGES: dict[str, Message] = {
             "останется недетерминированным."
         ),
         en=(
-            "ROWNUM in an UPDATE/DELETE — the Oracle way of limiting how many "
+            "ROWNUM in an UPDATE/DELETE - the Oracle way of limiting how many "
             "rows are changed. ora2pg rewrites 'WHERE ROWNUM <= n' into 'LIMIT n' "
             "(confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-057-rownum-dml.md). For a SELECT that is the right "
             "substitution, but PostgreSQL's UPDATE and DELETE have no LIMIT "
-            "clause at all — the generated 'UPDATE ... LIMIT 10' fails with a "
+            "clause at all - the generated 'UPDATE ... LIMIT 10' fails with a "
             "syntax error at the word LIMIT. It is rewritten through a "
             "primary-key subquery: DELETE FROM t WHERE id IN (SELECT id FROM t "
             "WHERE ... LIMIT n). Note that the meaning changes either way: Oracle "
@@ -3081,13 +3081,13 @@ MESSAGES: dict[str, Message] = {
     ),
     "sample_clause": Message(
         ru=(
-            "SAMPLE (n) / SAMPLE BLOCK (n) — выборка случайного процента строк "
+            "SAMPLE (n) / SAMPLE BLOCK (n) - выборка случайного процента строк "
             "(или блоков) таблицы прямо во FROM, Oracle-специфичный синтаксис. "
             "ora2pg копирует конструкцию в вывод как есть (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-042-sample-clause.md). У PostgreSQL есть своя "
-            "выборка, но с другим синтаксисом и другим местом в запросе — "
-            "TABLESAMPLE BERNOULLI (n) / TABLESAMPLE SYSTEM (n) — поэтому "
+            "выборка, но с другим синтаксисом и другим местом в запросе - "
+            "TABLESAMPLE BERNOULLI (n) / TABLESAMPLE SYSTEM (n) - поэтому "
             "скопированный как есть Oracle-вариант падает синтаксической ошибкой "
             "при загрузке. Переписывается вручную: SAMPLE (n) -> TABLESAMPLE "
             "BERNOULLI (n) (построчная выборка, ближе к Oracle SAMPLE), SAMPLE "
@@ -3095,13 +3095,13 @@ MESSAGES: dict[str, Message] = {
             "статистически грубее)."
         ),
         en=(
-            "SAMPLE (n) / SAMPLE BLOCK (n) — selecting a random percentage of a "
+            "SAMPLE (n) / SAMPLE BLOCK (n) - selecting a random percentage of a "
             "table's rows (or blocks) directly in the FROM clause, "
             "Oracle-specific syntax. ora2pg copies the construct into its output "
             "unchanged (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-042-sample-clause.md). PostgreSQL has its own "
             "sampling, but with different syntax and a different position in the "
-            "query — TABLESAMPLE BERNOULLI (n) / TABLESAMPLE SYSTEM (n) — so the "
+            "query - TABLESAMPLE BERNOULLI (n) / TABLESAMPLE SYSTEM (n) - so the "
             "verbatim-copied Oracle form fails to load with a syntax error. "
             "Rewritten by hand: SAMPLE (n) -> TABLESAMPLE BERNOULLI (n) (per-row "
             "sampling, closer to Oracle's SAMPLE), SAMPLE BLOCK (n) -> TABLESAMPLE "
@@ -3110,24 +3110,24 @@ MESSAGES: dict[str, Message] = {
     ),
     "sdo_geometry": Message(
         ru=(
-            "SDO_GEOMETRY — пространственный тип Oracle Spatial. ora2pg "
-            "конвертирует его в geometry(GEOMETRY) — то есть в тип расширения "
-            "PostGIS, — но саму строку CREATE EXTENSION postgis в вывод не "
+            "SDO_GEOMETRY - пространственный тип Oracle Spatial. ora2pg "
+            "конвертирует его в geometry(GEOMETRY) - то есть в тип расширения "
+            "PostGIS, - но саму строку CREATE EXTENSION postgis в вывод не "
             "добавляет (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL "
             "16, docs/research/gap-067-sdo-geometry.md). На чистой PostgreSQL без "
             "предварительно установленного PostGIS DDL падает на загрузке с 'type "
             "\"geometry\" does not exist'. Само по себе отображение выбрано верно, "
             "поэтому severity здесь medium, а не high: чинится это одной строкой "
             "CREATE EXTENSION postgis перед загрузкой схемы. Заметить стоит "
-            "другое — в том же прогоне для SYS_GUID() ora2pg строку CREATE "
+            "другое - в том же прогоне для SYS_GUID() ora2pg строку CREATE "
             "EXTENSION \"uuid-ossp\" выводит сам, так что рассчитывать на "
             "автоматическое подключение нужного расширения нельзя. Отдельно "
             "проверьте перенос самих значений: модель координат и семантика "
             "SDO_GEOMETRY и PostGIS совпадают не полностью."
         ),
         en=(
-            "SDO_GEOMETRY — the Oracle Spatial geometry type. ora2pg converts it "
-            "into geometry(GEOMETRY) — that is, into a PostGIS extension type — "
+            "SDO_GEOMETRY - the Oracle Spatial geometry type. ora2pg converts it "
+            "into geometry(GEOMETRY) - that is, into a PostGIS extension type - "
             "but does not add the CREATE EXTENSION postgis line itself to the "
             "output (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-067-sdo-geometry.md). On a clean PostgreSQL "
@@ -3135,7 +3135,7 @@ MESSAGES: dict[str, Message] = {
             "with 'type \"geometry\" does not exist'. The mapping itself is the "
             "right choice, which is why the severity here is medium rather than "
             "high: it is fixed by one CREATE EXTENSION postgis line before "
-            "loading the schema. What is worth noticing is something else — in "
+            "loading the schema. What is worth noticing is something else - in "
             "the same run ora2pg does emit CREATE EXTENSION \"uuid-ossp\" by itself "
             "for SYS_GUID(), so the needed extension being wired up automatically "
             "is not something to count on. Check the migration of the values "
@@ -3145,11 +3145,11 @@ MESSAGES: dict[str, Message] = {
     ),
     "sequence_cycle": Message(
         ru=(
-            "CREATE SEQUENCE ... CYCLE — после исчерпания диапазона "
+            "CREATE SEQUENCE ... CYCLE - после исчерпания диапазона "
             "(MAXVALUE/MINVALUE) Oracle начинает счёт заново, а не завершается "
             "ошибкой. ora2pg отбрасывает секцию CYCLE целиком (подтверждено "
             "реальным прогоном ora2pg + PostgreSQL 16, "
-            "docs/research/gap-030-sequence-cycle.md) — CREATE SEQUENCE проходит "
+            "docs/research/gap-030-sequence-cycle.md) - CREATE SEQUENCE проходит "
             "без ошибок, и последовательность работает идентично оригиналу ровно "
             "до момента исчерпания диапазона: 'ERROR: nextval: reached maximum "
             "value of sequence'. Диапазон может исчерпаться месяцы спустя после "
@@ -3158,11 +3158,11 @@ MESSAGES: dict[str, Message] = {
             "нужно."
         ),
         en=(
-            "CREATE SEQUENCE ... CYCLE — once the range is exhausted "
+            "CREATE SEQUENCE ... CYCLE - once the range is exhausted "
             "(MAXVALUE/MINVALUE), Oracle wraps around and starts counting again "
             "instead of failing. ora2pg drops the CYCLE section entirely "
             "(confirmed by a real ora2pg + PostgreSQL 16 run, "
-            "docs/research/gap-030-sequence-cycle.md) — CREATE SEQUENCE runs "
+            "docs/research/gap-030-sequence-cycle.md) - CREATE SEQUENCE runs "
             "without errors, and the sequence behaves identically to the original "
             "right up until its range is exhausted: 'ERROR: nextval: reached "
             "maximum value of sequence'. The range may not be exhausted until "
@@ -3173,7 +3173,7 @@ MESSAGES: dict[str, Message] = {
     ),
     "sql_macro": Message(
         ru=(
-            "SQL_MACRO — функция-макрос Oracle (SQL_MACRO(SCALAR) или "
+            "SQL_MACRO - функция-макрос Oracle (SQL_MACRO(SCALAR) или "
             "SQL_MACRO(TABLE), доступно с Oracle 20c), задуманная как текстовая "
             "подстановка прямо в SQL (в WHERE/FROM), а не как обычный вызов "
             "функции. ora2pg молча отбрасывает ключевое слово SQL_MACRO и "
@@ -3182,13 +3182,13 @@ MESSAGES: dict[str, Message] = {
             "docs/research/gap-019-sql-macro.md). Сама функция компилируется без "
             "ошибок, но при вызове в том виде, для которого она была написана "
             "(например, прямо в WHERE как булево выражение), падает с ошибкой "
-            "типа — PostgreSQL пытается использовать текстовый результат функции "
+            "типа - PostgreSQL пытается использовать текстовый результат функции "
             "как boolean напрямую, а не подставить его текст в запрос как делал "
             "Oracle. Нужно вручную переписать вызывающий код, встроив логику "
             "макроса как обычное условие или подзапрос."
         ),
         en=(
-            "SQL_MACRO — an Oracle macro function (SQL_MACRO(SCALAR) or "
+            "SQL_MACRO - an Oracle macro function (SQL_MACRO(SCALAR) or "
             "SQL_MACRO(TABLE), available since Oracle 20c), meant as a text "
             "substitution directly inside SQL (in WHERE/FROM), not as an ordinary "
             "function call. ora2pg silently drops the SQL_MACRO keyword and "
@@ -3197,7 +3197,7 @@ MESSAGES: dict[str, Message] = {
             "docs/research/gap-019-sql-macro.md). The function itself compiles "
             "without errors, but when called the way it was written to be used "
             "(e.g. directly in WHERE as a boolean expression), it fails with a "
-            "type error — PostgreSQL tries to use the function's text result as a "
+            "type error - PostgreSQL tries to use the function's text result as a "
             "boolean directly, instead of substituting its text into the query "
             "the way Oracle did. The calling code needs to be manually rewritten, "
             "inlining the macro's logic as an ordinary condition or subquery."
@@ -3205,7 +3205,7 @@ MESSAGES: dict[str, Message] = {
     ),
     "subtype_range": Message(
         ru=(
-            "SUBTYPE ... RANGE lo .. hi — подтип PL/SQL с ограничением диапазона "
+            "SUBTYPE ... RANGE lo .. hi - подтип PL/SQL с ограничением диапазона "
             "значений. ora2pg переводит объявление в CREATE DOMAIN, но оговорку "
             "RANGE переносит в него дословно: получается 'CREATE DOMAIN "
             "pkg.small_int AS integer RANGE 1 .. 100' (подтверждено реальным "
@@ -3213,20 +3213,20 @@ MESSAGES: dict[str, Message] = {
             "docs/research/gap-061-subtype-range.md). У CREATE DOMAIN в "
             "PostgreSQL такой оговорки нет, и DDL падает синтаксической ошибкой "
             "на слове RANGE. Идея переносится один в один, но другим синтаксисом "
-            "— через проверку: CREATE DOMAIN small_int AS integer CHECK (VALUE "
+            "- через проверку: CREATE DOMAIN small_int AS integer CHECK (VALUE "
             "BETWEEN 1 AND 100). Ненагруженные подтипы (SUBTYPE s IS PLS_INTEGER; "
             "и вариант с NOT NULL) ora2pg конвертирует корректно, и этот детектор "
             "их не помечает."
         ),
         en=(
-            "SUBTYPE ... RANGE lo .. hi — a PL/SQL subtype with a value-range "
+            "SUBTYPE ... RANGE lo .. hi - a PL/SQL subtype with a value-range "
             "constraint. ora2pg translates the declaration into CREATE DOMAIN but "
             "carries the RANGE clause across verbatim, producing 'CREATE DOMAIN "
             "pkg.small_int AS integer RANGE 1 .. 100' (confirmed against a real "
             "ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-061-subtype-range.md). PostgreSQL's CREATE DOMAIN "
             "has no such clause and the DDL fails with a syntax error at the word "
-            "RANGE. The idea carries over exactly, just in different syntax — as "
+            "RANGE. The idea carries over exactly, just in different syntax - as "
             "a check: CREATE DOMAIN small_int AS integer CHECK (VALUE BETWEEN 1 "
             "AND 100). Unconstrained subtypes (SUBTYPE s IS PLS_INTEGER; and the "
             "NOT NULL variant) are converted correctly by ora2pg, and this "
@@ -3235,7 +3235,7 @@ MESSAGES: dict[str, Message] = {
     ),
     "system_trigger": Message(
         ru=(
-            "Системный триггер (ON DATABASE / ON SCHEMA) — триггер Oracle не на "
+            "Системный триггер (ON DATABASE / ON SCHEMA) - триггер Oracle не на "
             "таблицу, а на событие базы или схемы: LOGON, LOGOFF, SERVERERROR, "
             "DDL, STARTUP и т. п. ora2pg переносит его как обычный табличный "
             "триггер, подставляя слово database/schema на место имени таблицы: "
@@ -3245,11 +3245,11 @@ MESSAGES: dict[str, Message] = {
             "синтаксической ошибкой прямо на названии события. Прямого аналога "
             "нет ни для одного из них: DDL-события покрываются событийными "
             "триггерами PostgreSQL (CREATE EVENT TRIGGER ... ON ddl_command_end), "
-            "а LOGON/LOGOFF/SERVERERROR — вообще не триггерами, а журналированием "
+            "а LOGON/LOGOFF/SERVERERROR - вообще не триггерами, а журналированием "
             "на стороне сервера или логикой в приложении."
         ),
         en=(
-            "A system trigger (ON DATABASE / ON SCHEMA) — an Oracle trigger not "
+            "A system trigger (ON DATABASE / ON SCHEMA) - an Oracle trigger not "
             "on a table but on a database or schema event: LOGON, LOGOFF, "
             "SERVERERROR, DDL, STARTUP and so on. ora2pg converts it as an "
             "ordinary table trigger, putting the word database/schema where the "
@@ -3265,21 +3265,21 @@ MESSAGES: dict[str, Message] = {
     ),
     "table_collection": Message(
         ru=(
-            "TABLE(...) — оператор Oracle, разворачивающий коллекцию (nested "
+            "TABLE(...) - оператор Oracle, разворачивающий коллекцию (nested "
             "table, VARRAY или результат pipelined-функции) в набор строк прямо "
             "во FROM. ora2pg копирует его в вывод как есть (подтверждено реальным "
             "прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-054-table-collection.md). В PostgreSQL такого "
             "оператора нет, и запрос падает синтаксической ошибкой прямо на слове "
-            "TABLE. Ближайший аналог — unnest(...) для массива или обычный вызов "
+            "TABLE. Ближайший аналог - unnest(...) для массива или обычный вызов "
             "set-returning функции во FROM (FROM get_ids(42)), но подстановка не "
             "механическая: она зависит от того, чем в PostgreSQL стала сама "
             "коллекция (массивом, отдельной таблицей или функцией, возвращающей "
-            "SETOF), — см. GAP-021/collection_type.py про сами объявления таких "
+            "SETOF), - см. GAP-021/collection_type.py про сами объявления таких "
             "типов."
         ),
         en=(
-            "TABLE(...) — Oracle's operator that expands a collection (a nested "
+            "TABLE(...) - Oracle's operator that expands a collection (a nested "
             "table, a VARRAY, or the result of a pipelined function) into a row "
             "set directly in the FROM clause. ora2pg copies it into its output "
             "unchanged (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
@@ -3289,50 +3289,50 @@ MESSAGES: dict[str, Message] = {
             "plain set-returning function call in FROM (FROM get_ids(42)), but "
             "the substitution is not mechanical: it depends on what the "
             "collection itself became in PostgreSQL (an array, a separate table, "
-            "or a function returning SETOF) — see GAP-021/collection_type.py "
+            "or a function returning SETOF) - see GAP-021/collection_type.py "
             "about the declarations of those types."
         ),
     ),
     "table_partitioning": Message(
         ru=(
-            "PARTITION BY RANGE/LIST/HASH/REFERENCE/SYSTEM — секционирование "
+            "PARTITION BY RANGE/LIST/HASH/REFERENCE/SYSTEM - секционирование "
             "таблицы. ora2pg полностью отбрасывает секционирование при "
             "конвертации: ни PARTITION BY, ни сами секции не попадают в вывод "
-            "вообще — таблица создаётся как обычная, несекционированная "
+            "вообще - таблица создаётся как обычная, несекционированная "
             "(подтверждено реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-013-table-partitioning.md). Совсем без "
-            "предупреждения — ни в выводе, ни в --estimate_cost. Для больших "
+            "предупреждения - ни в выводе, ни в --estimate_cost. Для больших "
             "таблиц это не просто синтаксическая мелочь: теряется архитектурная "
             "стратегия хранения/обслуживания (partition pruning, раздельное "
             "обслуживание партиций). PostgreSQL поддерживает декларативное "
-            "партиционирование, но синтаксис отличается — секции нужно "
+            "партиционирование, но синтаксис отличается - секции нужно "
             "пересоздать вручную (CREATE TABLE ... PARTITION OF ...)."
         ),
         en=(
-            "PARTITION BY RANGE/LIST/HASH/REFERENCE/SYSTEM — table partitioning. "
+            "PARTITION BY RANGE/LIST/HASH/REFERENCE/SYSTEM - table partitioning. "
             "ora2pg drops partitioning entirely during conversion: neither "
-            "PARTITION BY nor the partitions themselves make it into the output — "
+            "PARTITION BY nor the partitions themselves make it into the output - "
             "the table is created as an ordinary, unpartitioned one (confirmed by "
             "a real ora2pg + PostgreSQL 16 run, "
-            "docs/research/gap-013-table-partitioning.md). No warning at all — "
+            "docs/research/gap-013-table-partitioning.md). No warning at all - "
             "not in the output, not in --estimate_cost. For large tables, this "
             "isn't just a syntax nitpick: an architectural storage/maintenance "
             "strategy is lost (partition pruning, per-partition maintenance). "
             "PostgreSQL supports declarative partitioning, but the syntax differs "
-            "— the partitions need to be recreated by hand (CREATE TABLE ... "
+            "- the partitions need to be recreated by hand (CREATE TABLE ... "
             "PARTITION OF ...)."
         ),
     ),
     "temporal_validity": Message(
         ru=(
-            "PERIOD FOR (Oracle 12c Temporal Validity) — объявление периода "
+            "PERIOD FOR (Oracle 12c Temporal Validity) - объявление периода "
             "действительности строки: таблица получает пару границ времени и "
             "возможность запрашивать состояние «как было на дату» через AS OF "
-            "PERIOD FOR. ora2pg не просто отбрасывает секцию — он разрушает её "
+            "PERIOD FOR. ora2pg не просто отбрасывает секцию - он разрушает её "
             "остатком, вставляя в список столбцов обрубок 'period FOR' "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-045-temporal-validity.md). Сгенерированный CREATE "
-            "TABLE падает синтаксической ошибкой уже при загрузке — то есть "
+            "TABLE падает синтаксической ошибкой уже при загрузке - то есть "
             "теряется не только сама фича, ломается создание всей таблицы. У "
             "PostgreSQL нет встроенной temporal validity; переписывается вручную: "
             "обычная пара timestamp-столбцов плюс фильтрация по ним в запросах "
@@ -3340,14 +3340,14 @@ MESSAGES: dict[str, Message] = {
             "нужен контроль пересечений)."
         ),
         en=(
-            "PERIOD FOR (Oracle 12c Temporal Validity) — declaring a row's "
+            "PERIOD FOR (Oracle 12c Temporal Validity) - declaring a row's "
             "validity period: the table gets a pair of time boundaries and the "
             "ability to query \"as it was on date X\" via AS OF PERIOD FOR. ora2pg "
-            "doesn't merely drop the clause — it corrupts the statement with a "
+            "doesn't merely drop the clause - it corrupts the statement with a "
             "leftover, emitting a truncated 'period FOR' fragment into the column "
             "list (confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-045-temporal-validity.md). The generated CREATE "
-            "TABLE fails to load with a syntax error — so it isn't just the "
+            "TABLE fails to load with a syntax error - so it isn't just the "
             "feature that's lost, creating the whole table breaks. PostgreSQL has "
             "no built-in temporal validity; rewritten by hand as an ordinary pair "
             "of timestamp columns plus filtering in queries (or a tstzrange "
@@ -3356,37 +3356,37 @@ MESSAGES: dict[str, Message] = {
     ),
     "to_date_rr": Message(
         ru=(
-            "TO_DATE/TO_TIMESTAMP с форматом RR — Oracle-специфичный код "
+            "TO_DATE/TO_TIMESTAMP с форматом RR - Oracle-специфичный код "
             "двузначного года с «поворотным» правилом: 00-49 читается как 20xx, "
             "50-99 как 19xx. ora2pg оставляет RR в строке формата как есть "
             "(подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, "
             "docs/research/gap-058-to-date-rr.md). PostgreSQL такого кода формата "
             "не знает и, что хуже всего, не ругается на него: "
-            "to_date('85-06-01','RR-MM-DD') молча возвращает 0001-06-01 BC — "
+            "to_date('85-06-01','RR-MM-DD') молча возвращает 0001-06-01 BC - "
             "первый год до нашей эры вместо 1985 года. Ошибки нет ни на загрузке, "
             "ни на выполнении, данные просто оказываются неверными. Заменять "
             "нужно на явный четырёхзначный YYYY с приведением входных данных: YY "
-            "тут не эквивалент, хотя выглядит им. Пороги у правил разные — у "
+            "тут не эквивалент, хотя выглядит им. Пороги у правил разные - у "
             "Oracle RR это 00-49 -> 20xx, 50-99 -> 19xx, а у PostgreSQL YY это "
             "00-69 -> 20xx, 70-99 -> 19xx (проверено на PostgreSQL 16). Совпадают "
             "они только на 00-49 и 70-99, а на 50-69 расходятся ровно на сто лет: "
-            "'65' по Oracle это 1965 год, а по YY в PostgreSQL — 2065. Отдельно "
+            "'65' по Oracle это 1965 год, а по YY в PostgreSQL - 2065. Отдельно "
             "стоит отметить асимметрию в самом ora2pg: в TO_CHAR он RR на YY "
-            "заменяет, а в TO_DATE — нет."
+            "заменяет, а в TO_DATE - нет."
         ),
         en=(
-            "TO_DATE/TO_TIMESTAMP with an RR format — Oracle's own two-digit year "
+            "TO_DATE/TO_TIMESTAMP with an RR format - Oracle's own two-digit year "
             "code with a pivot rule: 00-49 reads as 20xx, 50-99 as 19xx. ora2pg "
             "leaves RR in the format string as it is (confirmed against a real "
             "ora2pg 25.0 + PostgreSQL 16 run, "
             "docs/research/gap-058-to-date-rr.md). PostgreSQL does not know that "
             "format code and, worst of all, does not complain about it: "
-            "to_date('85-06-01','RR-MM-DD') silently returns 0001-06-01 BC — year "
+            "to_date('85-06-01','RR-MM-DD') silently returns 0001-06-01 BC - year "
             "one before Christ instead of 1985. There is no error at load time or "
             "at run time, the data is simply wrong. Replace it with an explicit "
             "four-digit YYYY after normalising the input: YY is not an equivalent "
             "here, though it looks like one. The two rules pivot at different "
-            "points — Oracle's RR is 00-49 -> 20xx, 50-99 -> 19xx, while "
+            "points - Oracle's RR is 00-49 -> 20xx, 50-99 -> 19xx, while "
             "PostgreSQL's YY is 00-69 -> 20xx, 70-99 -> 19xx (verified on "
             "PostgreSQL 16). They agree on 00-49 and 70-99 and disagree by "
             "exactly a century on 50-69: '65' is 1965 under Oracle's RR and 2065 "
@@ -3397,13 +3397,13 @@ MESSAGES: dict[str, Message] = {
     ),
     "trigger_follows": Message(
         ru=(
-            "FOLLOWS / PRECEDES — оговорка Oracle, задающая порядок срабатывания "
+            "FOLLOWS / PRECEDES - оговорка Oracle, задающая порядок срабатывания "
             "триггеров на одном и том же событии одной таблицы. ora2pg не просто "
             "теряет её: оговорка попадает внутрь тела сгенерированной функции, "
             "между 'AS $BODY$' и 'BEGIN' (подтверждено реальным прогоном ora2pg "
             "25.0 + PostgreSQL 16, docs/research/gap-053-trigger-follows.md). "
-            "CREATE FUNCTION и CREATE TRIGGER проходят без ошибок — ora2pg "
-            "выставляет в своём выводе check_function_bodies = false, — а при "
+            "CREATE FUNCTION и CREATE TRIGGER проходят без ошибок - ora2pg "
+            "выставляет в своём выводе check_function_bodies = false, - а при "
             "первом же INSERT триггер падает с 'syntax error at or near "
             "\"FOLLOWS\"'. То есть ломается не порядок срабатывания, а вся операция "
             "с таблицей. В PostgreSQL порядка «по имени предшественника» нет "
@@ -3413,13 +3413,13 @@ MESSAGES: dict[str, Message] = {
             "один."
         ),
         en=(
-            "FOLLOWS / PRECEDES — Oracle's clause specifying the firing order of "
+            "FOLLOWS / PRECEDES - Oracle's clause specifying the firing order of "
             "triggers on the same event of the same table. ora2pg does not merely "
             "lose it: the clause ends up inside the generated function's body, "
             "between 'AS $BODY$' and 'BEGIN' (confirmed against a real ora2pg "
             "25.0 + PostgreSQL 16 run, docs/research/gap-053-trigger-follows.md). "
-            "CREATE FUNCTION and CREATE TRIGGER both succeed — ora2pg sets "
-            "check_function_bodies = false in its output — and then the very "
+            "CREATE FUNCTION and CREATE TRIGGER both succeed - ora2pg sets "
+            "check_function_bodies = false in its output - and then the very "
             "first INSERT fails with 'syntax error at or near \"FOLLOWS\"'. So what "
             "breaks is not the firing order but every operation on the table. "
             "PostgreSQL has no \"after this named trigger\" ordering at all: "
@@ -3430,33 +3430,33 @@ MESSAGES: dict[str, Message] = {
     ),
     "virtual_column": Message(
         ru=(
-            "GENERATED ALWAYS AS (...) VIRTUAL — виртуальный столбец. Помимо "
+            "GENERATED ALWAYS AS (...) VIRTUAL - виртуальный столбец. Помимо "
             "вычисления значения, Oracle гарантирует на уровне сервера, что в "
             "такой столбец нельзя явно ничего записать (ORA-54016 при любой "
-            "попытке в INSERT/UPDATE). ora2pg переносит сам расчёт корректно — "
+            "попытке в INSERT/UPDATE). ora2pg переносит сам расчёт корректно - "
             "через BEFORE INSERT OR UPDATE-триггер вместо нативного GENERATED "
-            "ALWAYS AS (...) STORED — но эта защита теряется (подтверждено "
+            "ALWAYS AS (...) STORED - но эта защита теряется (подтверждено "
             "реальным прогоном ora2pg + PostgreSQL 16, "
             "docs/research/gap-033-virtual-column.md): явное присваивание "
             "значения такому столбцу в INSERT/UPDATE молча проходит без единой "
             "ошибки, триггер просто подменяет переданное значение вычисленным. "
-            "Итоговое значение в столбце корректно — это не потеря данных, а "
+            "Итоговое значение в столбце корректно - это не потеря данных, а "
             "потеря ранней диагностики: код, по ошибке или намеренно "
             "присваивающий значение вычисляемому столбцу, в Oracle был бы пойман "
             "сразу на тестировании, после миграции проходит незамеченным."
         ),
         en=(
-            "GENERATED ALWAYS AS (...) VIRTUAL — a virtual column. Besides "
+            "GENERATED ALWAYS AS (...) VIRTUAL - a virtual column. Besides "
             "computing its value, Oracle guarantees at the server level that "
             "nothing can be explicitly written to such a column (ORA-54016 on any "
             "attempt in INSERT/UPDATE). ora2pg carries the computation itself "
-            "over correctly — via a BEFORE INSERT OR UPDATE trigger instead of "
-            "PostgreSQL's native GENERATED ALWAYS AS (...) STORED — but that "
+            "over correctly - via a BEFORE INSERT OR UPDATE trigger instead of "
+            "PostgreSQL's native GENERATED ALWAYS AS (...) STORED - but that "
             "protection is lost (confirmed by a real ora2pg + PostgreSQL 16 run, "
             "docs/research/gap-033-virtual-column.md): explicitly assigning a "
             "value to such a column in INSERT/UPDATE silently succeeds with no "
             "error at all, the trigger just overwrites the given value with the "
-            "computed one. The column's final value is correct — this isn't data "
+            "computed one. The column's final value is correct - this isn't data "
             "loss, it's a loss of early diagnostics: code that mistakenly (or "
             "deliberately) assigns a value to a computed column would have been "
             "caught immediately in Oracle during testing; after migration, it "
@@ -3465,9 +3465,9 @@ MESSAGES: dict[str, Message] = {
     ),
     "with_function": Message(
         ru=(
-            "WITH FUNCTION/PROCEDURE — встроенное определение функции внутри "
+            "WITH FUNCTION/PROCEDURE - встроенное определение функции внутри "
             "собственного WITH-предложения запроса (Oracle 12c+). ora2pg не "
-            "просто копирует конструкцию как есть — он полностью разваливает "
+            "просто копирует конструкцию как есть - он полностью разваливает "
             "структуру: вложенная функция 'утекает' наружу как отдельная функция "
             "верхнего уровня пакета, а тело содержащей её процедуры обрывается "
             "буквально на 'BEGIN WITH;', теряя весь настоящий запрос "
@@ -3475,13 +3475,13 @@ MESSAGES: dict[str, Message] = {
             "docs/research/gap-010-with-function.md). Падает уже на этапе "
             "компиляции тела функции при первом вызове (синтаксическая ошибка "
             "'syntax error at end of input'), не просто на выполнении. "
-            "Единственный путь — вручную вынести логику в обычную "
+            "Единственный путь - вручную вынести логику в обычную "
             "функцию/процедуру PostgreSQL."
         ),
         en=(
-            "WITH FUNCTION/PROCEDURE — a function defined inline inside a query's "
+            "WITH FUNCTION/PROCEDURE - a function defined inline inside a query's "
             "own WITH clause (Oracle 12c+). ora2pg doesn't just copy the "
-            "construct verbatim — it completely breaks the structure: the nested "
+            "construct verbatim - it completely breaks the structure: the nested "
             "function 'leaks' out as a separate top-level package function, and "
             "the body of the procedure that contained it gets cut off literally "
             "at 'BEGIN WITH;', losing the entire real query (confirmed by a real "
@@ -3494,31 +3494,31 @@ MESSAGES: dict[str, Message] = {
     ),
     "wm_concat": Message(
         ru=(
-            "WM_CONCAT — недокументированная агрегатная функция Oracle, "
+            "WM_CONCAT - недокументированная агрегатная функция Oracle, "
             "склеивающая значения группы в одну строку через запятую. Она никогда "
             "не поддерживалась официально и убрана начиная с 12c, но в "
             "унаследованном коде встречается постоянно. ora2pg копирует вызов в "
             "вывод как есть (подтверждено реальным прогоном ora2pg 25.0 + "
-            "PostgreSQL 16, docs/research/gap-065-wm-concat.md) — в отличие от "
+            "PostgreSQL 16, docs/research/gap-065-wm-concat.md) - в отличие от "
             "LISTAGG, который он переписывает в string_agg. В PostgreSQL такой "
             "функции нет, и запрос падает с 'function wm_concat(text) does not "
             "exist'. Заменяется на string_agg(col, ','), и при замене стоит сразу "
-            "дописать порядок — string_agg(col, ',' ORDER BY col): WM_CONCAT "
+            "дописать порядок - string_agg(col, ',' ORDER BY col): WM_CONCAT "
             "порядок никак не гарантировал, поэтому «как было» воспроизвести всё "
             "равно нельзя, а молча недетерминированный результат лучше сделать "
             "явным."
         ),
         en=(
-            "WM_CONCAT — an undocumented Oracle aggregate that glues a group's "
+            "WM_CONCAT - an undocumented Oracle aggregate that glues a group's "
             "values into a single comma-separated string. It was never officially "
             "supported and was removed as of 12c, but it turns up constantly in "
             "legacy code. ora2pg copies the call into its output unchanged "
             "(confirmed against a real ora2pg 25.0 + PostgreSQL 16 run, "
-            "docs/research/gap-065-wm-concat.md) — unlike LISTAGG, which it does "
+            "docs/research/gap-065-wm-concat.md) - unlike LISTAGG, which it does "
             "rewrite into string_agg. PostgreSQL has no such function and the "
             "query fails with 'function wm_concat(text) does not exist'. Replace "
             "it with string_agg(col, ','), and while replacing it is worth adding "
-            "the ordering straight away — string_agg(col, ',' ORDER BY col): "
+            "the ordering straight away - string_agg(col, ',' ORDER BY col): "
             "WM_CONCAT guaranteed no ordering at all, so \"as it was\" cannot be "
             "reproduced anyway, and a silently non-deterministic result is better "
             "made explicit."
@@ -3527,11 +3527,11 @@ MESSAGES: dict[str, Message] = {
     "mysql_delimiter_routine": Message(
         ru=(
             "Процедура или функция MySQL/MariaDB, записанная под разделителем, отличным от ';' "
-            "(DELIMITER ;; / // / $$ ...), — иначе подпрограмму с ';' внутри клиент mysql не "
+            "(DELIMITER ;; / // / $$ ...), - иначе подпрограмму с ';' внутри клиент mysql не "
             'примет, и именно так mysqldump выгружает каждую подпрограмму. ora2pg (-m) ищет конец'
-            ' тела в стиле Oracle — END <имя>; — и директиву DELIMITER не знает: закрывающий '
+            ' тела в стиле Oracle - END <имя>; - и директиву DELIMITER не знает: закрывающий '
             'разделитель, строка DELIMITER ; и всё, что стоит до следующей подпрограммы (у '
-            'mysqldump — служебные /*!50003 SET ... */), попадают внутрь тела (подтверждено '
+            'mysqldump - служебные /*!50003 SET ... */), попадают внутрь тела (подтверждено '
             'реальным прогоном ora2pg 25.0 + PostgreSQL 16 для процедур и функций под ;; // $$ | '
             '$, docs/research/gap-106-mysql-delimiter-routine.md). CREATE падает сразу при '
             'загрузке (\'syntax error at or near "DELIMITER"\' / \'"//"\' / \'unterminated '
@@ -3565,9 +3565,9 @@ MESSAGES: dict[str, Message] = {
             'под таким разделителем не находит триггер вовсе: в выводе его нет, ошибки нет, в '
             'логе ничего (подтверждено реальным прогоном ora2pg 25.0 для // $$ | $, '
             'docs/research/gap-107-mysql-delimiter-trigger.md). Схема загружается, а таблица в '
-            'PostgreSQL просто остаётся без триггера — всё, что он делал (заполнение полей, '
-            'аудит, каскадные изменения), молча перестаёт происходить. Под DELIMITER ;; — выбором'
-            ' самого mysqldump — тот же триггер конвертируется, поэтому такой случай не '
+            'PostgreSQL просто остаётся без триггера - всё, что он делал (заполнение полей, '
+            'аудит, каскадные изменения), молча перестаёт происходить. Под DELIMITER ;; - выбором'
+            ' самого mysqldump - тот же триггер конвертируется, поэтому такой случай не '
             'отмечается. Исправляется до конвертации: заменить разделитель на ;; или убрать '
             'DELIMITER.'
         ),
@@ -3585,14 +3585,14 @@ MESSAGES: dict[str, Message] = {
     ),
     "mysql_definer_procedure": Message(
         ru=(
-            'Процедура MySQL/MariaDB с DEFINER=... — так mysqldump записывает каждую процедуру. '
+            'Процедура MySQL/MariaDB с DEFINER=... - так mysqldump записывает каждую процедуру. '
             'ora2pg -m -t PROCEDURE такую процедуру не выгружает никогда: в построчном разборе '
             'export_procedure(), в отличие от export_function(), у шаблонов CREATE нет варианта '
             'DEFINER=, имя процедуры не распознаётся, и весь её текст пропускается молча '
             '(подтверждено реальным прогоном ora2pg 25.0 и по его исходному коду, '
             'docs/research/gap-108-mysql-definer-procedure.md). Та же процедура без DEFINER '
             'выгружается. Обойти можно двумя способами: убрать DEFINER=... из скрипта до '
-            'конвертации либо выгружать процедуры через -t FUNCTION — его разбор DEFINER понимает'
+            'конвертации либо выгружать процедуры через -t FUNCTION - его разбор DEFINER понимает'
             ' и заодно забирает процедуры.'
         ),
         en=(
@@ -3610,8 +3610,8 @@ MESSAGES: dict[str, Message] = {
     "mysql_versioned_comment": Message(
         ru=(
             'Триггер, представление, процедура или функция внутри исполняемых комментариев MySQL '
-            '(/*!50003 CREATE*/ /*!50017 DEFINER=...*/ /*!50003 TRIGGER ... */) — так mysqldump '
-            'выгружает каждый триггер и каждое представление (а старые версии — и подпрограммы). '
+            '(/*!50003 CREATE*/ /*!50017 DEFINER=...*/ /*!50003 TRIGGER ... */) - так mysqldump '
+            'выгружает каждый триггер и каждое представление (а старые версии - и подпрограммы). '
             'MySQL выполняет содержимое таких комментариев, а ora2pg (-m) удаляет комментарии до '
             'разбора, и объект пропадает целиком: ни вывода, ни ошибки, ни строки в логе '
             '(подтверждено реальным прогоном ora2pg 25.0 для триггера, представления, процедуры и'
@@ -3633,7 +3633,7 @@ MESSAGES: dict[str, Message] = {
         ru=(
             'CREATE TABLE IF NOT EXISTS на верхнем уровне скрипта MySQL/MariaDB. Разбор таблиц в '
             'ora2pg (-m) берёт слово после TABLE за имя таблицы, и она выходит как CREATE TABLE '
-            'if ( not EXISTS ... ) — настоящее имя и столбцы потеряны (подтверждено реальным '
+            'if ( not EXISTS ... ) - настоящее имя и столбцы потеряны (подтверждено реальным '
             'прогоном ora2pg 25.0 + PostgreSQL 16, '
             'docs/research/gap-110-mysql-create-table-if-not-exists.md). PostgreSQL отвергает её '
             'сразу при загрузке (\'syntax error at or near "not"\'), и \\set ON_ERROR_STOP ON в '
@@ -3661,7 +3661,7 @@ MESSAGES: dict[str, Message] = {
             'отбрасывает TEMPORARY и генерирует обычный CREATE TABLE (подтверждено реальным '
             'прогоном ora2pg 25.0 + PostgreSQL 16, '
             'docs/research/gap-111-mysql-temporary-table.md). Ошибки нет, но смысл меняется: '
-            'таблица становится постоянной и общей — строки, записанные одним сеансом, переживают'
+            'таблица становится постоянной и общей - строки, записанные одним сеансом, переживают'
             ' его и видны всем остальным, тогда как в MySQL у каждого сеанса была своя копия, '
             'исчезавшая вместе с ним. Проверено на данных: строка, вставленная в одной сессии '
             'PostgreSQL, читается из другой. Внутри процедуры/функции/триггера CREATE TEMPORARY '
@@ -3685,12 +3685,12 @@ MESSAGES: dict[str, Message] = {
     "table_if_not_exists": Message(
         ru=(
             'CREATE TABLE IF NOT EXISTS (Oracle 23ai). ora2pg берёт слово после TABLE за имя '
-            'таблицы, и она выходит как CREATE TABLE if ( not EXISTS ... ) — настоящее имя и '
+            'таблицы, и она выходит как CREATE TABLE if ( not EXISTS ... ) - настоящее имя и '
             'столбцы потеряны (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16, '
             'docs/research/gap-112-table-if-not-exists.md). PostgreSQL отвергает её сразу при '
             'загрузке (\'syntax error at or near "not"\'), и \\set ON_ERROR_STOP ON в выводе '
             'останавливает загрузку всей схемы. Та же таблица без IF NOT EXISTS конвертируется. '
-            'DBMS_METADATA.GET_DDL это предложение не пишет никогда — оно встречается в скриптах,'
+            'DBMS_METADATA.GET_DDL это предложение не пишет никогда - оно встречается в скриптах,'
             ' которые ведут вручную. Исправляется до конвертации: убрать IF NOT EXISTS.'
         ),
         en=(
@@ -3707,13 +3707,13 @@ MESSAGES: dict[str, Message] = {
     "identity_on_null": Message(
         ru=(
             'GENERATED BY DEFAULT ON NULL AS IDENTITY. В Oracle INSERT, который явно передаёт '
-            'NULL в такой столбец, получает следующее значение identity — ровно как если бы '
+            'NULL в такой столбец, получает следующее значение identity - ровно как если бы '
             'столбец не был указан. ora2pg превращает столбец в GENERATED BY DEFAULT AS IDENTITY '
             'и ON NULL отбрасывает (подтверждено реальным прогоном ora2pg 25.0 + PostgreSQL 16 и '
             'живым Oracle 23ai, docs/research/gap-113-identity-on-null.md). DDL загружается, а '
             "тот же INSERT в PostgreSQL падает: 'null value in column ... violates not-null "
-            "constraint'. Ломается код, который передаёт NULL намеренно — универсальная процедура"
-            ' вставки, ORM, перечисляющая все столбцы, — на первом же вызове. Восстанавливается '
+            "constraint'. Ломается код, который передаёт NULL намеренно - универсальная процедура"
+            ' вставки, ORM, перечисляющая все столбцы, - на первом же вызове. Восстанавливается '
             'триггером BEFORE INSERT, подставляющим nextval() последовательности столбца, когда '
             'пришёл NULL, либо правкой кода, чтобы он не передавал столбец вовсе.'
         ),
@@ -3939,13 +3939,13 @@ MESSAGES: dict[str, Message] = {
     ),
     "temporal_validity.alter": Message(
         ru=(
-            'PERIOD FOR (temporal validity, 12c) в записи DBMS_METADATA.GET_DDL — отдельной '
+            'PERIOD FOR (temporal validity, 12c) в записи DBMS_METADATA.GET_DDL - отдельной '
             'командой ALTER TABLE ... ADD PERIOD FOR после CREATE TABLE. ora2pg эту команду '
             'выбрасывает целиком и молча (подтверждено реальным прогоном ora2pg 25.0 на выгрузке '
             'живого Oracle 23ai, docs/research/gap-045-temporal-validity.md): таблица загружается'
             ' с обычными столбцами начала и конца, а сам период и запросы AS OF PERIOD FOR / '
             'VERSIONS PERIOD FOR, которые на него опираются, пропадают без ошибки. В PostgreSQL '
-            'встроенной temporal validity нет: вручную — пара столбцов с фильтрацией в запросах '
+            'встроенной temporal validity нет: вручную - пара столбцов с фильтрацией в запросах '
             'или тип tstzrange с ограничением-исключением, если перекрытия периодов нужно '
             'контролировать.'
         ),
@@ -3991,11 +3991,11 @@ def text(message_id: str, lang: str = "ru") -> str:
 REMEDIATION_HINTS: dict[str, Message] = {
     "autonomous_tx": Message(
         ru=(
-            'Проверить dblink-перенос вручную — сетевая зависимость может быть '
+            'Проверить dblink-перенос вручную - сетевая зависимость может быть '
             'неприемлема в изолированном контуре'
         ),
         en=(
-            'Review the dblink migration by hand — the network dependency may be '
+            'Review the dblink migration by hand - the network dependency may be '
             'unacceptable in an isolated environment'
         ),
     ),
@@ -4036,7 +4036,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "bulk_collect": Message(
         ru=(
             'Переписать TYPE/BULK COLLECT на массив PostgreSQL (type[]) или временную '
-            'таблицу, FORALL — на цикл или UNNEST()'
+            'таблицу, FORALL - на цикл или UNNEST()'
         ),
         en=(
             'Rewrite TYPE/BULK COLLECT as a PostgreSQL array (type[]) or a temporary '
@@ -4055,11 +4055,11 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "model_clause": Message(
         ru=(
-            'Переписать вручную на оконные функции или рекурсивные CTE — прямого '
+            'Переписать вручную на оконные функции или рекурсивные CTE - прямого '
             'эквивалента MODEL в PostgreSQL нет'
         ),
         en=(
-            'Rewrite by hand using window functions or recursive CTEs — PostgreSQL has no'
+            'Rewrite by hand using window functions or recursive CTEs - PostgreSQL has no'
             ' direct MODEL equivalent'
         ),
     ),
@@ -4075,77 +4075,77 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "object_type": Message(
         ru=(
-            'Переписать на composite type + отдельные функции — у PostgreSQL нет '
+            'Переписать на composite type + отдельные функции - у PostgreSQL нет '
             'объектных типов с методами'
         ),
         en=(
-            'Rewrite as a composite type plus separate functions — PostgreSQL has no '
+            'Rewrite as a composite type plus separate functions - PostgreSQL has no '
             'object types with methods'
         ),
     ),
     "with_function": Message(
         ru=(
-            'Вынести встроенную функцию в обычную функцию/процедуру PostgreSQL вручную — '
+            'Вынести встроенную функцию в обычную функцию/процедуру PostgreSQL вручную - '
             'ora2pg ломает структуру запроса'
         ),
         en=(
             'Manually move the inline function out into an ordinary PostgreSQL '
-            "function/procedure — ora2pg breaks the query's structure"
+            "function/procedure - ora2pg breaks the query's structure"
         ),
     ),
     "flashback_query": Message(
         ru=(
-            'Спроектировать отдельный механизм истории/аудита — прямого эквивалента AS OF'
+            'Спроектировать отдельный механизм истории/аудита - прямого эквивалента AS OF'
             ' в PostgreSQL нет'
         ),
         en=(
-            'Design a separate history/audit mechanism — PostgreSQL has no direct AS OF '
+            'Design a separate history/audit mechanism - PostgreSQL has no direct AS OF '
             'equivalent'
         ),
     ),
     "global_temp_table": Message(
         ru=(
-            "Добавить 'ON COMMIT DELETE ROWS' вручную в определение временной таблицы — "
+            "Добавить 'ON COMMIT DELETE ROWS' вручную в определение временной таблицы - "
             'ora2pg теряет секцию ON COMMIT'
         ),
         en=(
-            "Add 'ON COMMIT DELETE ROWS' to the temporary table definition by hand — "
+            "Add 'ON COMMIT DELETE ROWS' to the temporary table definition by hand - "
             'ora2pg drops the ON COMMIT section'
         ),
     ),
     "table_partitioning": Message(
         ru=(
-            'Пересоздать партиции вручную (CREATE TABLE ... PARTITION OF ...) — ora2pg '
+            'Пересоздать партиции вручную (CREATE TABLE ... PARTITION OF ...) - ora2pg '
             'отбрасывает секционирование полностью'
         ),
         en=(
-            'Recreate the partitions by hand (CREATE TABLE ... PARTITION OF ...) — ora2pg'
+            'Recreate the partitions by hand (CREATE TABLE ... PARTITION OF ...) - ora2pg'
             ' drops partitioning entirely'
         ),
     ),
     "connect_by_nocycle": Message(
         ru=(
-            'Полностью переписать вручную на WITH RECURSIVE — конвертация NOCYCLE/ORDER '
+            'Полностью переписать вручную на WITH RECURSIVE - конвертация NOCYCLE/ORDER '
             'SIBLINGS BY разваливает структуру блока'
         ),
         en=(
-            'Rewrite fully by hand as WITH RECURSIVE — converting NOCYCLE/ORDER SIBLINGS '
+            'Rewrite fully by hand as WITH RECURSIVE - converting NOCYCLE/ORDER SIBLINGS '
             "BY breaks the block's structure"
         ),
     ),
     "context_object": Message(
         ru=(
             'Переписать на current_setting()/set_config() или Row-Level Security (CREATE '
-            'POLICY) — прямого аналога CREATE CONTEXT нет'
+            'POLICY) - прямого аналога CREATE CONTEXT нет'
         ),
         en=(
             'Rewrite using current_setting()/set_config() or Row-Level Security (CREATE '
-            "POLICY) — there's no direct CREATE CONTEXT equivalent"
+            "POLICY) - there's no direct CREATE CONTEXT equivalent"
         ),
     ),
     "insert_all": Message(
         ru=(
-            'Разбить на набор отдельных INSERT INTO ... SELECT ... — по одному на каждую '
+            'Разбить на набор отдельных INSERT INTO ... SELECT ... - по одному на каждую '
             'ветку WHEN/INTO'
         ),
         en=(
@@ -4165,67 +4165,67 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "external_table": Message(
         ru=(
-            'Настроить foreign table через file_fdw (или fdw под нужный формат) — ora2pg '
+            'Настроить foreign table через file_fdw (или fdw под нужный формат) - ora2pg '
             'превращает её в обычную таблицу'
         ),
         en=(
-            'Set up a foreign table via file_fdw (or an fdw for the format needed) — '
+            'Set up a foreign table via file_fdw (or an fdw for the format needed) - '
             'ora2pg turns it into an ordinary table'
         ),
     ),
     "sql_macro": Message(
         ru=(
             'Встроить логику макроса как обычное условие/подзапрос прямо в вызывающий код'
-            ' — SQL_MACRO конвертируется в обычную функцию'
+            ' - SQL_MACRO конвертируется в обычную функцию'
         ),
         en=(
             "Inline the macro's logic as an ordinary condition/subquery directly in the "
-            'calling code — SQL_MACRO converts to an ordinary function'
+            'calling code - SQL_MACRO converts to an ordinary function'
         ),
     ),
     "invisible_column": Message(
         ru=(
-            'Явно перечислять столбцы в SELECT/INSERT там, где скрытие было важно — '
+            'Явно перечислять столбцы в SELECT/INSERT там, где скрытие было важно - '
             'PostgreSQL не имеет аналога INVISIBLE'
         ),
         en=(
-            'Explicitly list columns in SELECT/INSERT wherever the hiding mattered — '
+            'Explicitly list columns in SELECT/INSERT wherever the hiding mattered - '
             'PostgreSQL has no INVISIBLE equivalent'
         ),
     ),
     "collection_type": Message(
         ru=(
             'Переписать на встроенный массив (datatype[]) или отдельную связанную таблицу'
-            ' — ora2pg полностью теряет объявление коллекционного типа'
+            ' - ora2pg полностью теряет объявление коллекционного типа'
         ),
         en=(
-            'Rewrite as a built-in array (datatype[]) or a separate linked table — ora2pg'
+            'Rewrite as a built-in array (datatype[]) or a separate linked table - ora2pg'
             ' drops the collection type declaration entirely'
         ),
     ),
     "cross_apply": Message(
         ru=(
-            'Переписать на JOIN LATERAL (...) ON true / LEFT JOIN LATERAL (...) ON true —'
+            'Переписать на JOIN LATERAL (...) ON true / LEFT JOIN LATERAL (...) ON true -'
             ' синтаксиса APPLY в PostgreSQL нет'
         ),
         en=(
-            'Rewrite as JOIN LATERAL (...) ON true / LEFT JOIN LATERAL (...) ON true — '
+            'Rewrite as JOIN LATERAL (...) ON true / LEFT JOIN LATERAL (...) ON true - '
             'PostgreSQL has no APPLY syntax'
         ),
     ),
     "oracle_text": Message(
         ru=(
-            'Переписать на tsvector/tsquery + GIN-индекс (to_tsvector/@@) — ora2pg теряет'
+            'Переписать на tsvector/tsquery + GIN-индекс (to_tsvector/@@) - ora2pg теряет'
             ' INDEXTYPE и не переносит CONTAINS/CATSEARCH/MATCHES'
         ),
         en=(
-            'Rewrite using tsvector/tsquery plus a GIN index (to_tsvector/@@) — ora2pg '
+            'Rewrite using tsvector/tsquery plus a GIN index (to_tsvector/@@) - ora2pg '
             "drops INDEXTYPE and doesn't migrate CONTAINS/CATSEARCH/MATCHES"
         ),
     ),
     "recursive_with": Message(
         ru=(
-            'Добавить ключевое слово RECURSIVE вручную (и при наличии CYCLE — переставить'
+            'Добавить ключевое слово RECURSIVE вручную (и при наличии CYCLE - переставить'
             ' её после тела CTE и добавить обязательную секцию USING)'
         ),
         en=(
@@ -4235,42 +4235,42 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "invisible_index": Message(
         ru=(
-            'Проверить, действительно ли индекс должен быть скрыт от оптимизатора — '
+            'Проверить, действительно ли индекс должен быть скрыт от оптимизатора - '
             'PostgreSQL не имеет аналога INVISIBLE для индексов'
         ),
         en=(
-            'Check whether the index genuinely needs to stay hidden from the optimizer — '
+            'Check whether the index genuinely needs to stay hidden from the optimizer - '
             'PostgreSQL has no INVISIBLE equivalent for indexes'
         ),
     ),
     "read_only_table": Message(
         ru=(
             'Настроить REVOKE INSERT/UPDATE/DELETE от всех ролей или BEFORE-триггер, '
-            'отклоняющий DML — ora2pg теряет секцию READ ONLY'
+            'отклоняющий DML - ora2pg теряет секцию READ ONLY'
         ),
         en=(
             'Set up REVOKE INSERT/UPDATE/DELETE from all roles, or a BEFORE trigger that '
-            'rejects DML — ora2pg drops the READ ONLY section'
+            'rejects DML - ora2pg drops the READ ONLY section'
         ),
     ),
     "materialized_view_log": Message(
         ru=(
             'Спроектировать обновление материализованных представлений через полный '
-            'REFRESH MATERIALIZED VIEW — у PostgreSQL нет инкрементального FAST REFRESH'
+            'REFRESH MATERIALIZED VIEW - у PostgreSQL нет инкрементального FAST REFRESH'
         ),
         en=(
-            'Design materialized view refreshes around a full REFRESH MATERIALIZED VIEW —'
+            'Design materialized view refreshes around a full REFRESH MATERIALIZED VIEW -'
             ' PostgreSQL has no incremental FAST REFRESH'
         ),
     ),
     "identity_column": Message(
         ru=(
-            'Убрать лишнюю внешнюю пару скобок вокруг опций последовательности вручную — '
+            'Убрать лишнюю внешнюю пару скобок вокруг опций последовательности вручную - '
             'баг подстановки ora2pg, не пропуск конвертации'
         ),
         en=(
             'Remove the extra outer pair of parentheses around the sequence options by '
-            'hand — an ora2pg substitution bug, not a skipped conversion'
+            'hand - an ora2pg substitution bug, not a skipped conversion'
         ),
     ),
     "rowid_type": Message(
@@ -4296,11 +4296,11 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "default_on_null": Message(
         ru=(
             'Переписать вручную на BEFORE-триггер или GENERATED ALWAYS AS (COALESCE(...))'
-            ' STORED — прямого аналога DEFAULT ... ON NULL в PostgreSQL нет'
+            ' STORED - прямого аналога DEFAULT ... ON NULL в PostgreSQL нет'
         ),
         en=(
             'Manually rewrite as a BEFORE trigger or GENERATED ALWAYS AS (COALESCE(...)) '
-            'STORED — PostgreSQL has no DEFAULT ... ON NULL equivalent'
+            'STORED - PostgreSQL has no DEFAULT ... ON NULL equivalent'
         ),
     ),
     "public_synonym": Message(
@@ -4313,23 +4313,23 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "virtual_column": Message(
         ru=(
             'Учитывать, что сгенерированный триггер молча отбрасывает любое явно '
-            'присвоенное столбцу значение — добавить проверку на уровне приложения, если '
+            'присвоенное столбцу значение - добавить проверку на уровне приложения, если '
             'эта защита важна'
         ),
         en=(
             'Be aware the generated trigger silently discards any value explicitly '
-            'assigned to the column — add application-level validation if that protection'
+            'assigned to the column - add application-level validation if that protection'
             ' matters'
         ),
     ),
     "conditional_compilation": Message(
         ru=(
             'Вручную развернуть нужную ветку в обычный код (или обычный IF для решения во'
-            ' время выполнения) — препроцессора условной компиляции в PostgreSQL нет'
+            ' время выполнения) - препроцессора условной компиляции в PostgreSQL нет'
         ),
         en=(
             'Manually unroll the needed branch into ordinary code (or an ordinary IF for '
-            'a runtime decision) — PostgreSQL has no conditional-compilation preprocessor'
+            'a runtime decision) - PostgreSQL has no conditional-compilation preprocessor'
         ),
     ),
     "nested_subprogram": Message(
@@ -4356,12 +4356,12 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "index_organized_table": Message(
         ru=(
-            'Перепроверить производительность на реальной нагрузке — у PostgreSQL нет '
-            'настоящих индекс-организованных таблиц, конвертированная таблица — обычная '
+            'Перепроверить производительность на реальной нагрузке - у PostgreSQL нет '
+            'настоящих индекс-организованных таблиц, конвертированная таблица - обычная '
             'куча с отдельным индексом'
         ),
         en=(
-            'Re-check performance under real load — PostgreSQL has no true '
+            'Re-check performance under real load - PostgreSQL has no true '
             'index-organized tables, the converted table is an ordinary heap with a '
             'separate index'
         ),
@@ -4369,17 +4369,17 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "match_recognize": Message(
         ru=(
             'Переписать на оконные функции (LAG/LEAD над разделом) с фильтрацией или на '
-            'рекурсивный CTE — прямого аналога row pattern matching в PostgreSQL нет'
+            'рекурсивный CTE - прямого аналога row pattern matching в PostgreSQL нет'
         ),
         en=(
             'Rewrite using window functions (LAG/LEAD over the partition) plus filtering,'
-            ' or a recursive CTE — PostgreSQL has no row pattern matching equivalent'
+            ' or a recursive CTE - PostgreSQL has no row pattern matching equivalent'
         ),
     ),
     "connect_by_pseudocolumn": Message(
         ru=(
             'Корень ветки протащить дополнительным столбцом рекурсивного CTE, признак '
-            'листа — через NOT EXISTS, признак цикла — через секцию CYCLE (PostgreSQL '
+            'листа - через NOT EXISTS, признак цикла - через секцию CYCLE (PostgreSQL '
             '14+)'
         ),
         en=(
@@ -4420,22 +4420,22 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "accessible_by": Message(
         ru=(
-            'Прямого аналога нет — вынести подпрограмму в отдельную схему и ограничить '
+            'Прямого аналога нет - вынести подпрограмму в отдельную схему и ограничить '
             'доступ через GRANT/REVOKE (защита на уровне ролей, а не вызывающих '
             'подпрограмм)'
         ),
         en=(
-            'No direct equivalent — move the subprogram into its own schema and restrict '
+            'No direct equivalent - move the subprogram into its own schema and restrict '
             'it with GRANT/REVOKE (role-level protection, not per-calling-subprogram)'
         ),
     ),
     "local_time_zone": Message(
         ru=(
-            'Заменить тип столбца на timestamptz — именно он воспроизводит пересчёт в '
+            'Заменить тип столбца на timestamptz - именно он воспроизводит пересчёт в '
             'часовой пояс сессии, который делает Oracle LTZ'
         ),
         en=(
-            'Change the column type to timestamptz — that is the type that reproduces the'
+            'Change the column type to timestamptz - that is the type that reproduces the'
             " session-time-zone conversion Oracle's LTZ performs"
         ),
     ),
@@ -4492,11 +4492,11 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "long_raw_type": Message(
         ru=(
-            'Поправить тип столбца на bytea — это и есть собственное документированное '
+            'Поправить тип столбца на bytea - это и есть собственное документированное '
             'отображение ora2pg для LONG RAW'
         ),
         en=(
-            "Change the column type to bytea — which is ora2pg's own documented mapping "
+            "Change the column type to bytea - which is ora2pg's own documented mapping "
             'for LONG RAW'
         ),
     ),
@@ -4513,7 +4513,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "system_trigger": Message(
         ru=(
             'DDL-события перевести на событийные триггеры PostgreSQL (CREATE EVENT '
-            'TRIGGER), LOGON/LOGOFF/SERVERERROR — на журналирование сервера или логику '
+            'TRIGGER), LOGON/LOGOFF/SERVERERROR - на журналирование сервера или логику '
             'приложения'
         ),
         en=(
@@ -4535,11 +4535,11 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "table_collection": Message(
         ru=(
             'Заменить на unnest(...) для массива или на обычный вызов set-returning '
-            'функции во FROM — в зависимости от того, чем стала сама коллекция'
+            'функции во FROM - в зависимости от того, чем стала сама коллекция'
         ),
         en=(
             'Replace with unnest(...) for an array, or a plain set-returning function '
-            'call in FROM — depending on what the collection itself became'
+            'call in FROM - depending on what the collection itself became'
         ),
     ),
     "cursor_expression": Message(
@@ -4564,22 +4564,22 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "rownum_dml": Message(
         ru=(
-            'Переписать через подзапрос по первичному ключу — DELETE FROM t WHERE id IN '
+            'Переписать через подзапрос по первичному ключу - DELETE FROM t WHERE id IN '
             '(SELECT id FROM t WHERE ... ORDER BY ... LIMIT n)'
         ),
         en=(
-            'Rewrite through a primary-key subquery — DELETE FROM t WHERE id IN (SELECT '
+            'Rewrite through a primary-key subquery - DELETE FROM t WHERE id IN (SELECT '
             'id FROM t WHERE ... ORDER BY ... LIMIT n)'
         ),
     ),
     "to_date_rr": Message(
         ru=(
-            'Заменить RR на явный четырёхзначный YYYY с приведением входных данных — '
+            'Заменить RR на явный четырёхзначный YYYY с приведением входных данных - '
             'PostgreSQL кода RR не знает и молча выдаёт 0001 год до нашей эры, а YY не '
             'эквивалент: его порог 69/70 против 49/50 у Oracle RR'
         ),
         en=(
-            'Replace RR with an explicit four-digit YYYY after normalising the input — '
+            'Replace RR with an explicit four-digit YYYY after normalising the input - '
             'PostgreSQL does not know RR (it silently returns year 1 BC), and YY is not '
             "an equivalent: it pivots at 69/70, Oracle's RR at 49/50"
         ),
@@ -4627,8 +4627,8 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "goto_statement": Message(
         ru=(
-            'Переписать на управляющие конструкции: переход назад — на LOOP/CONTINUE, '
-            'переход вперёд — на IF/ELSE или вложенный блок с EXIT'
+            'Переписать на управляющие конструкции: переход назад - на LOOP/CONTINUE, '
+            'переход вперёд - на IF/ELSE или вложенный блок с EXIT'
         ),
         en=(
             'Rewrite with control structures: a backward jump becomes LOOP/CONTINUE, a '
@@ -4637,21 +4637,21 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "cursor_rowtype": Message(
         ru=(
-            'Объявить переменную как RECORD — в PL/pgSQL она принимает строку любого '
+            'Объявить переменную как RECORD - в PL/pgSQL она принимает строку любого '
             'курсора, и FETCH работает без изменений'
         ),
         en=(
-            'Declare the variable as RECORD — in PL/pgSQL it accepts a row from any '
+            'Declare the variable as RECORD - in PL/pgSQL it accepts a row from any '
             'cursor, and FETCH works unchanged'
         ),
     ),
     "wm_concat": Message(
         ru=(
-            "Заменить на string_agg(col, ',' ORDER BY col) — порядок стоит задать явно, "
+            "Заменить на string_agg(col, ',' ORDER BY col) - порядок стоит задать явно, "
             'WM_CONCAT его не гарантировал'
         ),
         en=(
-            "Replace with string_agg(col, ',' ORDER BY col) — make the order explicit, "
+            "Replace with string_agg(col, ',' ORDER BY col) - make the order explicit, "
             'since WM_CONCAT never guaranteed one'
         ),
     ),
@@ -4678,7 +4678,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "mysql_enum_type": Message(
         ru=(
             'Вставить недостающий CREATE TYPE <таблица>_<столбец>_t AS ENUM (...) перед '
-            'CREATE TABLE — значения уже видны в исходном ENUM(...)'
+            'CREATE TABLE - значения уже видны в исходном ENUM(...)'
         ),
         en=(
             'Insert the missing CREATE TYPE <table>_<column>_t AS ENUM (...) before '
@@ -4717,7 +4717,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "mysql_key_index": Message(
         ru=(
             'Переписать в CREATE INDEX <имя> ON <таблица> (<столбцы>) после CREATE TABLE '
-            '— синоним INDEX ora2pg переносит корректно, ломается только написание KEY'
+            '- синоним INDEX ora2pg переносит корректно, ломается только написание KEY'
         ),
         en=(
             'Rewrite as CREATE INDEX <name> ON <table> (<columns>) after CREATE TABLE -- '
@@ -4737,7 +4737,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mysql_limit_comma": Message(
         ru=(
-            'Переписать на LIMIT <количество> OFFSET <смещение> — порядок аргументов '
+            'Переписать на LIMIT <количество> OFFSET <смещение> - порядок аргументов '
             'обратный, механическая замена запятой даст другую страницу'
         ),
         en=(
@@ -4758,7 +4758,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "mysql_insert_ignore": Message(
         ru=(
             'Переписать на INSERT ... ON CONFLICT DO NOTHING, проверив, какие именно '
-            'ошибки глушились — IGNORE шире'
+            'ошибки глушились - IGNORE шире'
         ),
         en=(
             'Rewrite as INSERT ... ON CONFLICT DO NOTHING, after working out which errors'
@@ -4767,7 +4767,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mysql_prepare_from": Message(
         ru=(
-            'Переписать на EXECUTE <строка> USING ... в PL/pgSQL — PostgreSQL-овский '
+            'Переписать на EXECUTE <строка> USING ... в PL/pgSQL - PostgreSQL-овский '
             'PREPARE ... AS здесь не подходит'
         ),
         en=(
@@ -4800,7 +4800,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "mysql_date_format": Message(
         ru=(
             "Переписать на to_char(<дата>, 'YYYY-MM-DD HH24:MI:SS') и сверить каждый "
-            'спецификатор — ошибки не будет, вернётся молча не то'
+            'спецификатор - ошибки не будет, вернётся молча не то'
         ),
         en=(
             "Rewrite as to_char(<date>, 'YYYY-MM-DD HH24:MI:SS') and check every "
@@ -4832,7 +4832,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "mysql_declare_handler": Message(
         ru=(
             'Восстановить обработку ошибок блоком BEGIN ... EXCEPTION WHEN ... END; для '
-            'NOT FOUND — через проверку FOUND, а не EXCEPTION'
+            'NOT FOUND - через проверку FOUND, а не EXCEPTION'
         ),
         en=(
             'Restore the error handling with a BEGIN ... EXCEPTION WHEN ... END block; '
@@ -4852,7 +4852,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "mysql_set_type": Message(
         ru=(
             'Добавить CHECK-ограничение на допустимые значения (или вынести в отдельную '
-            'таблицу связей) — ora2pg оставляет просто text без проверки'
+            'таблицу связей) - ora2pg оставляет просто text без проверки'
         ),
         en=(
             'Add a CHECK constraint on the allowed values (or move them into a link '
@@ -4862,7 +4862,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "mssql_bracket_identifier": Message(
         ru=(
             'Снять квадратные скобки с имён в скрипте до конвертации (или выгружать через'
-            ' живое подключение к SQL Server — там ora2pg их убирает сам)'
+            ' живое подключение к SQL Server - там ora2pg их убирает сам)'
         ),
         en=(
             'Strip the square brackets from names in the script before converting (or '
@@ -4882,7 +4882,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mssql_update_set": Message(
         ru=(
-            'Вернуть обычный SQL: UPDATE <таблица> SET <столбец> = <значение> — ora2pg '
+            'Вернуть обычный SQL: UPDATE <таблица> SET <столбец> = <значение> - ora2pg '
             'превращает SET в присваивание := и ломает каждый UPDATE'
         ),
         en=(
@@ -4911,7 +4911,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "mssql_raiserror": Message(
         ru=(
             "Переписать на RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>'; severity из "
-            'RAISERROR — это уровень сообщения, а не код'
+            'RAISERROR - это уровень сообщения, а не код'
         ),
         en=(
             "Rewrite as RAISE EXCEPTION ... USING ERRCODE = '<sqlstate>'; RAISERROR's "
@@ -4921,7 +4921,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "mssql_try_catch": Message(
         ru=(
             'Переписать на BEGIN ... EXCEPTION WHEN OTHERS THEN ... END; ERROR_MESSAGE() '
-            '— это SQLERRM, ERROR_NUMBER() — SQLSTATE'
+            '- это SQLERRM, ERROR_NUMBER() - SQLSTATE'
         ),
         en=(
             'Rewrite as BEGIN ... EXCEPTION WHEN OTHERS THEN ... END; ERROR_MESSAGE() '
@@ -4940,7 +4940,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mssql_scope_identity": Message(
         ru=(
-            'Переписать на INSERT ... RETURNING <столбец> INTO <переменная> — заодно '
+            'Переписать на INSERT ... RETURNING <столбец> INTO <переменная> - заодно '
             'проверьте, что сам IDENTITY не потерялся (GAP-090)'
         ),
         en=(
@@ -4974,7 +4974,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mssql_charindex": Message(
         ru=(
-            "Снять лишние кавычки в сгенерированном position(''x'' in ...) — должно быть "
+            "Снять лишние кавычки в сгенерированном position(''x'' in ...) - должно быть "
             "position('x' in ...)"
         ),
         en=(
@@ -5006,7 +5006,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mssql_collation": Message(
         ru=(
-            'Заменить citext на text с явным COLLATE нужной чувствительности — для '
+            'Заменить citext на text с явным COLLATE нужной чувствительности - для '
             '_CS_-правил подмена на citext меняет смысл на противоположный'
         ),
         en=(
@@ -5027,7 +5027,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "mssql_rowversion": Message(
         ru=(
             'Вернуть самообновление триггером BEFORE UPDATE либо перейти на системный '
-            'столбец xmin — иначе оптимистичная блокировка молча перестаёт работать'
+            'столбец xmin - иначе оптимистичная блокировка молча перестаёт работать'
         ),
         en=(
             'Restore self-updating with a BEFORE UPDATE trigger, or switch to the system '
@@ -5036,7 +5036,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mysql_delimiter_routine": Message(
         ru=(
-            "Убрать DELIMITER и закончить подпрограмму обычным ';' до конвертации — иначе ora2pg "
+            "Убрать DELIMITER и закончить подпрограмму обычным ';' до конвертации - иначе ora2pg "
             'затягивает директиву в тело, и CREATE не загружается'
         ),
         en=(
@@ -5046,7 +5046,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mysql_delimiter_trigger": Message(
         ru=(
-            'Заменить разделитель на ;; (или убрать DELIMITER) до конвертации — под // $$ | '
+            'Заменить разделитель на ;; (или убрать DELIMITER) до конвертации - под // $$ | '
             'ora2pg триггер не видит вовсе'
         ),
         en=(
@@ -5056,7 +5056,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mysql_definer_procedure": Message(
         ru=(
-            'Убрать DEFINER=... до конвертации или выгружать процедуры через -t FUNCTION — -t '
+            'Убрать DEFINER=... до конвертации или выгружать процедуры через -t FUNCTION - -t '
             'PROCEDURE такие процедуры пропускает молча'
         ),
         en=(
@@ -5066,7 +5066,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mysql_versioned_comment": Message(
         ru=(
-            'Снять обёртку /*!NNNNN ... */ вокруг CREATE до конвертации — ora2pg считает её '
+            'Снять обёртку /*!NNNNN ... */ вокруг CREATE до конвертации - ora2pg считает её '
             'комментарием и выбрасывает объект'
         ),
         en=(
@@ -5076,7 +5076,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mysql_create_table_if_not_exists": Message(
         ru=(
-            "Убрать IF NOT EXISTS до конвертации — ora2pg превращает таблицу в 'CREATE TABLE if "
+            "Убрать IF NOT EXISTS до конвертации - ora2pg превращает таблицу в 'CREATE TABLE if "
             "(...)', и загрузка схемы падает"
         ),
         en=(
@@ -5086,7 +5086,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "mysql_temporary_table": Message(
         ru=(
-            'Вернуть TEMPORARY в сгенерированный CREATE TABLE — без него таблица постоянная и '
+            'Вернуть TEMPORARY в сгенерированный CREATE TABLE - без него таблица постоянная и '
             'общая для всех сеансов'
         ),
         en=(
@@ -5096,7 +5096,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     ),
     "table_if_not_exists": Message(
         ru=(
-            "Убрать IF NOT EXISTS до конвертации — ora2pg превращает таблицу в 'CREATE TABLE if "
+            "Убрать IF NOT EXISTS до конвертации - ora2pg превращает таблицу в 'CREATE TABLE if "
             "(...)', и загрузка схемы падает"
         ),
         en=(
@@ -5107,7 +5107,7 @@ REMEDIATION_HINTS: dict[str, Message] = {
     "identity_on_null": Message(
         ru=(
             'Добавить триггер BEFORE INSERT, подставляющий nextval() при явном NULL, или не '
-            'передавать столбец в INSERT — ON NULL теряется'
+            'передавать столбец в INSERT - ON NULL теряется'
         ),
         en=(
             'Add a BEFORE INSERT trigger that substitutes nextval() on an explicit NULL, or leave'
@@ -5210,16 +5210,16 @@ def remediation_hint(detector: str, lang: str = "ru") -> str | None:
 # is the one title written only here.
 TITLES: dict[str, Message] = {
     "connect_by": Message(
-        ru='`CONNECT BY` — баг подстановки `LEVEL` в `WITH RECURSIVE`',
-        en='`CONNECT BY` — `LEVEL` substitution bug in `WITH RECURSIVE`',
+        ru='`CONNECT BY` - баг подстановки `LEVEL` в `WITH RECURSIVE`',
+        en='`CONNECT BY` - `LEVEL` substitution bug in `WITH RECURSIVE`',
     ),
     "autonomous_tx": Message(
-        ru='`PRAGMA AUTONOMOUS_TRANSACTION` — недооценка стоимости в package body',
-        en='`PRAGMA AUTONOMOUS_TRANSACTION` — cost underestimated in a package body',
+        ru='`PRAGMA AUTONOMOUS_TRANSACTION` - недооценка стоимости в package body',
+        en='`PRAGMA AUTONOMOUS_TRANSACTION` - cost underestimated in a package body',
     ),
     "compound_triggers": Message(
-        ru='`COMPOUND TRIGGER` — тихий провал файлового парсера',
-        en='`COMPOUND TRIGGER` — silent failure of the file parser',
+        ru='`COMPOUND TRIGGER` - тихий провал файлового парсера',
+        en='`COMPOUND TRIGGER` - silent failure of the file parser',
     ),
     "dbms_utl_calls": Message(
         ru='Вызовы `DBMS_*`/`UTL_*`, которые ora2pg не переводит',
@@ -5234,8 +5234,8 @@ TITLES: dict[str, Message] = {
         en='`TYPE ... IS TABLE OF` / `BULK COLLECT INTO` / `FORALL`',
     ),
     "database_link": Message(
-        ru='`table@dblink_name` — прямая ссылка на удалённую БД',
-        en='`table@dblink_name` — a direct reference to a remote database',
+        ru='`table@dblink_name` - прямая ссылка на удалённую БД',
+        en='`table@dblink_name` - a direct reference to a remote database',
     ),
     "model_clause": Message(
         ru='`MODEL PARTITION BY ... DIMENSION BY ... MEASURES ... RULES`',
@@ -5246,64 +5246,64 @@ TITLES: dict[str, Message] = {
         en='`PIVOT`/`UNPIVOT`',
     ),
     "object_type": Message(
-        ru='`CREATE TYPE ... AS OBJECT` / `TYPE BODY` — вне оценки трудозатрат вообще',
-        en='`CREATE TYPE ... AS OBJECT` / `TYPE BODY` — outside the effort estimate entirely',
+        ru='`CREATE TYPE ... AS OBJECT` / `TYPE BODY` - вне оценки трудозатрат вообще',
+        en='`CREATE TYPE ... AS OBJECT` / `TYPE BODY` - outside the effort estimate entirely',
     ),
     "with_function": Message(
-        ru='`WITH FUNCTION`/`WITH PROCEDURE` — парсер разваливает структуру исходника',
-        en='`WITH FUNCTION`/`WITH PROCEDURE` — the parser wrecks the source structure',
+        ru='`WITH FUNCTION`/`WITH PROCEDURE` - парсер разваливает структуру исходника',
+        en='`WITH FUNCTION`/`WITH PROCEDURE` - the parser wrecks the source structure',
     ),
     "flashback_query": Message(
-        ru='`AS OF TIMESTAMP`/`AS OF SCN` — flashback-запрос',
-        en='`AS OF TIMESTAMP`/`AS OF SCN` — a flashback query',
+        ru='`AS OF TIMESTAMP`/`AS OF SCN` - flashback-запрос',
+        en='`AS OF TIMESTAMP`/`AS OF SCN` - a flashback query',
     ),
     "global_temp_table": Message(
-        ru='`CREATE GLOBAL TEMPORARY TABLE` — теряется секция `ON COMMIT`',
-        en='`CREATE GLOBAL TEMPORARY TABLE` — the `ON COMMIT` clause is lost',
+        ru='`CREATE GLOBAL TEMPORARY TABLE` - теряется секция `ON COMMIT`',
+        en='`CREATE GLOBAL TEMPORARY TABLE` - the `ON COMMIT` clause is lost',
     ),
     "table_partitioning": Message(
-        ru='`PARTITION BY RANGE/LIST/HASH` — секционирование таблицы отбрасывается целиком',
-        en='`PARTITION BY RANGE/LIST/HASH` — table partitioning is dropped entirely',
+        ru='`PARTITION BY RANGE/LIST/HASH` - секционирование таблицы отбрасывается целиком',
+        en='`PARTITION BY RANGE/LIST/HASH` - table partitioning is dropped entirely',
     ),
     "connect_by_nocycle": Message(
-        ru='`CONNECT BY NOCYCLE` / `ORDER SIBLINGS BY` — структурное разрушение блока',
-        en='`CONNECT BY NOCYCLE` / `ORDER SIBLINGS BY` — structural destruction of the block',
+        ru='`CONNECT BY NOCYCLE` / `ORDER SIBLINGS BY` - структурное разрушение блока',
+        en='`CONNECT BY NOCYCLE` / `ORDER SIBLINGS BY` - structural destruction of the block',
     ),
     "context_object": Message(
-        ru='`CREATE CONTEXT` — application context не конвертируется вообще',
-        en='`CREATE CONTEXT` — an application context is not converted at all',
+        ru='`CREATE CONTEXT` - application context не конвертируется вообще',
+        en='`CREATE CONTEXT` - an application context is not converted at all',
     ),
     "insert_all": Message(
-        ru='`INSERT ALL`/`INSERT FIRST` — многотабличная вставка',
-        en='`INSERT ALL`/`INSERT FIRST` — a multi-table insert',
+        ru='`INSERT ALL`/`INSERT FIRST` - многотабличная вставка',
+        en='`INSERT ALL`/`INSERT FIRST` - a multi-table insert',
     ),
     "json_table": Message(
-        ru='`JSON_TABLE(...)` — не существует в PostgreSQL 16 и старше',
-        en='`JSON_TABLE(...)` — does not exist in PostgreSQL 16 or earlier',
+        ru='`JSON_TABLE(...)` - не существует в PostgreSQL 16 и старше',
+        en='`JSON_TABLE(...)` - does not exist in PostgreSQL 16 or earlier',
     ),
     "external_table": Message(
-        ru='`CREATE TABLE ... ORGANIZATION EXTERNAL` — секция отбрасывается целиком',
-        en='`CREATE TABLE ... ORGANIZATION EXTERNAL` — the clause is dropped entirely',
+        ru='`CREATE TABLE ... ORGANIZATION EXTERNAL` - секция отбрасывается целиком',
+        en='`CREATE TABLE ... ORGANIZATION EXTERNAL` - the clause is dropped entirely',
     ),
     "sql_macro": Message(
-        ru='`SQL_MACRO` — конвертируется в обычную функцию',
-        en='`SQL_MACRO` — converted into an ordinary function',
+        ru='`SQL_MACRO` - конвертируется в обычную функцию',
+        en='`SQL_MACRO` - converted into an ordinary function',
     ),
     "invisible_column": Message(
         ru='Столбец `INVISIBLE` теряет своё скрытие',
         en='An `INVISIBLE` column loses its invisibility',
     ),
     "collection_type": Message(
-        ru='`CREATE TYPE ... TABLE OF`/`VARRAY OF` — коллекционный тип пропадает без следа',
-        en='`CREATE TYPE ... TABLE OF`/`VARRAY OF` — a collection type vanishes without a trace',
+        ru='`CREATE TYPE ... TABLE OF`/`VARRAY OF` - коллекционный тип пропадает без следа',
+        en='`CREATE TYPE ... TABLE OF`/`VARRAY OF` - a collection type vanishes without a trace',
     ),
     "cross_apply": Message(
-        ru='`CROSS APPLY`/`OUTER APPLY` — синтаксиса APPLY нет в PostgreSQL',
-        en='`CROSS APPLY`/`OUTER APPLY` — PostgreSQL has no APPLY syntax',
+        ru='`CROSS APPLY`/`OUTER APPLY` - синтаксиса APPLY нет в PostgreSQL',
+        en='`CROSS APPLY`/`OUTER APPLY` - PostgreSQL has no APPLY syntax',
     ),
     "oracle_text": Message(
-        ru='Oracle Text — домен-индекс отбрасывается, `CONTAINS`/`CATSEARCH`/`MATCHES` не переносятся',
-        en='Oracle Text — the domain index is dropped, `CONTAINS`/`CATSEARCH`/`MATCHES` do not port',
+        ru='Oracle Text - домен-индекс отбрасывается, `CONTAINS`/`CATSEARCH`/`MATCHES` не переносятся',
+        en='Oracle Text - the domain index is dropped, `CONTAINS`/`CATSEARCH`/`MATCHES` do not port',
     ),
     "recursive_with": Message(
         ru='Нативная рекурсивная `WITH ... AS (...)` без ключевого слова `RECURSIVE`',
@@ -5322,64 +5322,64 @@ TITLES: dict[str, Message] = {
         en='`CREATE MATERIALIZED VIEW LOG` is not converted at all',
     ),
     "identity_column": Message(
-        ru='`GENERATED ... AS IDENTITY (...)` с опциями — баг двойных скобок',
-        en='`GENERATED ... AS IDENTITY (...)` with options — a doubled-parenthesis bug',
+        ru='`GENERATED ... AS IDENTITY (...)` с опциями - баг двойных скобок',
+        en='`GENERATED ... AS IDENTITY (...)` with options - a doubled-parenthesis bug',
     ),
     "default_on_null": Message(
-        ru='`DEFAULT ON NULL` копируется verbatim — синтаксическая ошибка',
-        en='`DEFAULT ON NULL` copied verbatim — a syntax error',
+        ru='`DEFAULT ON NULL` копируется verbatim - синтаксическая ошибка',
+        en='`DEFAULT ON NULL` copied verbatim - a syntax error',
     ),
     "rowid_type": Message(
-        ru='`ROWID`/`UROWID` как тип столбца — конвертируется в несовместимый `oid`',
-        en='`ROWID`/`UROWID` as a column type — converted to an incompatible `oid`',
+        ru='`ROWID`/`UROWID` как тип столбца - конвертируется в несовместимый `oid`',
+        en='`ROWID`/`UROWID` as a column type - converted to an incompatible `oid`',
     ),
     "sequence_cycle": Message(
-        ru='`CREATE SEQUENCE ... CYCLE` — секция `CYCLE` отбрасывается',
-        en='`CREATE SEQUENCE ... CYCLE` — the `CYCLE` clause is dropped',
+        ru='`CREATE SEQUENCE ... CYCLE` - секция `CYCLE` отбрасывается',
+        en='`CREATE SEQUENCE ... CYCLE` - the `CYCLE` clause is dropped',
     ),
     "public_synonym": Message(
-        ru='`CREATE [PUBLIC] SYNONYM` — теряет схему целевого объекта',
-        en="`CREATE [PUBLIC] SYNONYM` — loses the target object's schema",
+        ru='`CREATE [PUBLIC] SYNONYM` - теряет схему целевого объекта',
+        en="`CREATE [PUBLIC] SYNONYM` - loses the target object's schema",
     ),
     "virtual_column": Message(
-        ru='`GENERATED ALWAYS AS (...) VIRTUAL` — теряет защиту `ORA-54016`',
-        en='`GENERATED ALWAYS AS (...) VIRTUAL` — loses the `ORA-54016` protection',
+        ru='`GENERATED ALWAYS AS (...) VIRTUAL` - теряет защиту `ORA-54016`',
+        en='`GENERATED ALWAYS AS (...) VIRTUAL` - loses the `ORA-54016` protection',
     ),
     "conditional_compilation": Message(
         ru='`$IF`/`$ELSIF`/`$ELSE`/`$END` копируются verbatim',
         en='`$IF`/`$ELSIF`/`$ELSE`/`$END` copied verbatim',
     ),
     "nested_subprogram": Message(
-        ru='Локальная вложенная процедура/функция — портится при экспорте',
-        en='A local nested procedure/function — corrupted on export',
+        ru='Локальная вложенная процедура/функция - портится при экспорте',
+        en='A local nested procedure/function - corrupted on export',
     ),
     "package_state": Message(
-        ru='Пакетная переменная — сломанная эмуляция через `set_config`',
-        en='A package variable — a broken emulation through `set_config`',
+        ru='Пакетная переменная - сломанная эмуляция через `set_config`',
+        en='A package variable - a broken emulation through `set_config`',
     ),
     "index_organized_table": Message(
         ru='`ORGANIZATION INDEX` (IOT) отбрасывается',
         en='`ORGANIZATION INDEX` (IOT) is dropped',
     ),
     "match_recognize": Message(
-        ru='`MATCH_RECOGNIZE` — сопоставление строк с шаблоном, аналога в PostgreSQL нет',
-        en='`MATCH_RECOGNIZE` — row pattern matching, no PostgreSQL counterpart',
+        ru='`MATCH_RECOGNIZE` - сопоставление строк с шаблоном, аналога в PostgreSQL нет',
+        en='`MATCH_RECOGNIZE` - row pattern matching, no PostgreSQL counterpart',
     ),
     "connect_by_pseudocolumn": Message(
         ru='`CONNECT_BY_ROOT`/`CONNECT_BY_ISLEAF`/`CONNECT_BY_ISCYCLE` переносятся без конвертации',
         en='`CONNECT_BY_ROOT`/`CONNECT_BY_ISLEAF`/`CONNECT_BY_ISCYCLE` are carried over unconverted',
     ),
     "keep_dense_rank": Message(
-        ru='`KEEP (DENSE_RANK FIRST/LAST ORDER BY ...)` — модификатор агрегата',
-        en='`KEEP (DENSE_RANK FIRST/LAST ORDER BY ...)` — an aggregate modifier',
+        ru='`KEEP (DENSE_RANK FIRST/LAST ORDER BY ...)` - модификатор агрегата',
+        en='`KEEP (DENSE_RANK FIRST/LAST ORDER BY ...)` - an aggregate modifier',
     ),
     "multiset_operator": Message(
         ru='`CAST(MULTISET(...))`, `MULTISET UNION`, `MEMBER OF`, `SUBMULTISET OF`',
         en='`CAST(MULTISET(...))`, `MULTISET UNION`, `MEMBER OF`, `SUBMULTISET OF`',
     ),
     "sample_clause": Message(
-        ru='`SAMPLE (n)` — в PostgreSQL это `TABLESAMPLE`, ora2pg не конвертирует',
-        en='`SAMPLE (n)` — this is `TABLESAMPLE` in PostgreSQL, ora2pg does not convert it',
+        ru='`SAMPLE (n)` - в PostgreSQL это `TABLESAMPLE`, ora2pg не конвертирует',
+        en='`SAMPLE (n)` - this is `TABLESAMPLE` in PostgreSQL, ora2pg does not convert it',
     ),
     "accessible_by": Message(
         ru='`ACCESSIBLE BY` копируется в заголовок сгенерированной функции',
@@ -5398,24 +5398,24 @@ TITLES: dict[str, Message] = {
         en='`CREATE BITMAP INDEX` -> `USING gin` without an operator class',
     ),
     "object_table": Message(
-        ru='`CREATE TABLE ... OF <тип>` — `OF` становится именем столбца',
-        en='`CREATE TABLE ... OF <type>` — `OF` becomes a column name',
+        ru='`CREATE TABLE ... OF <тип>` - `OF` становится именем столбца',
+        en='`CREATE TABLE ... OF <type>` - `OF` becomes a column name',
     ),
     "ignore_nulls": Message(
-        ru='`IGNORE NULLS` / `RESPECT NULLS` — такого синтаксиса в PostgreSQL 16 нет',
-        en='`IGNORE NULLS` / `RESPECT NULLS` — no such syntax in PostgreSQL 16',
+        ru='`IGNORE NULLS` / `RESPECT NULLS` - такого синтаксиса в PostgreSQL 16 нет',
+        en='`IGNORE NULLS` / `RESPECT NULLS` - no such syntax in PostgreSQL 16',
     ),
     "nlssort": Message(
-        ru='`NLSSORT` — становится `COLLATE` с несуществующим именем сортировки',
-        en='`NLSSORT` — becomes a `COLLATE` with a non-existent collation name',
+        ru='`NLSSORT` - становится `COLLATE` с несуществующим именем сортировки',
+        en='`NLSSORT` - becomes a `COLLATE` with a non-existent collation name',
     ),
     "long_raw_type": Message(
         ru='`LONG RAW` отображается в `text`, а не в задокументированный `bytea`',
         en='`LONG RAW` maps to `text` rather than the documented `bytea`',
     ),
     "anydata_type": Message(
-        ru='`SYS.ANYDATA` — имя типа копируется, схемы `SYS` в PostgreSQL нет',
-        en='`SYS.ANYDATA` — the type name is copied, PostgreSQL has no `SYS` schema',
+        ru='`SYS.ANYDATA` - имя типа копируется, схемы `SYS` в PostgreSQL нет',
+        en='`SYS.ANYDATA` - the type name is copied, PostgreSQL has no `SYS` schema',
     ),
     "system_trigger": Message(
         ru='системные триггеры (`ON DATABASE`/`ON SCHEMA`) выводятся как табличные',
@@ -5426,68 +5426,68 @@ TITLES: dict[str, Message] = {
         en='`FOLLOWS`/`PRECEDES` ends up inside the trigger function body',
     ),
     "table_collection": Message(
-        ru='оператор `TABLE(...)` — разворот коллекции, копируется как есть',
-        en='The `TABLE(...)` operator — collection unnesting, copied as-is',
+        ru='оператор `TABLE(...)` - разворот коллекции, копируется как есть',
+        en='The `TABLE(...)` operator - collection unnesting, copied as-is',
     ),
     "cursor_expression": Message(
-        ru='`CURSOR(SELECT ...)` — курсорное выражение, аналога нет',
-        en='`CURSOR(SELECT ...)` — a cursor expression, no counterpart',
+        ru='`CURSOR(SELECT ...)` - курсорное выражение, аналога нет',
+        en='`CURSOR(SELECT ...)` - a cursor expression, no counterpart',
     ),
     "for_update_wait": Message(
-        ru='`FOR UPDATE ... WAIT n` — есть только `NOWAIT`/`SKIP LOCKED`',
-        en='`FOR UPDATE ... WAIT n` — only `NOWAIT`/`SKIP LOCKED` exist',
+        ru='`FOR UPDATE ... WAIT n` - есть только `NOWAIT`/`SKIP LOCKED`',
+        en='`FOR UPDATE ... WAIT n` - only `NOWAIT`/`SKIP LOCKED` exist',
     ),
     "rownum_dml": Message(
         ru='`ROWNUM` в `UPDATE`/`DELETE` превращается в недопустимый `LIMIT`',
         en='`ROWNUM` in `UPDATE`/`DELETE` becomes an invalid `LIMIT`',
     ),
     "to_date_rr": Message(
-        ru='формат `RR` в `TO_DATE` — молча возвращает 1 год до нашей эры',
-        en='The `RR` format in `TO_DATE` — silently returns the year 1 BC',
+        ru='формат `RR` в `TO_DATE` - молча возвращает 1 год до нашей эры',
+        en='The `RR` format in `TO_DATE` - silently returns the year 1 BC',
     ),
     "authid_clause": Message(
-        ru='`AUTHID` — процедура молча пропадает из вывода целиком',
-        en='`AUTHID` — the procedure silently disappears from the output entirely',
+        ru='`AUTHID` - процедура молча пропадает из вывода целиком',
+        en='`AUTHID` - the procedure silently disappears from the output entirely',
     ),
     "pragma_exception_init": Message(
-        ru="`PRAGMA EXCEPTION_INIT` — обработчик получает чужой `SQLSTATE '50001'`",
-        en="`PRAGMA EXCEPTION_INIT` — the handler gets someone else's `SQLSTATE '50001'`",
+        ru="`PRAGMA EXCEPTION_INIT` - обработчик получает чужой `SQLSTATE '50001'`",
+        en="`PRAGMA EXCEPTION_INIT` - the handler gets someone else's `SQLSTATE '50001'`",
     ),
     "subtype_range": Message(
         ru='`SUBTYPE ... RANGE` переносится в `CREATE DOMAIN` дословно',
         en='`SUBTYPE ... RANGE` is carried into `CREATE DOMAIN` verbatim',
     ),
     "alt_quote_literal": Message(
-        ru="`q'[...]'` — альтернативные кавычки, копируются как есть",
-        en="`q'[...]'` — alternative quoting, copied as-is",
+        ru="`q'[...]'` - альтернативные кавычки, копируются как есть",
+        en="`q'[...]'` - alternative quoting, copied as-is",
     ),
     "goto_statement": Message(
-        ru='`GOTO` — в PL/pgSQL такого оператора нет',
-        en='`GOTO` — PL/pgSQL has no such statement',
+        ru='`GOTO` - в PL/pgSQL такого оператора нет',
+        en='`GOTO` - PL/pgSQL has no such statement',
     ),
     "cursor_rowtype": Message(
-        ru='`<курсор>%ROWTYPE` — PL/pgSQL допускает только таблицу/представление',
-        en='`<cursor>%ROWTYPE` — PL/pgSQL allows only a table/view',
+        ru='`<курсор>%ROWTYPE` - PL/pgSQL допускает только таблицу/представление',
+        en='`<cursor>%ROWTYPE` - PL/pgSQL allows only a table/view',
     ),
     "wm_concat": Message(
         ru='`WM_CONCAT` копируется как есть, в отличие от `LISTAGG`',
         en='`WM_CONCAT` is copied as-is, unlike `LISTAGG`',
     ),
     "read_only_view": Message(
-        ru='`WITH READ ONLY` выбрасывается — представление становится обновляемым',
-        en='`WITH READ ONLY` is dropped — the view becomes updatable',
+        ru='`WITH READ ONLY` выбрасывается - представление становится обновляемым',
+        en='`WITH READ ONLY` is dropped - the view becomes updatable',
     ),
     "sdo_geometry": Message(
-        ru='`SDO_GEOMETRY` — тип PostGIS без `CREATE EXTENSION postgis`',
-        en='`SDO_GEOMETRY` — a PostGIS type without `CREATE EXTENSION postgis`',
+        ru='`SDO_GEOMETRY` - тип PostGIS без `CREATE EXTENSION postgis`',
+        en='`SDO_GEOMETRY` - a PostGIS type without `CREATE EXTENSION postgis`',
     ),
     "table_if_not_exists": Message(
-        ru='`CREATE TABLE IF NOT EXISTS` из 23ai — становится таблицей `if`',
-        en='23ai `CREATE TABLE IF NOT EXISTS` — becomes a table called `if`',
+        ru='`CREATE TABLE IF NOT EXISTS` из 23ai - становится таблицей `if`',
+        en='23ai `CREATE TABLE IF NOT EXISTS` - becomes a table called `if`',
     ),
     "identity_on_null": Message(
-        ru='`GENERATED BY DEFAULT ON NULL AS IDENTITY` — `ON NULL` теряется, вставка явного NULL падает',
-        en='`GENERATED BY DEFAULT ON NULL AS IDENTITY` — `ON NULL` lost, an explicit NULL insert fails',
+        ru='`GENERATED BY DEFAULT ON NULL AS IDENTITY` - `ON NULL` теряется, вставка явного NULL падает',
+        en='`GENERATED BY DEFAULT ON NULL AS IDENTITY` - `ON NULL` lost, an explicit NULL insert fails',
     ),
     "package_constant_chain": Message(
         ru='Константа пакета из другой константы - выражение склеивается и не загружается',
@@ -5530,60 +5530,60 @@ TITLES: dict[str, Message] = {
         en='`DBMS_LOCK.SLEEP` - becomes `pg_sleep(n);` without `PERFORM`, does not load',
     ),
     "mysql_enum_type": Message(
-        ru='`ENUM(...)` — ссылка на несуществующий синтезированный тип',
-        en='`ENUM(...)` — a reference to a synthesized type that is never created',
+        ru='`ENUM(...)` - ссылка на несуществующий синтезированный тип',
+        en='`ENUM(...)` - a reference to a synthesized type that is never created',
     ),
     "mysql_on_update_current_timestamp": Message(
-        ru='`DEFAULT ... ON UPDATE CURRENT_TIMESTAMP` — недопустимый синтаксис внутри DEFAULT',
-        en='`DEFAULT ... ON UPDATE CURRENT_TIMESTAMP` — invalid syntax inside DEFAULT',
+        ru='`DEFAULT ... ON UPDATE CURRENT_TIMESTAMP` - недопустимый синтаксис внутри DEFAULT',
+        en='`DEFAULT ... ON UPDATE CURRENT_TIMESTAMP` - invalid syntax inside DEFAULT',
     ),
     "mysql_on_duplicate_key_update": Message(
-        ru='`INSERT ... ON DUPLICATE KEY UPDATE` — копируется как есть, аналога нет',
-        en='`INSERT ... ON DUPLICATE KEY UPDATE` — copied as-is, no counterpart',
+        ru='`INSERT ... ON DUPLICATE KEY UPDATE` - копируется как есть, аналога нет',
+        en='`INSERT ... ON DUPLICATE KEY UPDATE` - copied as-is, no counterpart',
     ),
     "mysql_signal": Message(
-        ru='`SIGNAL`/`RESIGNAL` — копируется как есть, такого оператора в PL/pgSQL нет',
-        en='`SIGNAL`/`RESIGNAL` — copied as-is, PL/pgSQL has no such statement',
+        ru='`SIGNAL`/`RESIGNAL` - копируется как есть, такого оператора в PL/pgSQL нет',
+        en='`SIGNAL`/`RESIGNAL` - copied as-is, PL/pgSQL has no such statement',
     ),
     "mysql_fulltext_index": Message(
-        ru='`FULLTEXT KEY`/`FULLTEXT INDEX` — теряется целиком, ломает CREATE TABLE',
-        en='`FULLTEXT KEY`/`FULLTEXT INDEX` — lost entirely, breaks CREATE TABLE',
+        ru='`FULLTEXT KEY`/`FULLTEXT INDEX` - теряется целиком, ломает CREATE TABLE',
+        en='`FULLTEXT KEY`/`FULLTEXT INDEX` - lost entirely, breaks CREATE TABLE',
     ),
     "mysql_key_index": Message(
-        ru='`KEY <имя> (<столбцы>)` — написание mysqldump, ломает CREATE TABLE',
-        en='`KEY <name> (<columns>)` — the mysqldump spelling, breaks CREATE TABLE',
+        ru='`KEY <имя> (<столбцы>)` - написание mysqldump, ломает CREATE TABLE',
+        en='`KEY <name> (<columns>)` - the mysqldump spelling, breaks CREATE TABLE',
     ),
     "mysql_spatial_index": Message(
-        ru='`SPATIAL KEY`/`SPATIAL INDEX` — теряется целиком, ломает CREATE TABLE',
-        en='`SPATIAL KEY`/`SPATIAL INDEX` — lost entirely, breaks CREATE TABLE',
+        ru='`SPATIAL KEY`/`SPATIAL INDEX` - теряется целиком, ломает CREATE TABLE',
+        en='`SPATIAL KEY`/`SPATIAL INDEX` - lost entirely, breaks CREATE TABLE',
     ),
     "mysql_limit_comma": Message(
-        ru='`LIMIT <смещение>, <количество>` — PostgreSQL такую форму не принимает',
-        en='`LIMIT <offset>, <count>` — PostgreSQL does not accept this form',
+        ru='`LIMIT <смещение>, <количество>` - PostgreSQL такую форму не принимает',
+        en='`LIMIT <offset>, <count>` - PostgreSQL does not accept this form',
     ),
     "mysql_replace_into": Message(
-        ru='`REPLACE INTO` — копируется как есть, аналога нет',
-        en='`REPLACE INTO` — copied as-is, no counterpart',
+        ru='`REPLACE INTO` - копируется как есть, аналога нет',
+        en='`REPLACE INTO` - copied as-is, no counterpart',
     ),
     "mysql_insert_ignore": Message(
-        ru='`INSERT IGNORE` — копируется как есть, такого синтаксиса нет',
-        en='`INSERT IGNORE` — copied as-is, no such syntax',
+        ru='`INSERT IGNORE` - копируется как есть, такого синтаксиса нет',
+        en='`INSERT IGNORE` - copied as-is, no such syntax',
     ),
     "mysql_prepare_from": Message(
-        ru='`PREPARE <имя> FROM` — у PostgreSQL другой синтаксис PREPARE',
-        en="`PREPARE <name> FROM` — PostgreSQL's PREPARE has different syntax",
+        ru='`PREPARE <имя> FROM` - у PostgreSQL другой синтаксис PREPARE',
+        en="`PREPARE <name> FROM` - PostgreSQL's PREPARE has different syntax",
     ),
     "mysql_last_insert_id": Message(
-        ru='`LAST_INSERT_ID()` — такой функции в PostgreSQL нет',
-        en='`LAST_INSERT_ID()` — no such function in PostgreSQL',
+        ru='`LAST_INSERT_ID()` - такой функции в PostgreSQL нет',
+        en='`LAST_INSERT_ID()` - no such function in PostgreSQL',
     ),
     "mysql_auto_increment_start": Message(
-        ru='`AUTO_INCREMENT=<n>` — старт теряется на файловом пути (живой экспорт получает его верно)',
-        en='`AUTO_INCREMENT=<n>` — start value lost on the file-based path (live-DB export gets it right)',
+        ru='`AUTO_INCREMENT=<n>` - старт теряется на файловом пути (живой экспорт получает его верно)',
+        en='`AUTO_INCREMENT=<n>` - start value lost on the file-based path (live-DB export gets it right)',
     ),
     "mysql_date_format": Message(
-        ru='`DATE_FORMAT(...)` — молча возвращает кортеж вместо строки',
-        en='`DATE_FORMAT(...)` — silently returns a tuple instead of a string',
+        ru='`DATE_FORMAT(...)` - молча возвращает кортеж вместо строки',
+        en='`DATE_FORMAT(...)` - silently returns a tuple instead of a string',
     ),
     "mysql_foreign_key": Message(
         ru='`FOREIGN KEY` выбрасывается, если PG_VERSION не задан или <=12',
@@ -5594,44 +5594,44 @@ TITLES: dict[str, Message] = {
         en="`'0000-00-00'` silently becomes the real date `'1970-01-01'`",
     ),
     "mysql_declare_handler": Message(
-        ru='`DECLARE ... HANDLER` выбрасывается — обработка ошибок пропадает',
-        en='`DECLARE ... HANDLER` is dropped — error handling disappears',
+        ru='`DECLARE ... HANDLER` выбрасывается - обработка ошибок пропадает',
+        en='`DECLARE ... HANDLER` is dropped - error handling disappears',
     ),
     "mysql_collate": Message(
-        ru='`COLLATE`/`CHARACTER SET` выбрасывается — сравнение строк меняет смысл',
-        en='`COLLATE`/`CHARACTER SET` is dropped — string comparison changes meaning',
+        ru='`COLLATE`/`CHARACTER SET` выбрасывается - сравнение строк меняет смысл',
+        en='`COLLATE`/`CHARACTER SET` is dropped - string comparison changes meaning',
     ),
     "mysql_set_type": Message(
-        ru='`SET(...)` становится `text` — проверка допустимых значений теряется',
-        en='`SET(...)` becomes `text` — validation of allowed values is lost',
+        ru='`SET(...)` становится `text` - проверка допустимых значений теряется',
+        en='`SET(...)` becomes `text` - validation of allowed values is lost',
     ),
     "mysql_delimiter_routine": Message(
-        ru='Подпрограмма под `DELIMITER` — разделитель попадает в тело, не загружается',
-        en='A routine written under `DELIMITER` — the delimiter leaks into the body, does not load',
+        ru='Подпрограмма под `DELIMITER` - разделитель попадает в тело, не загружается',
+        en='A routine written under `DELIMITER` - the delimiter leaks into the body, does not load',
     ),
     "mysql_delimiter_trigger": Message(
-        ru='Триггер под `DELIMITER //`/`$$` — не генерируется вовсе',
-        en='A trigger under `DELIMITER //`/`$$` — not generated at all',
+        ru='Триггер под `DELIMITER //`/`$$` - не генерируется вовсе',
+        en='A trigger under `DELIMITER //`/`$$` - not generated at all',
     ),
     "mysql_definer_procedure": Message(
-        ru='`CREATE DEFINER=… PROCEDURE` — пропускается в `-t PROCEDURE`',
-        en='`CREATE DEFINER=… PROCEDURE` — skipped by `-t PROCEDURE`',
+        ru='`CREATE DEFINER=… PROCEDURE` - пропускается в `-t PROCEDURE`',
+        en='`CREATE DEFINER=… PROCEDURE` - skipped by `-t PROCEDURE`',
     ),
     "mysql_versioned_comment": Message(
-        ru='Триггер/представление/подпрограмма внутри `/*!50003 … */` — удаляется вместе с комментариями',
-        en='A trigger/view/routine inside `/*!50003 … */` — removed with the comments',
+        ru='Триггер/представление/подпрограмма внутри `/*!50003 … */` - удаляется вместе с комментариями',
+        en='A trigger/view/routine inside `/*!50003 … */` - removed with the comments',
     ),
     "mysql_create_table_if_not_exists": Message(
-        ru='`CREATE TABLE IF NOT EXISTS` — становится таблицей `if`',
-        en='`CREATE TABLE IF NOT EXISTS` — becomes a table called `if`',
+        ru='`CREATE TABLE IF NOT EXISTS` - становится таблицей `if`',
+        en='`CREATE TABLE IF NOT EXISTS` - becomes a table called `if`',
     ),
     "mysql_temporary_table": Message(
-        ru='`CREATE TEMPORARY TABLE` — становится постоянной и общей для сеансов',
-        en='`CREATE TEMPORARY TABLE` — becomes permanent and shared between sessions',
+        ru='`CREATE TEMPORARY TABLE` - становится постоянной и общей для сеансов',
+        en='`CREATE TEMPORARY TABLE` - becomes permanent and shared between sessions',
     ),
     "mssql_bracket_identifier": Message(
-        ru='идентификаторы в `[скобках]` не снимаются — ломается любой скрипт из SSMS',
-        en='Bracketed identifiers are not unwrapped — breaks any SSMS script',
+        ru='идентификаторы в `[скобках]` не снимаются - ломается любой скрипт из SSMS',
+        en='Bracketed identifiers are not unwrapped - breaks any SSMS script',
     ),
     "mssql_charindex": Message(
         ru='`CHARINDEX()` -> `position()` с удвоенными кавычками',
@@ -5646,7 +5646,7 @@ TITLES: dict[str, Message] = {
         en='A computed column gets the type `citext` regardless of the expression',
     ),
     "mssql_datediff": Message(
-        ru='`DATEDIFF()` копируется как есть (`DATEADD`/`DATEPART` — нет)',
+        ru='`DATEDIFF()` копируется как есть (`DATEADD`/`DATEPART` - нет)',
         en='`DATEDIFF()` is copied as-is (`DATEADD`/`DATEPART` are not)',
     ),
     "mssql_filtered_index": Message(
@@ -5658,8 +5658,8 @@ TITLES: dict[str, Message] = {
         en='`FOREIGN KEY` dropped when PG_VERSION is left at its unset default (<=12)',
     ),
     "mssql_identity_column": Message(
-        ru='`IDENTITY(1,1)` пропадает на файловом пути — вставка падает на NOT NULL',
-        en='`IDENTITY(1,1)` disappears on the file-based path — inserts fail on NOT NULL',
+        ru='`IDENTITY(1,1)` пропадает на файловом пути - вставка падает на NOT NULL',
+        en='`IDENTITY(1,1)` disappears on the file-based path - inserts fail on NOT NULL',
     ),
     "mssql_if_statement": Message(
         ru='`IF` не дописывается до `THEN ... END IF`',
@@ -5686,8 +5686,8 @@ TITLES: dict[str, Message] = {
         en='`RAISERROR`/`THROW` are copied as-is',
     ),
     "mssql_rowversion": Message(
-        ru='`ROWVERSION` -> `bytea`, перестаёт обновляться — блокировка ломается',
-        en='`ROWVERSION` -> `bytea`, stops updating — optimistic locking breaks',
+        ru='`ROWVERSION` -> `bytea`, перестаёт обновляться - блокировка ломается',
+        en='`ROWVERSION` -> `bytea`, stops updating - optimistic locking breaks',
     ),
     "mssql_scope_identity": Message(
         ru='`SCOPE_IDENTITY()`/`@@IDENTITY` копируются как есть',

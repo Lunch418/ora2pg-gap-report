@@ -146,7 +146,7 @@ def test_render_shows_elapsed_time_and_objects_scanned_when_provided():
     console = Console(record=True, width=200)
     render(findings, console=console, elapsed_seconds=1.23, objects_scanned=7)
     text = console.export_text()
-    assert "Просканировано: 7 объектов за 1.2 с." in text
+    assert "Просканировано: 7 объектов за 1,2 с." in text
 
 
 def test_render_omits_elapsed_time_and_objects_scanned_when_not_provided():
@@ -166,7 +166,7 @@ def test_render_shows_the_effort_as_a_range_never_a_midpoint():
     console = Console(record=True, width=200)
     render(findings, console=console)
     text = console.export_text().lower()
-    assert "2–8 ч" in text
+    assert "2-8 ч" in text
     assert "неоткалиброванная эвристика" in text
     assert "среднее" not in text
 
@@ -208,7 +208,7 @@ def test_render_shows_stats_even_when_filters_leave_no_findings():
     render([], console=console, elapsed_seconds=2.5, objects_scanned=3)
     text = console.export_text()
     assert "Объектов просканировано: 3" in text
-    assert "Время анализа: 2.5 с" in text
+    assert "Время анализа: 2,5 с" in text
 
 
 def test_render_shows_a_heading_and_the_remediation_with_a_known_detector():

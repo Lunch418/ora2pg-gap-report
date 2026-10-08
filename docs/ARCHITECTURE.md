@@ -184,6 +184,8 @@ ora2pg_gap_report/
 ├── load_check.py               # --load-check: loads generated output into a real PostgreSQL
 │                               #  (docker or a DSN) in one rolled-back transaction, ties each
 │                               #  failing statement to a GAP-NNN / --fix / an earlier failure
+├── migrate.py                  # --migrate: scan -> prepare -> ora2pg per type -> fix (-> load),
+│                               #  everything into one OUT_DIR
 ├── prepare.py                  # --prepare: source rewrites before ora2pg (DELIMITER, DEFINER,
 │                               #  version comments, [brackets], q-quotes), per dialect
 ├── recipes.py                  # migration recipes (docs/recipes/): which detectors each covers,

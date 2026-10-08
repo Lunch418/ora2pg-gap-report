@@ -7,39 +7,42 @@
 [![Python](https://img.shields.io/pypi/pyversions/ora2pg-gap-report)](https://pypi.org/project/ora2pg-gap-report/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-Инструмент для оценки миграции на PostgreSQL Pro (Standard/Certified)
-**до** её начала. Три исходных диалекта, все через `ora2pg`: Oracle,
-MySQL/MariaDB (`--dialect mysql`, исходная сторона `ora2pg -m`) и
-T-SQL/SQL Server (`--dialect mssql`, исходная сторона `ora2pg -M`).
+Помощник для миграции Oracle, MySQL/MariaDB и SQL Server на PostgreSQL
+через `ora2pg`: до начала находит то, что `ora2pg` сделает не так,
+механически исправляет то, что исправляется, и проверяет результат на
+настоящем PostgreSQL - чтобы пробелы всплыли на вашем ноутбуке, а не в
+проде.
 
 ```sh
 pip install ora2pg-gap-report
-ora2pg-gap-report path/to/oracle_schema_dump/
-ora2pg-gap-report --dialect mysql path/to/mysqldump.sql
-ora2pg-gap-report --dialect mssql path/to/ssms_script.sql
+
+# Что сломается - ещё до конвертации
+ora2pg-gap-report schema/
+
+# Весь путь, с проверкой на настоящем одноразовом PostgreSQL
+ora2pg-gap-report --migrate out/ --load-check docker schema/
 ```
 
+Что `--migrate` делает со `schema/`, по шагам - каждый шаг есть и как
+отдельный режим:
+
 ```
-DDL Oracle (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
-дамп MySQL/MariaDB (TABLE / PROCEDURE / TRIGGER / VIEW)
-скрипт T-SQL из SSMS (TABLE / PROCEDURE / INDEX / ...)
-                    │
-                    ▼
-            ora2pg-gap-report
-                    │
-                    ▼
-   119 подтверждённых типов пробелов миграции ora2pg
-   ┌──────────────────────────────────────────────────────────────────┐
-   │ HIGH    GAP-006  database_link          — @dblink нет в PG       │
-   │ MEDIUM  GAP-025  invisible_index        — теряет скрытие         │
-   │ HIGH    GAP-073  mysql_key_index        — KEY из mysqldump ломает│
-   │ HIGH    GAP-082  mysql_foreign_key      — FK пропал, без ошибки  │
-   │ HIGH    GAP-087  mssql_bracket_identifier — [dbo].[T] ломает всё │
-   │ HIGH    GAP-106  mysql_delimiter_routine — DELIMITER в теле      │
-   └──────────────────────────────────────────────────────────────────┘
+ schema/ (DDL Oracle, mysqldump, скрипт SSMS)
+    |
+    |  1. скан          119 подтверждённых пробелов ora2pg  -> out/report.html, out/MIGRATION.md
+    |  2. подготовка    переписать то, на чём спотыкается парсер ora2pg  (--prepare)
+    |  3. конвертация   ora2pg, по одному запуску на тип объектов        -> out/converted/
+    |  4. исправления   известные механические баги ora2pg               (--fix)
+    |  5. загрузка      в настоящий PostgreSQL, каждая ошибка с её пробелом  (--load-check)
+    v
+ out/converted/*.sql, который загружается, - или точный список того, что нет, и почему
 ```
 
-![ora2pg-gap-report в терминале: находки по стадиям, каждый пробел один раз и один пробел подробно](docs/screenshots/terminal.ru.png)
+Для двух других источников - `--dialect mysql` или `--dialect mssql`. Для
+`--migrate` нужен сам `ora2pg` (в `PATH` или `--ora2pg-bin docker:IMAGE`);
+для одного сканирования не нужно ничего, кроме Python.
+
+![ora2pg-gap-report в терминале: находки по стадиям поломки, каждый пробел один раз и один пробел подробно](docs/screenshots/terminal.ru.png)
 
 ## Проблема
 
@@ -72,6 +75,7 @@ DDL Oracle (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
 | **Проверка после миграции** | `--verify` — что из pre-migration находок осталось в сгенерированном коде; диалект берёт из baseline (не функциональная проверка, см. ниже) |
 | **Интерактивный режим** | `--tui` (опционально, `pip install "ora2pg-gap-report[tui]"`) — мышь/клавиатура вместо флагов |
 | **Автоисправление** | `--fix`/`--write` — три заведомо безопасных механических исправления сгенерированного `ora2pg` кода, набор выбирается по `--dialect`, см. ниже |
+| **Миграция одной командой** | `--migrate out/` - скан, подготовка, конвертация ora2pg, исправления и загрузка, всё в один каталог, см. ниже |
 | **Подготовка исходника** | `--prepare` - переписывает в самом дампе то, на чём спотыкается парсер ora2pg (DELIMITER, DEFINER, `[скобки]`, `q'[...]'`), до запуска ora2pg, см. ниже |
 | **Рецепты и чеклист** | Проверенный приём PostgreSQL для каждого класса проблем и `-f checklist`: список задач, который хранит отметки между запусками, см. ниже |
 | **Проверка загрузкой** | `--load-check docker` - загружает сгенерированный код в настоящий одноразовый PostgreSQL и для каждой команды, которая не загрузилась, говорит её GAP-NNN, поможет ли `--fix` или это эхо более ранней ошибки; ничего не коммитится, см. ниже |
@@ -671,6 +675,38 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
 `--explain`/`--save`/`--fail-on`/`--check-connect-by`/`--severity`/
 `--object`, поддерживает только `--format terminal` (по умолчанию) и
 `--format json`.
+
+### Весь путь одной командой (`--migrate`)
+
+```sh
+ora2pg-gap-report --migrate out/ --load-check docker schema/
+ora2pg-gap-report --migrate out/ --ora2pg-bin docker:my-ora2pg-image schema/   # ora2pg из образа
+```
+
+```
+out/
+  report.html        скан исходника: что ломается, когда, где, с рецептом для каждого пробела
+  MIGRATION.md       работа в виде чеклиста (при следующем запуске отметки сохраняются)
+  prepared/          копия исходника после --prepare; сам исходник не трогается
+  converted/         вывод ora2pg, по файлу на тип объектов, в порядке загрузки, после --fix
+  load-check.txt     с --load-check: каждая команда, которая не загрузилась, и почему
+  load-check.json    то же для пайплайна
+```
+
+Шаги - это режимы, описанные ниже, запущенные в том порядке, который
+нужен миграции. Несколько вещей `--migrate` делает, а ручной запуск - нет:
+
+- ora2pg запускается по разу на тип объектов сразу на всех исходных
+  файлах, поэтому вызов из одного пакета в другой конвертируется (два
+  отдельных запуска его теряют, см. GAP-117);
+- в файловом режиме `-t TYPE`, `FUNCTION` и `PROCEDURE` у ora2pg вытаскивают
+  ещё и члены пакетов, без имени пакета, и каждый вышел бы дважды; эти
+  запуски получают исходник без пакетов;
+- повторный запуск в тот же `out/` заменяет сгенерированные файлы и
+  сохраняет отметки чеклиста; каталог, который создал не он, не трогается.
+
+Код возврата `1`, если `--load-check` нашёл незагружающиеся команды, `2`,
+если запуск невозможен (нет ora2pg, нет docker), иначе `0`.
 
 ### Подготовка исходника (`--prepare`)
 

@@ -50,6 +50,8 @@ project exists - is already in place:
 - **A checklist that remembers** (Unreleased): `-f checklist -o
   MIGRATION.md` writes the work as a Markdown task list; regenerating it
   keeps the ticks and ticks what the source no longer contains.
+- **One-command migration** (Unreleased): `--migrate OUT_DIR` runs scan,
+  prepare, ora2pg, fix and load in order, into one directory.
 - **Source preparation** (Unreleased): `--prepare` rewrites what ora2pg's
   parser trips over in the dump itself, before ora2pg runs, for seven gaps
   that cannot be repaired in its output afterwards.

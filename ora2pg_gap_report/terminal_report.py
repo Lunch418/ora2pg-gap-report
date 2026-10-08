@@ -24,6 +24,7 @@ estimate is shown as the range it is, never collapsed to a midpoint.
 """
 
 from collections import Counter
+from typing import TYPE_CHECKING
 
 from rich.console import Console, Group, RenderableType
 from rich.markup import escape
@@ -46,6 +47,9 @@ from .html_report import source_dialect
 from .html_report import STAGES, GapGroup, group_by_gap, source_name, stage_key
 from .models import Finding
 from .prepare import prepare_command
+
+if TYPE_CHECKING:
+    from .migrate import MigrationResult
 from .recipes import Recipe, recipe_for, recipe_url
 from . import messages
 from .verification import DetectorVerification, NewInOutput
@@ -726,3 +730,102 @@ def render_load_check(result: LoadCheckResult, console: Console | None = None, l
                 i18n.t(lang, "load_check_skipped_unreadable", file=escape(skipped.file), detail=escape(skipped.detail or ""))
             )
     console.print(Text(i18n.t(lang, "load_check_footer"), style="dim"))
+
+
+# --migrate ------------------------------------------------------------------
+
+
+def render_migration(
+    result: "MigrationResult",
+    load: LoadCheckResult | None,
+    console: Console | None = None,
+    lang: str = "ru",
+    load_check_asked: bool = False,
+) -> None:
+    """The --migrate summary: one line per step, what it did and where its
+    files are, then the load result and what to open first."""
+    console = console or Console()
+    console.print()
+    heading = Text()
+    heading.append("* ", style=f"bold {_ACCENT}")
+    heading.append(i18n.t(lang, "migrate_heading", source=source_name(result.findings)), style="bold")
+    console.print(heading)
+    console.print(Text(f"  {result.out_dir}", style="dim"))
+    console.print()
+
+    gaps = len({f.detector for f in result.findings})
+    steps = Table.grid(padding=(0, 2))
+    steps.add_column(style=f"bold {_ACCENT}", no_wrap=True)
+    steps.add_column(style="bold", no_wrap=True)
+    steps.add_column()
+    steps.add_column(style=_CODE_STYLE)
+    steps.add_row(
+        "1",
+        i18n.t(lang, "migrate_row_scan"),
+        i18n.t(
+            lang,
+            "migrate_row_scan_value",
+            findings=i18n.count(lang, "finding", len(result.findings)),
+            gaps=i18n.count(lang, "gap", gaps),
+        ),
+        "report.html, MIGRATION.md",
+    )
+    steps.add_row(
+        "2",
+        i18n.t(lang, "migrate_row_prepare"),
+        i18n.t(lang, "migrate_row_prepare_value", n=result.prepared_rewrites),
+        "prepared/",
+    )
+    kinds = ", ".join(p.stem.split("_", 1)[1].rsplit("_output", 1)[0] for p in result.converted) or "-"
+    steps.add_row(
+        "3",
+        i18n.t(lang, "migrate_row_convert"),
+        i18n.t(lang, "migrate_row_convert_value", files=i18n.count(lang, "file", len(result.converted)), kinds=kinds),
+        "converted/",
+    )
+    steps.add_row(
+        "4",
+        i18n.t(lang, "migrate_row_fix"),
+        i18n.t(lang, "migrate_row_fix_value", n=result.fixes),
+        "converted/",
+    )
+    if load is None:
+        load_text = Text(
+            i18n.t(lang, "migrate_row_load_nothing" if load_check_asked else "migrate_row_load_skipped"),
+            style="dim",
+        )
+        load_where = ""
+    elif not load.failed:
+        load_text = Text(
+            i18n.t(lang, "migrate_row_load_clean", statements=i18n.count(lang, "statement", load.statements)),
+            style="bold #46A758",
+        )
+        load_where = "load-check.txt"
+    else:
+        failing = [e for e in load.errors if e.category in FAILING_CATEGORIES]
+        load_text = Text(
+            i18n.t(
+                lang,
+                "migrate_row_load_failed",
+                errors=i18n.count(lang, "error", len(failing)),
+                statements=i18n.count(lang, "statement", load.statements),
+            ),
+            style="bold #E5484D",
+        )
+        load_where = "load-check.txt"
+    steps.add_row("5", i18n.t(lang, "migrate_row_load"), load_text, load_where)
+    console.print(steps)
+
+    console.print()
+    console.print(Text(i18n.t(lang, "next_steps_heading"), style="bold"))
+    nxt = Table.grid(padding=(0, 2))
+    nxt.add_column(style=f"bold {_ACCENT}", no_wrap=True)
+    nxt.add_column()
+    nxt.add_row("-", i18n.t(lang, "migrate_next_report"))
+    nxt.add_row("-", i18n.t(lang, "migrate_next_checklist"))
+    if load is not None and load.failed:
+        nxt.add_row("-", i18n.t(lang, "migrate_next_load"))
+    elif load is None and not load_check_asked:
+        nxt.add_row("-", i18n.t(lang, "migrate_next_add_load_check"))
+    nxt.add_row("-", i18n.t(lang, "migrate_next_rerun"))
+    console.print(nxt)

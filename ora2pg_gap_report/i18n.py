@@ -628,6 +628,70 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "[red]Не удалось записать {path}: {exc}[/red]",
         "en": "[red]Couldn't write {path}: {exc}[/red]",
     },
+    # --migrate (migrate.py)
+    "migrate_conflict_error": {
+        "ru": "[red]--migrate - самостоятельный режим; из других флагов он принимает только "
+        "--dialect, --ora2pg-bin, --load-check и --lang[/red]",
+        "en": "[red]--migrate is a standalone mode; of the other flags it only takes --dialect, "
+        "--ora2pg-bin, --load-check and --lang[/red]",
+    },
+    "migrate_out_dir_not_ours": {
+        "ru": "[red]{path} уже существует, не пуст и создан не --migrate - не трогаю его. Укажите "
+        "новый или пустой каталог.[/red]",
+        "en": "[red]{path} already exists, is not empty and was not made by --migrate - leaving "
+        "it alone. Give a new or empty directory.[/red]",
+    },
+    "migrate_ora2pg_hint": {
+        "ru": "[yellow]--migrate запускает ora2pg. Установите его (https://github.com/darold/ora2pg) "
+        "или укажите образ: --ora2pg-bin docker:IMAGE.[/yellow]",
+        "en": "[yellow]--migrate runs ora2pg. Install it (https://github.com/darold/ora2pg) or "
+        "point at an image: --ora2pg-bin docker:IMAGE.[/yellow]",
+    },
+    "migrate_step_scan": {"ru": "Сканирование исходника...", "en": "Scanning the source..."},
+    "migrate_step_prepare": {"ru": "Подготовка копии исходника...", "en": "Preparing a copy of the source..."},
+    "migrate_step_convert": {"ru": "ora2pg: {detail}...", "en": "ora2pg: {detail}..."},
+    "migrate_step_fix": {"ru": "Механические исправления...", "en": "Mechanical fixes..."},
+    "migrate_step_load": {"ru": "Загрузка в PostgreSQL...", "en": "Loading into PostgreSQL..."},
+    "migrate_heading": {"ru": "Миграция {source} -> PostgreSQL", "en": "Migration: {source} -> PostgreSQL"},
+    "migrate_row_scan": {"ru": "Скан", "en": "Scan"},
+    "migrate_row_scan_value": {"ru": "{findings}, {gaps}", "en": "{findings}, {gaps}"},
+    "migrate_row_prepare": {"ru": "Подготовка", "en": "Prepare"},
+    "migrate_row_prepare_value": {"ru": "переписываний исходника: {n}", "en": "source rewrites: {n}"},
+    "migrate_row_convert": {"ru": "ora2pg", "en": "ora2pg"},
+    "migrate_row_convert_value": {"ru": "{files}: {kinds}", "en": "{files}: {kinds}"},
+    "migrate_row_fix": {"ru": "Исправления", "en": "Fix"},
+    "migrate_row_fix_value": {"ru": "механических исправлений: {n}", "en": "mechanical repairs: {n}"},
+    "migrate_row_load": {"ru": "Загрузка", "en": "Load"},
+    "migrate_row_load_skipped": {
+        "ru": "не проверялась (добавьте --load-check docker)",
+        "en": "not checked (add --load-check docker)",
+    },
+    "migrate_row_load_nothing": {"ru": "ora2pg ничего не выдал - загружать нечего", "en": "ora2pg produced nothing to load"},
+    "migrate_row_load_clean": {"ru": "всё загрузилось: {statements}", "en": "everything loaded: {statements}"},
+    "migrate_row_load_failed": {
+        "ru": "не загрузилось: {errors} из {statements}",
+        "en": "did not load: {errors} of {statements}",
+    },
+    "migrate_next_report": {
+        "ru": "report.html - что ломается и где, с рецептом для каждого пробела",
+        "en": "report.html - what breaks and where, with a recipe for each gap",
+    },
+    "migrate_next_checklist": {
+        "ru": "MIGRATION.md - список работ; отмечайте сделанное, повторный запуск сохранит отметки",
+        "en": "MIGRATION.md - the work list; tick what is done, a rerun keeps the ticks",
+    },
+    "migrate_next_load": {
+        "ru": "load-check.txt - каждая команда, которая не загрузилась, и что с ней делать",
+        "en": "load-check.txt - every statement that did not load, and what to do about it",
+    },
+    "migrate_next_add_load_check": {
+        "ru": "добавьте --load-check docker, чтобы проверить converted/ на настоящем PostgreSQL",
+        "en": "add --load-check docker to check converted/ against a real PostgreSQL",
+    },
+    "migrate_next_rerun": {
+        "ru": "после правок исходника запустите ту же команду ещё раз",
+        "en": "after changing the source, run the same command again",
+    },
     # --load-check (loading the generated output into a real PostgreSQL, see load_check.py)
     "load_check_conflict_error": {
         "ru": "[red]--load-check - отдельный режим, его нельзя сочетать с --explain, --verify, "
@@ -904,6 +968,24 @@ _UI: dict[str, dict[str, str]] = {
     "report_gap_why": {"ru": "Почему", "en": "Why"},
     "report_gap_fix": {"ru": "Что делать", "en": "What to do"},
     "report_gap_recipe": {"ru": "Рецепт", "en": "Recipe"},
+    "report_load_ok": {
+        "ru": "Сконвертированный код загружается: {statements}, ни одной ошибки",
+        "en": "The converted code loads: {statements}, not a single error",
+    },
+    "report_load_bad": {
+        "ru": "Не загрузилось: {errors} из {statements}",
+        "en": "Did not load: {errors} of {statements}",
+    },
+    "report_load_server": {
+        "ru": "Проверено загрузкой в {server}, в одной транзакции, которая откатывается.",
+        "en": "Checked by loading into {server}, in one transaction that is rolled back.",
+    },
+    "report_load_col_message": {"ru": "Сообщение PostgreSQL", "en": "PostgreSQL said"},
+    "report_load_show": {"ru": "Показать ошибки загрузки ({n})", "en": "Show the load errors ({n})"},
+    "report_load_more": {
+        "ru": "... и ещё {n} - полный список в load-check.txt",
+        "en": "... and {n} more - the full list is in load-check.txt",
+    },
     "report_gap_prepare": {"ru": "До ora2pg", "en": "Before ora2pg"},
     # --format checklist (checklist.py)
     "checklist_title": {"ru": "Чеклист миграции {source} -> PostgreSQL", "en": "Migration checklist: {source} -> PostgreSQL"},
@@ -1223,6 +1305,18 @@ _UI: dict[str, dict[str, str]] = {
         "(GAP-062) and IF NOT EXISTS (GAP-112); for mssql, [bracketed] names (GAP-087). Like "
         "--fix: prints a diff by default, --write rewrites the files (work on a copy of the "
         "dump).",
+    },
+    "help_migrate": {
+        "ru": "Весь путь одной командой: просканировать исходник (report.html и MIGRATION.md), "
+        "подготовить копию (--prepare), сконвертировать её ora2pg по каждому типу объектов, "
+        "применить --fix и, если указан --load-check TARGET, загрузить результат в настоящий "
+        "PostgreSQL. Всё складывается в OUT_DIR; исходные файлы не меняются. Нужен ora2pg: из "
+        "PATH или --ora2pg-bin docker:IMAGE.",
+        "en": "The whole path in one command: scan the source (report.html and MIGRATION.md), "
+        "prepare a copy (--prepare), convert it with ora2pg one object type at a time, apply "
+        "--fix and, with --load-check TARGET, load the result into a real PostgreSQL. "
+        "Everything goes into OUT_DIR; the source files are not changed. Needs ora2pg: on PATH, "
+        "or --ora2pg-bin docker:IMAGE.",
     },
     "help_write": {
         "ru": "Вместе с --fix или --prepare: реально перезаписать файлы на диске вместо "

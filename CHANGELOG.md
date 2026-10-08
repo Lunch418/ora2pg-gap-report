@@ -11,6 +11,16 @@ patch for fixes to existing ones.
 
 ### Added
 
+- **`--migrate OUT_DIR`: the whole path in one command.** Scan the source
+  (`report.html`, `MIGRATION.md`), prepare a copy (`--prepare`), convert it
+  with ora2pg once per object type, apply `--fix`, and with `--load-check`
+  load the result into a real PostgreSQL - everything into one directory, the
+  source untouched. ora2pg runs on all source files at once, so calls between
+  packages convert; `-t TYPE/FUNCTION/PROCEDURE` get the source without its
+  packages, since in file mode they re-extract package members unqualified.
+  `--ora2pg-bin docker:IMAGE` runs ora2pg from an image.
+- The README now starts from the migration path, and the package description
+  on PyPI says what the tool is for.
 - **GAP-114..119, found by `--load-check` on real code.** Loading ora2pg's
   output for the open-source packages in `docs/research/samples/` showed errors
   no registered gap explained. Each was reduced to a minimal case and confirmed

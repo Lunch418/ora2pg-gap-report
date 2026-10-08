@@ -7,37 +7,40 @@
 [![Python](https://img.shields.io/pypi/pyversions/ora2pg-gap-report)](https://pypi.org/project/ora2pg-gap-report/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-A tool for assessing a migration to PostgreSQL Pro (Standard/Certified)
-**before** it starts. Three source dialects, all through `ora2pg`:
-Oracle, MySQL/MariaDB (`--dialect mysql`, the source side of `ora2pg -m`)
-and T-SQL/SQL Server (`--dialect mssql`, the source side of `ora2pg -M`).
+A companion for migrating Oracle, MySQL/MariaDB and SQL Server to
+PostgreSQL with `ora2pg`: it finds what `ora2pg` will get wrong before you
+start, repairs what can be repaired mechanically, and checks the result
+against a real PostgreSQL - so the gaps turn up on your laptop, not in
+production.
 
 ```sh
 pip install ora2pg-gap-report
-ora2pg-gap-report path/to/oracle_schema_dump/
-ora2pg-gap-report --dialect mysql path/to/mysqldump.sql
-ora2pg-gap-report --dialect mssql path/to/ssms_script.sql
+
+# What will break, before anything is converted
+ora2pg-gap-report schema/
+
+# The whole path, checked against a real, throwaway PostgreSQL
+ora2pg-gap-report --migrate out/ --load-check docker schema/
 ```
 
+What `--migrate` does with `schema/`, step by step - each step is also a
+mode of its own:
+
 ```
-Oracle DDL (PACKAGE BODY / TRIGGER / TABLE / INDEX / ...)
-MySQL/MariaDB dump (TABLE / PROCEDURE / TRIGGER / VIEW)
-T-SQL script from SSMS (TABLE / PROCEDURE / INDEX / ...)
-                    │
-                    ▼
-            ora2pg-gap-report
-                    │
-                    ▼
-   119 confirmed types of ora2pg migration gaps
-   ┌──────────────────────────────────────────────────────────────────┐
-   │ HIGH    GAP-006  database_link          — @dblink not in PG      │
-   │ MEDIUM  GAP-025  invisible_index        — loses invisibility     │
-   │ HIGH    GAP-073  mysql_key_index        — mysqldump's KEY breaks │
-   │ HIGH    GAP-082  mysql_foreign_key      — FK dropped, no error   │
-   │ HIGH    GAP-087  mssql_bracket_identifier — [dbo].[T] breaks all │
-   │ HIGH    GAP-089  mssql_update_set       — every UPDATE mangled   │
-   └──────────────────────────────────────────────────────────────────┘
+ schema/ (Oracle DDL, a mysqldump, an SSMS script)
+    |
+    |  1. scan       119 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
+    |  2. prepare    rewrite what ora2pg's parser trips over  (--prepare)
+    |  3. convert    ora2pg, once per object type             -> out/converted/
+    |  4. fix        repair ora2pg's known mechanical bugs    (--fix)
+    |  5. load       into a real PostgreSQL, every error tied to its gap  (--load-check)
+    v
+ out/converted/*.sql that loads - or a list of exactly what does not, and why
 ```
+
+`--dialect mysql` or `--dialect mssql` for the other two sources. `ora2pg`
+itself is needed for `--migrate` (on `PATH`, or `--ora2pg-bin
+docker:IMAGE`); scanning alone needs nothing but Python.
 
 ![ora2pg-gap-report in a terminal: findings per failure stage, every gap once, and one gap in detail](docs/screenshots/terminal.en.png)
 
@@ -72,6 +75,7 @@ empirically against real PL/SQL code
 | **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code; takes its dialect from the baseline (not a functional check, see below) |
 | **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags |
 | **Autofix** | `--fix`/`--write` — three known-safe mechanical fixes for `ora2pg`'s generated code, picked by `--dialect`, see below |
+| **One-command migration** | `--migrate out/` - scan, prepare, convert with ora2pg, fix and load, everything into one directory, see below |
 | **Source preparation** | `--prepare` - rewrites what ora2pg's parser trips over in the dump itself (DELIMITER, DEFINER, `[brackets]`, `q'[...]'`), before ora2pg runs, see below |
 | **Recipes and a checklist** | A tested PostgreSQL pattern for each class of problem, and `-f checklist`: a task list that keeps its ticks between runs, see below |
 | **Load check** | `--load-check docker` - loads the generated code into a real, throwaway PostgreSQL and ties every statement that fails to its GAP-NNN, to `--fix`, or to an earlier failure; nothing is committed, see below |
@@ -670,6 +674,39 @@ honest check from a comfortable lie.
 `--verify` is a standalone mode: requires `--baseline`, incompatible with
 `--explain`/`--save`/`--fail-on`/`--check-connect-by`/`--severity`/`--object`,
 supports only `--format terminal` (default) and `--format json`.
+
+### The whole path in one command (`--migrate`)
+
+```sh
+ora2pg-gap-report --migrate out/ --load-check docker schema/
+ora2pg-gap-report --migrate out/ --ora2pg-bin docker:my-ora2pg-image schema/   # ora2pg from an image
+```
+
+```
+out/
+  report.html        the scan of the source: what breaks, when, where, with a recipe per gap
+  MIGRATION.md       the work as a checklist (keeps your ticks on the next run)
+  prepared/          a copy of the source after --prepare; the source itself is not touched
+  converted/         ora2pg's output, one file per object type, in load order, after --fix
+  load-check.txt     with --load-check: every statement that did not load, and why
+  load-check.json    the same for a pipeline
+```
+
+The steps are the modes described below, run in the order a migration
+needs them. A few things `--migrate` does that running them by hand would
+not:
+
+- ora2pg runs once per object type on all the source files at once, so a
+  call from one package to another converts (two separate runs lose it,
+  see GAP-117);
+- in file mode ora2pg's `-t TYPE`, `FUNCTION` and `PROCEDURE` also extract
+  the members of packages, without the package name, so every one of them
+  would come out twice; those runs get the source without its packages;
+- running again into the same `out/` replaces the generated files and
+  keeps the checklist's ticks; a directory it did not create is refused.
+
+Exit code `1` when `--load-check` finds statements that do not load, `2`
+when the run cannot be done (no ora2pg, no docker), `0` otherwise.
 
 ### Preparing the source (`--prepare`)
 

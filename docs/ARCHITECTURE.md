@@ -186,6 +186,8 @@ ora2pg_gap_report/
 │                               #  failing statement to a GAP-NNN / --fix / an earlier failure
 ├── migrate.py                  # --migrate: scan -> prepare -> ora2pg per type -> fix (-> load),
 │                               #  everything into one OUT_DIR
+├── source_fixes.py             # --migrate's repairs that need the source: statement triggers,
+│                               #  package constants, MySQL ENUM types
 ├── prepare.py                  # --prepare: source rewrites before ora2pg (DELIMITER, DEFINER,
 │                               #  version comments, [brackets], q-quotes), per dialect
 ├── recipes.py                  # migration recipes (docs/recipes/): which detectors each covers,

@@ -662,7 +662,10 @@ _UI: dict[str, dict[str, str]] = {
     "migrate_row_convert": {"ru": "ora2pg", "en": "ora2pg"},
     "migrate_row_convert_value": {"ru": "{files}: {kinds}", "en": "{files}: {kinds}"},
     "migrate_row_fix": {"ru": "Исправления", "en": "Fix"},
-    "migrate_row_fix_value": {"ru": "механических исправлений: {n}", "en": "mechanical repairs: {n}"},
+    "migrate_row_fix_value": {
+        "ru": "механических исправлений: {n}, по исходнику: {m}",
+        "en": "mechanical repairs: {n}, from the source: {m}",
+    },
     "migrate_row_load": {"ru": "Загрузка", "en": "Load"},
     "migrate_row_load_skipped": {
         "ru": "не проверялась (добавьте --load-check docker)",

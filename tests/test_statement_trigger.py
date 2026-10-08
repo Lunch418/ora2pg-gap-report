@@ -33,3 +33,13 @@ def test_row_instead_of_compound_and_system_triggers_are_not_flagged():
 def test_multi_event_statement_trigger():
     source = "CREATE TRIGGER g AFTER INSERT OR UPDATE OR DELETE ON t\nBEGIN\n  NULL;\nEND;\n/\n"
     assert [f.snippet for f in find_statement_trigger(source)] == ["AFTER INSERT (no FOR EACH ROW)"]
+
+
+def test_postgresqls_own_statement_trigger_is_not_flagged():
+    # What --migrate writes after restoring a statement-level trigger.
+    source = (
+        "CREATE TRIGGER gx_t_ai\n\tAFTER INSERT ON gx_orders FOR EACH STATEMENT\n"
+        "\tEXECUTE PROCEDURE trigger_fct_gx_t_ai();\n"
+        "CREATE OR REPLACE FUNCTION f() RETURNS trigger AS $BODY$\nBEGIN\n  RETURN NULL;\nEND\n$BODY$ LANGUAGE plpgsql;\n"
+    )
+    assert find_statement_trigger(source) == []

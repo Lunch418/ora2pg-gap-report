@@ -32,7 +32,7 @@ mode of its own:
     |  1. scan       119 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
     |  2. prepare    rewrite what ora2pg's parser trips over  (--prepare)
     |  3. convert    ora2pg, once per object type             -> out/converted/
-    |  4. fix        repair ora2pg's known mechanical bugs    (--fix)
+    |  4. fix        repair ora2pg's known mechanical bugs    (--fix), and what the source says
     |  5. load       into a real PostgreSQL, every error tied to its gap  (--load-check)
     v
  out/converted/*.sql that loads - or a list of exactly what does not, and why
@@ -717,7 +717,16 @@ not:
   see GAP-117);
 - in file mode ora2pg's `-t TYPE`, `FUNCTION` and `PROCEDURE` also extract
   the members of packages, without the package name, so every one of them
-  would come out twice; those runs get the source without its packages;
+  would come out twice; those runs get the source without its packages,
+  and `-t PACKAGE` gets only the packages (it would glue an object that
+  follows the last package body into that body);
+- it puts back what ora2pg's output has lost but the source still says,
+  checked on PostgreSQL 16 the way `--fix` is: a trigger without `FOR EACH
+  ROW` stays a statement trigger (GAP-118), a package constant whose value
+  is a literal is written as that literal wherever ora2pg left a
+  `current_setting()` read or a `DEFAULT` naming it (GAP-114, GAP-119,
+  GAP-036), a MySQL `ENUM` column gets the `CREATE TYPE` ora2pg names but
+  never writes (GAP-068);
 - running again into the same `out/` replaces the generated files and
   keeps the checklist's ticks; a directory it did not create is refused.
 

@@ -1,0 +1,116 @@
+name: ora2pg-gap-report
+description: >-
+  Find the Oracle, MySQL and SQL Server constructs ora2pg converts wrong,
+  in a pull request: SARIF for code scanning, an HTML report, and a gate.
+author: Lunch418
+branding:
+  icon: database
+  color: orange
+
+inputs:
+  paths:
+    description: >-
+      Files or directories to scan, separated by spaces or new lines
+      (relative to the repository root, so the code scanning alerts point
+      at the right files).
+    required: true
+  dialect:
+    description: The source dialect - oracle, mysql or mssql.
+    default: oracle
+  fail-on:
+    description: >-
+      Fail the step when there are findings at or above this severity
+      (high, medium or low). Empty to only report.
+    default: high
+  sarif-file:
+    description: Where to write the SARIF report.
+    default: ora2pg-gap-report.sarif
+  upload-sarif:
+    description: >-
+      Upload the SARIF report to GitHub code scanning (needs
+      `permissions: security-events: write`). "false" to only write it.
+    default: "true"
+  html-report:
+    description: Where to write the HTML report as well. Empty for none.
+    default: ""
+  lang:
+    description: Language of the reports - en or ru.
+    default: en
+  python-version:
+    description: The Python to install the tool with.
+    default: "3.12"
+
+outputs:
+  findings:
+    description: How many findings the scan made.
+    value: ${{ steps.scan.outputs.findings }}
+  high:
+    description: How many of them are high severity.
+    value: ${{ steps.scan.outputs.high }}
+  sarif-file:
+    description: The SARIF report written.
+    value: ${{ inputs.sarif-file }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    # The tool from this action's own checkout, so the action's version and
+    # the tool's are always the same one.
+    - name: Install ora2pg-gap-report
+      shell: bash
+      run: python -m pip install --quiet "$GITHUB_ACTION_PATH"
+
+    # Inputs reach the script through the environment, never pasted into it.
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        INPUT_PATHS: ${{ inputs.paths }}
+        INPUT_DIALECT: ${{ inputs.dialect }}
+        INPUT_SARIF: ${{ inputs.sarif-file }}
+        INPUT_HTML: ${{ inputs.html-report }}
+        ORA2PG_GAP_REPORT_LANG: ${{ inputs.lang }}
+      run: |
+        set -euo pipefail
+        read -r -d '' -a paths <<< "$INPUT_PATHS" || true
+        if [ "${#paths[@]}" -eq 0 ]; then
+          echo "::error::ora2pg-gap-report: no paths to scan"
+          exit 2
+        fi
+        json="$RUNNER_TEMP/ora2pg-gap-report.json"
+        ora2pg-gap-report --dialect "$INPUT_DIALECT" --format json --output "$json" "${paths[@]}"
+        ora2pg-gap-report --dialect "$INPUT_DIALECT" --format sarif --output "$INPUT_SARIF" "${paths[@]}"
+        if [ -n "$INPUT_HTML" ]; then
+          ora2pg-gap-report --dialect "$INPUT_DIALECT" --format html --output "$INPUT_HTML" "${paths[@]}"
+        fi
+        python - "$json" >> "$GITHUB_OUTPUT" <<'EOF'
+        import json, sys
+        findings = json.load(open(sys.argv[1], encoding="utf-8"))["findings"]
+        print(f"findings={len(findings)}")
+        print(f"high={sum(f['severity'] == 'high' for f in findings)}")
+        EOF
+
+    - name: Upload SARIF to code scanning
+      if: inputs.upload-sarif == 'true'
+      uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+        category: ora2pg-gap-report
+
+    # Last, so the reports above are written and uploaded either way.
+    - name: Gate
+      if: inputs.fail-on != ''
+      shell: bash
+      env:
+        INPUT_PATHS: ${{ inputs.paths }}
+        INPUT_DIALECT: ${{ inputs.dialect }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        ORA2PG_GAP_REPORT_LANG: ${{ inputs.lang }}
+      run: |
+        set -euo pipefail
+        read -r -d '' -a paths <<< "$INPUT_PATHS" || true
+        ora2pg-gap-report --dialect "$INPUT_DIALECT" --fail-on "$INPUT_FAIL_ON" "${paths[@]}"

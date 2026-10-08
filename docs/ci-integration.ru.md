@@ -47,7 +47,60 @@ GitHub `ubuntu-latest` docker есть), и в конце всё откатыв�
 PostgreSQL, известный это пробел или нет. Подробнее - в разделе README про
 `--load-check`.
 
-## Находки прямо в GitHub PR (без своего бота)
+## Готовый GitHub Action
+
+Репозиторий сам является Action (`action.yml`): он ставит инструмент из
+той же ссылки, пишет SARIF-отчёт и загружает его в code scanning, может
+написать и HTML-отчёт, а порог `--fail-on` проверяет последним, так что
+отчёты есть, даже когда порог роняет задание.
+
+```yaml
+# .github/workflows/migration-gap-scan.yml
+name: migration-gap-scan
+
+on:
+  pull_request:
+    paths:
+      - "schema/**"
+
+permissions:
+  contents: read
+  security-events: write   # для загрузки SARIF
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: gaps
+        uses: Lunch418/ora2pg-gap-report@main   # или тег релиза, начиная с первого, где есть action.yml
+        with:
+          paths: schema/
+          fail-on: high              # "" - только отчёт
+          html-report: gap-report.html
+          lang: ru
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap-report
+          path: gap-report.html
+```
+
+| Вход | По умолчанию | Что делает |
+| --- | --- | --- |
+| `paths` | (обязателен) | Файлы или каталоги через пробел или с новой строки, относительно корня репозитория |
+| `dialect` | `oracle` | `oracle`, `mysql` или `mssql` |
+| `fail-on` | `high` | Уронить шаг при находках этого уровня и выше; пусто - только отчёт |
+| `sarif-file` | `ora2pg-gap-report.sarif` | Куда писать SARIF |
+| `upload-sarif` | `true` | Загрузить его в code scanning; `false` - только записать |
+| `html-report` | пусто | Записать сюда ещё и HTML-отчёт |
+| `lang` | `en` | Язык отчётов, `en` или `ru` |
+| `python-version` | `3.12` | Python, в который ставится инструмент |
+
+Выходы: `findings` и `high` (количества) и `sarif-file`. CI самого проекта
+запускает этот Action на примерах пакетов в каждом pull request.
+
+## Находки прямо в GitHub PR, вручную
 
 `--format sarif` — не просто ещё один формат вывода. SARIF 2.1.0 — формат,
 который GitHub понимает нативно через `github/codeql-action/upload-sarif`:

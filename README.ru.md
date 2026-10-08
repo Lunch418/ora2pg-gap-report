@@ -83,7 +83,7 @@ docker run --rm --user "$(id -u):$(id -g)" --group-add "$(stat -c %g /var/run/do
 | **Статический анализ** | Ищет паттерны в исходном коде (Oracle, MySQL/MariaDB или T-SQL), не требует установленного `ora2pg` (кроме `connect_by`, см. ниже) |
 | **Воспроизводимо** | Каждая находка подтверждена реальным прогоном `ora2pg` + PostgreSQL, а не по документации |
 | **7 форматов вывода** | terminal, markdown, json, csv, `sarif`, `html`, `checklist` - один и тот же набор находок |
-| **CI-гейт** | `--fail-on` + SARIF для GitHub/GitLab code scanning |
+| **CI-гейт** | `--fail-on` + SARIF для GitHub/GitLab code scanning и готовый GitHub Action |
 | **Работает офлайн** | Автономный бандл для закрытых контуров (`scripts/build_offline_bundle.py`), см. ниже |
 | **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED между прогонами |
 | **Проверка после миграции** | `--verify` — что из pre-migration находок осталось в сгенерированном коде; диалект берёт из baseline (не функциональная проверка, см. ниже) |
@@ -633,9 +633,19 @@ echo $?   # 1, если нашлась хотя бы одна находка hig
 
 Пример реального вывода на открытом пакете —
 [`docs/examples/logger-autonomous_tx-report.ru.md`](docs/examples/logger-autonomous_tx-report.ru.md).
-Полный рецепт для CI — гейт на PR, запуск рядом с самим `ora2pg` и
-получение находок как аннотаций PR через SARIF без собственного бота —
-в [`docs/ci-integration.ru.md`](docs/ci-integration.ru.md).
+На GitHub репозиторий - готовый Action, который за один шаг делает скан,
+загрузку SARIF в code scanning и порог:
+
+```yaml
+- uses: Lunch418/ora2pg-gap-report@main
+  with:
+    paths: schema/
+    fail-on: high
+```
+
+Его входы и полный рецепт для CI - гейт на PR, запуск рядом с самим
+`ora2pg`, находки как аннотации PR через SARIF - в
+[`docs/ci-integration.ru.md`](docs/ci-integration.ru.md).
 
 Оценка трудоёмкости в отчёте — грубая эвристика по severity (диапазон
 часов, а не одно число). Это ориентир для планирования, а не оценка,

@@ -968,6 +968,24 @@ _UI: dict[str, dict[str, str]] = {
     "report_gap_why": {"ru": "Почему", "en": "Why"},
     "report_gap_fix": {"ru": "Что делать", "en": "What to do"},
     "report_gap_recipe": {"ru": "Рецепт", "en": "Recipe"},
+    "report_load_ok": {
+        "ru": "Сконвертированный код загружается: {statements}, ни одной ошибки",
+        "en": "The converted code loads: {statements}, not a single error",
+    },
+    "report_load_bad": {
+        "ru": "Не загрузилось: {errors} из {statements}",
+        "en": "Did not load: {errors} of {statements}",
+    },
+    "report_load_server": {
+        "ru": "Проверено загрузкой в {server}, в одной транзакции, которая откатывается.",
+        "en": "Checked by loading into {server}, in one transaction that is rolled back.",
+    },
+    "report_load_col_message": {"ru": "Сообщение PostgreSQL", "en": "PostgreSQL said"},
+    "report_load_show": {"ru": "Показать ошибки загрузки ({n})", "en": "Show the load errors ({n})"},
+    "report_load_more": {
+        "ru": "... и ещё {n} - полный список в load-check.txt",
+        "en": "... and {n} more - the full list is in load-check.txt",
+    },
     "report_gap_prepare": {"ru": "До ora2pg", "en": "Before ora2pg"},
     # --format checklist (checklist.py)
     "checklist_title": {"ru": "Чеклист миграции {source} -> PostgreSQL", "en": "Migration checklist: {source} -> PostgreSQL"},

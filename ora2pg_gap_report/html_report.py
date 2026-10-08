@@ -16,11 +16,12 @@ from __future__ import annotations
 
 import dataclasses
 import html
+from pathlib import PurePath
 import re
 from collections import Counter
 from collections.abc import Callable
 from importlib import metadata
-from typing import IO
+from typing import IO, TYPE_CHECKING
 
 from . import i18n, messages
 from .effort_estimator import estimate_hours, summarize_by_severity
@@ -28,6 +29,9 @@ from .gap_registry import gap_by_detector
 from .models import Finding
 from .prepare import prepare_command
 from .recipes import recipe_for, recipe_url
+
+if TYPE_CHECKING:
+    from .load_check import LoadCheckResult
 
 Write = Callable[[str], object]
 
@@ -73,6 +77,20 @@ h1 { font-family: var(--serif); font-size: 2.6rem; line-height: 1.15; letter-spa
 h2 { font-family: var(--serif); font-size: 1.6rem; margin: 3.25rem 0 1rem; font-weight: 500; letter-spacing: -0.005em; }
 h3 { font-size: 0.8rem; margin: 1.4rem 0 0.35rem; color: var(--muted); font-weight: 600; letter-spacing: 0.02em; }
 .lede { margin: 0; color: var(--muted); max-width: 44em; }
+.loadcard { margin: 1.75rem 0 0; padding: 1.1rem 1.25rem 1.2rem; background: var(--surface);
+            border: 1px solid var(--rule); border-left: 4px solid var(--verdict); border-radius: var(--radius); }
+.loadcard.ok { --verdict: var(--low); } .loadcard.bad { --verdict: var(--high); }
+.loadcard .verdict { margin: 0; font-family: var(--serif); font-size: 1.35rem; color: var(--verdict); }
+.loadcard .where-to { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.9rem; }
+.loadcard .cats { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; margin: 0.8rem 0 0; padding: 0; list-style: none;
+                  font-size: 0.9rem; }
+.loadcard .cats b { font-variant-numeric: tabular-nums; }
+.loadcard table.where { margin-top: 0.9rem; }
+.loadcard td.msg { font-family: var(--mono); font-size: 0.82rem; }
+.loadcard a, .fix a { color: var(--accent); text-underline-offset: 2px; }
+.loadcard details { margin-top: 0.9rem; }
+.loadcard details > summary { cursor: pointer; color: var(--accent); font-size: 0.9rem; font-weight: 600; }
+.loadcard details > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 4px; }
 .lede strong { color: var(--ink); font-weight: 600; }
 
 .rail { list-style: none; margin: 2rem 0 0; padding: 0; display: grid;
@@ -287,8 +305,13 @@ def _version() -> str:
         return ""
 
 
-def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> None:
-    """Write the report for `findings` to `stream`."""
+def write_html(
+    findings: list[Finding], stream: IO[str], lang: str = "ru", load: "LoadCheckResult | None" = None
+) -> None:
+    """Write the report for `findings` to `stream`. With `load` (from
+    --migrate --load-check), a card near the top says whether the converted
+    output loaded into PostgreSQL, and lists what did not, each error
+    linked to its gap further down the page."""
     w = stream.write
     gaps = group_by_gap(findings)
     counts = summarize_by_severity(findings)
@@ -315,6 +338,8 @@ def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> No
 """)
 
     if not findings:
+        if load is not None:
+            _write_load_card(w, lang, load, set())
         w(f"""<section class="empty-state">
 <h2>{i18n.t(lang, "report_empty_title")}</h2>
 <p>{i18n.t(lang, "report_empty_text")}</p>
@@ -334,6 +359,8 @@ def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> No
         gaps=i18n.count(lang, "gap", len(gaps)),
     )
     w(f'<p class="lede">{scanned} {found}</p>\n')
+    if load is not None:
+        _write_load_card(w, lang, load, {g.detector for g in gaps})
 
     # The rail: the four stages in the order a migration reaches them.
     per_stage = Counter(stage_key(g.stage) for g in gaps for _ in g.findings)
@@ -417,6 +444,55 @@ def _write_filters(w: Write, lang: str, severities: list[str], stages: list[str]
             )
         w("</fieldset>\n")
     w("</div>\n")
+
+
+_LOAD_ROWS_SHOWN = 40
+
+
+def _write_load_card(w: Write, lang: str, load: "LoadCheckResult", gaps_on_page: set[str]) -> None:
+    from .load_check import CATEGORIES, FAILING_CATEGORIES
+
+    failing = [e for e in load.errors if e.category in FAILING_CATEGORIES]
+    server = html.escape(load.target + (f" ({load.server_version})" if load.server_version else ""))
+    statements = i18n.count(lang, "statement", load.statements)
+    if not failing:
+        w(f'<section class="loadcard ok"><p class="verdict">{i18n.t(lang, "report_load_ok", statements=statements)}</p>\n')
+    else:
+        verdict = i18n.t(lang, "report_load_bad", errors=i18n.count(lang, "error", len(failing)), statements=statements)
+        w(f'<section class="loadcard bad"><p class="verdict">{verdict}</p>\n')
+    w(f'<p class="where-to">{i18n.t(lang, "report_load_server", server=server)}</p>\n')
+    counts = Counter(e.category for e in load.errors)
+    if counts:
+        w('<ul class="cats">')
+        for category in CATEGORIES:
+            if counts.get(category):
+                w(f"<li>{i18n.t(lang, f'load_check_cat_{category}')} <b>{counts[category]}</b></li>")
+        w("</ul>\n")
+        w(f'<details><summary>{i18n.t(lang, "report_load_show", n=len(load.errors))}</summary>\n')
+        w(
+            f'<table class="where"><thead><tr><th>{i18n.t(lang, "report_col_file")}</th>'
+            f'<th>{i18n.t(lang, "report_col_line")}</th><th>GAP</th><th>SQLSTATE</th>'
+            f'<th>{i18n.t(lang, "report_load_col_message")}</th></tr></thead>\n<tbody>\n'
+        )
+        for e in load.errors[:_LOAD_ROWS_SHOWN]:
+            if e.gap_number is not None or e.detector is not None:
+                label = f"GAP-{e.gap_number}" if e.gap_number is not None else html.escape(e.detector or "")
+                gap = (
+                    f'<a href="#{html.escape(e.detector or "")}">{label}</a>'
+                    if e.detector in gaps_on_page
+                    else label
+                )
+            else:
+                gap = html.escape(i18n.t(lang, f"load_check_cat_{e.category}"))
+            w(
+                f'<tr><td class="file">{html.escape(PurePath(e.file).name)}</td><td class="num">{e.line}</td>'
+                f"<td>{gap}</td><td class=\"mono\">{e.sqlstate}</td><td class=\"msg\">{html.escape(e.message)}</td></tr>\n"
+            )
+        w("</tbody></table>\n")
+        w("</details>\n")
+        if len(load.errors) > _LOAD_ROWS_SHOWN:
+            w(f'<p class="where-to">{i18n.t(lang, "report_load_more", n=len(load.errors) - _LOAD_ROWS_SHOWN)}</p>\n')
+    w("</section>\n")
 
 
 def _write_gap(w: Write, lang: str, group_: GapGroup) -> None:

@@ -432,3 +432,33 @@ def test_html_report_carries_the_brand_mark_and_no_external_font():
     report = to_html([finding], lang="en")
     assert '<p class="brand"><span class="mark">*</span>ora2pg-gap-report' in report
     assert "fonts.googleapis" not in report and "@import" not in report
+
+
+def test_html_shows_the_load_result_when_given():
+    from ora2pg_gap_report.html_report import write_html
+    from ora2pg_gap_report.load_check import LoadCheckResult, LoadError
+
+    error = LoadError(
+        file="out/07_PACKAGE_output.sql", line=12, statement_line=10, sqlstate="42601",
+        message='syntax error at or near "<b>"', detail=None, hint=None, context=None,
+        category="gap", detector="autonomous_tx", gap_number="001",
+    )
+    load = LoadCheckResult(
+        target="docker postgres:16-alpine", server_version="16.4", files=("a",), statements=5,
+        errors=(error,), neutralised=(), skipped_files=(), elapsed_seconds=1.0,
+    )
+    out = io.StringIO()
+    write_html([SAMPLE_FINDING], out, lang="en", load=load)
+    page = out.getvalue()
+    assert 'class="loadcard bad"' in page and "Did not load: 1 error of 5 statements" in page
+    assert '<a href="#autonomous_tx">GAP-001</a>' in page  # linked to the gap below
+    assert "&lt;b&gt;" in page and "<b>\"" not in page   # PostgreSQL's text escaped
+    assert page.index('<section class="loadcard') > page.index('<p class="lede"')
+
+    clean = LoadCheckResult(
+        target="docker postgres:16-alpine", server_version="16.4", files=("a",), statements=5,
+        errors=(), neutralised=(), skipped_files=(), elapsed_seconds=1.0,
+    )
+    out = io.StringIO()
+    write_html([], out, lang="ru", load=clean)
+    assert 'class="loadcard ok"' in out.getvalue()

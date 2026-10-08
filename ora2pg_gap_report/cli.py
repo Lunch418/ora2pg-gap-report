@@ -18,7 +18,7 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.text import Text
 
-from . import i18n, ora2pg_wrapper
+from . import html_report, i18n, ora2pg_wrapper
 from .atomic_write import open_text_atomic, write_text_atomic
 from .autofix import FIXERS_BY_DIALECT, Fixer
 from .checklist import ChecklistError, read_previous, write_checklist
@@ -680,6 +680,10 @@ def _handle_migrate(args: argparse.Namespace, err_console: Console, lang: str) -
         return 2
 
     if load is not None:
+        # The report gets the load result too, at the top: the one page to
+        # hand to someone who wants to know whether it loads.
+        with open_text_atomic(result.out_dir / "report.html") as report_file:
+            html_report.write_html(result.findings, report_file, lang=lang, load=load)
         write_text_atomic(result.out_dir / "load-check.json", to_load_check_json(load))
         buffer = io.StringIO()
         render_load_check(load, console=_file_console(buffer), lang=lang)

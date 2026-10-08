@@ -217,3 +217,34 @@ jobs:
             exit 1
           fi
           grep -q 'pip install' /tmp/tui-error.txt && echo '--tui gives a clean install hint without textual — ok'
+
+  docker-image:
+    # The all-in-one image (Dockerfile): it must build, carry the ora2pg the
+    # registry was verified on, and run the whole --migrate path with a
+    # load check through the runner's docker socket -- the way its README
+    # section tells people to run it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Build the image
+        run: docker build -t ora2pg-gap-report:ci .
+
+      - name: Run --migrate inside it, as the runner's user
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint ora2pg ora2pg-gap-report:ci --version | grep -q "v25.0"
+          mkdir -p "$RUNNER_TEMP/work/schema"
+          cp docs/research/samples/file_util_pkg.pks docs/research/samples/file_util_pkg.pkb "$RUNNER_TEMP/work/schema/"
+          set +e
+          docker run --rm --user "$(id -u):$(id -g)" --group-add "$(stat -c %g /var/run/docker.sock)" \
+            -v "$RUNNER_TEMP/work:/work" -v /var/run/docker.sock:/var/run/docker.sock \
+            ora2pg-gap-report:ci --migrate out/ --load-check docker schema/
+          code=$?
+          set -e
+          # 1 = it ran and found statements that do not load, which these
+          # samples have; 0 would also be fine. 2 or 3 means it could not run.
+          if [ "$code" -gt 1 ]; then echo "::error::--migrate in the image exited $code"; exit 1; fi
+          test -s "$RUNNER_TEMP/work/out/report.html"
+          test -s "$RUNNER_TEMP/work/out/load-check.json"
+          ls "$RUNNER_TEMP/work/out/converted/"*.sql

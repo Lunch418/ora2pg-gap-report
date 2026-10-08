@@ -9,6 +9,8 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-08
+
 ### Added
 
 - **`--migrate OUT_DIR`: the whole path in one command.** Scan the source

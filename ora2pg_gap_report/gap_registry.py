@@ -756,7 +756,7 @@ GapEntry(
         ("test_package_type_anchor.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="oracle", last_verified="2026-10-09"),
+        dialect="oracle", last_verified="2026-10-08"),
     GapEntry(
         "121",
         "package_type_reference",
@@ -764,7 +764,7 @@ GapEntry(
         ("test_package_type_reference.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="oracle", last_verified="2026-10-09"),
+        dialect="oracle", last_verified="2026-10-08"),
     GapEntry(
         "122",
         "supplied_package_call",
@@ -772,7 +772,7 @@ GapEntry(
         ("test_supplied_package_call.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="oracle", last_verified="2026-10-09"),
+        dialect="oracle", last_verified="2026-10-08"),
     GapEntry(
         "123",
         "dbms_sleep",
@@ -780,7 +780,7 @@ GapEntry(
         ("test_dbms_sleep.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="oracle", last_verified="2026-10-09"),
+        dialect="oracle", last_verified="2026-10-08"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

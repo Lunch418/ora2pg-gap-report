@@ -638,6 +638,9 @@ def _handle_migrate(args: argparse.Namespace, err_console: Console, lang: str) -
         err_console.print(i18n.t(lang, "empty_dir_warning", dir=escape(str(empty_dir))))
     sources = [p for p in sources if p.is_file()]
     if missing or empty_dirs or not sources:
+        # All of the source or none of it: a migration of part of a schema
+        # would look complete and fail on the calls into the missing part.
+        err_console.print(i18n.t(lang, "migrate_inputs_missing"))
         return 2
 
     out = Console()

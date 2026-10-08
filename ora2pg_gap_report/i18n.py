@@ -654,9 +654,16 @@ _UI: dict[str, dict[str, str]] = {
     },
     "migrate_ora2pg_hint": {
         "ru": "[yellow]--migrate запускает ora2pg. Установите его (https://github.com/darold/ora2pg) "
-        "или укажите образ: --ora2pg-bin docker:IMAGE.[/yellow]",
+        "или возьмите из docker-образа: --ora2pg-bin docker:ghcr.io/lunch418/ora2pg-gap-report "
+        "(подойдёт любой образ с ora2pg, docker:IMAGE).[/yellow]",
         "en": "[yellow]--migrate runs ora2pg. Install it (https://github.com/darold/ora2pg) or "
-        "point at an image: --ora2pg-bin docker:IMAGE.[/yellow]",
+        "take it from a docker image: --ora2pg-bin docker:ghcr.io/lunch418/ora2pg-gap-report "
+        "(any image with ora2pg will do, docker:IMAGE).[/yellow]",
+    },
+    "migrate_inputs_missing": {
+        "ru": "Ничего не мигрировано: --migrate берёт весь исходник или ничего, а пути выше не прочитать.",
+        "en": "Nothing was migrated: --migrate takes all of the source or none of it, and the paths above "
+        "cannot be read.",
     },
     "migrate_step_scan": {"ru": "Сканирование исходника...", "en": "Scanning the source..."},
     "migrate_step_prepare": {"ru": "Подготовка копии исходника...", "en": "Preparing a copy of the source..."},

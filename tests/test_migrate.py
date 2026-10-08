@@ -155,7 +155,8 @@ def test_cli_migrate_explains_a_missing_ora2pg(tmp_path, monkeypatch, capsys):
 
     monkeypatch.setattr(migrate, "run_convert", missing)
     assert main(["--lang", "en", "--migrate", str(tmp_path / "out"), str(_source(tmp_path))]) == 2
-    assert "--ora2pg-bin docker:IMAGE" in " ".join(capsys.readouterr().err.split())
+    err = " ".join(capsys.readouterr().err.split())
+    assert "--ora2pg-bin docker:ghcr.io/lunch418/ora2pg-gap-report" in err and "docker:IMAGE" in err
 
 
 @pytest.mark.ora2pg
@@ -200,3 +201,11 @@ def test_a_docker_image_runs_ora2pg_as_its_entrypoint(tmp_path):
         "--entrypoint", "ora2pg", "ghcr.io/lunch418/ora2pg-gap-report:0.15.0",
     ]
     assert ora2pg_command("/opt/ora2pg/bin/ora2pg", [tmp_path]) == ["/opt/ora2pg/bin/ora2pg"]
+
+
+def test_cli_migrate_says_why_nothing_was_migrated(tmp_path, fake, capsys):
+    src = _source(tmp_path)
+    assert main(["--lang", "en", "--migrate", str(tmp_path / "out"), str(src), str(tmp_path / "nosuch.sql")]) == 2
+    err = " ".join(capsys.readouterr().err.split())
+    assert "Skipped (not found)" in err and "Nothing was migrated" in err
+    assert not (tmp_path / "out").exists()

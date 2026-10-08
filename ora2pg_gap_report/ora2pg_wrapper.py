@@ -218,3 +218,73 @@ def parse_totals(ora2pg_output: str) -> list[tuple[str | None, float, float]]:
         (m.group(1), float(m.group(2)), float(m.group(3)))
         for m in _TOTAL_RE.finditer(ora2pg_output)
     ]
+
+
+# Which ora2pg export types --migrate runs, per source dialect, in an order
+# where each one's dependencies load first. ora2pg reads a DDL file one type
+# at a time (-t), so a file holding tables, packages and triggers needs one
+# run per type; a type with nothing in the file produces no output.
+CONVERT_TYPES: dict[str, tuple[str, ...]] = {
+    "oracle": ("TYPE", "SEQUENCE", "TABLE", "VIEW", "FUNCTION", "PROCEDURE", "PACKAGE", "TRIGGER"),
+    "mysql": ("TABLE", "VIEW", "FUNCTION", "PROCEDURE", "TRIGGER"),
+    "mssql": ("SEQUENCE", "TABLE", "VIEW", "FUNCTION", "PROCEDURE", "TRIGGER"),
+}
+_DIALECT_FLAGS = {"oracle": [], "mysql": ["-m"], "mssql": ["-M"]}
+
+
+def ora2pg_command(ora2pg_bin: str, mounts: list[Path]) -> list[str]:
+    """The command that starts ora2pg. `docker:IMAGE` runs it from a docker
+    image instead of PATH -- ora2pg is a Perl tool, not a pip package, and
+    an image is often the easiest way to have it. Every path ora2pg is given
+    is mounted at the same place inside the container, so the arguments
+    need no translation."""
+    if not ora2pg_bin.startswith("docker:"):
+        return [ora2pg_bin]
+    image = ora2pg_bin[len("docker:") :]
+    command = ["docker", "run", "--rm"]
+    for mount in dict.fromkeys(p.resolve() for p in mounts):
+        command += ["-v", f"{mount}:{mount}"]
+    return command + [image, "ora2pg"]
+
+
+def run_convert(
+    input_file: Path,
+    object_type: str,
+    dialect: str = "oracle",
+    ora2pg_bin: str = "ora2pg",
+    timeout: int = 600,
+    lang: str = "ru",
+) -> str:
+    """Run `ora2pg [-m|-M] -t <object_type> -i <input_file>` and return the
+    converted PostgreSQL (empty when the file holds nothing of that type).
+    Raises Ora2PgNotFoundError / Ora2PgRunError like run_estimate_cost()."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out_path = Path(tmp) / "out.sql"
+        command = ora2pg_command(ora2pg_bin, [input_file.parent, Path(tmp)]) + [
+            *_DIALECT_FLAGS[dialect],
+            "-t", object_type,
+            "-i", str(input_file.resolve()),
+            "-o", out_path.name,
+            "-b", str(Path(tmp).resolve()),
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+            )
+        except OSError as exc:
+            raise Ora2PgNotFoundError(
+                i18n.t(lang, "ora2pg_not_runnable", bin=repr(ora2pg_bin), exc=exc)
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise Ora2PgRunError(i18n.t(lang, "ora2pg_timeout", timeout=timeout)) from exc
+        if result.returncode != 0:
+            detail = (result.stderr or "").strip() or _first_lines(result.stdout)
+            raise Ora2PgRunError(i18n.t(lang, "ora2pg_failed", code=result.returncode, detail=detail))
+        if not out_path.exists():
+            return ""
+        return out_path.read_text(encoding="utf-8", errors="replace")

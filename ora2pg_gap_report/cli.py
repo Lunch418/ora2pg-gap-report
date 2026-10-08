@@ -62,7 +62,7 @@ from .report_generator import (
     write_sarif,
 )
 from .terminal_report import render as render_terminal
-from .terminal_report import render_baseline_diff, render_load_check, render_verification
+from .terminal_report import render_baseline_diff, render_load_check, render_migration, render_verification
 from .verification import new_in_output, verify_against_baseline
 
 
@@ -244,6 +244,13 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
         "--write",
         action="store_true",
         help=i18n.t(lang, "help_write"),
+    )
+    parser.add_argument(
+        "--migrate",
+        type=Path,
+        default=None,
+        metavar="OUT_DIR",
+        help=i18n.t(lang, "help_migrate"),
     )
     parser.add_argument(
         "--load-check",
@@ -592,6 +599,96 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
         render_verification(results, lang=lang, new_in_output=introduced)
 
     return 2 if had_error else 0
+
+
+def _handle_migrate(args: argparse.Namespace, err_console: Console, lang: str) -> int:
+    """--migrate OUT_DIR: scan, prepare, convert with ora2pg, fix and, with
+    --load-check, load -- see migrate.py. Exit codes as --load-check's: 0
+    done (and loaded, if checked), 1 the output does not load, 2 the run
+    could not be done."""
+    from .migrate import MigrateError, run_migration
+
+    conflicting = any(
+        (
+            args.verify,
+            args.fix,
+            args.prepare,
+            args.write,
+            args.save,
+            args.baseline,
+            args.fail_on,
+            args.check_connect_by,
+            args.severity,
+            args.object,
+            args.format,
+            args.output,
+        )
+    )
+    if conflicting:
+        err_console.print(i18n.t(lang, "migrate_conflict_error"))
+        return 2
+    if not args.paths:
+        err_console.print(i18n.t(lang, "no_paths_error"))
+        return 2
+    sources, empty_dirs = expand_paths(args.paths)
+    missing = [p for p in sources if not p.is_file()]
+    for path in missing:
+        err_console.print(i18n.t(lang, "skipped_not_found", path=escape(str(path))))
+    for empty_dir in empty_dirs:
+        err_console.print(i18n.t(lang, "empty_dir_warning", dir=escape(str(empty_dir))))
+    sources = [p for p in sources if p.is_file()]
+    if missing or empty_dirs or not sources:
+        return 2
+
+    out = Console()
+    spinner_cm = (
+        err_console.status("", spinner="line", spinner_style="bold #D97757")
+        if err_console.is_terminal
+        else contextlib.nullcontext()
+    )
+
+    def progress(key: str) -> None:
+        if spinner is None:
+            return
+        name, _, detail = key.partition(":")
+        spinner.update(Text(i18n.t(lang, name, detail=detail), style="dim"))
+
+    try:
+        with spinner_cm as spinner:
+            result = run_migration(
+                sources,
+                args.migrate,
+                dialect=args.dialect,
+                ora2pg_bin=args.ora2pg_bin,
+                lang=lang,
+                version=_package_version(),
+                progress=progress,
+            )
+            load = None
+            if args.load_check is not None and result.converted:
+                progress("migrate_step_load")
+                load = run_load_check(result.converted, parse_target(args.load_check), dialect=args.dialect)
+    except MigrateError as exc:
+        err_console.print(i18n.t(lang, exc.key, **{k: escape(str(v)) for k, v in exc.kwargs.items()}))
+        return 2
+    except LoadCheckError as exc:
+        err_console.print(i18n.t(lang, exc.key, **{k: escape(str(v)) for k, v in exc.kwargs.items()}))
+        return 2
+    except (ora2pg_wrapper.Ora2PgNotFoundError, ora2pg_wrapper.Ora2PgRunError) as exc:
+        err_console.print(f"[red]{escape(str(exc))}[/red]")
+        err_console.print(i18n.t(lang, "migrate_ora2pg_hint"))
+        return 2
+
+    if load is not None:
+        write_text_atomic(result.out_dir / "load-check.json", to_load_check_json(load))
+        buffer = io.StringIO()
+        render_load_check(load, console=_file_console(buffer), lang=lang)
+        write_text_atomic(result.out_dir / "load-check.txt", buffer.getvalue())
+
+    render_migration(result, load, console=out, lang=lang, load_check_asked=args.load_check is not None)
+    if load is not None and load.failed:
+        return 1
+    return 0
 
 
 def _handle_load_check(args: argparse.Namespace, err_console: Console, lang: str) -> int:
@@ -1001,6 +1098,7 @@ def _main(argv: list[str] | None = None) -> int:
                 args.prepare,
                 args.write,
                 args.load_check,
+                args.migrate,
                 args.severity,
                 args.object,
                 args.format,
@@ -1045,6 +1143,7 @@ def _main(argv: list[str] | None = None) -> int:
                 args.prepare,
                 args.write,
                 args.load_check,
+                args.migrate,
                 args.format,
                 args.output,
                 args.severity,
@@ -1056,6 +1155,9 @@ def _main(argv: list[str] | None = None) -> int:
             err_console.print(i18n.t(lang, "explain_conflict_error"))
             return 2
         return _handle_explain(args.explain, Console(), err_console, lang)
+
+    if args.migrate is not None:
+        return _handle_migrate(args, err_console, lang)
 
     if args.load_check is not None:
         return _handle_load_check(args, err_console, lang)

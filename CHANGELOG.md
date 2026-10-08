@@ -9,6 +9,28 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Added
+
+- **`--migrate` repairs from the source.** What ora2pg's output loses but
+  the source still says is put back, each repair checked on PostgreSQL 16
+  before and after: statement-level triggers stay `FOR EACH STATEMENT` and
+  return `NULL` (GAP-118); package constants with a literal value are
+  written as that literal wherever ora2pg left a `current_setting()` read,
+  the spliced initializer of GAP-114 or a parameter `DEFAULT` naming them
+  (GAP-119); a MySQL `ENUM` column gets its `CREATE TYPE` (GAP-068). On the
+  sample packages: 43 repairs, no GAP-114/119 load errors left. The run's
+  summary counts them next to the mechanical ones.
+
+### Fixed
+
+- `--migrate`: `-t PACKAGE` now gets only the packages. Given the whole
+  dump, ora2pg glued an object that follows the last package body (a
+  trigger, a procedure) into that body's last routine, which then did not
+  load.
+- The statement-trigger detector (GAP-118) no longer flags PostgreSQL's
+  own `FOR EACH STATEMENT ... EXECUTE FUNCTION` triggers, so `--load-check`
+  stops blaming GAP-118 for errors in them.
+
 ## [0.14.0] - 2026-10-08
 
 ### Added

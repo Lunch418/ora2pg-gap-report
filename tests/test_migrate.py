@@ -83,7 +83,8 @@ def test_the_pipeline_writes_every_stage(tmp_path, fake):
 def test_only_the_package_run_sees_the_packages(tmp_path, fake):
     run_migration([_source(tmp_path)], tmp_path / "out")
     inputs = {object_type: (name, text) for object_type, name, text in fake.calls}
-    assert inputs["PACKAGE"][0] == "_all_sources.sql" and "PACKAGE BODY" in inputs["PACKAGE"][1]
+    assert inputs["PACKAGE"][0] == "_packages.sql" and "PACKAGE BODY" in inputs["PACKAGE"][1]
+    assert "say_it" not in inputs["PACKAGE"][1]  # -t PACKAGE would glue it into the body
     for object_type in ("TYPE", "FUNCTION", "PROCEDURE", "TABLE", "TRIGGER"):
         name, text = inputs[object_type]
         assert name == "_standalone.sql" and "PACKAGE" not in text, object_type
@@ -168,3 +169,21 @@ def test_real_ora2pg_converts_each_package_member_once(tmp_path):
     names = [p.name for p in result.converted]
     assert any("PACKAGE" in n for n in names)
     assert not any("FUNCTION" in n or "PROCEDURE" in n for n in names), names
+
+
+def test_source_aware_repairs_run_on_the_output(tmp_path, monkeypatch):
+    fixtures = Path(__file__).parent / "fixtures" / "source_fixes"
+    fake = FakeOra2pg(
+        {
+            "PACKAGE": (fixtures / "oracle_PACKAGE_output.sql").read_text(encoding="utf-8"),
+            "TRIGGER": (fixtures / "oracle_TRIGGER_output.sql").read_text(encoding="utf-8"),
+        }
+    )
+    monkeypatch.setattr(migrate, "run_convert", fake)
+    src = tmp_path / "schema.sql"
+    shutil.copy(fixtures / "oracle_source.sql", src)
+    result = run_migration([src], tmp_path / "out")
+    assert result.source_fixes == 5  # one trigger, a default, two reads, a spliced chain
+    converted = {p.name.split("_", 1)[1]: p.read_text(encoding="utf-8") for p in result.converted}
+    assert "FOR EACH STATEMENT" in converted["TRIGGER_output.sql"]
+    assert "current_setting" not in converted["PACKAGE_output.sql"]

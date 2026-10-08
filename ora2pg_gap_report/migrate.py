@@ -30,6 +30,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from .autofix import FIXERS_BY_DIALECT
+from . import source_fixes
 from .checklist import ChecklistError, read_previous, write_checklist
 from .core import scan_source
 from .models import Finding
@@ -57,6 +58,7 @@ class MigrationResult:
     prepared_rewrites: int
     converted: list[Path]  # in load order
     fixes: int
+    source_fixes: int = 0
     empty_types: list[str] = dataclasses.field(default_factory=list)
 
 
@@ -76,16 +78,9 @@ _PACKAGE_RE = re.compile(
 _SLASH_LINE_RE = re.compile(r"^[ \t]*/[ \t]*\r?$", re.MULTILINE)
 
 
-def without_packages(source: str) -> str:
-    """`source` with every package spec and body cut out, each up to the
-    SQL*Plus `/` that ends it (or to the next package, or the end).
-
-    In file mode ora2pg's -t TYPE, FUNCTION and PROCEDURE do not stop at
-    standalone objects: they also extract the types and routines declared
-    inside packages, without the package's name. Run on the whole dump,
-    every package member comes out twice -- once from -t PACKAGE, once
-    unqualified -- and the copies fail to load against each other. Those
-    runs get this text instead; -t PACKAGE gets the whole dump."""
+def _package_spans(source: str) -> list[tuple[int, int]]:
+    """Where each package spec and body is: from its CREATE up to the
+    SQL*Plus `/` that ends it (or to the next package, or the end)."""
     from .plsql_lex import mask_strings_and_comments
 
     masked = mask_strings_and_comments(source)
@@ -97,9 +92,32 @@ def without_packages(source: str) -> str:
         nxt = _PACKAGE_RE.search(masked, m.end())
         end = min(x for x in (slash.end() if slash else len(source), nxt.start() if nxt else len(source)))
         cuts.append((m.start(), end))
+    return cuts
+
+
+def only_packages(source: str) -> str:
+    """The package specs and bodies of `source`, nothing else.
+
+    In file mode ora2pg's -t PACKAGE reads a package body up to the next
+    package or the end of the file: an object after the last body -- a
+    trigger, a procedure -- is glued into the last routine of it, which
+    then fails to load. The PACKAGE run gets this text instead."""
+    return "".join(source[start:end].rstrip("\n") + "\n" for start, end in _package_spans(source))
+
+
+def without_packages(source: str) -> str:
+    """`source` with every package spec and body cut out, each up to the
+    SQL*Plus `/` that ends it (or to the next package, or the end).
+
+    In file mode ora2pg's -t TYPE, FUNCTION and PROCEDURE do not stop at
+    standalone objects: they also extract the types and routines declared
+    inside packages, without the package's name. Run on the whole dump,
+    every package member comes out twice -- once from -t PACKAGE, once
+    unqualified -- and the copies fail to load against each other. Those
+    runs get this text instead; -t PACKAGE gets only_packages()."""
     out: list[str] = []
     pos = 0
-    for start, end in cuts:
+    for start, end in _package_spans(source):
         out.append(source[pos:start])
         pos = end
     out.append(source[pos:])
@@ -176,6 +194,8 @@ def run_migration(
     combined_text = "".join(combined_parts)
     combined = prepared_dir / "_all_sources.sql"
     combined.write_bytes(combined_text.encode("utf-8", errors="surrogateescape"))
+    packages = prepared_dir / "_packages.sql"
+    packages.write_bytes(only_packages(combined_text).encode("utf-8", errors="surrogateescape"))
     standalone = prepared_dir / "_standalone.sql"
     standalone.write_bytes(
         (without_packages(combined_text) if dialect == "oracle" else combined_text).encode(
@@ -190,7 +210,7 @@ def run_migration(
     empty: list[str] = []
     for position, object_type in enumerate(CONVERT_TYPES[dialect], 1):
         say(f"migrate_step_convert:{object_type}")
-        source_file = combined if object_type == "PACKAGE" else standalone
+        source_file = packages if object_type == "PACKAGE" else standalone
         sql = run_convert(source_file, object_type, dialect=dialect, ora2pg_bin=ora2pg_bin, lang=lang)
         if not _has_content(sql):
             empty.append(object_type)
@@ -199,14 +219,21 @@ def run_migration(
         target.write_text(sql, encoding="utf-8")
         converted.append(target)
 
-    # 4. fix
+    # 4. fix -- --fix's repairs, then the ones that need the source
+    # (source_fixes.py): which triggers were statement-level, what each
+    # package constant's value is, which values an ENUM had.
     say("migrate_step_fix")
     fixes = 0
+    source_repairs = 0
+    readable = combined_text.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace")
+    knowledge = source_fixes.learn(readable, dialect)
     for target in converted:
         text = target.read_text(encoding="utf-8")
         for fixer in FIXERS_BY_DIALECT[dialect]:
             text, applied = fixer(text)
             fixes += applied
+        text, applied = source_fixes.apply(text, knowledge)
+        source_repairs += applied
         target.write_text(text, encoding="utf-8")
 
     return MigrationResult(
@@ -216,5 +243,6 @@ def run_migration(
         prepared_rewrites=rewrites,
         converted=converted,
         fixes=fixes,
+        source_fixes=source_repairs,
         empty_types=empty,
     )

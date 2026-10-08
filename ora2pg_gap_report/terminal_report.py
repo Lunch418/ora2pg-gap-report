@@ -786,7 +786,7 @@ def render_migration(
     steps.add_row(
         "4",
         i18n.t(lang, "migrate_row_fix"),
-        i18n.t(lang, "migrate_row_fix_value", n=result.fixes),
+        i18n.t(lang, "migrate_row_fix_value", n=result.fixes, m=result.source_fixes),
         "converted/",
     )
     if load is None:

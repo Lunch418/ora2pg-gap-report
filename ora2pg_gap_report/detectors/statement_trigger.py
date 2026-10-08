@@ -14,6 +14,10 @@ _DML_TIMING_RE = re.compile(
     re.IGNORECASE,
 )
 _FOR_EACH_ROW_RE = re.compile(r"\bFOR\s+EACH\s+ROW\b", re.IGNORECASE)
+# EXECUTE PROCEDURE/FUNCTION only exists in PostgreSQL's CREATE TRIGGER:
+# a statement-level trigger in ora2pg's (or --migrate's repaired) output is
+# not the Oracle construct this gap is about.
+_PG_TRIGGER_RE = re.compile(r"\bEXECUTE\s+(?:PROCEDURE|FUNCTION)\b", re.IGNORECASE)
 _SCHEMA_OR_DATABASE_RE = re.compile(r"\bON\s+(?:\w+\s*\.\s*)?(?:SCHEMA|DATABASE)\b", re.IGNORECASE)
 
 
@@ -41,6 +45,8 @@ def find_statement_trigger(source: str) -> list[Finding]:
         timing = _DML_TIMING_RE.search(header)
         if timing is None or _FOR_EACH_ROW_RE.search(header) or _SCHEMA_OR_DATABASE_RE.search(header):
             continue
+        if _PG_TRIGGER_RE.search(header):
+            continue  # PostgreSQL's own CREATE TRIGGER, e.g. ora2pg's output
         findings.append(
             Finding(
                 detector="statement_trigger",

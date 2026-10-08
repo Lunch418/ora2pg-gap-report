@@ -16,9 +16,10 @@ all.
 
 Covers the same ground the flag-based CLI does: scan one or more files/
 directories, save the result as a baseline, compare against a previously
-saved one, and --verify a post-migration PostgreSQL scan against a
-pre-migration baseline -- same underlying functions (baseline.py,
-verification.py) the CLI uses, just click-driven.
+saved one, --verify a post-migration PostgreSQL scan against a
+pre-migration baseline, and --migrate -- same underlying functions
+(baseline.py, verification.py, migrate.py) the CLI uses, just
+click-driven.
 """
 
 from __future__ import annotations
@@ -337,10 +338,64 @@ def scan_path(
     return scan_paths([path], lang=lang, dialect=dialect)
 
 
+class _SpinnerStatus:
+    """The `#status` line of a screen that runs work in a thread: Claude
+    Code's "working" spinner while it runs, a red message if it fails.
+    Shared by ScanScreen and MigrateScreen."""
+
+    _spinner: Timer | None = None
+    _spinner_message = ""
+    _spinner_started = 0.0
+    _spinner_frame = 0
+    _spinner_lang = "ru"
+
+    def _status(self) -> Static:
+        return cast("Screen[None]", self).query_one("#status", Static)
+
+    def _start_spinner(self, message: str, lang: str) -> None:
+        """Claude Code's "working" line: a pulsing orange asterisk, what is
+        happening, and the seconds so far -- redrawn ten times a second
+        until the worker hands over a result or an error."""
+        self._stop_spinner()
+        self._spinner_message = message
+        self._spinner_lang = lang
+        self._spinner_started = time.monotonic()
+        self._spinner_frame = 0
+        self._draw_spinner()
+        self._spinner = cast("Screen[None]", self).set_interval(0.1, self._draw_spinner)
+
+    def _stop_spinner(self) -> None:
+        if self._spinner is not None:
+            self._spinner.stop()
+            self._spinner = None
+
+    def _draw_spinner(self) -> None:
+        shades = (_ACCENT, "#E38E72", "#EBA58E", "#E38E72")
+        shade = shades[self._spinner_frame % len(shades)]
+        self._spinner_frame += 1
+        lang = self._spinner_lang
+        seconds = i18n.number(lang, round(time.monotonic() - self._spinner_started, 1))
+        text = Text()
+        text.append("* ", style=f"bold {shade}")
+        text.append(self._spinner_message, style=shade)
+        text.append(f"  {i18n.t(lang, 'tui_elapsed', s=seconds)}", style=_MUTED)
+        self._status().update(text)
+
+    def _show_status_error(self, message: str | Text) -> None:
+        # Style via Text(..., style=...), not inline markup around an
+        # f-string -- `message` can carry an exception's own text (e.g. a
+        # baseline load error quoting the bad file's content), which must
+        # never be parsed as markup either.
+        self._stop_spinner()
+        if isinstance(message, str):
+            message = Text(message, style=f"bold {_RED}")
+        self._status().update(message)
+
+
 # Screen[T] and App[T] are parameterised by what they *return* when
 # dismissed; none of these hand a value back to a caller, so None is
 # the accurate parameter rather than a placeholder.
-class ScanScreen(Screen[None]):
+class ScanScreen(_SpinnerStatus, Screen[None]):
     """Landing screen: pick one or more paths in the tree, choose
     severity/language and any optional checks (CONNECT BY, baseline
     comparison, --verify), press Scan."""
@@ -363,7 +418,7 @@ class ScanScreen(Screen[None]):
     #tree { height: 1fr; margin: 0 1; padding: 0 1; }
     #controls, #multi-select-controls, #baseline-controls { height: 1; padding: 0 2; }
     #controls { margin-top: 1; }
-    #controls Select { margin-right: 2; }
+    #controls Select, #scan-btn { margin-right: 2; }
     #dialect-select { width: 12; }
     #severity-select { width: 20; }
     #lang-select { width: 13; }
@@ -395,6 +450,7 @@ class ScanScreen(Screen[None]):
             )
             yield Select(_LANG_OPTIONS, value=self.lang, id="lang-select", allow_blank=False, compact=True)
             yield Button(i18n.t(self.lang, "tui_scan_btn"), id="scan-btn", variant="primary", compact=True)
+            yield Button(i18n.t(self.lang, "tui_migrate_btn"), id="migrate-btn", compact=True)
         with Horizontal(id="multi-select-controls"):
             yield Button(i18n.t(self.lang, "tui_add_to_selection_btn"), id="add-path-btn", compact=True)
             yield Button(i18n.t(self.lang, "tui_clear_selection_btn"), id="clear-paths-btn", compact=True)
@@ -421,35 +477,6 @@ class ScanScreen(Screen[None]):
             self._stop_spinner()
             self._update_status()
 
-    def _start_spinner(self, message: str, lang: str) -> None:
-        """Claude Code's "working" line: a pulsing orange asterisk, what is
-        happening, and the seconds so far -- redrawn ten times a second
-        until the worker hands over a result or an error."""
-        self._stop_spinner()
-        self._spinner_message = message
-        self._spinner_lang = lang
-        self._spinner_started = time.monotonic()
-        self._spinner_frame = 0
-        self._draw_spinner()
-        self._spinner = self.set_interval(0.1, self._draw_spinner)
-
-    def _stop_spinner(self) -> None:
-        if self._spinner is not None:
-            self._spinner.stop()
-            self._spinner = None
-
-    def _draw_spinner(self) -> None:
-        shades = (_ACCENT, "#E38E72", "#EBA58E", "#E38E72")
-        shade = shades[self._spinner_frame % len(shades)]
-        self._spinner_frame += 1
-        lang = self._spinner_lang
-        seconds = i18n.number(lang, round(time.monotonic() - self._spinner_started, 1))
-        text = Text()
-        text.append("* ", style=f"bold {shade}")
-        text.append(self._spinner_message, style=shade)
-        text.append(f"  {i18n.t(lang, 'tui_elapsed', s=seconds)}", style=_MUTED)
-        self.query_one("#status", Static).update(text)
-
     def _update_status(self) -> None:
         # Text(...), not an f-string handed to Static.update(): a selected
         # path can contain anything the filesystem allows, brackets
@@ -469,14 +496,6 @@ class ScanScreen(Screen[None]):
         if not lines:
             lines.append(i18n.t(self.lang, "tui_status_nothing_selected"))
         self.query_one("#status", Static).update(Text("\n".join(lines)))
-
-    def _show_status_error(self, message: str) -> None:
-        # Style via Text(..., style=...), not inline markup around an
-        # f-string -- `message` can carry an exception's own text (e.g. a
-        # baseline load error quoting the bad file's content), which must
-        # never be parsed as markup either.
-        self._stop_spinner()
-        self.query_one("#status", Static).update(Text(message, style=f"bold {_RED}"))
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
         self.selected_path = event.path
@@ -503,7 +522,7 @@ class ScanScreen(Screen[None]):
             self._update_status()
             return
 
-        if button_id != "scan-btn":
+        if button_id not in ("scan-btn", "migrate-btn"):
             return
 
         paths = list(self.selected_paths) if self.selected_paths else (
@@ -523,6 +542,12 @@ class ScanScreen(Screen[None]):
         dialect = cast(str, self.query_one("#dialect-select", Select).value)
         check_connect_by = self.query_one("#connect-by-checkbox", Checkbox).value
         verify_mode = self.query_one("#verify-checkbox", Checkbox).value
+        if button_id == "migrate-btn":
+            # --migrate's own settings live on its screen; this one only
+            # hands over what to migrate, from which dialect, in which
+            # language.
+            self.app.push_screen(MigrateScreen(paths, dialect, lang, self._start_path))
+            return
         baseline_value = self.query_one("#baseline-input", Input).value.strip()
         baseline_path = baseline_value or None
 
@@ -710,6 +735,165 @@ class ScanScreen(Screen[None]):
             self.app.push_screen,
             VerifyResultsScreen(results, warnings, scanned_label, lang, introduced),
         )
+
+
+class MigrateScreen(_SpinnerStatus, Screen[None]):
+    """--migrate inside the TUI: where to write, which ora2pg, whether to
+    load the result into PostgreSQL in docker -- then the same run
+    (migrate.run_migration, migrate.load_and_record) and the same summary
+    (terminal_report.render_migration) the command line gives, with the
+    steps on the status line while it runs."""
+
+    BINDINGS = [("escape", "back", "Back")]
+
+    CSS = """
+    #migrate-intro { color: $text-muted; }
+    .migrate-row { height: 1; padding: 0 2; margin-top: 1; }
+    .migrate-row Label { width: 11; color: $text-muted; }
+    .migrate-row Input { width: 1fr; }
+    #migrate-run-btn { margin-left: 2; margin-right: 2; }
+    #status { height: auto; max-height: 3; padding: 0 2; margin-top: 1; color: $text-muted; }
+    #migrate-result { height: 1fr; margin: 1 1 0 1; padding: 0 1; border: round #4A4843; }
+    """
+
+    def __init__(self, paths: list[Path], dialect: str, lang: str, start_path: Path) -> None:
+        super().__init__()
+        self.paths = paths
+        self.dialect = dialect
+        self.lang = lang
+        self._start_path = start_path
+        self.result_text: Text | None = None
+        self.running = False
+
+    def compose(self) -> ComposeResult:
+        sources = ", ".join(str(p) for p in self.paths)
+        intro = Static(Text(i18n.t(self.lang, "tui_migrate_intro", path=sources)), id="migrate-intro", classes="box")
+        intro.border_title = f"ora2pg-gap-report  {i18n.t(self.lang, 'tui_migrate_title')}"
+        yield intro
+        with Horizontal(classes="migrate-row"):
+            yield Label(i18n.t(self.lang, "tui_migrate_out_label"))
+            yield Input(str(self._start_path / "ora2pg-migration"), id="migrate-out", compact=True)
+        with Horizontal(classes="migrate-row"):
+            yield Label(i18n.t(self.lang, "tui_migrate_ora2pg_label"))
+            yield Input(
+                "ora2pg",
+                placeholder=i18n.t(self.lang, "tui_migrate_ora2pg_placeholder"),
+                id="migrate-ora2pg",
+                compact=True,
+            )
+        with Horizontal(classes="migrate-row"):
+            yield _Check(i18n.t(self.lang, "tui_migrate_load_checkbox"), id="migrate-load", compact=True)
+            yield Button(i18n.t(self.lang, "tui_migrate_run_btn"), id="migrate-run-btn", variant="primary", compact=True)
+            yield Button(i18n.t(self.lang, "tui_back_to_scan_btn"), id="migrate-back-btn", compact=True)
+        yield Static("", id="status")
+        yield Static("", id="migrate-result")
+        yield Static(_hints(self.lang, "tab", "enter", "back", "quit"), classes="hints")
+
+    def action_back(self) -> None:
+        # Not while a run is going: its worker reports back to this screen.
+        if not self.running:
+            self.app.pop_screen()
+
+    def _set_running(self, running: bool) -> None:
+        self.running = running
+        self.query_one("#migrate-run-btn", Button).disabled = running
+        self.query_one("#migrate-back-btn", Button).disabled = running
+
+    def _show_status_error(self, message: str | Text) -> None:
+        self._set_running(False)
+        super()._show_status_error(message)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "migrate-back-btn":
+            self.action_back()
+            return
+        if event.button.id != "migrate-run-btn":
+            return
+        out = self.query_one("#migrate-out", Input).value.strip()
+        if not out:
+            self._show_status_error(i18n.t(self.lang, "tui_migrate_needs_out"))
+            return
+        ora2pg_bin = self.query_one("#migrate-ora2pg", Input).value.strip() or "ora2pg"
+        load = self.query_one("#migrate-load", Checkbox).value
+        self.query_one("#migrate-result", Static).update("")
+        self.result_text = None
+        self._set_running(True)
+        self._start_spinner(i18n.t(self.lang, "tui_migrate_running"), self.lang)
+        self._run(Path(out).expanduser(), ora2pg_bin, load)
+
+    def _progress(self, key: str) -> None:
+        name, _, detail = key.partition(":")
+        self._spinner_message = i18n.t(self.lang, name, detail=detail)
+
+    def _show_result(self, text: Text) -> None:
+        self._set_running(False)
+        self._stop_spinner()
+        self._status().update("")
+        self.result_text = text
+        self.query_one("#migrate-result", Static).update(text)
+
+    @work(thread=True)
+    def _run(self, out: Path, ora2pg_bin: str, load_check: bool) -> None:
+        # Same outer boundary as ScanScreen._run_scan: an exception escaping
+        # a thread worker would take the whole app down.
+        try:
+            self._run_impl(out, ora2pg_bin, load_check)
+        except Exception as exc:
+            self.app.call_from_thread(
+                self._show_status_error,
+                i18n.t(self.lang, "tui_worker_crashed", exc_type=type(exc).__name__, exc=exc),
+            )
+
+    def _run_impl(self, out: Path, ora2pg_bin: str, load_check: bool) -> None:
+        import io
+
+        from rich.console import Console
+        from rich.markup import escape
+
+        from .load_check import LoadCheckError
+        from .migrate import MigrateError, load_and_record, run_migration
+        from .ora2pg_wrapper import Ora2PgNotFoundError, Ora2PgRunError
+        from .terminal_report import render_migration
+
+        lang = self.lang
+
+        def fail(markup: str, plain: str = "") -> None:
+            message = Text(plain, style=f"bold {_RED}") if plain else Text()
+            if plain:
+                message.append("\n")
+            message.append(Text.from_markup(markup))
+            self.app.call_from_thread(self._show_status_error, message)
+
+        sources, _ = expand_paths(self.paths)
+        sources = [p for p in sources if p.is_file()]
+        if not sources:
+            fail(i18n.t(lang, "no_paths_error"))
+            return
+        try:
+            result = run_migration(
+                sources,
+                out,
+                dialect=self.dialect,
+                ora2pg_bin=ora2pg_bin,
+                lang=lang,
+                version=_version(),
+                progress=lambda key: self.app.call_from_thread(self._progress, key),
+            )
+            load = None
+            if load_check and result.converted:
+                self.app.call_from_thread(self._progress, "migrate_step_load")
+                load = load_and_record(result, "docker", dialect=self.dialect, lang=lang)
+        except (MigrateError, LoadCheckError) as exc:
+            fail(i18n.t(lang, exc.key, **{k: escape(str(v)) for k, v in exc.kwargs.items()}))
+            return
+        except (Ora2PgNotFoundError, Ora2PgRunError) as exc:
+            fail(i18n.t(lang, "migrate_ora2pg_hint"), plain=str(exc))
+            return
+
+        width = max(60, self.size.width - 6)
+        console = Console(file=io.StringIO(), record=True, width=width, force_terminal=True, color_system="truecolor")
+        render_migration(result, load, console=console, lang=lang, load_check_asked=load_check)
+        self.app.call_from_thread(self._show_result, Text.from_ansi(console.export_text(styles=True)))
 
 
 class ResultsScreen(Screen[None]):

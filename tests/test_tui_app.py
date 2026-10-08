@@ -587,7 +587,7 @@ async def test_scan_screen_chrome_defaults_to_russian():
         scan_screen = app.screen
         assert isinstance(scan_screen, ScanScreen)
         assert "Пока ничего не выбрано." in scan_screen.query_one("#status").content
-        assert scan_screen.query_one("#scan-btn", Button).label.plain == "Сканировать"
+        assert scan_screen.query_one("#scan-btn", Button).label.plain == "Проверить"
         assert scan_screen.query_one("#lang-select", Select).value == "ru"
 
 
@@ -842,3 +842,144 @@ def test_every_hint_key_has_a_key_and_a_description(lang):
     assert "|" not in text
     for key in ("tab", "enter", "esc", "q"):
         assert key in text
+
+
+# --- --migrate in the TUI ------------------------------------------------------
+
+
+def _fake_ora2pg(monkeypatch):
+    from ora2pg_gap_report import migrate
+
+    outputs = {
+        "TABLE": "CREATE TABLE orders (id bigint GENERATED ALWAYS AS IDENTITY ((START WITH 1)));\n",
+        "PROCEDURE": "CREATE OR REPLACE PROCEDURE say_it () AS $body$ BEGIN NULL; END; $body$ LANGUAGE plpgsql;\n",
+    }
+
+    def run_convert(input_file, object_type, dialect="oracle", ora2pg_bin="ora2pg", lang="ru"):
+        return outputs.get(object_type, "")
+
+    monkeypatch.setattr(migrate, "run_convert", run_convert)
+
+
+def _schema(tmp_path):
+    source = tmp_path / "src" / "schema.sql"
+    source.parent.mkdir()
+    source.write_text(
+        "CREATE TABLE orders (id NUMBER GENERATED ALWAYS AS IDENTITY (START WITH 1));\n"
+        "CREATE OR REPLACE PROCEDURE say_it IS BEGIN NULL; END;\n/\n",
+        encoding="utf-8",
+    )
+    return source
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+@pytest.mark.asyncio
+async def test_migrate_runs_the_pipeline_and_shows_its_summary(tmp_path, monkeypatch, lang):
+    from ora2pg_gap_report.tui_app import MigrateScreen
+
+    _fake_ora2pg(monkeypatch)
+    source = _schema(tmp_path)
+    app = GapReportApp(start_path=tmp_path, lang=lang)
+    async with app.run_test(size=(100, 40)) as pilot:
+        await pilot.pause()
+        app.screen.selected_path = source
+        await pilot.click("#migrate-btn")
+        await _wait_until(pilot, lambda: isinstance(app.screen, MigrateScreen))
+        screen = app.screen
+        out = tmp_path / "out"
+        screen.query_one("#migrate-out").value = str(out)
+        await pilot.click("#migrate-run-btn")
+        await _wait_until(pilot, lambda: screen.result_text is not None)
+
+        summary = screen.result_text.plain
+        assert ("Migration: Oracle -> PostgreSQL" if lang == "en" else "Oracle -> PostgreSQL") in summary
+        assert (out / "report.html").exists() and (out / "MIGRATION.md").exists()
+        # --fix ran on the output, as on the command line
+        assert "IDENTITY (START WITH 1)" in (out / "converted" / "03_TABLE_output.sql").read_text(encoding="utf-8")
+
+
+@pytest.mark.asyncio
+async def test_migrate_refuses_a_directory_it_did_not_make(tmp_path, monkeypatch):
+    from ora2pg_gap_report.tui_app import MigrateScreen
+
+    _fake_ora2pg(monkeypatch)
+    source = _schema(tmp_path)
+    foreign = tmp_path / "mine"
+    foreign.mkdir()
+    (foreign / "notes.txt").write_text("keep", encoding="utf-8")
+    app = GapReportApp(start_path=tmp_path, lang="en")
+    async with app.run_test(size=(100, 40)) as pilot:
+        await pilot.pause()
+        app.screen.selected_path = source
+        await pilot.click("#migrate-btn")
+        await _wait_until(pilot, lambda: isinstance(app.screen, MigrateScreen))
+        screen = app.screen
+        screen.query_one("#migrate-out").value = str(foreign)
+        await pilot.click("#migrate-run-btn")
+        await _wait_until(pilot, lambda: "leaving it alone" in str(screen.query_one("#status").content))
+        assert screen.result_text is None
+        assert (foreign / "notes.txt").read_text(encoding="utf-8") == "keep"
+
+
+@pytest.mark.asyncio
+async def test_migrate_without_a_selection_says_so():
+    app = GapReportApp(start_path=SAMPLES, lang="en")
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.click("#migrate-btn")
+        await pilot.pause()
+        assert isinstance(app.screen, ScanScreen)
+        assert i18n.t("en", "tui_error_pick_first") in str(app.screen.query_one("#status").content)
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+@pytest.mark.asyncio
+async def test_migrate_screen_fits_an_eighty_column_terminal(lang):
+    from ora2pg_gap_report.tui_app import MigrateScreen
+
+    app = GapReportApp(start_path=SAMPLES, lang=lang)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        app.screen.selected_path = SAMPLES
+        await pilot.click("#migrate-btn")
+        await _wait_until(pilot, lambda: isinstance(app.screen, MigrateScreen))
+        for row in app.screen.query(".migrate-row"):
+            right_edge = max(w.region.right for w in row.children)
+            assert right_edge <= 80, f"{lang}: a row overflows 80 columns ({right_edge})"
+            assert len({w.region.height for w in row.children}) == 1
+
+
+@pytest.mark.asyncio
+async def test_migrate_screen_holds_while_a_run_is_going(tmp_path, monkeypatch):
+    import threading
+
+    from ora2pg_gap_report import migrate
+    from ora2pg_gap_report.tui_app import MigrateScreen
+
+    release = threading.Event()
+
+    def slow_convert(input_file, object_type, dialect="oracle", ora2pg_bin="ora2pg", lang="ru"):
+        release.wait(5)
+        return ""
+
+    monkeypatch.setattr(migrate, "run_convert", slow_convert)
+    source = _schema(tmp_path)
+    app = GapReportApp(start_path=tmp_path, lang="en")
+    async with app.run_test(size=(100, 40)) as pilot:
+        await pilot.pause()
+        app.screen.selected_path = source
+        await pilot.click("#migrate-btn")
+        await _wait_until(pilot, lambda: isinstance(app.screen, MigrateScreen))
+        screen = app.screen
+        screen.query_one("#migrate-out").value = str(tmp_path / "out")
+        await pilot.click("#migrate-run-btn")
+        await _wait_until(pilot, lambda: screen.running)
+        assert screen.query_one("#migrate-run-btn", Button).disabled
+        await pilot.press("escape")
+        await pilot.pause()
+        assert app.screen is screen  # still here: the run reports back to it
+        release.set()
+        await _wait_until(pilot, lambda: screen.result_text is not None)
+        assert not screen.running and not screen.query_one("#migrate-run-btn", Button).disabled
+        await pilot.press("escape")
+        await _wait_until(pilot, lambda: isinstance(app.screen, ScanScreen))

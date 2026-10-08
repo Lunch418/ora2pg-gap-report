@@ -18,7 +18,7 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.text import Text
 
-from . import html_report, i18n, ora2pg_wrapper
+from . import i18n, ora2pg_wrapper
 from .atomic_write import open_text_atomic, write_text_atomic
 from .autofix import FIXERS_BY_DIALECT, Fixer
 from .checklist import ChecklistError, read_previous, write_checklist
@@ -606,7 +606,7 @@ def _handle_migrate(args: argparse.Namespace, err_console: Console, lang: str) -
     --load-check, load -- see migrate.py. Exit codes as --load-check's: 0
     done (and loaded, if checked), 1 the output does not load, 2 the run
     could not be done."""
-    from .migrate import MigrateError, run_migration
+    from .migrate import MigrateError, load_and_record, run_migration
 
     conflicting = any(
         (
@@ -667,7 +667,7 @@ def _handle_migrate(args: argparse.Namespace, err_console: Console, lang: str) -
             load = None
             if args.load_check is not None and result.converted:
                 progress("migrate_step_load")
-                load = run_load_check(result.converted, parse_target(args.load_check), dialect=args.dialect)
+                load = load_and_record(result, args.load_check, dialect=args.dialect, lang=lang)
     except MigrateError as exc:
         err_console.print(i18n.t(lang, exc.key, **{k: escape(str(v)) for k, v in exc.kwargs.items()}))
         return 2
@@ -678,16 +678,6 @@ def _handle_migrate(args: argparse.Namespace, err_console: Console, lang: str) -
         err_console.print(f"[red]{escape(str(exc))}[/red]")
         err_console.print(i18n.t(lang, "migrate_ora2pg_hint"))
         return 2
-
-    if load is not None:
-        # The report gets the load result too, at the top: the one page to
-        # hand to someone who wants to know whether it loads.
-        with open_text_atomic(result.out_dir / "report.html") as report_file:
-            html_report.write_html(result.findings, report_file, lang=lang, load=load)
-        write_text_atomic(result.out_dir / "load-check.json", to_load_check_json(load))
-        buffer = io.StringIO()
-        render_load_check(load, console=_file_console(buffer), lang=lang)
-        write_text_atomic(result.out_dir / "load-check.txt", buffer.getvalue())
 
     render_migration(result, load, console=out, lang=lang, load_check_asked=args.load_check is not None)
     if load is not None and load.failed:

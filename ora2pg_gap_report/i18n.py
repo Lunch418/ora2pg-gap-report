@@ -1351,7 +1351,29 @@ _UI: dict[str, dict[str, str]] = {
     # (--severity's own choices, col_severity's "Severity" header even in
     # Russian, terminal_report.py's NEW/RESOLVED/UNCHANGED), not prose.
     "tui_severity_only": {"ru": "Только {level}", "en": "{level} only"},
-    "tui_scan_btn": {"ru": "Сканировать", "en": "Scan"},
+    # "Проверить", not "Сканировать": with the Migrate button beside it the
+    # row has to fit 80 columns in Russian too.
+    "tui_scan_btn": {"ru": "Проверить", "en": "Scan"},
+    # --migrate in the TUI: the button on the scan screen, and the screen
+    # it opens (MigrateScreen).
+    "tui_migrate_btn": {"ru": "Миграция", "en": "Migrate"},
+    "tui_migrate_title": {"ru": "Миграция", "en": "Migration"},
+    "tui_migrate_intro": {
+        "ru": "Исходник: {path}\nСкан, подготовка, ora2pg, исправления и, если отмечено, загрузка в PostgreSQL -"
+        " всё в каталог ниже. Сам исходник не меняется.",
+        "en": "Source: {path}\nScan, prepare, ora2pg, fixes and, if ticked, a load into PostgreSQL - all into"
+        " the directory below. The source itself is not touched.",
+    },
+    "tui_migrate_out_label": {"ru": "Каталог", "en": "Directory"},
+    "tui_migrate_ora2pg_label": {"ru": "ora2pg", "en": "ora2pg"},
+    "tui_migrate_ora2pg_placeholder": {"ru": "ora2pg или docker:ОБРАЗ", "en": "ora2pg or docker:IMAGE"},
+    "tui_migrate_load_checkbox": {
+        "ru": "загрузить в PostgreSQL в docker",
+        "en": "load into PostgreSQL in docker",
+    },
+    "tui_migrate_run_btn": {"ru": "Запустить", "en": "Run"},
+    "tui_migrate_needs_out": {"ru": "Укажите каталог для результата.", "en": "Name a directory for the result."},
+    "tui_migrate_running": {"ru": "Миграция...", "en": "Migrating..."},
     "tui_add_to_selection_btn": {"ru": "Добавить к выбору", "en": "Add to selection"},
     "tui_clear_selection_btn": {"ru": "Очистить выбор", "en": "Clear selection"},
     # No "(requires ora2pg)" qualifier in the label: it duplicated what

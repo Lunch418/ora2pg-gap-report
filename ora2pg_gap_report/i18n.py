@@ -1,7 +1,7 @@
 """Output language for the CLI: resolution order, persistence, and the
 English strings themselves.
 
-Scope, deliberately: this covers everything a normal scan run prints —
+Scope, deliberately: this covers everything a normal scan run prints -
 terminal_report.py's rendered output, report_generator.py's Markdown/HTML
 headers, cli.py's runtime warnings/errors, baseline.py's load errors, every
 detector's explanation/remediation text, argparse's own --help/description
@@ -251,7 +251,7 @@ _UI: dict[str, dict[str, str]] = {
     # terminal_report.py
     "no_findings": {"ru": "Проблемных конструкций не найдено.", "en": "No problematic constructs found."},
     "objects_scanned_inline": {"ru": "\nОбъектов просканировано: {n}", "en": "\nObjects scanned: {n}"},
-    "elapsed_inline": {"ru": "\nВремя анализа: {s:.1f} с", "en": "\nAnalysis time: {s:.1f}s"},
+    "elapsed_inline": {"ru": "\nВремя анализа: {s} с", "en": "\nAnalysis time: {s}s"},
     "col_file": {"ru": "Файл", "en": "File"},
     "col_object": {"ru": "Объект", "en": "Object"},
     "col_line": {"ru": "Строка", "en": "Line"},
@@ -287,9 +287,9 @@ _UI: dict[str, dict[str, str]] = {
     "new_findings_label": {"ru": "Новые находки:\n", "en": "New findings:\n"},
     # cli.py runtime messages
     "explain_unknown_gap": {
-        "ru": "[red]Неизвестный GAP: {ref}[/red] — ожидается номер из "
+        "ru": "[red]Неизвестный GAP: {ref}[/red] - ожидается номер из "
         "docs/research/GAP_REGISTRY.md, например GAP-023 или 023",
-        "en": "[red]Unknown GAP: {ref}[/red] — expected a number from "
+        "en": "[red]Unknown GAP: {ref}[/red] - expected a number from "
         "docs/research/GAP_REGISTRY.md, e.g. GAP-023 or 023",
     },
     # --- ora2pg-gap-export ------------------------------------------
@@ -298,7 +298,7 @@ _UI: dict[str, dict[str, str]] = {
     # rest of the tool.
     "export_description": {
         "ru": "Выгружает DDL объектов живой Oracle-схемы в отдельные .sql "
-        "файлы — для последующего анализа через `ora2pg-gap-report`.",
+        "файлы - для последующего анализа через `ora2pg-gap-report`.",
         "en": "Exports a live Oracle schema's object DDL to individual .sql "
         "files, for offline analysis with `ora2pg-gap-report`.",
     },
@@ -307,17 +307,17 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Oracle connect string, e.g. host:1521/ORCLPDB1",
     },
     "export_help_owner": {
-        "ru": "Схема, из которой выгружать объекты (по умолчанию — совпадает с --user)",
+        "ru": "Схема, из которой выгружать объекты (по умолчанию - совпадает с --user)",
         "en": "Schema to export objects from (defaults to --user)",
     },
     "export_help_types": {
         "ru": "Какие типы объектов выгружать, через запятую (по умолчанию все: "
-        "{choices}). Имена — как в ALL_OBJECTS.object_type, регистр не важен",
+        "{choices}). Имена - как в ALL_OBJECTS.object_type, регистр не важен",
         "en": "Which object types to export, comma separated (default: all of "
         "{choices}). Names are as in ALL_OBJECTS.object_type; case doesn't matter",
     },
     "export_help_output_dir": {
-        "ru": "Куда сохранить .sql файлы (по умолчанию — ./oracle_export)",
+        "ru": "Куда сохранить .sql файлы (по умолчанию - ./oracle_export)",
         "en": "Where to write the .sql files (default: ./oracle_export)",
     },
     "export_unknown_type": {
@@ -352,9 +352,9 @@ _UI: dict[str, dict[str, str]] = {
     },
     "ora2pg_not_runnable": {
         "ru": "исполняемый файл ora2pg не найден или не запускается "
-        "({bin}: {exc}) — см. README по установке",
+        "({bin}: {exc}) - см. README по установке",
         "en": "the ora2pg executable was not found or could not be run "
-        "({bin}: {exc}) — see the README for setup",
+        "({bin}: {exc}) - see the README for setup",
     },
     "ora2pg_timeout": {
         "ru": "ora2pg не ответил за {timeout}с",
@@ -365,7 +365,7 @@ _UI: dict[str, dict[str, str]] = {
         "en": "ora2pg exited with code {code}:\n{detail}",
     },
     "explain_doc_not_translated": {
-        "ru": "[dim](документ ниже — на английском: русский перевод этого "
+        "ru": "[dim](документ ниже - на английском: русский перевод этого "
         "gap'а ещё не готов)[/dim]",
         "en": "[dim](the document below is in Russian: its English "
         "translation is not ready yet)[/dim]",
@@ -378,34 +378,34 @@ _UI: dict[str, dict[str, str]] = {
     },
     "ora2pg_version_mismatch": {
         "ru": "Установлен ora2pg {installed}, а находки подтверждались на "
-        "{verified}. Поведение ora2pg на вашей версии может отличаться — "
+        "{verified}. Поведение ora2pg на вашей версии может отличаться - "
         "проверьте docs/research/GAP_REGISTRY.md.",
         "en": "Installed ora2pg is {installed}, but the findings were confirmed "
-        "against {verified}. ora2pg may behave differently on your version — "
+        "against {verified}. ora2pg may behave differently on your version - "
         "see docs/research/GAP_REGISTRY.md.",
     },
     "explain_severity_line": {"ru": "Severity: {severity}", "en": "Severity: {severity}"},
     "explain_failure_stage_line": {"ru": "Когда ломается: {stage}", "en": "Fails at: {stage}"},
     "failure_stage_conversion": {
-        "ru": "конвертация — видно только в собственном логе прогона ora2pg "
+        "ru": "конвертация - видно только в собственном логе прогона ora2pg "
         "(DEBUG-строка или пропущенный/недосчитанный объект), ещё до PostgreSQL",
-        "en": "conversion — only visible in ora2pg's own conversion run/log "
+        "en": "conversion - only visible in ora2pg's own conversion run/log "
         "(a debug line, or an omitted/undercounted object), before PostgreSQL is involved at all",
     },
     "failure_stage_deployment": {
-        "ru": "развёртывание — сгенерированный DDL сразу падает при загрузке в PostgreSQL",
-        "en": "deployment — the generated DDL fails to load into PostgreSQL, immediately",
+        "ru": "развёртывание - сгенерированный DDL сразу падает при загрузке в PostgreSQL",
+        "en": "deployment - the generated DDL fails to load into PostgreSQL, immediately",
     },
     "failure_stage_runtime": {
-        "ru": "выполнение — DDL загружается без ошибок (в дампе ora2pg заранее стоит "
+        "ru": "выполнение - DDL загружается без ошибок (в дампе ora2pg заранее стоит "
         "check_function_bodies = false), но помеченный код падает при первом реальном вызове",
-        "en": "runtime — the DDL loads cleanly (ora2pg's own dump sets "
+        "en": "runtime - the DDL loads cleanly (ora2pg's own dump sets "
         "check_function_bodies = false), but the flagged code fails the first time it actually runs",
     },
     "failure_stage_semantic": {
-        "ru": "тихая потеря поведения — ошибки не будет никогда, ни на одном этапе; "
+        "ru": "тихая потеря поведения - ошибки не будет никогда, ни на одном этапе; "
         "поведение просто тихо отличается от Oracle, пока кто-то специально не проверит",
-        "en": "silent behavior loss — no error is ever raised, at any stage; behavior is just "
+        "en": "silent behavior loss - no error is ever raised, at any stage; behavior is just "
         "silently different from Oracle, unless someone specifically checks for it",
     },
     # Compact one/two-word versions of the four failure_stage_* strings
@@ -421,14 +421,14 @@ _UI: dict[str, dict[str, str]] = {
     "explanation_gap_stage_line": {"ru": "{gap} · Когда ломается: {stage}", "en": "{gap} · Fails at: {stage}"},
     "explain_doc_not_local": {
         "ru": "[yellow]GAP-{number} ({detector}): research-документ не найден локально[/yellow] "
-        "(research-документы не входят в pip-пакет — это репозиторий, а не установленный CLI).",
+        "(research-документы не входят в pip-пакет - это репозиторий, а не установленный CLI).",
         "en": "[yellow]GAP-{number} ({detector}): research doc not found locally[/yellow] "
-        "(research docs aren't shipped in the pip package — that's the repository, not the "
+        "(research docs aren't shipped in the pip package - that's the repository, not the "
         "installed CLI).",
     },
     "explain_see_github": {"ru": "Смотреть на GitHub: {url}", "en": "See it on GitHub: {url}"},
     "explain_conflict_error": {
-        "ru": "[red]--explain — самостоятельный просмотр документации, не сканирование: "
+        "ru": "[red]--explain - самостоятельный просмотр документации, не сканирование: "
         "его нельзя сочетать с путями к файлам, --fail-on, --save, --baseline, "
         "--check-connect-by, --verify, --fix, --write, --load-check, --format, --output, "
         "--severity или --object[/red]",
@@ -437,7 +437,7 @@ _UI: dict[str, dict[str, str]] = {
         "--verify, --fix, --write, --load-check, --format, --output, --severity, or --object[/red]",
     },
     "tui_conflict_error": {
-        "ru": "[red]--tui — самостоятельный интерактивный режим: принимает не больше одного "
+        "ru": "[red]--tui - самостоятельный интерактивный режим: принимает не больше одного "
         "пути (стартовая точка в дереве) и не сочетается с --explain, --verify, --fix, --load-check, "
         "--write, --fail-on, --save, --baseline, --check-connect-by, --severity, --object, "
         "--format или --output[/red]",
@@ -469,36 +469,36 @@ _UI: dict[str, dict[str, str]] = {
         "en": "[yellow]Skipped (unreadable: {exc}):[/yellow] {path}",
     },
     "scan_internal_error": {
-        "ru": "[red]Внутренняя ошибка при сканировании {path}: {exc_type}: {exc}[/red] — "
+        "ru": "[red]Внутренняя ошибка при сканировании {path}: {exc_type}: {exc}[/red] - "
         "этот файл пропущен, сканирование остальных продолжено",
-        "en": "[red]Internal error scanning {path}: {exc_type}: {exc}[/red] — "
+        "en": "[red]Internal error scanning {path}: {exc_type}: {exc}[/red] - "
         "this file was skipped, scanning the rest continued",
     },
     "scan_detector_errors": {
         "ru": "[red]Ошибка в детекторе(ах) {names} при сканировании {path}: "
-        "{exc_type}: {exc}[/red] — находки этих детекторов для файла пропущены, "
+        "{exc_type}: {exc}[/red] - находки этих детекторов для файла пропущены, "
         "остальные детекторы и остальные файлы обработаны как обычно",
         "en": "[red]Detector(s) {names} failed scanning {path}: {exc_type}: "
-        "{exc}[/red] — their findings for this file were skipped, every other "
+        "{exc}[/red] - their findings for this file were skipped, every other "
         "detector and every other file were still processed normally",
     },
     "internal_error_summary": {
         "ru": "[red]Один или несколько файлов не удалось просканировать из-за внутренней "
-        "ошибки (см. выше) — отчёт по остальным файлам всё равно построен, но неполон.[/red]",
+        "ошибки (см. выше) - отчёт по остальным файлам всё равно построен, но неполон.[/red]",
         "en": "[red]One or more files couldn't be scanned due to an internal error (see "
-        "above) — the report for the rest was still produced, but is incomplete.[/red]",
+        "above) - the report for the rest was still produced, but is incomplete.[/red]",
     },
     "unexpected_internal_error": {
-        "ru": "[red]Непредвиденная внутренняя ошибка: {exc_type}: {exc}[/red] — это баг "
+        "ru": "[red]Непредвиденная внутренняя ошибка: {exc_type}: {exc}[/red] - это баг "
         "инструмента, а не найденная проблема миграции. Пожалуйста, сообщите о нём: "
         "https://github.com/Lunch418/ora2pg-gap-report/issues",
-        "en": "[red]Unexpected internal error: {exc_type}: {exc}[/red] — this is a bug in "
+        "en": "[red]Unexpected internal error: {exc_type}: {exc}[/red] - this is a bug in "
         "the tool itself, not a migration finding. Please report it: "
         "https://github.com/Lunch418/ora2pg-gap-report/issues",
     },
     "connect_by_not_found": {
-        "ru": "{path}: содержит CONNECT BY, но ora2pg не найден — проверка пропущена",
-        "en": "{path}: contains CONNECT BY, but ora2pg wasn't found — check skipped",
+        "ru": "{path}: содержит CONNECT BY, но ora2pg не найден - проверка пропущена",
+        "en": "{path}: contains CONNECT BY, but ora2pg wasn't found - check skipped",
     },
     "connect_by_run_error": {
         "ru": "{path}: содержит CONNECT BY, но запуск ora2pg завершился ошибкой ({exc})",
@@ -509,27 +509,27 @@ _UI: dict[str, dict[str, str]] = {
         "en": "[red]Couldn't save baseline to {path}: {exc}[/red]",
     },
     "save_baseline_same_path_error": {
-        "ru": "[red]--save и --baseline указывают на один и тот же файл ({path}) — сравнение "
+        "ru": "[red]--save и --baseline указывают на один и тот же файл ({path}) - сравнение "
         "прогона с самим собой всегда покажет «без изменений». Используйте разные пути: "
         "--baseline на старый снапшот, --save на новый.[/red]",
-        "en": "[red]--save and --baseline point at the same file ({path}) — comparing this run "
+        "en": "[red]--save and --baseline point at the same file ({path}) - comparing this run "
         "against itself always reports \"unchanged\". Use different paths: --baseline for the "
         "old snapshot, --save for the new one.[/red]",
     },
     "save_baseline_skipped_partial_scan": {
         "ru": "[yellow]baseline не сохранён в {path}: сканирование было неполным (см. "
-        "предупреждения выше) — снапшот с пропущенными файлами не запишется как «полный»[/yellow]",
+        "предупреждения выше) - снапшот с пропущенными файлами не запишется как «полный»[/yellow]",
         "en": "[yellow]baseline not saved to {path}: the scan was incomplete (see warnings "
-        "above) — a snapshot with skipped files won't be written as though it were complete[/yellow]",
+        "above) - a snapshot with skipped files won't be written as though it were complete[/yellow]",
     },
     "write_report_error": {
         "ru": "[red]Не удалось записать отчёт в {path}: {exc}[/red]",
         "en": "[red]Couldn't write the report to {path}: {exc}[/red]",
     },
     "gate_failed": {
-        "ru": "\n[bold red]Migration gate FAILED[/bold red] — {n} находок с "
+        "ru": "\n[bold red]Migration gate FAILED[/bold red] - {n} находок с "
         "severity {sev} и выше (порог --fail-on {sev})",
-        "en": "\n[bold red]Migration gate FAILED[/bold red] — {n} findings at "
+        "en": "\n[bold red]Migration gate FAILED[/bold red] - {n} findings at "
         "severity {sev} or higher (--fail-on {sev} threshold)",
     },
     "lang_saved": {
@@ -538,13 +538,13 @@ _UI: dict[str, dict[str, str]] = {
     },
     # --verify (post-migration static verification)
     "verify_requires_baseline": {
-        "ru": "[red]--verify требует --baseline PATH — снапшот, сохранённый через --save "
+        "ru": "[red]--verify требует --baseline PATH - снапшот, сохранённый через --save "
         "до миграции[/red]",
-        "en": "[red]--verify requires --baseline PATH — a snapshot saved via --save "
+        "en": "[red]--verify requires --baseline PATH - a snapshot saved via --save "
         "before the migration[/red]",
     },
     "verify_conflict_error": {
-        "ru": "[red]--verify — отдельный режим сравнения с baseline, его нельзя сочетать "
+        "ru": "[red]--verify - отдельный режим сравнения с baseline, его нельзя сочетать "
         "с --explain, --save, --fail-on, --check-connect-by, --fix, --write, --severity "
         "или --object[/red]",
         "en": "[red]--verify is a standalone baseline-comparison mode, it can't be "
@@ -578,10 +578,10 @@ _UI: dict[str, dict[str, str]] = {
     "verify_new_col_count": {"ru": "Находок", "en": "Findings"},
     "verify_new_footer_note": {
         "ru": "Эти детекторы сработали на сгенерированном выводе, но в baseline их нет: "
-        "конструкции не было в исходнике Oracle — её внесла сама конверсия. Сравнивать "
+        "конструкции не было в исходнике Oracle - её внесла сама конверсия. Сравнивать "
         "«до/после» тут не с чем, поэтому колонки «До» нет.",
         "en": "These detectors fired on the generated output but aren't in the baseline: "
-        "the construct wasn't in the Oracle source — the conversion itself introduced it. "
+        "the construct wasn't in the Oracle source - the conversion itself introduced it. "
         "There's no before/after to compare, which is why there's no \"Before\" column.",
     },
     "verify_summary_new_in_output": {
@@ -590,17 +590,17 @@ _UI: dict[str, dict[str, str]] = {
     },
     "verify_footer_note": {
         "ru": "NOT_DETECTED означает «в проверенном коде паттерн не нашёлся», а не "
-        "«проблема доказанно исправлена» — см. docs/ARCHITECTURE.md. NOT_VERIFIABLE — "
+        "«проблема доказанно исправлена» - см. docs/ARCHITECTURE.md. NOT_VERIFIABLE - "
         "ora2pg отбрасывает эту конструкцию из вывода на любой миграции, повторный "
         "прогон детектора здесь ничего не доказывает в принципе.",
         "en": "NOT_DETECTED means \"the pattern wasn't found in the checked code\", not "
-        "\"the problem is provably fixed\" — see docs/ARCHITECTURE.md. NOT_VERIFIABLE — "
+        "\"the problem is provably fixed\" - see docs/ARCHITECTURE.md. NOT_VERIFIABLE - "
         "ora2pg drops this construct from its output on every migration, so re-running "
         "the detector here can't prove anything either way.",
     },
     # --fix (mechanical autofix of ora2pg's generated output, see autofix.py)
     "fix_conflict_error": {
-        "ru": "[red]--fix — отдельный режим исправления сгенерированного кода, его нельзя "
+        "ru": "[red]--fix - отдельный режим исправления сгенерированного кода, его нельзя "
         "сочетать с --explain, --verify, --tui, --fail-on, --save, --baseline, "
         "--check-connect-by, --severity, --object, --format или --output[/red]",
         "en": "[red]--fix is a standalone mode for fixing generated code, it can't be "
@@ -618,16 +618,16 @@ _UI: dict[str, dict[str, str]] = {
         "after it; they are different files, run them separately[/red]",
     },
     "fix_diff_header": {
-        "ru": "[cyan]{path}[/cyan]: найдено исправлений — {count}",
-        "en": "[cyan]{path}[/cyan]: fixes found — {count}",
+        "ru": "[cyan]{path}[/cyan]: найдено исправлений - {count}",
+        "en": "[cyan]{path}[/cyan]: fixes found - {count}",
     },
     "fix_summary_clean": {
         "ru": "{path}: исправлений не найдено",
         "en": "{path}: no fixes found",
     },
     "fix_summary_written": {
-        "ru": "[green]{path}: записано, исправлений — {count}[/green]",
-        "en": "[green]{path}: written, fixes applied — {count}[/green]",
+        "ru": "[green]{path}: записано, исправлений - {count}[/green]",
+        "en": "[green]{path}: written, fixes applied - {count}[/green]",
     },
     "fix_summary_dry_run_hint": {
         "ru": "[yellow]Показан diff, файлы не изменены. Добавьте --write для реальной "
@@ -899,10 +899,10 @@ _UI: dict[str, dict[str, str]] = {
         "en": "\n[bold red]The generated code doesn't load[/bold red] - {errors}.",
     },
     "set_lang_not_interactive": {
-        "ru": "[red]--set-lang открывает интерактивный выбор языка — нужен настоящий "
+        "ru": "[red]--set-lang открывает интерактивный выбор языка - нужен настоящий "
         "терминал. Используйте --lang ru|en для одного запуска или "
         "ORA2PG_GAP_REPORT_LANG=ru|en.[/red]",
-        "en": "[red]--set-lang opens an interactive language picker — it needs a real "
+        "en": "[red]--set-lang opens an interactive language picker - it needs a real "
         "terminal. Use --lang ru|en for a single run, or "
         "ORA2PG_GAP_REPORT_LANG=ru|en.[/red]",
     },
@@ -922,9 +922,9 @@ _UI: dict[str, dict[str, str]] = {
     },
     "baseline_schema_mismatch": {
         "ru": "{path}: schema_version={schema_version!r}, эта версия инструмента "
-        "ожидает {expected} — пересохраните baseline через --save текущей версией",
+        "ожидает {expected} - пересохраните baseline через --save текущей версией",
         "en": "{path}: schema_version={schema_version!r}, this version of the tool "
-        "expects {expected} — re-save the baseline with --save using the current version",
+        "expects {expected} - re-save the baseline with --save using the current version",
     },
     "baseline_missing_field": {
         "ru": "{path}: запись находки без обязательного поля/полей: {field}",
@@ -943,20 +943,20 @@ _UI: dict[str, dict[str, str]] = {
     # The terminal report (terminal_report.render), beside the report_*
     # strings it shares with the HTML report.
     "nothing_scanned": {
-        "ru": "Ни один из указанных путей не удалось просканировать — отчёт не создан. Причины выше.",
+        "ru": "Ни один из указанных путей не удалось просканировать - отчёт не создан. Причины выше.",
         "en": "None of the given paths could be scanned, so no report was made. The reasons are above.",
     },
     "term_scanned": {"ru": "Просканировано: {objects}", "en": "Scanned: {objects}"},
-    "term_elapsed": {"ru": " за {s:.1f} с", "en": " in {s:.1f} s"},
+    "term_elapsed": {"ru": " за {s} с", "en": " in {s} s"},
     "term_effort_patterns": {
-        "ru": "{gaps} на {findings}: каждый тип оценён полностью один раз, повторы — как применение "
+        "ru": "{gaps} на {findings}: каждый тип оценён полностью один раз, повторы - как применение "
         "уже найденного исправления",
         "en": "{gaps} across {findings}: each kind is priced in full once, repeats as applying a fix "
         "already worked out",
     },
     "term_more_findings": {
-        "ru": "… и ещё {findings} — полный список: ora2pg-gap-report ... -f html -o report.html",
-        "en": "… and {findings} more — the full list: ora2pg-gap-report ... -f html -o report.html",
+        "ru": "… и ещё {findings} - полный список: ora2pg-gap-report ... -f html -o report.html",
+        "en": "… and {findings} more - the full list: ora2pg-gap-report ... -f html -o report.html",
     },
     "term_more_objects": {"ru": "… и ещё {objects}", "en": "… and {objects} more"},
     "term_details_heading": {"ru": "Подробно", "en": "In detail"},
@@ -1054,7 +1054,7 @@ _UI: dict[str, dict[str, str]] = {
     "report_col_object": {"ru": "Объект", "en": "Object"},
     "report_col_snippet": {"ru": "Фрагмент", "en": "Fragment"},
     "report_effort_label": {"ru": "Ручная доработка", "en": "Manual rework"},
-    "report_effort_range": {"ru": "{lo}–{hi} ч", "en": "{lo}–{hi} h"},
+    "report_effort_range": {"ru": "{lo}-{hi} ч", "en": "{lo}-{hi} h"},
     "report_effort_caveat": {
         "ru": "неоткалиброванная эвристика по severity, не измерение (см. README.md, «Почему почти всё high»)",
         "en": "an uncalibrated heuristic based on severity, not a measurement (see README.md, "
@@ -1086,11 +1086,11 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Findings: {n} ({counts})\n\n",
     },
     "markdown_effort_estimate": {
-        "ru": "Грубая оценка ручной доработки: {lo}–{hi} ч. "
-        "— неоткалиброванная эвристика по severity, не измерение "
+        "ru": "Грубая оценка ручной доработки: {lo}-{hi} ч. "
+        "- неоткалиброванная эвристика по severity, не измерение "
         "(см. README.md, «Почему почти всё high»).\n\n",
-        "en": "Rough manual-rework estimate: {lo}–{hi}h. "
-        "— an uncalibrated heuristic based on severity, not a measurement "
+        "en": "Rough manual-rework estimate: {lo}-{hi}h. "
+        "- an uncalibrated heuristic based on severity, not a measurement "
         "(see README.md, \"Why almost everything is `high`\").\n\n",
     },
     # cli.py argparse --help/description text. Resolved *before* argparse
@@ -1100,7 +1100,7 @@ _UI: dict[str, dict[str, str]] = {
     # parse --lang out of argv, but building translated help text needs to
     # already know --lang.
     "help_description": {
-        "ru": 'Находит в схеме Oracle, дампе MySQL/MariaDB или скрипте T-SQL то, что ora2pg при переносе в PostgreSQL потеряет, сломает или перенесёт неверно, — и объясняет, почему и что делать. Каждый из {n} пробелов подтверждён прогоном настоящего ora2pg и PostgreSQL.',
+        "ru": 'Находит в схеме Oracle, дампе MySQL/MariaDB или скрипте T-SQL то, что ora2pg при переносе в PostgreSQL потеряет, сломает или перенесёт неверно, - и объясняет, почему и что делать. Каждый из {n} пробелов подтверждён прогоном настоящего ora2pg и PostgreSQL.',
         "en": 'Finds what ora2pg will lose, break or carry over wrongly when it moves an Oracle schema, a MySQL/MariaDB dump or a T-SQL script to PostgreSQL -- and explains why and what to do. Each of the {n} gaps was confirmed with a real ora2pg and PostgreSQL run.',
     },
     "help_usage": {"ru": "использование: ", "en": "usage: "},
@@ -1108,49 +1108,49 @@ _UI: dict[str, dict[str, str]] = {
     "help_optionals": {"ru": "параметры", "en": "options"},
     "help_help": {"ru": "Показать эту справку и выйти", "en": "Show this help and exit"},
     "help_paths": {
-        "ru": "Файлы с DDL для анализа (.sql/.pks/.pkb) и/или директории — "
+        "ru": "Файлы с DDL для анализа (.sql/.pks/.pkb) и/или директории - "
         "директория сканируется рекурсивно на файлы с этими "
         "расширениями. Не нужны вместе с --explain.",
-        "en": "DDL files to analyze (.sql/.pks/.pkb) and/or directories — a "
+        "en": "DDL files to analyze (.sql/.pks/.pkb) and/or directories - a "
         "directory is scanned recursively for files with these "
         "extensions. Not needed together with --explain.",
     },
     "help_version": {"ru": "Показать установленную версию и выйти", "en": "Show the installed version and exit"},
     "help_explain": {
         "ru": "Показать research-документ конкретного gap'а из реестра (например, GAP-023 или "
-        "просто 023) и выйти — без сканирования файлов. Самостоятельная команда: нельзя "
+        "просто 023) и выйти - без сканирования файлов. Самостоятельная команда: нельзя "
         "сочетать с путями к файлам, --fail-on, --save, --baseline, --check-connect-by, "
         "--verify, --format, --output, --severity или --object.",
         "en": "Show a specific gap's research document from the registry (e.g. GAP-023 or "
-        "just 023) and exit — no file scanning. A standalone command: can't be combined "
+        "just 023) and exit - no file scanning. A standalone command: can't be combined "
         "with file paths, --fail-on, --save, --baseline, --check-connect-by, --verify, "
         "--format, --output, --severity, or --object.",
     },
     "help_format": {
-        "ru": "Формат отчёта. По умолчанию — цветной вывод в терминал, если "
-        "stdout это tty и не указан --output; иначе markdown. sarif — "
-        "SARIF 2.1.0, для GitHub/GitLab code scanning. html — "
+        "ru": "Формат отчёта. По умолчанию - цветной вывод в терминал, если "
+        "stdout это tty и не указан --output; иначе markdown. sarif - "
+        "SARIF 2.1.0, для GitHub/GitLab code scanning. html - "
         "самодостаточная HTML-страница (без внешних ресурсов), для "
         "показа заказчику/руководству. checklist - Markdown-чеклист работ по объектам; при "
         "повторной генерации в тот же --output отмеченные галочки сохраняются, а то, чего "
         "больше нет в просканированных файлах, отмечается само.",
         "en": "Report format. Defaults to colored terminal output if stdout is a "
-        "tty and --output isn't given; markdown otherwise. sarif — SARIF "
-        "2.1.0, for GitHub/GitLab code scanning. html — a self-contained "
+        "tty and --output isn't given; markdown otherwise. sarif - SARIF "
+        "2.1.0, for GitHub/GitLab code scanning. html - a self-contained "
         "HTML page (no external resources), for showing a client/manager. "
         "checklist - a Markdown checklist of the work, per object; regenerating it "
         "into the same --output keeps the ticked boxes and ticks what the scanned "
         "files no longer contain.",
     },
-    "help_output": {"ru": "Куда сохранить отчёт (по умолчанию — stdout)", "en": "Where to save the report (default: stdout)"},
+    "help_output": {"ru": "Куда сохранить отчёт (по умолчанию - stdout)", "en": "Where to save the report (default: stdout)"},
     "help_check_connect_by": {
         "ru": "Дополнительно: для файлов с CONNECT BY реально прогнать ora2pg и "
         "проверить сгенерированный WITH RECURSIVE на известный баг с LEVEL. "
-        "Требует установленный ora2pg (не ставится через pip — это "
+        "Требует установленный ora2pg (не ставится через pip - это "
         "отдельный Perl-инструмент, см. README).",
         "en": "Extra: for files with CONNECT BY, actually run ora2pg and check "
         "the generated WITH RECURSIVE for a known bug with LEVEL. Requires "
-        "ora2pg installed (not a pip package — a separate Perl tool, see "
+        "ora2pg installed (not a pip package - a separate Perl tool, see "
         "README).",
     },
     "help_ora2pg_bin": {
@@ -1163,7 +1163,7 @@ _UI: dict[str, dict[str, str]] = {
     },
     "verify_unknown_detectors": {
         "ru": "В baseline есть детекторы, которых нет в этой сборке: {detectors}. "
-        "Снапшот, похоже, сделан другой версией инструмента — обновите её или "
+        "Снапшот, похоже, сделан другой версией инструмента - обновите её или "
         "пересоздайте baseline; сверять по части находок было бы враньём.",
         "en": "The baseline contains detectors this build does not have: {detectors}. "
         "The snapshot looks like it came from a different version -- update it or "
@@ -1171,7 +1171,7 @@ _UI: dict[str, dict[str, str]] = {
     },
     "verify_mixed_dialects": {
         "ru": "В baseline смешаны находки нескольких диалектов ({dialects}). Один прогон "
-        "сканирует один диалект, так что такой снапшот собран вручную — разделите его "
+        "сканирует один диалект, так что такой снапшот собран вручную - разделите его "
         "и сверяйте каждый диалект отдельно.",
         "en": "The baseline mixes findings from several dialects ({dialects}). One scan "
         "covers one dialect, so this snapshot was assembled by hand -- split it and "
@@ -1180,14 +1180,14 @@ _UI: dict[str, dict[str, str]] = {
     "verify_dialect_mismatch": {
         "ru": "Запрошен --dialect {requested}, а baseline сделан для диалекта "
         "{baseline_dialect}. Сверка чужими детекторами показала бы «не найдено» по всем "
-        "находкам — это была бы не проверка, а тавтология.",
+        "находкам - это была бы не проверка, а тавтология.",
         "en": "--dialect {requested} was requested, but the baseline was taken with "
         "{baseline_dialect}. Verifying with another dialect's detectors would report "
         "\"not detected\" for every finding -- a tautology, not a check.",
     },
     "connect_by_oracle_only": {
         "ru": "--check-connect-by работает только с --dialect oracle (сейчас {dialect}): "
-        "CONNECT BY — конструкция Oracle, и сама проверка запускает ora2pg в "
+        "CONNECT BY - конструкция Oracle, и сама проверка запускает ora2pg в "
         "Oracle-режиме. На файле другого диалекта она не нашла бы ничего никогда.",
         "en": "--check-connect-by only works with --dialect oracle (got {dialect}): "
         "CONNECT BY is Oracle-only syntax, and the check itself runs ora2pg in Oracle "
@@ -1211,7 +1211,7 @@ _UI: dict[str, dict[str, str]] = {
     },
     "help_save": {
         "ru": "Сохранить находки этого прогона как baseline-снапшот в PATH (для последующего "
-        "сравнения через --baseline). Снапшот — все находки, независимо от --severity/--object; "
+        "сравнения через --baseline). Снапшот - все находки, независимо от --severity/--object; "
         "эти флаги влияют только на то, что выводится в отчёте.",
         "en": "Save this run's findings as a baseline snapshot at PATH (for a later comparison "
         "via --baseline). The snapshot holds every finding regardless of --severity/--object; "
@@ -1220,23 +1220,23 @@ _UI: dict[str, dict[str, str]] = {
     "help_baseline": {
         "ru": "Сравнить находки этого прогона с ранее сохранённым --save снапшотом: NEW/RESOLVED/"
         "UNCHANGED. Сравнение тоже считается по всем находкам, независимо от --severity/--object. "
-        "С флагом --verify означает другое — см. --verify.",
+        "С флагом --verify означает другое - см. --verify.",
         "en": "Compare this run's findings against a previously saved --save snapshot: NEW/"
         "RESOLVED/UNCHANGED. The comparison also covers every finding regardless of "
-        "--severity/--object. Means something different together with --verify — see --verify.",
+        "--severity/--object. Means something different together with --verify - see --verify.",
     },
     "help_verify": {
         "ru": "Пост-миграционная статическая проверка: сканирует пути как сгенерированный ora2pg "
         "PostgreSQL-код (не Oracle-исходник) и сравнивает с --baseline (снапшот, сохранённый "
-        "--save до миграции) на уровне детекторов — STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE. "
-        "Не поведенческая/функциональная проверка — не подключается к БД, ничего не выполняет. "
+        "--save до миграции) на уровне детекторов - STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE. "
+        "Не поведенческая/функциональная проверка - не подключается к БД, ничего не выполняет. "
         "Требует --baseline. Самостоятельный режим: нельзя сочетать с --explain, --save, "
         "--fail-on, --check-connect-by, --severity или --object. Поддерживает только "
         "--format terminal (по умолчанию) и --format json.",
         "en": "Post-migration static check: scans the given paths as ora2pg's generated "
         "PostgreSQL code (not Oracle source) and compares them against --baseline (a "
-        "snapshot saved via --save before migrating) at the detector level — "
-        "STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE. Not a behavioral/functional check — "
+        "snapshot saved via --save before migrating) at the detector level - "
+        "STILL_PRESENT/NOT_DETECTED/NOT_VERIFIABLE. Not a behavioral/functional check - "
         "doesn't connect to a database or run anything. Requires --baseline. A standalone "
         "mode: can't be combined with --explain, --save, --fail-on, --check-connect-by, "
         "--severity, or --object. Only supports --format terminal (default) and --format "
@@ -1244,10 +1244,10 @@ _UI: dict[str, dict[str, str]] = {
     },
     "help_fail_on": {
         "ru": "Завершиться с кодом 1, если среди находок есть хотя бы одна с этим уровнем серьёзности "
-        "или выше (high выше medium выше low) — для CI-гейта. Оценивается по всем находкам, "
+        "или выше (high выше medium выше low) - для CI-гейта. Оценивается по всем находкам, "
         "независимо от --severity/--object, чтобы фильтр вывода не маскировал провал гейта.",
         "en": "Exit with code 1 if any finding is at this severity level or above (high above "
-        "medium above low) — for a CI gate. Evaluated over every finding regardless of "
+        "medium above low) - for a CI gate. Evaluated over every finding regardless of "
         "--severity/--object, so an output filter can't mask a failed gate.",
     },
     "help_lang": {
@@ -1265,15 +1265,15 @@ _UI: dict[str, dict[str, str]] = {
     "help_tui": {
         "ru": "Интерактивный режим: выбор файла/директории и запуск сканирования мышью или "
         "клавиатурой вместо флагов. Требует textual (pip install \"ora2pg-gap-report[tui]\"), "
-        "не ставится вместе с базовым пакетом. Если указан один путь-директория — она "
+        "не ставится вместе с базовым пакетом. Если указан один путь-директория - она "
         "открывается как стартовая точка в дереве; самостоятельный режим, как --explain/"
-        "--verify — не сочетается с --fail-on/--save/--baseline/--check-connect-by/--explain/"
+        "--verify - не сочетается с --fail-on/--save/--baseline/--check-connect-by/--explain/"
         "--verify/--severity/--object/--format/--output.",
         "en": "Interactive mode: pick a file/directory and run a scan with the mouse or "
         "keyboard instead of flags. Requires textual (pip install "
         "\"ora2pg-gap-report[tui]\"), not installed with the base package. If a single "
         "directory path is given, it opens as the tree's starting point; a standalone "
-        "mode, like --explain/--verify — not combinable with --fail-on/--save/--baseline/"
+        "mode, like --explain/--verify - not combinable with --fail-on/--save/--baseline/"
         "--check-connect-by/--explain/--verify/--severity/--object/--format/--output.",
     },
     "help_fix": {
@@ -1406,7 +1406,7 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Check CONNECT BY",
     },
     "tui_baseline_input_placeholder": {
-        "ru": "Файл baseline (опционально — сравнить или сверить с ним)",
+        "ru": "Файл baseline (опционально - сравнить или сверить с ним)",
         "en": "Baseline file (optional -- compare or verify against it)",
     },
     # Shortened for the same reason -- the long form left the baseline
@@ -1451,19 +1451,19 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Could not read {path}: {exc}",
     },
     "tui_warning_detector_error": {
-        "ru": "Ошибка в детекторе(ах) {names} на файле {path}: {exc_type}: {exc} — "
+        "ru": "Ошибка в детекторе(ах) {names} на файле {path}: {exc_type}: {exc} - "
         "их находки для этого файла пропущены",
-        "en": "Detector(s) {names} failed on {path}: {exc_type}: {exc} — "
+        "en": "Detector(s) {names} failed on {path}: {exc_type}: {exc} - "
         "their findings for this file were skipped",
     },
     "tui_warning_scan_error": {
-        "ru": "Внутренняя ошибка при сканировании {path}: {exc_type}: {exc} — файл пропущен",
-        "en": "Internal error scanning {path}: {exc_type}: {exc} — file skipped",
+        "ru": "Внутренняя ошибка при сканировании {path}: {exc_type}: {exc} - файл пропущен",
+        "en": "Internal error scanning {path}: {exc_type}: {exc} - file skipped",
     },
     "tui_worker_crashed": {
-        "ru": "Внутренняя ошибка: {exc_type}: {exc}. Это баг инструмента — сообщите о нём: "
+        "ru": "Внутренняя ошибка: {exc_type}: {exc}. Это баг инструмента - сообщите о нём: "
         "https://github.com/Lunch418/ora2pg-gap-report/issues",
-        "en": "Internal error: {exc_type}: {exc}. This is a bug in the tool — please report it: "
+        "en": "Internal error: {exc_type}: {exc}. This is a bug in the tool - please report it: "
         "https://github.com/Lunch418/ora2pg-gap-report/issues",
     },
     "tui_warning_no_files_under": {
@@ -1489,8 +1489,8 @@ _UI: dict[str, dict[str, str]] = {
     "tui_save_baseline_btn": {"ru": "Сохранить baseline", "en": "Save baseline"},
     "tui_back_to_scan_btn": {"ru": "Назад к сканированию", "en": "Back to scan"},
     "tui_scanned_no_findings": {
-        "ru": "Просканировано {path} — проблемных конструкций не найдено.",
-        "en": "Scanned {path} — no problematic constructs found.",
+        "ru": "Просканировано {path} - проблемных конструкций не найдено.",
+        "en": "Scanned {path} - no problematic constructs found.",
     },
     "tui_effort_caveat": {"ru": "(грубая эвристика, не измерение)", "en": "(a rough heuristic, not a measurement)"},
     "tui_scanned_path": {"ru": "Просканировано: {path}", "en": "Scanned: {path}"},
@@ -1501,9 +1501,9 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Saved {n} findings to {path}",
     },
     "tui_verify_summary": {
-        "ru": "Проверено {path} по baseline — детекторов в baseline: {n}: осталось "
+        "ru": "Проверено {path} по baseline - детекторов в baseline: {n}: осталось "
         "{still_present}, не обнаружено {not_detected}, нельзя проверить {not_verifiable}",
-        "en": "Verified {path} against baseline — {n} baseline detectors: {still_present} "
+        "en": "Verified {path} against baseline - {n} baseline detectors: {still_present} "
         "still present, {not_detected} not detected, {not_verifiable} not verifiable",
     },
 }

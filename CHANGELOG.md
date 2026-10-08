@@ -41,6 +41,12 @@ patch for fixes to existing ones.
   collection to GAP-003: on the sample packages 2 errors are left unknown,
   down from 9.
 
+- **`--migrate` in the TUI.** "Migrate" beside "Scan" opens a screen for
+  the output directory, the ora2pg to use and the load into PostgreSQL in
+  docker; it shows each step while it runs and ends with the same summary
+  and the same directory as the command line. The Russian "Scan" button is
+  now "Проверить", so the row still fits 80 columns.
+
 ### Fixed
 
 - `--migrate`: `-t PACKAGE` now gets only the packages. Given the whole

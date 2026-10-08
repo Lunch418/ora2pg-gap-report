@@ -27,6 +27,7 @@ import io
 import re
 import shutil
 from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING
 from pathlib import Path
 
 from .autofix import FIXERS_BY_DIALECT
@@ -36,6 +37,9 @@ from .core import scan_source
 from .models import Finding
 from .ora2pg_wrapper import CONVERT_TYPES, run_convert
 from .prepare import PREPARERS_BY_DIALECT
+
+if TYPE_CHECKING:
+    from .load_check import LoadCheckResult
 
 MARKER_NAME = ".ora2pg-gap-report-migrate"
 
@@ -246,3 +250,28 @@ def run_migration(
         source_fixes=source_repairs,
         empty_types=empty,
     )
+
+
+def load_and_record(result: MigrationResult, target: str, *, dialect: str = "oracle", lang: str = "ru") -> LoadCheckResult:
+    """Step 5: load the converted files into `target` (as --load-check
+    names it) and record the outcome in OUT_DIR -- the load card at the top
+    of report.html, load-check.json for a pipeline, load-check.txt to read.
+    The CLI and the TUI both run this, so both leave the same directory.
+    Raises load_check.LoadCheckError."""
+    from rich.console import Console
+
+    from .atomic_write import open_text_atomic, write_text_atomic
+    from .html_report import write_html
+    from .load_check import parse_target, run_load_check
+    from .report_generator import to_load_check_json
+    from .terminal_report import render_load_check
+
+    load = run_load_check(result.converted, parse_target(target), dialect=dialect)
+    with open_text_atomic(result.out_dir / "report.html") as report_file:
+        write_html(result.findings, report_file, lang=lang, load=load)
+    write_text_atomic(result.out_dir / "load-check.json", to_load_check_json(load))
+    buffer = io.StringIO()
+    render_load_check(load, console=Console(file=buffer), lang=lang)
+    write_text_atomic(result.out_dir / "load-check.txt", buffer.getvalue())
+    return load
+

@@ -87,7 +87,7 @@ empirically against real PL/SQL code
 | **Works offline** | Self-contained bundle for closed networks (`scripts/build_offline_bundle.py`), see below |
 | **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED between runs |
 | **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code; takes its dialect from the baseline (not a functional check, see below) |
-| **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags |
+| **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags, `--migrate` included |
 | **Autofix** | `--fix`/`--write` — three known-safe mechanical fixes for `ora2pg`'s generated code, picked by `--dialect`, see below |
 | **One-command migration** | `--migrate out/` - scan, prepare, convert with ora2pg, fix and load, everything into one directory, see below |
 | **Source preparation** | `--prepare` - rewrites what ora2pg's parser trips over in the dump itself (DELIMITER, DEFINER, `[brackets]`, `q'[...]'`), before ora2pg runs, see below |
@@ -431,6 +431,13 @@ NEW/RESOLVED/UNCHANGED counts on the results screen (with its own "Save
 baseline" button to write one), or tick "Verify mode" to run the same
 post-migration `--verify` comparison against it. Running `--tui` without
 the `[tui]` extra installed prints a plain install hint, not a traceback.
+
+"Migrate" runs `--migrate` on what is picked: a screen asks where to write,
+which ora2pg to use (`ora2pg` on `PATH` or `docker:IMAGE`) and whether to
+load the result into PostgreSQL in docker, shows each step while it runs,
+and ends with the same summary the command line prints. The directory it
+writes is the same too - `report.html`, `MIGRATION.md`, `converted/`, and
+`load-check.txt`/`.json` with the load.
 
 ### Documentation straight from the CLI
 

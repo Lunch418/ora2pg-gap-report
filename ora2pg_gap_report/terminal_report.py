@@ -207,7 +207,7 @@ def _render_rail(console: Console, gaps: list[GapGroup], lang: str) -> None:
         console.print()
         console.print(
             Text(
-                f"{i18n.t(lang, 'stage_none_name')}: {i18n.count(lang, 'finding', per_stage['none'])} — "
+                f"{i18n.t(lang, 'stage_none_name')}: {i18n.count(lang, 'finding', per_stage['none'])} - "
                 f"{i18n.t(lang, 'stage_none_desc')}.",
                 style="dim",
             )
@@ -285,7 +285,7 @@ def _render_gap_details(console: Console, gaps: list[GapGroup], lang: str) -> No
                     gap=f"GAP-{gap_number}",
                     stage=i18n.t(lang, f"failure_stage_short_{failure_stage}"),
                 )
-                body.append(Text(f"{line} — {i18n.t(lang, f'stage_{failure_stage}_desc')}", style=_STAGE_STYLE[failure_stage]))
+                body.append(Text(f"{line} - {i18n.t(lang, f'stage_{failure_stage}_desc')}", style=_STAGE_STYLE[failure_stage]))
             else:
                 body.append(Text(f"GAP-{gap_number}", style="dim"))
         # What to do before why: the same order as the TUI and the HTML.

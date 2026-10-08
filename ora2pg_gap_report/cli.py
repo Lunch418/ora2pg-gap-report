@@ -444,7 +444,7 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
         console.print(i18n.t(lang, "explain_see_github", url=research_doc_url(gap)))
         return 0
 
-    console.print(Panel(Text(f"GAP-{gap.number} — {gap.detector}"), border_style="cyan"))
+    console.print(Panel(Text(f"GAP-{gap.number} - {gap.detector}"), border_style="cyan"))
     console.print(version_line)
     console.print(severity_line)
     if stage_line is not None:

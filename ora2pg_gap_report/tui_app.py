@@ -1122,7 +1122,7 @@ class ResultsScreen(Screen[None]):
         if failure_stage is not None:
             text.append(
                 f"{i18n.t(lang, 'report_rail_label')}: "
-                f"{i18n.t(lang, f'failure_stage_short_{failure_stage}')} — {i18n.t(lang, f'stage_{key}_desc')}",
+                f"{i18n.t(lang, f'failure_stage_short_{failure_stage}')} - {i18n.t(lang, f'stage_{key}_desc')}",
                 style=_STAGE_STYLE[key],
             )
             text.append("\n")

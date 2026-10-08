@@ -328,7 +328,7 @@ def write_html(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(heading)} — ora2pg-gap-report</title>
+<title>{html.escape(heading)} - ora2pg-gap-report</title>
 <style>{_CSS.replace("__FILTER_RULES__", _filter_rules(severities_present, stages_present))}</style>
 </head>
 <body>
@@ -384,7 +384,7 @@ def write_html(
     if per_stage.get("none"):
         w(
             f'<p class="aside-stage">{i18n.t(lang, "stage_none_name")}: '
-            f'{i18n.count(lang, "finding", per_stage["none"])} — {i18n.t(lang, "stage_none_desc")}.</p>\n'
+            f'{i18n.count(lang, "finding", per_stage["none"])} - {i18n.t(lang, "stage_none_desc")}.</p>\n'
         )
 
     # Severity split and effort, side by side.

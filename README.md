@@ -54,7 +54,9 @@ docker run --rm --user "$(id -u):$(id -g)" --group-add "$(stat -c %g /var/run/do
 `--user` and `--group-add` make the files in `out/` yours and let the
 container reach docker; for a scan alone, `docker run --rm -v
 "$PWD:/work" ghcr.io/lunch418/ora2pg-gap-report schema/` is enough. The
-image speaks English; add `--lang ru` for Russian.
+image speaks English; add `--lang ru` for Russian. With the tool installed
+by pip but no ora2pg, the same image can be just the ora2pg:
+`--ora2pg-bin docker:ghcr.io/lunch418/ora2pg-gap-report`.
 
 ![ora2pg-gap-report in a terminal: findings per failure stage, every gap once, and one gap in detail](docs/screenshots/terminal.en.png)
 
@@ -438,6 +440,8 @@ load the result into PostgreSQL in docker, shows each step while it runs,
 and ends with the same summary the command line prints. The directory it
 writes is the same too - `report.html`, `MIGRATION.md`, `converted/`, and
 `load-check.txt`/`.json` with the load.
+
+![ora2pg-gap-report --tui: the migrate screen after a run on the sample packages with the load into PostgreSQL 16](docs/screenshots/tui-migrate.en.png)
 
 ### Documentation straight from the CLI
 

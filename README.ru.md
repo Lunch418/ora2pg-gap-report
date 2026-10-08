@@ -54,7 +54,9 @@ docker run --rm --user "$(id -u):$(id -g)" --group-add "$(stat -c %g /var/run/do
 `--user` и `--group-add` делают файлы в `out/` вашими и дают контейнеру
 доступ к docker; для одного сканирования хватит `docker run --rm -v
 "$PWD:/work" ghcr.io/lunch418/ora2pg-gap-report --lang ru schema/`. По
-умолчанию образ говорит по-английски.
+умолчанию образ говорит по-английски. Если инструмент стоит через pip, а
+ora2pg нет, тот же образ может быть просто ora2pg:
+`--ora2pg-bin docker:ghcr.io/lunch418/ora2pg-gap-report`.
 
 ![ora2pg-gap-report в терминале: находки по стадиям поломки, каждый пробел один раз и один пробел подробно](docs/screenshots/terminal.ru.png)
 
@@ -436,6 +438,8 @@ ora2pg-gap-report --tui path/to/schema_dump/   # открывается там
 работа, и в конце выдаёт ту же сводку, что и командная строка. Каталог
 получается тот же - `report.html`, `MIGRATION.md`, `converted/`, а с
 загрузкой ещё `load-check.txt`/`.json`.
+
+![ora2pg-gap-report --tui: экран миграции после прогона на примерах пакетов с загрузкой в PostgreSQL 16](docs/screenshots/tui-migrate.ru.png)
 
 ### Документация прямо из CLI
 

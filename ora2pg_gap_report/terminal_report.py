@@ -234,7 +234,7 @@ def _render_severity_and_effort(console: Console, findings: list[Finding], gaps:
     grid.add_row(i18n.t(lang, "report_filter_severity"), bar)
     lo, hi = estimate_hours(findings)
     grid.add_row(
-        i18n.t(lang, "effort_panel_title"), Text(i18n.t(lang, "report_effort_range", lo=i18n.number(lang, lo), hi=i18n.number(lang, hi)), style="bold")
+        i18n.t(lang, "effort_panel_title"), Text(i18n.t(lang, "report_effort_range", lo=i18n.hours(lang, lo), hi=i18n.hours(lang, hi)), style="bold")
     )
     grid.add_row("", Text(i18n.t(lang, "report_effort_caveat"), style="dim"))
     if distinct_detector_count(findings) < total:
@@ -741,9 +741,12 @@ def render_migration(
     console: Console | None = None,
     lang: str = "ru",
     load_check_asked: bool = False,
+    in_tui: bool = False,
 ) -> None:
     """The --migrate summary: one line per step, what it did and where its
-    files are, then the load result and what to open first."""
+    files are, then the load result and what to open first. `in_tui`
+    words the next steps for the TUI's migrate screen, which has a
+    checkbox and a Run button instead of flags and a command."""
     console = console or Console()
     console.print()
     heading = Text()
@@ -791,7 +794,12 @@ def render_migration(
     )
     if load is None:
         load_text = Text(
-            i18n.t(lang, "migrate_row_load_nothing" if load_check_asked else "migrate_row_load_skipped"),
+            i18n.t(
+                lang,
+                "migrate_row_load_nothing"
+                if load_check_asked
+                else "migrate_row_load_skipped_tui" if in_tui else "migrate_row_load_skipped",
+            ),
             style="dim",
         )
         load_where = ""
@@ -826,6 +834,6 @@ def render_migration(
     if load is not None and load.failed:
         nxt.add_row("-", i18n.t(lang, "migrate_next_load"))
     elif load is None and not load_check_asked:
-        nxt.add_row("-", i18n.t(lang, "migrate_next_add_load_check"))
-    nxt.add_row("-", i18n.t(lang, "migrate_next_rerun"))
+        nxt.add_row("-", i18n.t(lang, "migrate_next_add_load_check_tui" if in_tui else "migrate_next_add_load_check"))
+    nxt.add_row("-", i18n.t(lang, "migrate_next_rerun_tui" if in_tui else "migrate_next_rerun"))
     console.print(nxt)

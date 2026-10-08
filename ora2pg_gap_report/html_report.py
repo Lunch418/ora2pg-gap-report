@@ -399,7 +399,7 @@ def write_html(
         w(f'<span><span class="dot sev-{s}"></span>{s} <b>{counts[s]}</b></span>')
     w("</div>\n</div>\n<div>\n")
     w(f'<span class="label">{i18n.t(lang, "report_effort_label")}</span>\n')
-    w(f'<p class="effort-range">{i18n.t(lang, "report_effort_range", lo=i18n.number(lang, lo), hi=i18n.number(lang, hi))}</p>\n')
+    w(f'<p class="effort-range">{i18n.t(lang, "report_effort_range", lo=i18n.hours(lang, lo), hi=i18n.hours(lang, hi))}</p>\n')
     w(f'<p class="caveat">{html.escape(i18n.t(lang, "report_effort_caveat"))}</p>\n</div>\n</div>\n')
 
     # The gaps, each once.

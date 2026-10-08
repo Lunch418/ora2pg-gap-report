@@ -67,6 +67,15 @@ patch for fixes to existing ones.
 - `--migrate`'s GAP-114 repair takes every spliced shape: ora2pg 25.0
   splices a chain of constants differently from run to run (it walks a Perl
   hash), and a nested chain (`c3 c2 c1||||`) was left half-replaced.
+- `--ora2pg-bin docker:IMAGE` starts ora2pg as the container's entrypoint,
+  so it works with any image that has ora2pg on PATH - this project's own
+  image included, whose entrypoint is the tool itself.
+- The rework estimate is in whole hours from 10 up (`136-545 h`, not
+  `136.25-545 h`): a heuristic this rough has no quarter hours.
+- The TUI's migrate screen words its next steps for the screen (a checkbox
+  and a Run button), not for the command line.
+- `scripts/screenshots.py` retakes the TUI pictures too, and the README
+  shows the migrate screen.
 
 ## [0.14.0] - 2026-10-08
 

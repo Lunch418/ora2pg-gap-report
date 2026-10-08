@@ -6,7 +6,9 @@ The terminal pictures are Rich's own recording of the real output, saved
 as SVG and rendered by headless Chrome; the HTML report is rendered the
 same way. The --migrate pictures come from a real run on the sample
 packages: ora2pg from the docker image ora2pg:25.0 (or $ORA2PG_BIN) and
-PostgreSQL 16 in docker. Needs google-chrome and docker.
+PostgreSQL 16 in docker. The TUI pictures are Textual's own screenshots of
+the app driven by its test harness. Needs google-chrome, docker and the
+[tui] extra.
 
 When docker runs outside a sandbox that hides /tmp, nothing else is
 needed; otherwise point TMPDIR at a directory docker can see.
@@ -14,9 +16,11 @@ needed; otherwise point TMPDIR at a directory docker can see.
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -77,6 +81,44 @@ def record(work: Path, out: Path, title: str, draw: Callable[[Console], None], n
     svg_to_png(svg, out / f"{name}.png", 1400, height)
 
 
+async def _tui_shots(work: Path, out: Path, lang: str, migrated: Path) -> None:
+    """The results screen on the samples with one finding open, and the
+    migrate screen after a run into `migrated`."""
+    from ora2pg_gap_report.tui_app import GapReportApp, MigrateScreen, ResultsScreen
+
+    app = GapReportApp(start_path=SAMPLES, lang=lang)
+    async with app.run_test(size=(118, 40)) as pilot:
+        await pilot.pause()
+        app.screen.selected_path = SAMPLES  # type: ignore[attr-defined]
+        await pilot.click("#scan-btn")
+        while not isinstance(app.screen, ResultsScreen):
+            await pilot.pause()
+        table = app.screen.query_one("#findings-table")
+        table.focus()
+        for _ in range(3):
+            await pilot.press("down")
+        await pilot.pause()
+        app.save_screenshot(str(work / f"tui.{lang}.svg"))
+
+        await pilot.press("escape")
+        await pilot.pause()
+        await pilot.click("#migrate-btn")
+        while not isinstance(app.screen, MigrateScreen):
+            await pilot.pause()
+        screen = app.screen
+        screen.query_one("#migrate-out").value = str(migrated)  # type: ignore[attr-defined]
+        screen.query_one("#migrate-ora2pg").value = ORA2PG  # type: ignore[attr-defined]
+        screen.query_one("#migrate-load").value = True  # type: ignore[attr-defined]
+        await pilot.click("#migrate-run-btn")
+        while screen.result_text is None:
+            await pilot.pause()
+            await asyncio.sleep(0.2)
+        await pilot.pause()
+        app.save_screenshot(str(work / f"tui-migrate.{lang}.svg"))
+    for name in (f"tui.{lang}", f"tui-migrate.{lang}"):
+        svg_to_png(work / f"{name}.svg", out / f"{name}.png", 1400, None)
+
+
 def main() -> int:
     os.chdir(ROOT)
     out = ROOT / "docs" / "screenshots"
@@ -111,6 +153,17 @@ def main() -> int:
         with open(page, "w", encoding="utf-8") as report:
             html_report.write_html(findings, report, lang=lang, load=load)
         _chrome(page, out / f"html-report.{lang}.png", 1280, 1100)
+        # From inside `work`, where docs/research/samples is a link to the
+        # real one, so the screen shows the same short relative paths the
+        # README's commands use, and out/ lands in the scratch directory.
+        os.chdir(work)
+        samples_link = work / SAMPLES
+        if not samples_link.exists():
+            samples_link.parent.mkdir(parents=True, exist_ok=True)
+            samples_link.symlink_to(ROOT / SAMPLES)
+        shutil.rmtree(work / "out", ignore_errors=True)
+        asyncio.run(_tui_shots(work, out, lang, Path("out")))
+        os.chdir(ROOT)
     print(f"written to {out}")
     return 0
 

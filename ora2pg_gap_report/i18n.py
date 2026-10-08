@@ -209,6 +209,15 @@ def number(lang: str, value: float) -> str:
     return text.replace(".", ",") if lang != "en" else text
 
 
+def hours(lang: str, value: float) -> str:
+    """An effort estimate's end: whole hours from 10 up, where a quarter
+    hour is noise the heuristic cannot claim ("136.25" reads as precise),
+    and the exact value below, where it is a real share ("0.5")."""
+    if value >= 10:
+        return str(int(value + 0.5))
+    return number(lang, value)
+
+
 def count(lang: str, noun: str, n: int) -> str:
     """`n` with `noun` in the grammatical form the number takes:
     count("ru", "finding", 21) -> "21 находка", count("en", "file", 1)
@@ -652,7 +661,7 @@ _UI: dict[str, dict[str, str]] = {
     "migrate_step_scan": {"ru": "Сканирование исходника...", "en": "Scanning the source..."},
     "migrate_step_prepare": {"ru": "Подготовка копии исходника...", "en": "Preparing a copy of the source..."},
     "migrate_step_convert": {"ru": "ora2pg: {detail}...", "en": "ora2pg: {detail}..."},
-    "migrate_step_fix": {"ru": "Механические исправления...", "en": "Mechanical fixes..."},
+    "migrate_step_fix": {"ru": "Исправления...", "en": "Repairs..."},
     "migrate_step_load": {"ru": "Загрузка в PostgreSQL...", "en": "Loading into PostgreSQL..."},
     "migrate_heading": {"ru": "Миграция {source} -> PostgreSQL", "en": "Migration: {source} -> PostgreSQL"},
     "migrate_row_scan": {"ru": "Скан", "en": "Scan"},
@@ -671,6 +680,7 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "не проверялась (добавьте --load-check docker)",
         "en": "not checked (add --load-check docker)",
     },
+    "migrate_row_load_skipped_tui": {"ru": "не проверялась", "en": "not checked"},
     "migrate_row_load_nothing": {"ru": "ora2pg ничего не выдал - загружать нечего", "en": "ora2pg produced nothing to load"},
     "migrate_row_load_clean": {"ru": "всё загрузилось: {statements}", "en": "everything loaded: {statements}"},
     "migrate_row_load_failed": {
@@ -696,6 +706,14 @@ _UI: dict[str, dict[str, str]] = {
     "migrate_next_rerun": {
         "ru": "после правок исходника запустите ту же команду ещё раз",
         "en": "after changing the source, run the same command again",
+    },
+    "migrate_next_add_load_check_tui": {
+        "ru": "отметьте \"загрузить в PostgreSQL в docker\", чтобы проверить converted/ на настоящем PostgreSQL",
+        "en": 'tick "load into PostgreSQL in docker" to check converted/ against a real PostgreSQL',
+    },
+    "migrate_next_rerun_tui": {
+        "ru": "после правок исходника нажмите \"Запустить\" ещё раз",
+        "en": 'after changing the source, press "Run" again',
     },
     # --load-check (loading the generated output into a real PostgreSQL, see load_check.py)
     "load_check_conflict_error": {
@@ -1068,10 +1086,10 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Findings: {n} ({counts})\n\n",
     },
     "markdown_effort_estimate": {
-        "ru": "Грубая оценка ручной доработки: {lo:g}–{hi:g} ч. "
+        "ru": "Грубая оценка ручной доработки: {lo}–{hi} ч. "
         "— неоткалиброванная эвристика по severity, не измерение "
         "(см. README.md, «Почему почти всё high»).\n\n",
-        "en": "Rough manual-rework estimate: {lo:g}–{hi:g}h. "
+        "en": "Rough manual-rework estimate: {lo}–{hi}h. "
         "— an uncalibrated heuristic based on severity, not a measurement "
         "(see README.md, \"Why almost everything is `high`\").\n\n",
     },

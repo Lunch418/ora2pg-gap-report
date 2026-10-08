@@ -237,14 +237,16 @@ def ora2pg_command(ora2pg_bin: str, mounts: list[Path]) -> list[str]:
     image instead of PATH -- ora2pg is a Perl tool, not a pip package, and
     an image is often the easiest way to have it. Every path ora2pg is given
     is mounted at the same place inside the container, so the arguments
-    need no translation."""
+    need no translation. ora2pg is started as the entrypoint, so any image
+    with it on PATH works, whatever its own entrypoint is -- this project's
+    image included, whose entrypoint is ora2pg-gap-report."""
     if not ora2pg_bin.startswith("docker:"):
         return [ora2pg_bin]
     image = ora2pg_bin[len("docker:") :]
     command = ["docker", "run", "--rm"]
     for mount in dict.fromkeys(p.resolve() for p in mounts):
         command += ["-v", f"{mount}:{mount}"]
-    return command + [image, "ora2pg"]
+    return command + ["--entrypoint", "ora2pg", image]
 
 
 def run_convert(

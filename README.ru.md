@@ -351,7 +351,7 @@ ora2pg-gap-report path/to/schema_dump.pkb --format html --output report.html
 ora2pg-gap-report path/to/schema_dump.pkb --check-connect-by
 ```
 
-![HTML-отчёт: рельс стадий, критичность и трудоёмкость, пробелы, один из них раскрыт](docs/screenshots/html-report.ru.png)
+![HTML-отчёт из --migrate: загружается ли сконвертированный код, затем рельс стадий, критичность и трудоёмкость, пробелы](docs/screenshots/html-report.ru.png)
 
 Формат `--format json` описан формальной JSON Schema —
 [`schemas/report.schema.json`](schemas/report.schema.json) (а формат
@@ -682,6 +682,8 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
 ora2pg-gap-report --migrate out/ --load-check docker schema/
 ora2pg-gap-report --migrate out/ --ora2pg-bin docker:my-ora2pg-image schema/   # ora2pg из образа
 ```
+
+![ora2pg-gap-report --migrate на образцах пакетов: пять шагов, настоящий ora2pg 25.0 и PostgreSQL 16](docs/screenshots/migrate.ru.png)
 
 ```
 out/

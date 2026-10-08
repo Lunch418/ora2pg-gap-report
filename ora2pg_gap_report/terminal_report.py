@@ -808,7 +808,7 @@ def render_migration(
                 lang,
                 "migrate_row_load_failed",
                 errors=i18n.count(lang, "error", len(failing)),
-                statements=i18n.count(lang, "statement", load.statements),
+                statements=i18n.count(lang, "statement_of", load.statements),
             ),
             style="bold #E5484D",
         )

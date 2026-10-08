@@ -458,7 +458,8 @@ def _write_load_card(w: Write, lang: str, load: "LoadCheckResult", gaps_on_page:
     if not failing:
         w(f'<section class="loadcard ok"><p class="verdict">{i18n.t(lang, "report_load_ok", statements=statements)}</p>\n')
     else:
-        verdict = i18n.t(lang, "report_load_bad", errors=i18n.count(lang, "error", len(failing)), statements=statements)
+        statements_of = i18n.count(lang, "statement_of", load.statements)
+        verdict = i18n.t(lang, "report_load_bad", errors=i18n.count(lang, "error", len(failing)), statements=statements_of)
         w(f'<section class="loadcard bad"><p class="verdict">{verdict}</p>\n')
     w(f'<p class="where-to">{i18n.t(lang, "report_load_server", server=server)}</p>\n')
     counts = Counter(e.category for e in load.errors)
@@ -489,9 +490,9 @@ def _write_load_card(w: Write, lang: str, load: "LoadCheckResult", gaps_on_page:
                 f"<td>{gap}</td><td class=\"mono\">{e.sqlstate}</td><td class=\"msg\">{html.escape(e.message)}</td></tr>\n"
             )
         w("</tbody></table>\n")
-        w("</details>\n")
         if len(load.errors) > _LOAD_ROWS_SHOWN:
             w(f'<p class="where-to">{i18n.t(lang, "report_load_more", n=len(load.errors) - _LOAD_ROWS_SHOWN)}</p>\n')
+        w("</details>\n")
     w("</section>\n")
 
 

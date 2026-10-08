@@ -224,3 +224,11 @@ def test_counts_take_the_russian_plural_form_the_number_needs():
     ]
     assert count("en", "finding", 1) == "1 finding"
     assert count("en", "finding", 2) == "2 findings"
+
+
+def test_statement_count_after_iz_takes_the_genitive():
+    # "не загрузилось: 92 ошибки из 131 команды", not "из 131 команда"
+    assert [i18n.count("ru", "statement_of", n) for n in (1, 2, 5, 21, 131)] == [
+        "1 команды", "2 команд", "5 команд", "21 команды", "131 команды",
+    ]
+    assert i18n.count("en", "statement_of", 131) == "131 statements"

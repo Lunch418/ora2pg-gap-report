@@ -1,13 +1,21 @@
 from pathlib import Path
 
 from ora2pg_gap_report.detectors.dbms_utl_calls import find_dbms_utl_calls
+from ora2pg_gap_report.detectors.supplied_package_call import find_supplied_package_call
 
 SAMPLES = Path(__file__).resolve().parents[1] / "docs" / "research" / "samples"
 
 
+def _all_uses(source):
+    """dbms_utl_calls and supplied_package_call (GAP-122) between them: a
+    call as a statement went to GAP-122 when it was found, every other use
+    stays here. The names below are what both see together."""
+    return find_dbms_utl_calls(source) + find_supplied_package_call(source)
+
+
 def test_flags_unsupported_utl_file_and_dbms_lob_calls_in_file_util_pkg():
     source = (SAMPLES / "file_util_pkg.pkb").read_text(encoding="utf-8")
-    findings = find_dbms_utl_calls(source)
+    findings = _all_uses(source)
     names = {f.object_name for f in findings}
 
     # Verified against the real file — see git history for the survey.
@@ -30,7 +38,7 @@ def test_flags_unsupported_utl_file_and_dbms_lob_calls_in_file_util_pkg():
         "UTL_FILE.PUT_RAW",
         "UTL_RAW.CAST_TO_RAW",
     }
-    assert all(f.severity == "medium" and f.detector == "dbms_utl_calls" for f in findings)
+    assert all(f.severity == "medium" for f in findings if f.detector == "dbms_utl_calls")
     # DBMS_LOB.GETLENGTH also appears in this file but has a targeted
     # ora2pg conversion (octet_length()) — must not be reported.
     assert "DBMS_LOB.GETLENGTH" not in names
@@ -38,7 +46,7 @@ def test_flags_unsupported_utl_file_and_dbms_lob_calls_in_file_util_pkg():
 
 def test_flags_unsupported_dbms_lob_calls_in_sql_util_pkg_and_ignores_commented_ones():
     source = (SAMPLES / "sql_util_pkg.pkb").read_text(encoding="utf-8")
-    findings = find_dbms_utl_calls(source)
+    findings = _all_uses(source)
     names = {f.object_name for f in findings}
 
     assert names == {
@@ -60,7 +68,7 @@ def test_flags_unsupported_dbms_lob_calls_in_sql_util_pkg_and_ignores_commented_
 
 def test_dbms_output_and_dbms_lob_targeted_conversions_are_not_flagged_in_logger():
     source = (SAMPLES / "logger.pkb").read_text(encoding="utf-8")
-    findings = find_dbms_utl_calls(source)
+    findings = _all_uses(source)
     names = {f.object_name for f in findings}
 
     assert "DBMS_OUTPUT.PUT_LINE" not in names
@@ -74,6 +82,7 @@ def test_dbms_output_and_dbms_lob_targeted_conversions_are_not_flagged_in_logger
         "DBMS_UTILITY.FORMAT_CALL_STACK",
         "DBMS_UTILITY.FORMAT_ERROR_BACKTRACE",
         "DBMS_UTILITY.FORMAT_ERROR_STACK",
+        "HTP.P",  # supplied_package_call's: the Web Toolkit is outside DBMS_/UTL_
         "UTL_LMS.FORMAT_MESSAGE",
     }
 
@@ -118,5 +127,12 @@ def test_dollar_and_hash_in_function_name_are_captured_fully():
     end demo;
     /
     """
-    findings = find_dbms_utl_calls(source)
+    findings = _all_uses(source)
     assert {f.object_name for f in findings} == {"UTL_FILE.PUT_LINE$LEGACY#1"}
+
+
+def test_a_use_is_reported_by_one_of_the_two_never_both():
+    source = (SAMPLES / "file_util_pkg.pkb").read_text(encoding="utf-8")
+    utl = {(f.line, f.object_name) for f in find_dbms_utl_calls(source)}
+    statements = {(f.line, f.object_name) for f in find_supplied_package_call(source)}
+    assert utl and statements and not utl & statements

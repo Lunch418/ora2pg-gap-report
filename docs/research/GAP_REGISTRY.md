@@ -93,6 +93,10 @@ being after them.
 | GAP-117 | A package procedure called from a trigger - copied without `CALL`, the trigger does not load | `trigger_package_call` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-117](gap-117-trigger-package-call.md) |
 | GAP-118 | A statement-level trigger becomes `FOR EACH ROW` - fires once per row | `statement_trigger` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-118](gap-118-statement-trigger.md) |
 | GAP-119 | A package constant as a parameter default - copied as it is, the function does not load | `package_constant_default` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-119](gap-119-package-constant-default.md) |
+| GAP-120 | `%TYPE` in a package RECORD or SUBTYPE - copied into `CREATE TYPE`/`CREATE DOMAIN`, does not load | `package_type_anchor` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-120](gap-120-package-type-anchor.md) |
+| GAP-121 | A package type used in its routines without the package name - `type does not exist` | `package_type_reference` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-121](gap-121-package-type-reference.md) |
+| GAP-122 | A supplied package's procedure (`DBMS_*`, `UTL_*`, `HTP`) as a statement - copied without `CALL`, does not load | `supplied_package_call` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-122](gap-122-supplied-package-call.md) |
+| GAP-123 | `DBMS_LOCK.SLEEP` - becomes `pg_sleep(n);` without `PERFORM`, does not load | `dbms_sleep` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-123](gap-123-dbms-sleep.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

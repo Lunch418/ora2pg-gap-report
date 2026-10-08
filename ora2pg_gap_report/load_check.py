@@ -632,6 +632,31 @@ _TRIGGER_FUNCTION_RE = re.compile(r"\bRETURNS\s+trigger\b", re.IGNORECASE)
 _UNRESOLVED_NAME_RE = re.compile(r'^(?:column|missing FROM-clause entry for table) "([^"]+)"')
 
 
+# GAP-035: what is left of a $IF ... $THEN ... $END after ora2pg -- the
+# directives and $$inquiry names, with the $IF itself often eaten.
+_CONDITIONAL_COMPILATION_RE = re.compile(
+    r"(?<![\w$])\$(?:if|then|elsif|else|end|error)\b(?!\$)|(?<![\w$])\$\$[A-Za-z_]\w*\b(?!\$)", re.IGNORECASE
+)
+# GAP-003: a collection method on a package collection, which GAP-036's
+# emulation turned into current_setting(...)::type.DELETE.
+_COLLECTION_METHOD_RE = re.compile(
+    r"current_setting\('[^']*'\)::\w+\.(?:DELETE|COUNT|EXTEND|TRIM|FIRST|LAST|EXISTS|PRIOR|NEXT|LIMIT)\b",
+    re.IGNORECASE,
+)
+# GAP-120: %TYPE/%ROWTYPE copied into a package type's CREATE TYPE/DOMAIN.
+_ANCHORED_TYPE_DDL_RE = re.compile(r"^\s*CREATE\s+(?:TYPE|DOMAIN)\b[^;]*%(?:ROW)?TYPE\b", re.IGNORECASE)
+# GAP-121: a type the same file creates in a package schema, named bare.
+_MISSING_TYPE_RE = re.compile(r'^type "?([A-Za-z_][\w$#]*)"? does not exist$', re.IGNORECASE)
+# GAP-122: a supplied package's procedure called bare.
+_SUPPLIED_CALL_RE = re.compile(
+    r"^\s*(?:DBMS_\w*|UTL_\w*|HTP|OWA(?:_\w*)?|APEX_\w*|CTX_\w*)\s*\.\s*[A-Za-z_]\w*\s*(?:\(|;)", re.IGNORECASE
+)
+
+
+def _created_in_a_schema(source: str, name: str) -> bool:
+    return bool(re.search(rf"\bCREATE\s+(?:TYPE|DOMAIN)\s+\w+\.{re.escape(name)}\b", source, re.IGNORECASE))
+
+
 def _in_a_default(statement_text: str, name: str) -> bool:
     return bool(re.search(rf"\bDEFAULT\s+{re.escape(name)}\b", statement_text, re.IGNORECASE))
 
@@ -644,6 +669,17 @@ def _output_signature(source: str, statement: Statement, line: int, message: str
     at = lines[line - 1] if 0 < line <= len(lines) else ""
     if _REFCURSOR_TYPE_RE.search(text):
         return "ref_cursor_type"
+    if _ANCHORED_TYPE_DDL_RE.search(text):
+        return "package_type_anchor"
+    missing_type = _MISSING_TYPE_RE.match(message)
+    if missing_type is not None and _created_in_a_schema(source, missing_type.group(1)):
+        return "package_type_reference"
+    if _COLLECTION_METHOD_RE.search(at):
+        return "bulk_collect"
+    if _CONDITIONAL_COMPILATION_RE.search(at):
+        return "conditional_compilation"
+    if _SUPPLIED_CALL_RE.match(at):
+        return "supplied_package_call"
     unresolved = _UNRESOLVED_NAME_RE.match(message)
     if unresolved is not None and _in_a_default(text, unresolved.group(1)):
         return "package_constant_default"

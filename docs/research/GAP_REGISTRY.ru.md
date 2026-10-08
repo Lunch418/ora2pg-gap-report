@@ -92,6 +92,10 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-117 | Вызов процедуры пакета из триггера - копируется без `CALL`, триггер не загружается | `trigger_package_call` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-117](gap-117-trigger-package-call.md) |
 | GAP-118 | Триггер уровня команды становится `FOR EACH ROW` - срабатывает на каждую строку | `statement_trigger` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-118](gap-118-statement-trigger.md) |
 | GAP-119 | Константа пакета в умолчании параметра - копируется как есть, функция не загружается | `package_constant_default` | high | confirmed | 25.0 | 16 | 2026-10-05 | [gap-119](gap-119-package-constant-default.md) |
+| GAP-120 | `%TYPE` в RECORD или SUBTYPE пакета - копируется в `CREATE TYPE`/`CREATE DOMAIN`, не загружается | `package_type_anchor` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-120](gap-120-package-type-anchor.md) |
+| GAP-121 | Тип пакета в его подпрограммах без имени пакета - `type does not exist` | `package_type_reference` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-121](gap-121-package-type-reference.md) |
+| GAP-122 | Процедура поставляемого пакета (`DBMS_*`, `UTL_*`, `HTP`) как оператор - копируется без `CALL`, не загружается | `supplied_package_call` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-122](gap-122-supplied-package-call.md) |
+| GAP-123 | `DBMS_LOCK.SLEEP` - становится `pg_sleep(n);` без `PERFORM`, не загружается | `dbms_sleep` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-123](gap-123-dbms-sleep.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

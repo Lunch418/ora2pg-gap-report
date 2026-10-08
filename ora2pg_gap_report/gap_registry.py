@@ -747,6 +747,40 @@ GapEntry(
         severity="high",
         failure_stage="deployment",
         dialect="oracle", last_verified="2026-10-05"),
+    # GAP-120..123: the --load-check errors on the samples that no gap
+    # explained, reduced to minimal cases and confirmed the same way.
+    GapEntry(
+        "120",
+        "package_type_anchor",
+        "package-type-anchor",
+        ("test_package_type_anchor.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-08"),
+    GapEntry(
+        "121",
+        "package_type_reference",
+        "package-type-reference",
+        ("test_package_type_reference.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-08"),
+    GapEntry(
+        "122",
+        "supplied_package_call",
+        "supplied-package-call",
+        ("test_supplied_package_call.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-08"),
+    GapEntry(
+        "123",
+        "dbms_sleep",
+        "dbms-sleep",
+        ("test_dbms_sleep.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-08"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

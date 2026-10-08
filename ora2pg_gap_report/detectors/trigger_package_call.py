@@ -21,9 +21,9 @@ _CALL_RE = re.compile(
     rf"(?:;|\bBEGIN\b|\bTHEN\b|\bELSE\b|\bLOOP\b)\s*({IDENTIFIER})\s*\.\s*({IDENTIFIER})\s*(?=[(;])",
     re.IGNORECASE,
 )
-# Not package procedures: the row pseudo-records, and the built-in
-# packages dbms_utl_calls already reports.
-_NOT_A_PACKAGE_RE = re.compile(r"^(?:NEW|OLD|PARENT|DBMS_\w*|UTL_\w*)$", re.IGNORECASE)
+# Not package procedures: the row pseudo-records, and the supplied
+# packages supplied_package_call (GAP-122) reports.
+_NOT_A_PACKAGE_RE = re.compile(r"^(?:NEW|OLD|PARENT|DBMS_\w*|UTL_\w*|HTP|OWA(?:_\w*)?|APEX_\w*|CTX_\w*)$", re.IGNORECASE)
 
 
 def find_trigger_package_call(source: str) -> list[Finding]:

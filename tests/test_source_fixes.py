@@ -61,6 +61,32 @@ def test_get_ddl_spliced_shape():
     assert sf.restore_constants(line, sf.package_constants(ORACLE)) == ("    RETURN 'YYYY-MM-DD HH24:MI';", 1)
 
 
+LOGGER = """CREATE OR REPLACE PACKAGE logger AS
+  gc_date_format CONSTANT VARCHAR2(255) := 'DD-MON-YYYY HH24:MI:SS';
+  gc_timestamp_format CONSTANT VARCHAR2(255) := gc_date_format || ':FF';
+  gc_timestamp_tz_format CONSTANT VARCHAR2(255) := gc_timestamp_format || ' TZR';
+END logger;
+/
+"""
+
+
+@pytest.mark.parametrize(
+    "spliced",
+    [
+        # every shape ora2pg 25.0 wrote for OraOpenSource Logger's tochar()
+        # over six runs on the same input
+        "current_setting('logger.gc_timestamp_tz_format')::varchar(255)gc_timestamp_format||",
+        "current_setting('logger.gc_timestamp_tz_format')::varchar(255)"
+        "current_setting('logger.gc_timestamp_format')::varchar(255)"
+        "current_setting('logger.gc_date_format')::varchar(255)||||",
+    ],
+)
+def test_every_spliced_chain_shape(spliced):
+    line = f"    return to_char(p_val, {spliced});"
+    fixed, count = sf.restore_constants(line, sf.package_constants(LOGGER))
+    assert (fixed, count) == ("    return to_char(p_val, 'DD-MON-YYYY HH24:MI:SS:FF TZR');", 1)
+
+
 def test_a_default_is_only_replaced_for_its_own_package():
     head = "CREATE OR REPLACE FUNCTION other_pkg.f (p text DEFAULT g_os_windows) RETURNS text AS $body$"
     assert sf.restore_constants(head, sf.package_constants(ORACLE)) == (head, 0)

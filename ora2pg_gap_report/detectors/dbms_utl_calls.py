@@ -2,6 +2,7 @@ import re
 
 from ..models import Finding
 from ..plsql_lex import IDENTIFIER, line_at, mask_strings_and_comments
+from .supplied_package_call import statement_calls
 
 # A plain \b boundary would treat '$'/'#' as non-word, so e.g.
 # "MY_PKG$UTL_FILE" would be misread as a real UTL_FILE reference — use a
@@ -34,7 +35,6 @@ _CONVERTED = {
     "DBMS_OUTPUT.PUT": "заменяется тем же хелпером, что и DBMS_OUTPUT.PUT_LINE.",
     "DBMS_OUTPUT.NEW_LINE": "заменяется тем же хелпером, что и DBMS_OUTPUT.PUT_LINE.",
     "DBMS_OUTPUT.ENABLE": "просто комментируется — поведение теряется, но код не ломается.",
-    "DBMS_OUTPUT.DISABLE": "просто комментируется — поведение теряется, но код не ломается.",
     "DBMS_LOB.GETLENGTH": "заменяется на octet_length().",
     "DBMS_LOB.SUBSTR": "заменяется на substr() с перестановкой аргументов.",
 }
@@ -49,10 +49,13 @@ def find_dbms_utl_calls(source: str) -> list[Finding]:
     """
     clean = mask_strings_and_comments(source)
     findings: list[Finding] = []
+    # A call as a statement is supplied_package_call's (GAP-122) or
+    # dbms_sleep's (GAP-123): there the routine does not load at all.
+    as_statement = {m.start(2) for m in statement_calls(clean)}
 
     for m in _CALL_RE.finditer(clean):
         object_name = f"{m.group(1).upper()}.{m.group(2).upper()}"
-        if object_name in _CONVERTED:
+        if object_name in _CONVERTED or m.start(1) in as_statement:
             continue
 
         line_no = line_at(clean, m.start())

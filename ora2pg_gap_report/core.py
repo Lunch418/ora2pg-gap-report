@@ -112,6 +112,10 @@ from .detectors.package_constant_chain import find_package_constant_chain
 from .detectors.ref_cursor_type import find_ref_cursor_type
 from .detectors.repeated_package_call import find_repeated_package_call
 from .detectors.trigger_package_call import find_trigger_package_call
+from .detectors.package_type_anchor import find_package_type_anchor
+from .detectors.package_type_reference import find_package_type_reference
+from .detectors.supplied_package_call import find_supplied_package_call
+from .detectors.dbms_sleep import find_dbms_sleep
 from .detectors.statement_trigger import find_statement_trigger
 from .detectors.package_constant_default import find_package_constant_default
 from .detectors.table_if_not_exists import find_table_if_not_exists
@@ -217,6 +221,10 @@ _ORACLE_DETECTORS = (
     find_trigger_package_call,
     find_statement_trigger,
     find_package_constant_default,
+    find_package_type_anchor,
+    find_package_type_reference,
+    find_supplied_package_call,
+    find_dbms_sleep,
 )
 # MySQL detectors -- a source-language dialect, run against a MySQL/MariaDB
 # schema/procedure dump rather than an Oracle one. Deliberately a SEPARATE

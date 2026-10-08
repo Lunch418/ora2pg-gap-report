@@ -43,6 +43,7 @@ def test_scan_source_runs_all_detectors_on_logger():
         "nested_subprogram",
         "package_state",
         "package_constant_chain",
+        "supplied_package_call",  # htp.p, dbms_session.set_context ...
         "package_constant_default",
         "pragma_exception_init",
     }
@@ -76,7 +77,10 @@ def test_scan_source_runs_all_detectors_on_logger():
     # each built from the format before it (GAP-114).
     # package_constant_default: eleven routines whose parameter defaults to
     # logger.gc_empty_tab_param and friends (GAP-119).
-    assert len(findings) == 8 + 17 + 1 + 229 + 5 + 25 + 1 + 2 + 11
+    # supplied_package_call: four DBMS_SESSION context calls and htp.p
+    # called as statements (GAP-122); dbms_utl_calls keeps the other 13
+    # DBMS_/UTL_ uses (it had 17 before the four calls moved).
+    assert len(findings) == 8 + 13 + 1 + 229 + 5 + 25 + 1 + 2 + 11 + 5
 
 
 def test_scan_source_sorts_high_severity_first():
@@ -355,7 +359,7 @@ def test_main_merges_and_resorts_findings_across_multiple_files(tmp_path):
         create or replace package body aaa_pkg as
           procedure foo is
           begin
-            utl_file.fopen('DIR', 'f', 'r');
+            l_file := utl_file.fopen('DIR', 'f', 'r');
           end foo;
         end aaa_pkg;
         /

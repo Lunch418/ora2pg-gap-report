@@ -3855,6 +3855,88 @@ MESSAGES: dict[str, Message] = {
             "e constant's value in as a literal, or a call to a function that returns it."
         ),
     ),
+    "package_type_anchor": Message(
+        ru=(
+            'Тип уровня пакета, привязанный через %TYPE/%ROWTYPE: поле RECORD (salary emp.salary%TYPE) или '
+            'SUBTYPE (SUBTYPE t_name IS g_name%TYPE). ora2pg 25.0 делает из RECORD CREATE TYPE pkg.r AS (...), из'
+            ' SUBTYPE - CREATE DOMAIN pkg.t AS ..., и копирует привязку в оба. %TYPE в PostgreSQL бывает только в'
+            ' объявлениях PL/pgSQL, не в DDL, поэтому команда не загружается (\'syntax error at or near "%"\'), а '
+            'за ней и все подпрограммы, которые используют тип. Подтверждено живым Oracle 23ai, реальным ora2pg '
+            '25.0 и PostgreSQL 16, docs/research/gap-120-package-type-anchor.md. Впишите вместо привязки сам тип '
+            'столбца или переменной.'
+        ),
+        en=(
+            'A package-level type anchored with %TYPE/%ROWTYPE: a RECORD field (salary emp.salary%TYPE) or a '
+            'SUBTYPE (SUBTYPE t_name IS g_name%TYPE). ora2pg 25.0 turns the RECORD into CREATE TYPE pkg.r AS '
+            '(...) and the SUBTYPE into CREATE DOMAIN pkg.t AS ..., and copies the anchor into both. PostgreSQL '
+            "has %TYPE only in PL/pgSQL declarations, not in DDL, so the statement does not load ('syntax error "
+            'at or near "%"\'), and neither does any routine that uses the type. Confirmed against a live Oracle '
+            '23ai, a real ora2pg 25.0 run and PostgreSQL 16, docs/research/gap-120-package-type-anchor.md. Write '
+            "the column's or variable's actual type instead of the anchor."
+        ),
+    ),
+    "package_type_reference": Message(
+        ru=(
+            'Тип уровня пакета (TYPE ... IS RECORD/TABLE OF, SUBTYPE) используется в подпрограммах того же пакета'
+            ' без имени пакета. ora2pg 25.0 создаёт тип в схеме пакета (CREATE TYPE pkg.pair_rt, CREATE DOMAIN '
+            'pkg.t_code), а ссылки копирует как есть: r pair_rt;, p t_code, RETURNS T_CODE. Схемы пакета нет в '
+            'search_path, и PostgreSQL 16 не загружает такие подпрограммы (\'type "pair_rt" does not exist\'), даже'
+            ' если сам тип загрузился. Ссылка с именем пакета (pkg.t_code) сохраняется и работает. Подтверждено '
+            'живым Oracle 23ai, реальным ora2pg 25.0 и PostgreSQL 16, '
+            'docs/research/gap-121-package-type-reference.md. Допишите имя схемы пакета к типу или добавьте схему'
+            ' в search_path функции.'
+        ),
+        en=(
+            "A package-level type (TYPE ... IS RECORD/TABLE OF, SUBTYPE) used in the same package's routines "
+            "without the package name. ora2pg 25.0 creates the type in the package's schema (CREATE TYPE "
+            'pkg.pair_rt, CREATE DOMAIN pkg.t_code) but copies the references as they are: r pair_rt;, p t_code, '
+            "RETURNS T_CODE. The package's schema is not on the search_path, so PostgreSQL 16 does not load those"
+            ' routines (\'type "pair_rt" does not exist\'), even when the type itself loaded. A reference with the '
+            'package name (pkg.t_code) is kept and works. Confirmed against a live Oracle 23ai, a real ora2pg '
+            '25.0 run and PostgreSQL 16, docs/research/gap-121-package-type-reference.md. Qualify the type with '
+            "the package's schema, or put the schema on the function's search_path."
+        ),
+    ),
+    "supplied_package_call": Message(
+        ru=(
+            'Процедура поставляемого пакета Oracle, вызванная как оператор: '
+            'DBMS_APPLICATION_INFO.SET_MODULE(...), DBMS_STATS.GATHER_TABLE_STATS(...), UTL_FILE.FCLOSE(...), '
+            'HTP.P(...), DBMS_OUTPUT.DISABLE. ora2pg 25.0 пишет CALL только для процедур пакетов из того же '
+            'запуска, а этот вызов копирует как есть. В PL/pgSQL нет голого вызова процедуры, и вся подпрограмма '
+            'не загружается (\'syntax error at or near "DBMS_APPLICATION_INFO"\') - даже если замена пакету в '
+            'PostgreSQL есть. Подтверждено живым Oracle 23ai, реальным ora2pg 25.0 и PostgreSQL 16, '
+            'docs/research/gap-122-supplied-package-call.md. Замените вызов аналогом PostgreSQL (CALL/PERFORM '
+            'своей реализации, set_config, ANALYZE, расширение) или уберите его.'
+        ),
+        en=(
+            'A procedure of an Oracle-supplied package called as a statement: '
+            'DBMS_APPLICATION_INFO.SET_MODULE(...), DBMS_STATS.GATHER_TABLE_STATS(...), UTL_FILE.FCLOSE(...), '
+            'HTP.P(...), DBMS_OUTPUT.DISABLE. ora2pg 25.0 writes CALL only for procedures of packages in the same'
+            ' run, and copies this call as it is. PL/pgSQL has no bare procedure call, so the whole routine does '
+            'not load (\'syntax error at or near "DBMS_APPLICATION_INFO"\') - even when PostgreSQL has a '
+            'replacement for the package. Confirmed against a live Oracle 23ai, a real ora2pg 25.0 run and '
+            'PostgreSQL 16, docs/research/gap-122-supplied-package-call.md. Replace the call with a PostgreSQL '
+            'counterpart (CALL/PERFORM of your own implementation, set_config, ANALYZE, an extension), or remove '
+            'it.'
+        ),
+    ),
+    "dbms_sleep": Message(
+        ru=(
+            'DBMS_LOCK.SLEEP или DBMS_SESSION.SLEEP, вызванные как оператор. В PLSQL.pm у ora2pg 25.0 два '
+            'правила: PERFORM pg_sleep и голый pg_sleep, и голое срабатывает раньше. Получается pg_sleep(1);, а '
+            'PL/pgSQL не принимает вызов функции как оператор без PERFORM (\'syntax error at or near "pg_sleep"\') '
+            '- подпрограмма не загружается. Подтверждено живым Oracle 23ai, реальным ora2pg 25.0 и PostgreSQL 16,'
+            ' docs/research/gap-123-dbms-sleep.md. --fix дописывает PERFORM.'
+        ),
+        en=(
+            "DBMS_LOCK.SLEEP or DBMS_SESSION.SLEEP called as a statement. ora2pg 25.0's PLSQL.pm has two rules "
+            'for it, PERFORM pg_sleep and a bare pg_sleep, and the bare one runs first. The result is '
+            "pg_sleep(1);, and PL/pgSQL does not take a function called as a statement without PERFORM ('syntax "
+            'error at or near "pg_sleep"\') - the routine does not load. Confirmed against a live Oracle 23ai, a '
+            'real ora2pg 25.0 run and PostgreSQL 16, docs/research/gap-123-dbms-sleep.md. --fix writes the '
+            'PERFORM.'
+        ),
+    ),
     "temporal_validity.alter": Message(
         ru=(
             'PERIOD FOR (temporal validity, 12c) в записи DBMS_METADATA.GET_DDL — отдельной '
@@ -5085,6 +5167,22 @@ REMEDIATION_HINTS: dict[str, Message] = {
             "Replace the constant's name in the DEFAULT with its value, or a call to a function returning it"
         ),
     ),
+    "package_type_anchor": Message(
+        ru='Заменить %TYPE/%ROWTYPE в поле RECORD или SUBTYPE на сам тип столбца',
+        en="Replace the %TYPE/%ROWTYPE in the RECORD field or SUBTYPE with the column's actual type",
+    ),
+    "package_type_reference": Message(
+        ru='Дописать к типу схему пакета (pkg.t) или добавить её в search_path функции',
+        en="Qualify the type with the package's schema (pkg.t), or put it on the function's search_path",
+    ),
+    "supplied_package_call": Message(
+        ru='Заменить вызов аналогом PostgreSQL или убрать его - голый вызов не загружается',
+        en='Replace the call with a PostgreSQL counterpart, or remove it - a bare call does not load',
+    ),
+    "dbms_sleep": Message(
+        ru='Запустить --fix: он пишет PERFORM pg_sleep(...)',
+        en='Run --fix: it writes PERFORM pg_sleep(...)',
+    ),
 }
 
 
@@ -5414,6 +5512,22 @@ TITLES: dict[str, Message] = {
     "package_constant_default": Message(
         ru='Константа пакета в умолчании параметра - копируется как есть, функция не загружается',
         en='A package constant as a parameter default - copied as it is, the function does not load',
+    ),
+    "package_type_anchor": Message(
+        ru='`%TYPE` в RECORD или SUBTYPE пакета - копируется в `CREATE TYPE`/`CREATE DOMAIN`, не загружается',
+        en='`%TYPE` in a package RECORD or SUBTYPE - copied into `CREATE TYPE`/`CREATE DOMAIN`, does not load',
+    ),
+    "package_type_reference": Message(
+        ru='Тип пакета в его подпрограммах без имени пакета - `type does not exist`',
+        en='A package type used in its routines without the package name - `type does not exist`',
+    ),
+    "supplied_package_call": Message(
+        ru='Процедура поставляемого пакета (`DBMS_*`, `UTL_*`, `HTP`) как оператор - копируется без `CALL`, не загружается',
+        en="A supplied package's procedure (`DBMS_*`, `UTL_*`, `HTP`) as a statement - copied without `CALL`, does not load",
+    ),
+    "dbms_sleep": Message(
+        ru='`DBMS_LOCK.SLEEP` - становится `pg_sleep(n);` без `PERFORM`, не загружается',
+        en='`DBMS_LOCK.SLEEP` - becomes `pg_sleep(n);` without `PERFORM`, does not load',
     ),
     "mysql_enum_type": Message(
         ru='`ENUM(...)` — ссылка на несуществующий синтезированный тип',

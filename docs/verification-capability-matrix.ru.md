@@ -10,7 +10,7 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 выводе" тавтологичен: конструкция гарантированно не появится в выводе ни
 на одной миграции, независимо от того, исправил её кто-то руками или
 нет. Docstring `verification.py` объясняет это подробно; здесь — таблица
-по каждому из 119 gap'ов, чтобы не листать код ради одного вопроса
+по каждому из 123 gap'ов, чтобы не листать код ради одного вопроса
 "а можно ли верифицировать конкретно этот".
 
 ## Как читать колонку "режим"
@@ -107,7 +107,7 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 066 | `read_only_view` | `not_verifiable` | Оговорка WITH READ ONLY выбрасывается безусловно. |
 | 067 | `sdo_geometry` | `not_verifiable` | Переписывается в тип PostGIS `geometry`; имя SDO_GEOMETRY не переживает конвертацию. |
 
-### Oracle (GAP-112..119)
+### Oracle (GAP-112..123)
 
 | # | Детектор | Режим | Почему |
 |---|---|---|---|
@@ -119,6 +119,10 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 117 | `trigger_package_call` | `verbatim` | Вызов копируется в функцию триггера без изменений. |
 | 118 | `statement_trigger` | `not_verifiable` | Заголовок уровня команды заменяется на FOR EACH ROW. |
 | 119 | `package_constant_default` | `not_verifiable` | Умолчание остаётся, но вне пакета, который читает детектор. |
+| 120 | `package_type_anchor` | `not_verifiable` | RECORD/SUBTYPE становится CREATE TYPE/DOMAIN; --load-check узнаёт скопированную привязку. |
+| 121 | `package_type_reference` | `not_verifiable` | Объявление становится CREATE TYPE/DOMAIN; остаётся только использование без схемы. |
+| 122 | `supplied_package_call` | `verbatim` | Вызов копируется без изменений. |
+| 123 | `dbms_sleep` | `not_verifiable` | DBMS_LOCK.SLEEP становится голым pg_sleep, его чинит --fix. |
 
 ### MySQL/MariaDB (`ora2pg -m`)
 
@@ -174,7 +178,7 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 104 | `mssql_computed_column` | `not_verifiable` | Переписывается в триггер; синтаксис столбца `AS (выражение)` не переживает конвертацию. |
 | 105 | `mssql_rowversion` | `not_verifiable` | Переписывается в bytea; имя ROWVERSION не переживает конвертацию. |
 
-Итого среди самих 119 gap'ов: 51 `verbatim`, 67 `not_verifiable`
+Итого среди самих 123 gap'ов: 52 `verbatim`, 70 `not_verifiable`
 (включая `autonomous_tx`, но по другой причине — см. выше), 1
 `generated_only` (`connect_by`).
 

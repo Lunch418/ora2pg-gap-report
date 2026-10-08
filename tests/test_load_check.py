@@ -535,7 +535,8 @@ def test_footprints_of_bare_calls(tmp_path, monkeypatch):
     (error,) = run_load_check([p], parse_target("dbname=x")).errors
     assert error.gap_number == "116"
 
-    # A bare call with arguments inside a package is not GAP-116 (Logger's htp.p).
+    # A bare call with arguments inside a package is not GAP-116; Logger's
+    # htp.p is a supplied package's, GAP-122.
     other = procedure.replace("    job_pkg.refresh();\n", "    htp.p('<br />');\n")
     path3 = tmp_path / "other"
     path3.mkdir()
@@ -546,7 +547,7 @@ def test_footprints_of_bare_calls(tmp_path, monkeypatch):
         FakePsql({"proc.sql": "psql:{script}:9: ERROR:  42601: syntax error at or near \"htp\"\nLINE 4:     htp.p('<br />');"}),
     )
     (error,) = run_load_check([q], parse_target("dbname=x")).errors
-    assert error.category == "unknown"
+    assert (error.category, error.gap_number) == ("gap", "122")
 
 
 def test_footprint_of_a_package_constant_default(tmp_path, monkeypatch):
@@ -568,3 +569,50 @@ def test_footprint_of_a_package_constant_default(tmp_path, monkeypatch):
     monkeypatch.setattr(load_check, "_run", FakePsql({"f.sql": err}))
     (error,) = run_load_check([path], parse_target("dbname=x")).errors
     assert (error.category, error.gap_number) == ("gap", "119")
+
+
+@pytest.mark.parametrize(
+    ("line", "message", "gap"),
+    [
+        # what ora2pg 25.0 left of the samples' errors no gap explained
+        ("      current_setting('equitable_salaries_pkg.g_emp_info')::g_emp_info_t.DELETE;",
+         'syntax error at or near "current_setting"', "003"),
+        (" null or not $$no_op) $then", 'syntax error at or near "null"', "035"),
+        ("        htp.p('<br />'||p_name);", 'syntax error at or near "htp"', "122"),
+        ("    DBMS_APPLICATION_INFO.SET_MODULE('m', 'a');", 'syntax error at or near "DBMS_APPLICATION_INFO"', "122"),
+    ],
+)
+def test_footprints_on_the_failing_line(tmp_path, monkeypatch, line, message, gap):
+    routine = (
+        "CREATE OR REPLACE PROCEDURE p.x () AS $body$\nBEGIN\n"
+        f"{line}\n  END;\n$body$\nLANGUAGE PLPGSQL\n;\n"
+    )
+    path = _write(tmp_path, "proc.sql", routine)
+    monkeypatch.setattr(
+        load_check, "_run", FakePsql({"proc.sql": f"psql:{{script}}:7: ERROR:  42601: {message}\nLINE 3: {line}"})
+    )
+    (error,) = run_load_check([path], parse_target("dbname=x")).errors
+    assert (error.category, error.gap_number) == ("gap", gap)
+
+
+def test_footprints_of_package_types(tmp_path, monkeypatch):
+    sql = (
+        "CREATE DOMAIN gx_t_pkg.t_code AS varchar(10);\n"
+        "CREATE TYPE gx_r_pkg.r_t AS (\na gx_emp.a%TYPE\n);\n"
+        "CREATE OR REPLACE FUNCTION gx_t_pkg.f (p t_code) RETURNS T_CODE AS $body$\nBEGIN\n RETURN p;\nEND;\n$body$\nLANGUAGE PLPGSQL;\n"
+        "CREATE OR REPLACE FUNCTION gx_t_pkg.g (p other_t) RETURNS int AS $body$\nBEGIN\n RETURN 1;\nEND;\n$body$\nLANGUAGE PLPGSQL;\n"
+    )
+    path = _write(tmp_path, "types.sql", sql)
+    monkeypatch.setattr(
+        load_check,
+        "_run",
+        FakePsql(
+            {
+                "types.sql": 'psql:{script}:4: ERROR:  42601: syntax error at or near "%"\nLINE 2: a gx_emp.a%TYPE\n'
+                "psql:{script}:11: ERROR:  42704: type t_code does not exist\n"
+                "psql:{script}:17: ERROR:  42704: type other_t does not exist"
+            }
+        ),
+    )
+    errors = run_load_check([path], parse_target("dbname=x")).errors
+    assert [(e.category, e.gap_number) for e in errors] == [("gap", "120"), ("gap", "121"), ("dependency", None)]

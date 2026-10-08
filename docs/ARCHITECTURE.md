@@ -14,10 +14,10 @@ FUNCTION`, …), which is exactly how `ora2pg_wrapper.py` works, not
 through `SHOW_REPORT`. This is a hard requirement for the target
 audience: closed networks, air-gapped environments, the public sector.
 
-There are 120 detectors right now (the full table is in README.md,
-"Detectors"; 119 of them are tied to a registered GAP-NNN,
+There are 124 detectors right now (the full table is in README.md,
+"Detectors"; 123 of them are tied to a registered GAP-NNN,
 `dbms_utl_calls` isn't, see README.md, "Why almost everything is high"),
-split across three source dialects: 75 Oracle, 25 MySQL/MariaDB
+split across three source dialects: 79 Oracle, 25 MySQL/MariaDB
 (`ora2pg -m`) and 19 T-SQL/SQL Server (`ora2pg -M`). Each dialect has its
 own lexer (`plsql_lex.py`, `mysql_lex.py`, `mssql_lex.py`) and its own
 detector tuple in `core.py`, kept structurally separate so a file scanned
@@ -127,6 +127,10 @@ ora2pg_gap_report/
 │   ├── trigger_package_call.py    # a package procedure called from a trigger -- copied without CALL
 │   ├── statement_trigger.py       # a statement-level trigger -- becomes FOR EACH ROW
 │   ├── package_constant_default.py  # a package constant as a parameter default -- copied, fails to load
+│   ├── package_type_anchor.py   # %TYPE in a package RECORD/SUBTYPE -- copied into CREATE TYPE/DOMAIN
+│   ├── package_type_reference.py  # a package type used in its routines without the package name
+│   ├── supplied_package_call.py  # a DBMS_/UTL_/HTP procedure called as a statement -- no CALL
+│   ├── dbms_sleep.py            # DBMS_LOCK.SLEEP -> pg_sleep(n); without PERFORM (--fix repairs it)
 │   │                             # -- MySQL/MariaDB dialect (ora2pg -m; see mysql_lex.py) --
 │   ├── mysql_enum_type.py         # ENUM(...) -- CREATE TYPE for the synthesized type is missing
 │   ├── mysql_on_update_current_timestamp.py  # ON UPDATE CURRENT_TIMESTAMP -- copied into DEFAULT verbatim

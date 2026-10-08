@@ -73,9 +73,11 @@ after the fact — once something has already broken in production.
 
 ## What this tool does
 
-Scans an Oracle schema **before** migration and reports exactly which objects
-`ora2pg` will skip without warning, underestimate the effort for, or convert
-potentially incorrectly — and why. Not a replacement for `ora2pg`, a layer on
+Scans an Oracle, MySQL/MariaDB or SQL Server schema **before** migration and
+reports exactly which objects `ora2pg` will skip without warning,
+underestimate the effort for, or convert incorrectly - and why; then, if you
+want, runs the migration itself and checks the result against a real
+PostgreSQL. Not a replacement for `ora2pg`, a layer on
 top of it: the list of what it actually fails to carry over was verified
 empirically against real PL/SQL code
 (`docs/research/step0-show-report-baseline.md`), not taken on faith.
@@ -90,8 +92,9 @@ empirically against real PL/SQL code
 | **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED between runs |
 | **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code; takes its dialect from the baseline (not a functional check, see below) |
 | **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags, `--migrate` included |
-| **Autofix** | `--fix`/`--write` — three known-safe mechanical fixes for `ora2pg`'s generated code, picked by `--dialect`, see below |
-| **One-command migration** | `--migrate out/` - scan, prepare, convert with ora2pg, fix and load, everything into one directory, see below |
+| **Autofix** | `--fix`/`--write` - six known-safe mechanical fixes for `ora2pg`'s generated code (three for Oracle), picked by `--dialect`, see below |
+| **One-command migration** | `--migrate out/` - scan, prepare, convert with ora2pg, fix (including what only the source still knows: statement triggers, package constants, ENUM types) and load, everything into one directory, see below |
+| **Docker image** | `ghcr.io/lunch418/ora2pg-gap-report` - the tool, ora2pg 25.0 and psql in one image: nothing to install but docker |
 | **Source preparation** | `--prepare` - rewrites what ora2pg's parser trips over in the dump itself (DELIMITER, DEFINER, `[brackets]`, `q'[...]'`), before ora2pg runs, see below |
 | **Recipes and a checklist** | A tested PostgreSQL pattern for each class of problem, and `-f checklist`: a task list that keeps its ticks between runs, see below |
 | **Load check** | `--load-check docker` - loads the generated code into a real, throwaway PostgreSQL and ties every statement that fails to its GAP-NNN, to `--fix`, or to an earlier failure; nothing is committed, see below |

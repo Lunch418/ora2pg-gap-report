@@ -5,7 +5,7 @@
 Two recipes: how to fit `ora2pg-gap-report` into a migration pipeline
 alongside `ora2pg`, and how to get findings inline, line by line, in a
 GitHub PR, with no custom Action and no custom bot, using GitHub's own
-features.
+features - or with the ready-made Action this repository is.
 
 ## A pipeline alongside ora2pg
 
@@ -48,7 +48,59 @@ back at the end. It catches what static detection can't: any statement
 PostgreSQL refuses, known gap or not. See the README's `--load-check`
 section.
 
-## Findings inline in a GitHub PR (no custom bot)
+## A ready-made GitHub Action
+
+The repository is an Action itself (`action.yml`): it installs the tool
+from the same ref, writes a SARIF report and uploads it to code scanning,
+can write the HTML report too, and applies the `--fail-on` gate last, so
+the reports are there even when the gate fails the job.
+
+```yaml
+# .github/workflows/migration-gap-scan.yml
+name: migration-gap-scan
+
+on:
+  pull_request:
+    paths:
+      - "schema/**"
+
+permissions:
+  contents: read
+  security-events: write   # for the SARIF upload
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: gaps
+        uses: Lunch418/ora2pg-gap-report@main   # or a release tag, from the first one that has action.yml
+        with:
+          paths: schema/
+          fail-on: high              # "" to only report
+          html-report: gap-report.html
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gap-report
+          path: gap-report.html
+```
+
+| Input | Default | What it does |
+| --- | --- | --- |
+| `paths` | (required) | Files or directories, separated by spaces or new lines, relative to the repository root |
+| `dialect` | `oracle` | `oracle`, `mysql` or `mssql` |
+| `fail-on` | `high` | Fail the step at this severity or above; empty to only report |
+| `sarif-file` | `ora2pg-gap-report.sarif` | Where the SARIF report goes |
+| `upload-sarif` | `true` | Upload it to code scanning; `false` to only write it |
+| `html-report` | empty | Also write the HTML report here |
+| `lang` | `en` | Language of the reports, `en` or `ru` |
+| `python-version` | `3.12` | The Python the tool is installed with |
+
+Outputs: `findings` and `high` (counts) and `sarif-file`. The project's own
+CI runs the action on the sample packages on every pull request.
+
+## Findings inline in a GitHub PR, by hand
 
 `--format sarif` isn't just another output format. SARIF 2.1.0 is a
 format GitHub understands natively via

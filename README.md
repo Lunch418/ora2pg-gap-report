@@ -83,7 +83,7 @@ empirically against real PL/SQL code
 | **Static analysis** | Looks for patterns in the source code (Oracle, MySQL/MariaDB or T-SQL), no `ora2pg` install required (except `connect_by`, see below) |
 | **Reproducible** | Every finding is confirmed by a real `ora2pg` + PostgreSQL run, not by reading the docs |
 | **7 output formats** | terminal, markdown, json, csv, `sarif`, `html`, `checklist` - the same set of findings every time |
-| **CI gate** | `--fail-on` + SARIF for GitHub/GitLab code scanning |
+| **CI gate** | `--fail-on` + SARIF for GitHub/GitLab code scanning, and a ready-made GitHub Action |
 | **Works offline** | Self-contained bundle for closed networks (`scripts/build_offline_bundle.py`), see below |
 | **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED between runs |
 | **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code; takes its dialect from the baseline (not a functional check, see below) |
@@ -635,9 +635,19 @@ problems.
 
 A real-world output example against an open-source package —
 [`docs/examples/logger-autonomous_tx-report.md`](docs/examples/logger-autonomous_tx-report.md).
-A full CI recipe — gating a PR, running alongside `ora2pg` itself, and
-getting findings as inline PR annotations via SARIF without a custom bot —
-is in [`docs/ci-integration.md`](docs/ci-integration.md).
+On GitHub, the repository is a ready-made Action that does the scan, the
+SARIF upload to code scanning and the gate in one step:
+
+```yaml
+- uses: Lunch418/ora2pg-gap-report@main
+  with:
+    paths: schema/
+    fail-on: high
+```
+
+Its inputs, and a full CI recipe — gating a PR, running alongside `ora2pg`
+itself, findings as inline PR annotations via SARIF — are in
+[`docs/ci-integration.md`](docs/ci-integration.md).
 
 The effort estimate in the report is a rough heuristic by severity (an hour
 range, not a single number). It's a planning reference, not an estimate

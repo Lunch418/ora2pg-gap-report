@@ -47,6 +47,12 @@ patch for fixes to existing ones.
   and the same directory as the command line. The Russian "Scan" button is
   now "Проверить", so the row still fits 80 columns.
 
+- **A GitHub Action**: `uses: Lunch418/ora2pg-gap-report@<ref>` scans the
+  given paths, uploads SARIF to code scanning, optionally writes the HTML
+  report, sets the finding counts as outputs and applies the `--fail-on`
+  gate last. It installs the tool from its own ref. CI runs it on every
+  pull request. See `docs/ci-integration.md`.
+
 ### Fixed
 
 - `--migrate`: `-t PACKAGE` now gets only the packages. Given the whole

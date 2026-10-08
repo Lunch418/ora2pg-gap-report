@@ -248,3 +248,45 @@ jobs:
           test -s "$RUNNER_TEMP/work/out/report.html"
           test -s "$RUNNER_TEMP/work/out/load-check.json"
           ls "$RUNNER_TEMP/work/out/converted/"*.sql
+
+  # The action in action.yml, run the way a user's workflow runs it, on the
+  # sample packages: it reports, writes both reports and sets its outputs
+  # with the gate off, and fails the step with the gate on.
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - id: report
+        uses: ./
+        with:
+          paths: |
+            docs/research/samples/logger.pks
+            docs/research/samples/logger.pkb
+          fail-on: ""
+          upload-sarif: "false"
+          html-report: report.html
+
+      - name: Outputs and reports
+        env:
+          FINDINGS: ${{ steps.report.outputs.findings }}
+          HIGH: ${{ steps.report.outputs.high }}
+          SARIF: ${{ steps.report.outputs.sarif-file }}
+        run: |
+          set -euo pipefail
+          echo "findings=$FINDINGS high=$HIGH sarif=$SARIF"
+          test "$FINDINGS" -gt 0 && test "$HIGH" -gt 0
+          python -c "import json, sys; r = json.load(open(sys.argv[1]))['runs'][0]['results']; assert len(r) == int(sys.argv[2]), len(r); print(r[0]['locations'][0]['physicalLocation']['artifactLocation']['uri'])" "$SARIF" "$FINDINGS"
+          grep -q "<!doctype html>" report.html
+
+      - id: gate
+        continue-on-error: true
+        uses: ./
+        with:
+          paths: docs/research/samples/logger.pkb
+          upload-sarif: "false"
+
+      - name: The gate failed the step
+        env:
+          OUTCOME: ${{ steps.gate.outcome }}
+        run: test "$OUTCOME" = failure

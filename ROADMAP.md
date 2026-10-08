@@ -9,8 +9,7 @@ backlog, and items only get pulled out of it once there's a confirmed
 reason (a real user, a real issue, real pain). See the rule at the end of
 the document.
 
-Status current as of v0.13.0 plus what is under Unreleased in the
-changelog (2026-10-05).
+Status current as of v0.14.0 (2026-10-08).
 
 ## How to read this list
 
@@ -35,24 +34,24 @@ project exists - is already in place:
   (`--dialect mssql`, as for `ora2pg -M`), plus the `dbms_utl_calls`
   classifier. Each one reproduced on a real `ora2pg` 25.0 + PostgreSQL 16
   run before it was added.
-- **Load check against a real PostgreSQL** (Unreleased): `--load-check
+- **Load check against a real PostgreSQL**: `--load-check
   docker|DSN` loads `ora2pg`'s generated files into a real server (a
   throwaway container by default) in one transaction that is rolled back,
   with `check_function_bodies` forced on, and ties every statement that
   fails to a GAP-NNN, to `--fix`, or to an earlier failure. Errors the
   registry doesn't know are listed apart - exactly the material new gaps
   come from.
-- **Migration recipes** (Unreleased): fifteen pages in `docs/recipes/`, one
+- **Migration recipes**: fifteen pages in `docs/recipes/`, one
   per class of problem, each with the PostgreSQL pattern and what does not
   carry over. Their SQL runs in the test suite against a real PostgreSQL
   16, `ASSERT`s included, in both languages. Every report links each gap
   to its recipe.
-- **A checklist that remembers** (Unreleased): `-f checklist -o
+- **A checklist that remembers**: `-f checklist -o
   MIGRATION.md` writes the work as a Markdown task list; regenerating it
   keeps the ticks and ticks what the source no longer contains.
-- **One-command migration** (Unreleased): `--migrate OUT_DIR` runs scan,
+- **One-command migration**: `--migrate OUT_DIR` runs scan,
   prepare, ora2pg, fix and load in order, into one directory.
-- **Source preparation** (Unreleased): `--prepare` rewrites what ora2pg's
+- **Source preparation**: `--prepare` rewrites what ora2pg's
   parser trips over in the dump itself, before ora2pg runs, for seven gaps
   that cannot be repaired in its output afterwards.
 - **Autofix**: `--fix`/`--write` - three mechanical fixes for `ora2pg`'s

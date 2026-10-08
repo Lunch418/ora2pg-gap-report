@@ -196,6 +196,8 @@ _COUNTED: dict[str, dict[str, tuple[str, ...]]] = {
     "file": {"ru": ("файл", "файла", "файлов"), "en": ("file", "files")},
     "hour": {"ru": ("час", "часа", "часов"), "en": ("hour", "hours")},
     "statement": {"ru": ("команда", "команды", "команд"), "en": ("statement", "statements")},
+    # after "из" (of): the genitive, "из 1 команды", "из 131 команды", "из 5 команд"
+    "statement_of": {"ru": ("команды", "команд", "команд"), "en": ("statement", "statements")},
     "error": {"ru": ("ошибка", "ошибки", "ошибок"), "en": ("error", "errors")},
 }
 

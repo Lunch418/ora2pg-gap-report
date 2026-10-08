@@ -439,6 +439,8 @@ ora2pg-gap-report --tui path/to/schema_dump/   # открывается там
 получается тот же - `report.html`, `MIGRATION.md`, `converted/`, а с
 загрузкой ещё `load-check.txt`/`.json`.
 
+![ora2pg-gap-report --tui: экран миграции после прогона на примерах пакетов с загрузкой в PostgreSQL 16](docs/screenshots/tui-migrate.ru.png)
+
 ### Документация прямо из CLI
 
 `--explain GAP-023` (или просто `--explain 23`) печатает research-документ

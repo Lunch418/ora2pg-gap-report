@@ -441,6 +441,8 @@ and ends with the same summary the command line prints. The directory it
 writes is the same too - `report.html`, `MIGRATION.md`, `converted/`, and
 `load-check.txt`/`.json` with the load.
 
+![ora2pg-gap-report --tui: the migrate screen after a run on the sample packages with the load into PostgreSQL 16](docs/screenshots/tui-migrate.en.png)
+
 ### Documentation straight from the CLI
 
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research

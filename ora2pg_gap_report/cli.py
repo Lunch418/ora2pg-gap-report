@@ -314,7 +314,7 @@ def _markdown_header(findings: list[Finding], lang: str) -> str:
     return (
         i18n.t(lang, "markdown_report_title")
         + found
-        + i18n.t(lang, "markdown_effort_estimate", lo=lo, hi=hi)
+        + i18n.t(lang, "markdown_effort_estimate", lo=i18n.hours(lang, lo), hi=i18n.hours(lang, hi))
     )
 
 

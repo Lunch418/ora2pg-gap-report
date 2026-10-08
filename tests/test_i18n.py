@@ -232,3 +232,12 @@ def test_statement_count_after_iz_takes_the_genitive():
         "1 команды", "2 команд", "5 команд", "21 команды", "131 команды",
     ]
     assert i18n.count("en", "statement_of", 131) == "131 statements"
+
+
+def test_effort_hours_are_whole_from_ten_up():
+    from ora2pg_gap_report import i18n
+
+    assert i18n.hours("en", 136.25) == "136"
+    assert i18n.hours("en", 544.5) == "545"
+    assert i18n.hours("en", 0.5) == "0.5"
+    assert i18n.hours("ru", 2.25) == "2,25"

@@ -801,6 +801,7 @@ class MigrateScreen(_SpinnerStatus, Screen[None]):
 
     def _show_status_error(self, message: str | Text) -> None:
         self._set_running(False)
+        self._status().display = True
         super()._show_status_error(message)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -818,6 +819,7 @@ class MigrateScreen(_SpinnerStatus, Screen[None]):
         self.query_one("#migrate-result", Static).update("")
         self.result_text = None
         self._set_running(True)
+        self._status().display = True
         self._start_spinner(i18n.t(self.lang, "tui_migrate_running"), self.lang)
         self._run(Path(out).expanduser(), ora2pg_bin, load)
 
@@ -829,6 +831,9 @@ class MigrateScreen(_SpinnerStatus, Screen[None]):
         self._set_running(False)
         self._stop_spinner()
         self._status().update("")
+        # The summary says how it went; an empty status line above it
+        # would only push it down.
+        self._status().display = False
         self.result_text = text
         self.query_one("#migrate-result", Static).update(text)
 
@@ -893,7 +898,7 @@ class MigrateScreen(_SpinnerStatus, Screen[None]):
         width = max(60, self.size.width - 6)
         console = Console(file=io.StringIO(), record=True, width=width, force_terminal=True, color_system="truecolor")
         render_migration(result, load, console=console, lang=lang, load_check_asked=load_check, in_tui=True)
-        self.app.call_from_thread(self._show_result, Text.from_ansi(console.export_text(styles=True)))
+        self.app.call_from_thread(self._show_result, Text.from_ansi(console.export_text(styles=True).lstrip("\n")))
 
 
 class ResultsScreen(Screen[None]):
@@ -1025,7 +1030,7 @@ class ResultsScreen(Screen[None]):
             )
             effort = Text(f"{i18n.t(lang, 'effort_panel_title')}: ", style=_MUTED)
             effort.append(
-                i18n.t(lang, "report_effort_range", lo=i18n.number(lang, lo), hi=i18n.number(lang, hi)),
+                i18n.t(lang, "report_effort_range", lo=i18n.hours(lang, lo), hi=i18n.hours(lang, hi)),
                 style="bold",
             )
             effort.append(f" {i18n.t(lang, 'tui_effort_caveat')}", style=_MUTED)

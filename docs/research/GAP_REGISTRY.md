@@ -97,6 +97,7 @@ being after them.
 | GAP-121 | A package type used in its routines without the package name - `type does not exist` | `package_type_reference` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-121](gap-121-package-type-reference.md) |
 | GAP-122 | A supplied package's procedure (`DBMS_*`, `UTL_*`, `HTP`) as a statement - copied without `CALL`, does not load | `supplied_package_call` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-122](gap-122-supplied-package-call.md) |
 | GAP-123 | `DBMS_LOCK.SLEEP` - becomes `pg_sleep(n);` without `PERFORM`, does not load | `dbms_sleep` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-123](gap-123-dbms-sleep.md) |
+| GAP-124 | A schema-qualified name (`"HR"."EMP"`) - the schema is kept but never created, and dropped on triggers | `schema_qualified_name` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-124](gap-124-schema-qualified-name.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 
@@ -151,6 +152,7 @@ being after them.
 | GAP-103 | `COLLATE` ignored, everything becomes case-insensitive `citext` by default | `mssql_collation` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-103](gap-103-mssql-collation.md) |
 | GAP-104 | A computed column gets the type `citext` regardless of the expression | `mssql_computed_column` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-104](gap-104-mssql-computed-column.md) |
 | GAP-105 | `ROWVERSION` -> `bytea`, stops updating - optimistic locking breaks | `mssql_rowversion` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-105](gap-105-mssql-rowversion.md) |
+| GAP-125 | `[dbo].[Orders]` - the `dbo` schema is kept but never created, nothing loads | `mssql_schema_qualified_name` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-125](gap-125-mssql-schema-qualified-name.md) |
 
 Statuses: `confirmed` — reproduced on the stated ora2pg version and still
 current; `fixed-upstream` — ora2pg fixed the problem in a newer version

@@ -60,6 +60,15 @@ patch for fixes to existing ones.
   still to do. The items stay open for the user to check.
   `report.html` from `--migrate` carries the same note in each gap's card.
 
+- **Two more gaps, GAP-124 and GAP-125**, from running `--migrate` on a
+  `GET_DDL` export and an SSMS script, where every name carries its schema
+  (`"HR"."EMP"`, `[dbo].[Orders]`): ora2pg keeps the schema but never
+  creates it, so nothing loads on a fresh PostgreSQL. On the Oracle path it
+  also drops the schema on triggers and in view bodies, so the schema has
+  to be on the search_path too; on the T-SQL path creating it is enough,
+  and `--fix` now does (`CREATE SCHEMA IF NOT EXISTS`). Confirmed on a live
+  Oracle 23ai, ora2pg 25.0 and PostgreSQL 16.
+
 ### Fixed
 
 - `--migrate`: `-t PACKAGE` now gets only the packages. Given the whole

@@ -5,8 +5,9 @@ docs/ARCHITECTURE.md: the detectors aren't a real parser, and rewriting
 DDL that's about to be deployed carries a much higher cost of being wrong
 than a missed or extra flag does).
 
-Scope is deliberately narrow: six gaps so far (GAP-028, GAP-024 and
-GAP-123 for Oracle, GAP-075 for MySQL, GAP-100 and GAP-091 for T-SQL, see
+Scope is deliberately narrow: seven gaps so far (GAP-028, GAP-024 and
+GAP-123 for Oracle, GAP-075 for MySQL, GAP-100, GAP-091 and GAP-125 for
+T-SQL, see
 FIXERS_BY_DIALECT). GAP-028,
 the first, shows what qualifies: it qualifies specifically because the bug is
 a single, always-identical shape (ora2pg wraps its own correctly-derived
@@ -274,6 +275,52 @@ def fix_bare_pg_sleep(source: str) -> tuple[str, int]:
         source = source[:at] + "PERFORM " + source[at:]
     return source, len(ends)
 
+
+_PG_NAME = r'(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)'
+_PG_CREATE_QUALIFIED_RE = re.compile(
+    r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:UNLOGGED\s+)?(?:TABLE|VIEW|SEQUENCE|PROCEDURE|FUNCTION)\s+"
+    rf"(?:IF\s+NOT\s+EXISTS\s+)?({_PG_NAME})\s*\.\s*{_PG_NAME}",
+    re.IGNORECASE,
+)
+_PG_CREATE_SCHEMA_RE = re.compile(rf"\bCREATE\s+SCHEMA\s+(?:IF\s+NOT\s+EXISTS\s+)?({_PG_NAME})", re.IGNORECASE)
+_ON_ERROR_STOP_RE = re.compile(r"^\\set\s+ON_ERROR_STOP\b.*\n", re.IGNORECASE | re.MULTILINE)
+
+
+def fix_mssql_missing_schema(source: str) -> tuple[str, int]:
+    """Create the schemas ora2pg -M keeps on every name but never creates
+    (GAP-125): `CREATE SCHEMA IF NOT EXISTS dbo;` for each schema a CREATE
+    in the file qualifies a name with and the file does not create,
+    returning (fixed_source, number_of_schemas_added).
+
+    Mechanical: T-SQL's schema is carried into every reference -- the
+    table, the view and procedure bodies alike -- so creating it is the
+    whole repair, and the statements only fail for its lack ('schema "dbo"
+    does not exist', ora2pg 25.0 output loaded into PostgreSQL 16). IF NOT
+    EXISTS keeps it harmless where the schema is there already. Written
+    after ora2pg's header, before the first statement that needs it."""
+    from .pg_script import mask_literals
+
+    masked = mask_literals(source)
+
+    def bare(name: str) -> str:
+        return name[1:-1] if name.startswith('"') else name.lower()
+
+    created = {bare(m.group(1)) for m in _PG_CREATE_SCHEMA_RE.finditer(masked)}
+    needed: list[str] = []
+    for m in _PG_CREATE_QUALIFIED_RE.finditer(masked):
+        name = m.group(1)
+        if bare(name) in created or bare(name) in ("public", "pg_catalog") or name in needed:
+            continue
+        if any(bare(n) == bare(name) for n in needed):
+            continue
+        needed.append(name)
+    if not needed:
+        return source, 0
+    header = _ON_ERROR_STOP_RE.search(masked)
+    at = header.end() if header else 0
+    block = "".join(f"CREATE SCHEMA IF NOT EXISTS {name};\n" for name in needed)
+    return source[:at] + block + source[at:], len(needed)
+
 # Which mechanical fixes apply to which source dialect's generated output.
 # Keyed by the same dialect names core.DIALECTS carries. MySQL has a
 # single fix on purpose, not by oversight: `LIMIT a, b` (GAP-075) is pure
@@ -292,7 +339,7 @@ Fixer = Callable[[str], tuple[str, int]]
 FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
     "oracle": (fix_identity_double_parens, fix_recursive_with_keyword, fix_bare_pg_sleep),
     "mysql": (fix_mysql_limit_comma,),
-    "mssql": (fix_mssql_charindex_quotes, fix_mssql_empty_declare),
+    "mssql": (fix_mssql_charindex_quotes, fix_mssql_empty_declare, fix_mssql_missing_schema),
 }
 
 # The detector whose gap each fix undoes. --load-check uses it to say
@@ -305,4 +352,12 @@ FIXER_DETECTOR: dict[Fixer, str] = {
     fix_mysql_limit_comma: "mysql_limit_comma",
     fix_mssql_charindex_quotes: "mssql_charindex",
     fix_mssql_empty_declare: "mssql_parameterless_procedure",
+    fix_mssql_missing_schema: "mssql_schema_qualified_name",
+}
+
+# A fix that answers only one kind of load error: --load-check claims a
+# failed statement for it only with that SQLSTATE. A schema-qualified
+# CREATE that fails for some other reason is not this fix's to repair.
+FIXER_SQLSTATE: dict[Fixer, str] = {
+    fix_mssql_missing_schema: "3F000",
 }

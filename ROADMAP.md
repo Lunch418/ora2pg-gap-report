@@ -29,8 +29,8 @@ Three sections:
 The core "evidence-based verification layer" - the whole reason this
 project exists - is already in place:
 
-- **123 confirmed gaps across three source dialects**: 79 Oracle, 25
-  MySQL/MariaDB (`--dialect mysql`, as for `ora2pg -m`) and 19 SQL Server
+- **125 confirmed gaps across three source dialects**: 80 Oracle, 25
+  MySQL/MariaDB (`--dialect mysql`, as for `ora2pg -m`) and 20 SQL Server
   (`--dialect mssql`, as for `ora2pg -M`), plus the `dbms_utl_calls`
   classifier. Each one reproduced on a real `ora2pg` 25.0 + PostgreSQL 16
   run before it was added.
@@ -59,9 +59,9 @@ project exists - is already in place:
 - **Source preparation**: `--prepare` rewrites what ora2pg's
   parser trips over in the dump itself, before ora2pg runs, for seven gaps
   that cannot be repaired in its output afterwards.
-- **Autofix**: `--fix`/`--write` - six mechanical fixes for `ora2pg`'s
+- **Autofix**: `--fix`/`--write` - seven mechanical fixes for `ora2pg`'s
   generated code (GAP-024, GAP-028 and GAP-123 for Oracle, GAP-075 for
-  MySQL, GAP-091 and GAP-100 for T-SQL), dry
+  MySQL, GAP-091, GAP-100 and GAP-125 for T-SQL), dry
   run by default, preserving the file's encoding, line endings and BOM.
 
 - **Verification, not guessing**: `--verify` compares the converted
@@ -78,7 +78,7 @@ project exists - is already in place:
   SARIF 2.1.0. Via `github/codeql-action/upload-sarif`, GitHub draws the
   findings inline in the PR itself, no custom bot or Action needed for
   that (see "Near-term" - only a documented example is missing).
-- **Evidence pages**: `--explain GAP-NNN` + `docs/research/gap-*.md` (123
+- **Evidence pages**: `--explain GAP-NNN` + `docs/research/gap-*.md` (125
   of them, each in English and Russian) - minimal example, real `ora2pg`
   output, what happens in PostgreSQL, the severity rationale.
 - **Reproduce for CONNECT BY**: `--check-connect-by` actually runs an
@@ -103,13 +103,13 @@ project exists - is already in place:
   PR with no custom bot or Action.
 - **Verification capability matrix**:
   [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md)
-  - for each of the 123 gaps, explicitly which verification mode it has
+  - for each of the 125 gaps, explicitly which verification mode it has
   (`verbatim`/`not_verifiable`/`generated_only`) and why, cross-checked
   against `VERIFICATION_MODE` in the code line by line (not written by
   eye).
 - **`failure_stage`**: at which stage a gap actually becomes visible -
   `deployment`/`runtime`/`semantic` (`conversion` is defined but has never
-  been needed, see `docs/failure-stage-notes.md`). Rolled out to all 123
+  been needed, see `docs/failure-stage-notes.md`). Rolled out to all 125
   gaps (except two deliberate exceptions - findings that aren't about the
   shape of the code but about `--estimate_cost` underestimating effort),
   `doctor.py` requires full coverage. Shown not just in `--explain`, but

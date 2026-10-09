@@ -61,6 +61,8 @@ from .detectors.mssql_output_clause import find_mssql_output_clause
 from .detectors.mssql_parameterless_procedure import find_mssql_parameterless_procedures
 from .detectors.mssql_raiserror import find_mssql_raiserror
 from .detectors.mssql_rowversion import find_mssql_rowversion_columns
+from .detectors.mssql_schema_qualified_name import find_mssql_schema_qualified_name
+from .detectors.schema_qualified_name import find_schema_qualified_name
 from .detectors.mssql_scope_identity import find_mssql_scope_identity
 from .detectors.mssql_top_clause import find_mssql_top_clause
 from .detectors.mssql_try_catch import find_mssql_try_catch
@@ -225,6 +227,7 @@ _ORACLE_DETECTORS = (
     find_package_type_reference,
     find_supplied_package_call,
     find_dbms_sleep,
+    find_schema_qualified_name,
 )
 # MySQL detectors -- a source-language dialect, run against a MySQL/MariaDB
 # schema/procedure dump rather than an Oracle one. Deliberately a SEPARATE
@@ -285,6 +288,7 @@ _MSSQL_DETECTORS = (
     find_mssql_parameterless_procedures,
     find_mssql_raiserror,
     find_mssql_rowversion_columns,
+    find_mssql_schema_qualified_name,
     find_mssql_scope_identity,
     find_mssql_top_clause,
     find_mssql_try_catch,

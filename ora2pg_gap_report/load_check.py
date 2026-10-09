@@ -50,7 +50,7 @@ import uuid
 from collections.abc import Sequence
 from pathlib import Path
 
-from .autofix import FIXER_DETECTOR, FIXERS_BY_DIALECT
+from .autofix import FIXER_DETECTOR, FIXER_SQLSTATE, FIXERS_BY_DIALECT
 from .core import expand_paths, scan_source
 from .gap_registry import gap_by_detector
 from .models import Finding
@@ -510,8 +510,14 @@ def _error_line(source: str, statement: Statement, raw: _RawError) -> int:
     return min(matches, key=lambda line: abs(line - guess))
 
 
-def _fixer_detector(statement_text: str, dialect: str) -> str | None:
-    for fixer in FIXERS_BY_DIALECT.get(dialect, ()):
+def _fixer_detector(statement_text: str, dialect: str, sqlstate: str = "") -> str | None:
+    fixers = FIXERS_BY_DIALECT.get(dialect, ())
+    # A fix that answers exactly this SQLSTATE explains the error better
+    # than one that merely changes something else in the statement.
+    ordered = sorted(fixers, key=lambda f: FIXER_SQLSTATE.get(f) != sqlstate)
+    for fixer in ordered:
+        if FIXER_SQLSTATE.get(fixer, sqlstate) != sqlstate:
+            continue
         _, applied = fixer(statement_text)
         if applied:
             return FIXER_DETECTOR.get(fixer)
@@ -522,6 +528,14 @@ def _fixer_detector(statement_text: str, dialect: str) -> str | None:
 # PostgreSQL choked on: a declaration like `TYPE t IS TABLE OF ...` can span
 # a couple of lines before the token the parser stops at.
 _LINES_BEFORE = 3
+
+
+# A finding that explains only one kind of error. A schema-qualified CREATE
+# (GAP-124) is the reason for 'schema "hr" does not exist' on its line, not
+# for whatever else that statement may fail on.
+_DETECTOR_SQLSTATES: dict[str, frozenset[str]] = {
+    "schema_qualified_name": frozenset({"3F000"}),
+}
 
 
 def _gap_finding(findings: Sequence[Finding], statement: Statement, line: int, sqlstate: str) -> Finding | None:
@@ -535,7 +549,12 @@ def _gap_finding(findings: Sequence[Finding], statement: Statement, line: int, s
     otherwise it is a missing table or type, and is reported as such. Both
     rules came from loading real ora2pg output for OraOpenSource Logger,
     where a $IF further down a procedure claimed its unrelated errors."""
-    inside = [f for f in findings if statement.start_line <= f.line <= statement.end_line]
+    inside = [
+        f
+        for f in findings
+        if statement.start_line <= f.line <= statement.end_line
+        and sqlstate in _DETECTOR_SQLSTATES.get(f.detector, frozenset({sqlstate}))
+    ]
     exact = [f for f in inside if f.line == line]
     if exact:
         return exact[0]
@@ -577,7 +596,7 @@ def _classify(
     if raw.sqlstate in _ENVIRONMENT_STATES:
         return _load_error(raw, file, line, statement.start_line, ENVIRONMENT)
 
-    fixer_detector = _fixer_detector(prepared.source[statement.start : statement.end], dialect)
+    fixer_detector = _fixer_detector(prepared.source[statement.start : statement.end], dialect, raw.sqlstate)
     if fixer_detector is not None:
         return _load_error(raw, file, line, statement.start_line, FIXABLE, fixer_detector)
 

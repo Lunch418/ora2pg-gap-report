@@ -781,6 +781,24 @@ GapEntry(
         severity="high",
         failure_stage="deployment",
         dialect="oracle", last_verified="2026-10-08"),
+    # GAP-124..125: found by running --migrate on a GET_DDL export and an
+    # SSMS script -- every name schema-qualified, no schema ever created.
+    GapEntry(
+        "124",
+        "schema_qualified_name",
+        "schema-qualified-name",
+        ("test_schema_qualified_name.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-08"),
+    GapEntry(
+        "125",
+        "mssql_schema_qualified_name",
+        "mssql-schema-qualified-name",
+        ("test_mssql_schema_qualified_name.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mssql", last_verified="2026-10-08"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

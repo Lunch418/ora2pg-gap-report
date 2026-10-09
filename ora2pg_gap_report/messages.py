@@ -3937,6 +3937,46 @@ MESSAGES: dict[str, Message] = {
             'PERFORM.'
         ),
     ),
+    "schema_qualified_name": Message(
+        ru=(
+            'Объект с именем, уточнённым схемой: CREATE TABLE "HR"."EMP" - так DBMS_METADATA.GET_DDL пишет каждое'
+            ' имя. ora2pg 25.0 оставляет схему у таблиц, представлений, последовательностей и подпрограмм (CREATE'
+            ' TABLE hr.emp), но не пишет для неё CREATE SCHEMA, и на чистом PostgreSQL 16 ничего не загружается '
+            '("schema \\"hr\\" does not exist"). В триггерах и телах представлений он схему при этом убирает (ON '
+            'gx_emp, FROM gx_emp), так что одного создания схемы мало: они падают с "relation \\"gx_emp\\" does not'
+            ' exist", пока схемы нет в search_path. Подтверждено живым Oracle 23ai, реальным ora2pg 25.0 и '
+            'PostgreSQL 16, docs/research/gap-124-schema-qualified-name.md. Создайте схему и добавьте её в '
+            'search_path (ALTER ROLE ... SET search_path) или уберите "HR". из исходника до ora2pg.'
+        ),
+        en=(
+            'An object with a schema-qualified name: CREATE TABLE "HR"."EMP" - the way DBMS_METADATA.GET_DDL '
+            'writes every name. ora2pg 25.0 keeps the schema on tables, views, sequences and routines (CREATE '
+            'TABLE hr.emp) but writes no CREATE SCHEMA for it, so on a fresh PostgreSQL 16 nothing loads ("schema'
+            ' \\"hr\\" does not exist"). On triggers and in view bodies it drops the schema (ON gx_emp, FROM '
+            'gx_emp), so creating the schema is not enough: those fail with "relation \\"gx_emp\\" does not exist" '
+            'until the schema is on the search_path. Confirmed against a live Oracle 23ai, a real ora2pg 25.0 run'
+            ' and PostgreSQL 16, docs/research/gap-124-schema-qualified-name.md. Create the schema and put it on '
+            'the search_path (ALTER ROLE ... SET search_path), or remove "HR". from the source before ora2pg.'
+        ),
+    ),
+    "mssql_schema_qualified_name": Message(
+        ru=(
+            'Объект с именем, уточнённым схемой: CREATE TABLE [dbo].[Orders] - так SSMS пишет каждый скрипт. '
+            'ora2pg 25.0 (-M) оставляет схему везде - CREATE TABLE dbo.orders, FROM dbo.Orders в представлениях и'
+            ' процедурах, - но не пишет для неё CREATE SCHEMA, и на чистом PostgreSQL 16 ничего из этого не '
+            'загружается ("schema \\"dbo\\" does not exist"). Подтверждено реальным прогоном ora2pg 25.0 и '
+            'PostgreSQL 16, docs/research/gap-125-mssql-schema-qualified-name.md. Создание схемы - всё '
+            'исправление; --fix пишет CREATE SCHEMA IF NOT EXISTS.'
+        ),
+        en=(
+            'An object with a schema-qualified name: CREATE TABLE [dbo].[Orders] - the way SSMS writes every '
+            'script. ora2pg 25.0 (-M) keeps the schema everywhere - CREATE TABLE dbo.orders, FROM dbo.Orders in '
+            'views and procedures - but writes no CREATE SCHEMA for it, so on a fresh PostgreSQL 16 none of it '
+            'loads ("schema \\"dbo\\" does not exist"). Confirmed against a real ora2pg 25.0 run and PostgreSQL 16,'
+            ' docs/research/gap-125-mssql-schema-qualified-name.md. Creating the schema is the whole repair; '
+            '--fix writes CREATE SCHEMA IF NOT EXISTS.'
+        ),
+    ),
     "temporal_validity.alter": Message(
         ru=(
             'PERIOD FOR (temporal validity, 12c) в записи DBMS_METADATA.GET_DDL - отдельной '
@@ -5183,6 +5223,14 @@ REMEDIATION_HINTS: dict[str, Message] = {
         ru='Запустить --fix: он пишет PERFORM pg_sleep(...)',
         en='Run --fix: it writes PERFORM pg_sleep(...)',
     ),
+    "schema_qualified_name": Message(
+        ru='Создать схему и добавить её в search_path, или убрать схему из имён в исходнике',
+        en='Create the schema and put it on the search_path, or remove the schema from the names in the source',
+    ),
+    "mssql_schema_qualified_name": Message(
+        ru='Запустить --fix: он пишет CREATE SCHEMA IF NOT EXISTS',
+        en='Run --fix: it writes CREATE SCHEMA IF NOT EXISTS',
+    ),
 }
 
 
@@ -5528,6 +5576,14 @@ TITLES: dict[str, Message] = {
     "dbms_sleep": Message(
         ru='`DBMS_LOCK.SLEEP` - становится `pg_sleep(n);` без `PERFORM`, не загружается',
         en='`DBMS_LOCK.SLEEP` - becomes `pg_sleep(n);` without `PERFORM`, does not load',
+    ),
+    "schema_qualified_name": Message(
+        ru='Имя со схемой (`"HR"."EMP"`) - схема остаётся, но не создаётся, в триггерах пропадает',
+        en='A schema-qualified name (`"HR"."EMP"`) - the schema is kept but never created, and dropped on triggers',
+    ),
+    "mssql_schema_qualified_name": Message(
+        ru='`[dbo].[Orders]` - схема `dbo` остаётся, но не создаётся, ничего не загружается',
+        en='`[dbo].[Orders]` - the `dbo` schema is kept but never created, nothing loads',
     ),
     "mysql_enum_type": Message(
         ru='`ENUM(...)` - ссылка на несуществующий синтезированный тип',

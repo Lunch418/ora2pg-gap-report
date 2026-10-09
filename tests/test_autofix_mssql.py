@@ -130,9 +130,10 @@ def test_two_parameterless_procedures_in_one_file_are_both_fixed():
     assert "DECLARE" not in fixed
 
 
-def test_the_two_mssql_fixers_compose_on_one_file():
-    # --fix chains every fixer for the dialect, so a file carrying both
-    # bugs comes out with both undone in a single pass.
+def test_the_mssql_fixers_compose_on_one_file():
+    # --fix chains every fixer for the dialect, so a file carrying all
+    # three bugs (the dbo schema of GAP-125 among them) comes out with all
+    # of them undone in a single pass.
     source = (
         "CREATE OR REPLACE PROCEDURE dbo.p () AS $body$\n"
         "DECLARE\n"
@@ -147,6 +148,7 @@ def test_the_two_mssql_fixers_compose_on_one_file():
     for fixer in FIXERS_BY_DIALECT["mssql"]:
         fixed, applied = fixer(fixed)
         total += applied
-    assert total == 2
+    assert total == 3
     assert "DECLARE" not in fixed
     assert "position('abc' in nm)" in fixed
+    assert fixed.startswith("CREATE SCHEMA IF NOT EXISTS dbo;\n")

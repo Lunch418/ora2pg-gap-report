@@ -17,7 +17,9 @@ from ora2pg_gap_report.detectors.connect_by import guess_object_type
 
 
 def _found(source: str) -> list[tuple[str, str]]:
-    return sorted((f.detector, f.object_name) for f in scan_source(source))
+    # GET_DDL qualifies every name with its schema, which is GAP-124 in
+    # every one of these; what these tests are about is the other finding.
+    return sorted((f.detector, f.object_name) for f in scan_source(source) if f.detector != "schema_qualified_name")
 
 
 GOTO_PROCEDURE = (

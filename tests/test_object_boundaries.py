@@ -16,7 +16,10 @@ from ora2pg_gap_report.core import count_objects, scan_source
 
 
 def _attribution(source: str, dialect: str) -> list[tuple[str, str]]:
-    return [(f.detector, f.object_name) for f in scan_source(source, dialect)]
+    # The schema-qualified names these use are GAP-124/125 findings of
+    # their own, at the CREATE; these tests are about the other ones.
+    skip = {"schema_qualified_name", "mssql_schema_qualified_name"}
+    return [(f.detector, f.object_name) for f in scan_source(source, dialect) if f.detector not in skip]
 
 
 def test_an_oracle_anonymous_block_after_slash_is_not_the_previous_routines():

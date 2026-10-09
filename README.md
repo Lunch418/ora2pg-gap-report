@@ -29,7 +29,7 @@ mode of its own:
 ```
  schema/ (Oracle DDL, a mysqldump, an SSMS script)
     |
-    |  1. scan       123 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
+    |  1. scan       125 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
     |  2. prepare    rewrite what ora2pg's parser trips over  (--prepare)
     |  3. convert    ora2pg, once per object type             -> out/converted/
     |  4. fix        repair ora2pg's known mechanical bugs    (--fix), and what the source says
@@ -92,7 +92,7 @@ empirically against real PL/SQL code
 | **Baseline** | `--save`/`--baseline` — NEW/RESOLVED/UNCHANGED between runs |
 | **Post-migration check** | `--verify` — which pre-migration findings are still present in the generated code; takes its dialect from the baseline (not a functional check, see below) |
 | **Interactive mode** | `--tui` (optional, `pip install "ora2pg-gap-report[tui]"`) — browse and click instead of remembering flags, `--migrate` included |
-| **Autofix** | `--fix`/`--write` - six known-safe mechanical fixes for `ora2pg`'s generated code (three for Oracle), picked by `--dialect`, see below |
+| **Autofix** | `--fix`/`--write` - seven known-safe mechanical fixes for `ora2pg`'s generated code (three for Oracle, three for T-SQL), picked by `--dialect`, see below |
 | **One-command migration** | `--migrate out/` - scan, prepare, convert with ora2pg, fix (including what only the source still knows: statement triggers, package constants, ENUM types) and load, everything into one directory, see below |
 | **Docker image** | `ghcr.io/lunch418/ora2pg-gap-report` - the tool, ora2pg 25.0 and psql in one image: nothing to install but docker |
 | **Source preparation** | `--prepare` - rewrites what ora2pg's parser trips over in the dump itself (DELIMITER, DEFINER, `[brackets]`, `q'[...]'`), before ora2pg runs, see below |
@@ -183,6 +183,7 @@ empirically against real PL/SQL code
 | `package_type_reference` | A package type (`SUBTYPE`, `RECORD`, `TABLE OF`) used in the package's own routines without its name - ora2pg creates it in the package schema and leaves the uses bare: `type does not exist` |
 | `supplied_package_call` | A procedure of a supplied package called as a statement (`DBMS_STATS.GATHER_TABLE_STATS(...)`, `UTL_FILE.FCLOSE(f)`, `HTP.P(...)`) - copied without `CALL`, the routine does not load |
 | `dbms_sleep` | `DBMS_LOCK.SLEEP` / `DBMS_SESSION.SLEEP` - ora2pg writes `pg_sleep(n);` without `PERFORM`, the routine does not load; `--fix` repairs it |
+| `schema_qualified_name` | A schema-qualified name (`"HR"."EMP"`, the way `GET_DDL` writes every one) - ora2pg keeps the schema on tables, views and sequences but never creates it, and drops it on triggers and in view bodies: nothing loads on a fresh database |
 
 The twenty-five below are the MySQL/MariaDB dialect (`--dialect mysql`, `ora2pg
 -m` — see "Source dialects" further down); every other detector in this
@@ -216,7 +217,7 @@ table is Oracle-only.
 | `mysql_create_table_if_not_exists` | `CREATE TABLE IF NOT EXISTS` — becomes a table called `if`; the load fails and stops the whole schema |
 | `mysql_temporary_table` | `CREATE TEMPORARY TABLE` — `TEMPORARY` is dropped, so the table is permanent and shared: one session's rows are visible to every other |
 
-And these nineteen are the T-SQL/SQL Server dialect (`--dialect mssql`,
+And these twenty are the T-SQL/SQL Server dialect (`--dialect mssql`,
 `ora2pg -M`).
 
 | Detector | What it catches |
@@ -240,6 +241,7 @@ And these nineteen are the T-SQL/SQL Server dialect (`--dialect mssql`,
 | `mssql_collation` | `COLLATE` — ignored by the `CASE_INSENSITIVE_SEARCH citext` default, which checks a column's base type but never its actual collation, so every string column becomes case-insensitive `citext`; for a `_CS_` source collation that inverts comparison behaviour, verified on live data |
 | `mssql_computed_column` | A computed column (`AS (expr) PERSISTED`) is typed `citext` whatever the expression computes, so a numeric result is stored as text |
 | `mssql_rowversion` | `ROWVERSION` -> `bytea`, which never self-updates, so optimistic-locking checks silently stop detecting conflicts |
+| `mssql_schema_qualified_name` | `[dbo].[Orders]` - the schema is kept on every name but never created, so nothing loads on a fresh database; `--fix` writes `CREATE SCHEMA IF NOT EXISTS` |
 
 Plus `ora2pg_wrapper.py` — runs `ora2pg` per object type against exported DDL
 and parses `--estimate_cost`, and `oracle_connector.py`/`oracle_export.py` —
@@ -248,16 +250,16 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 123 registered gaps (`gap_registry.py`) — 79 from the Oracle source
-dialect, 25 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 19 from
+Of the 125 registered gaps (`gap_registry.py`) — 80 from the Oracle source
+dialect, 25 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 20 from
 T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); see "Source dialects"
-below — 117 are `high` and 6 are `medium` (`context_object`,
+below — 119 are `high` and 6 are `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 on the Oracle side, `mysql_set_type` on the MySQL side; the MSSQL batch has
 no `medium` at all) — `severity` is a `GapEntry` field now, cross-checked by
 `scripts/doctor.py` against the literal a detector's own source actually
 uses, not just a count taken on faith. Separately, there's one more detector
-on top of those 123, `dbms_utl_calls` — a
+on top of those 125, `dbms_utl_calls` — a
 classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
 no single reproducible minimal example — that's a deliberately broad
 category), also `medium`. `low` is a valid value in the
@@ -451,7 +453,7 @@ writes is the same too - `report.html`, `MIGRATION.md`, `converted/`, and
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 123 — a single
+finding was confirmed against (currently 25.0/16 for all 125 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -492,7 +494,7 @@ database needed), so this project scans all three:
 ```sh
 ora2pg-gap-report schema/                        # Oracle (the default)
 ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086, 106..111
-ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105
+ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105, 125
 ```
 
 Every non-Oracle gap was confirmed exactly the way the Oracle ones were: a
@@ -695,18 +697,18 @@ same pattern already in the generated code. And even so, it doesn't work
 the same way for every detector:
 
 - **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
-  `json_table`, `identity_column`, and 50 more — 53 of the 124 detectors) —
+  `json_table`, `identity_column`, and 52 more — 55 of the 126 detectors) —
   for these, re-running the detector against the output is meaningful:
   `STILL_PRESENT` if the pattern remains, `NOT_DETECTED` if it's gone.
 - **Some `ora2pg` drops or rewrites away entirely** (`read_only_table`,
-  `table_partitioning`, and 68 more — 70 of the 124) — the construct isn't
+  `table_partitioning`, and 68 more — 70 of the 126) — the construct isn't
   in the output *by definition*, regardless of whether someone fixed the
   problem by hand some other way. For these, the honest status is `NOT_VERIFIABLE`, not a
   fabricated `NOT_DETECTED`: treating absence as proof of a fix would be
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 123 gaps —
+Which mode applies to which detector, and why, for all 125 gaps —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't
@@ -804,7 +806,7 @@ a parser, and rewriting DDL about to be deployed is a much riskier thing to
 get wrong than a missed or extra flag (see `docs/ARCHITECTURE.md`). `--fix`
 is a narrow, deliberate exception: only corrections where the "buggy" shape
 is never what a correct migration would produce and the fix is a pure,
-unambiguous text transformation. Six qualify so far, and which of them
+unambiguous text transformation. Seven qualify so far, and which of them
 run is decided by `--dialect`:
 
 | Dialect | Fix | What it undoes |
@@ -814,9 +816,10 @@ run is decided by `--dialect`:
 | `oracle` | GAP-123 | `DBMS_LOCK.SLEEP` becomes `pg_sleep(n);` - ora2pg's own `PERFORM` rule is shadowed by an earlier bare rewrite, and PL/pgSQL rejects a function called as a statement. Writes `PERFORM` before a `pg_sleep(` that starts a statement |
 | `mssql` | GAP-100 | `CHARINDEX` is translated to the right function but with the quotes doubled — `position(''abc'' in x)`, which is not valid SQL. Removes the doubling, touching nothing else |
 | `mssql` | GAP-091 | A parameterless procedure gets an empty, unparseable `DECLARE ;` block. Deletes it — which is exactly what `ora2pg` itself emits for the same procedure when it takes a parameter |
+| `mssql` | GAP-125 | SSMS qualifies every name with its schema (`[dbo].[Orders]`); ora2pg keeps it everywhere but never creates it, so nothing loads (`schema "dbo" does not exist`). Writes `CREATE SCHEMA IF NOT EXISTS dbo;` after the header for each schema the file uses and does not create |
 | `mysql` | GAP-075 | MySQL's `LIMIT offset, count` is copied as it is, and PostgreSQL rejects it (`LIMIT #,# syntax is not supported`). Rewrites it to `LIMIT count OFFSET offset`; every other MySQL gap needs a design decision or data the generated file no longer has, so it gets no fix |
 
-All six were verified the same way the gaps themselves were: the broken
+All seven were verified the same way the gaps themselves were: the broken
 output failing to load into a real PostgreSQL 16, and the fixed output
 loading and running.
 

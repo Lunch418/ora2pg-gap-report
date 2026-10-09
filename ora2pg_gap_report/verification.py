@@ -210,6 +210,7 @@ VERIFICATION_MODE: dict[str, str] = {
     "mssql_collation": NOT_VERIFIABLE,  # the COLLATE clause is dropped and the column becomes citext
     "mssql_computed_column": NOT_VERIFIABLE,  # rewritten into a trigger; the `AS (expr)` column syntax never survives
     "mssql_rowversion": NOT_VERIFIABLE,  # rewritten to bytea; the ROWVERSION name never survives
+    "mssql_schema_qualified_name": VERBATIM,  # the schema stays on every name; gone once CREATE SCHEMA is in the file
     # GAP-106..113, confirmed 2026-09-26. Every one of them is something
     # ora2pg drops or rewrites away, so its absence from the output says
     # nothing about whether anyone fixed it.
@@ -231,6 +232,7 @@ VERIFICATION_MODE: dict[str, str] = {
     "package_type_anchor": NOT_VERIFIABLE,  # the RECORD/SUBTYPE becomes CREATE TYPE/DOMAIN; --load-check knows its footprint
     "package_type_reference": NOT_VERIFIABLE,  # the declaration becomes CREATE TYPE/DOMAIN; the bare use is all that is left
     "supplied_package_call": VERBATIM,  # the call statement is copied unchanged
+    "schema_qualified_name": VERBATIM,  # the schema stays on tables, views, sequences; gone once CREATE SCHEMA is in the file
     "dbms_sleep": NOT_VERIFIABLE,  # DBMS_LOCK.SLEEP becomes a bare pg_sleep, which --fix repairs
     "package_constant_default": NOT_VERIFIABLE,  # the default survives, but outside any package the detector reads
     # GENERATED_ONLY -- already only ever analyzes generated output

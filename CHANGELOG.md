@@ -58,6 +58,7 @@ patch for fixes to existing ones.
   "`--migrate:` already repaired - check it and tick" note (for package
   constants: those with a literal value), instead of reading like work
   still to do. The items stay open for the user to check.
+  `report.html` from `--migrate` carries the same note in each gap's card.
 
 ### Fixed
 

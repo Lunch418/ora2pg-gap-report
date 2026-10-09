@@ -248,3 +248,10 @@ def test_a_plain_checklist_has_no_migrate_notes(tmp_path, capsys):
     src = _source(tmp_path)
     assert main(["--lang", "en", "-f", "checklist", str(src)]) == 0
     assert "--migrate:" not in capsys.readouterr().out
+
+
+def test_the_report_says_what_the_run_already_took_care_of(tmp_path, fake):
+    run_migration([_source(tmp_path)], tmp_path / "out", lang="en")
+    report = (tmp_path / "out" / "report.html").read_text(encoding="utf-8")
+    card = report[report.index('id="identity_column"'):].split("</details>")[0]
+    assert '<p class="handled"><code>--migrate</code>: already repaired in converted/' in card

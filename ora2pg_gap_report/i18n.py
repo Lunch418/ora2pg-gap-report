@@ -1305,8 +1305,8 @@ _UI: dict[str, dict[str, str]] = {
         "миграции). Набор зависит от --dialect: для oracle - двойные скобки в GENERATED ... "
         "AS IDENTITY (GAP-028), пропущенный RECURSIVE в рекурсивном WITH (GAP-024) и PERFORM "
         "перед pg_sleep (GAP-123), для "
-        "mysql - LIMIT a, b (GAP-075), для mssql - кавычки в CHARINDEX (GAP-100) и пустой "
-        "DECLARE (GAP-091). По умолчанию ничего "
+        "mysql - LIMIT a, b (GAP-075), для mssql - кавычки в CHARINDEX (GAP-100), пустой "
+        "DECLARE (GAP-091) и несозданная схема (GAP-125). По умолчанию ничего "
         "не меняет на диске, только печатает unified diff; для реальной перезаписи файлов "
         "добавьте --write. Самостоятельный режим - не сочетается с --explain/--verify/--tui/"
         "--fail-on/--save/--baseline/--check-connect-by/--severity/--object/--format/--output.",
@@ -1315,8 +1315,8 @@ _UI: dict[str, dict[str, str]] = {
         "depends on --dialect: for oracle, the double parens in GENERATED ... AS IDENTITY "
         "(GAP-028), the missing RECURSIVE in a recursive WITH (GAP-024) and the PERFORM before "
         "pg_sleep (GAP-123); for mysql, "
-        "LIMIT a, b (GAP-075); for mssql, the CHARINDEX quotes (GAP-100) and the empty "
-        "DECLARE (GAP-091). Prints a unified diff by "
+        "LIMIT a, b (GAP-075); for mssql, the CHARINDEX quotes (GAP-100), the empty "
+        "DECLARE (GAP-091) and the schema never created (GAP-125). Prints a unified diff by "
         "default, without touching anything on disk; add --write to actually rewrite the "
         "files. A standalone mode -- not combinable with --explain/--verify/--tui/--fail-on/"
         "--save/--baseline/--check-connect-by/--severity/--object/--format/--output.",

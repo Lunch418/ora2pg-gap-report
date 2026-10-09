@@ -14,10 +14,10 @@
 принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
 госсектор.
 
-Детекторов сейчас 124 (полная таблица — в README.md, «Детекторы»; 123 из
+Детекторов сейчас 126 (полная таблица — в README.md, «Детекторы»; 125 из
 них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
-README.md, «Почему почти всё high»), в трёх исходных диалектах: 79 Oracle,
-25 MySQL/MariaDB (`ora2pg -m`) и 19 T-SQL/SQL Server (`ora2pg -M`). У
+README.md, «Почему почти всё high»), в трёх исходных диалектах: 80 Oracle,
+25 MySQL/MariaDB (`ora2pg -m`) и 20 T-SQL/SQL Server (`ora2pg -M`). У
 каждого диалекта свой лексер (`plsql_lex.py`, `mysql_lex.py`,
 `mssql_lex.py`) и свой кортеж детекторов в `core.py`; они разделены
 структурно, так что файл, просканированный не с тем `--dialect`, не может
@@ -132,6 +132,7 @@ ora2pg_gap_report/
 │   ├── package_type_reference.py  # тип пакета в его подпрограммах без имени пакета
 │   ├── supplied_package_call.py  # процедура DBMS_/UTL_/HTP как оператор -- без CALL
 │   ├── dbms_sleep.py            # DBMS_LOCK.SLEEP -> pg_sleep(n); без PERFORM (чинит --fix)
+│   ├── schema_qualified_name.py  # "HR"."EMP" -- схема остаётся, не создаётся, в триггерах пропадает
 │   │                             # -- диалект MySQL/MariaDB (ora2pg -m; см. mysql_lex.py) --
 │   ├── mysql_enum_type.py         # ENUM(...) -- нет CREATE TYPE для синтезированного типа
 │   ├── mysql_on_update_current_timestamp.py  # ON UPDATE CURRENT_TIMESTAMP -- копируется в DEFAULT как есть
@@ -177,7 +178,8 @@ ora2pg_gap_report/
 │   ├── mssql_foreign_key.py           # FOREIGN KEY -- выбрасывается целиком, целостность молча пропадает
 │   ├── mssql_collation.py             # COLLATE -- выбрасывается, всё становится нечувствительным citext
 │   ├── mssql_computed_column.py       # вычисляемый столбец получает тип citext, что бы ни вычислял
-│   └── mssql_rowversion.py            # ROWVERSION -> bytea, перестаёт обновляться, блокировка ломается
+│   ├── mssql_rowversion.py            # ROWVERSION -> bytea, перестаёт обновляться, блокировка ломается
+│   └── mssql_schema_qualified_name.py  # [dbo].[Orders] -- схема dbo не создаётся (её создаёт --fix)
 ├── mssql_lex.py                 # лексика диалекта T-SQL (идентификаторы в скобках, вложенные
 │                               #  блочные комментарии -- общая основа детекторов mssql_*)
 ├── mysql_lex.py                 # лексика диалекта MySQL/MariaDB (mask_strings_and_comments,

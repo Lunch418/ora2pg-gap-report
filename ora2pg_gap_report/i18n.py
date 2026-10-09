@@ -1270,14 +1270,14 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Open the language picker and save the choice as the default for future runs, then exit.",
     },
     "help_tui": {
-        "ru": "Интерактивный режим: выбор файла/директории и запуск сканирования мышью или "
-        "клавиатурой вместо флагов. Требует textual (pip install \"ora2pg-gap-report[tui]\"), "
+        "ru": "Интерактивный режим: выбор файла/директории и запуск сканирования или миграции "
+        "мышью или клавиатурой вместо флагов. Требует textual (pip install \"ora2pg-gap-report[tui]\"), "
         "не ставится вместе с базовым пакетом. Если указан один путь-директория - она "
         "открывается как стартовая точка в дереве; самостоятельный режим, как --explain/"
         "--verify - не сочетается с --fail-on/--save/--baseline/--check-connect-by/--explain/"
         "--verify/--severity/--object/--format/--output.",
-        "en": "Interactive mode: pick a file/directory and run a scan with the mouse or "
-        "keyboard instead of flags. Requires textual (pip install "
+        "en": "Interactive mode: pick a file/directory and run a scan or a migration with the "
+        "mouse or keyboard instead of flags. Requires textual (pip install "
         "\"ora2pg-gap-report[tui]\"), not installed with the base package. If a single "
         "directory path is given, it opens as the tree's starting point; a standalone "
         "mode, like --explain/--verify - not combinable with --fail-on/--save/--baseline/"
@@ -1287,7 +1287,8 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "Применить известные механические исправления к сгенерированному ora2pg "
         "PostgreSQL-коду (не к Oracle-исходнику - как --verify, читает пути как результат "
         "миграции). Набор зависит от --dialect: для oracle - двойные скобки в GENERATED ... "
-        "AS IDENTITY (GAP-028) и пропущенный RECURSIVE в рекурсивном WITH (GAP-024), для "
+        "AS IDENTITY (GAP-028), пропущенный RECURSIVE в рекурсивном WITH (GAP-024) и PERFORM "
+        "перед pg_sleep (GAP-123), для "
         "mysql - LIMIT a, b (GAP-075), для mssql - кавычки в CHARINDEX (GAP-100) и пустой "
         "DECLARE (GAP-091). По умолчанию ничего "
         "не меняет на диске, только печатает unified diff; для реальной перезаписи файлов "
@@ -1296,7 +1297,8 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Apply known mechanical fixes to ora2pg's *generated* PostgreSQL code (not "
         "Oracle source -- like --verify, reads paths as post-migration output). The set "
         "depends on --dialect: for oracle, the double parens in GENERATED ... AS IDENTITY "
-        "(GAP-028) and the missing RECURSIVE in a recursive WITH (GAP-024); for mysql, "
+        "(GAP-028), the missing RECURSIVE in a recursive WITH (GAP-024) and the PERFORM before "
+        "pg_sleep (GAP-123); for mysql, "
         "LIMIT a, b (GAP-075); for mssql, the CHARINDEX quotes (GAP-100) and the empty "
         "DECLARE (GAP-091). Prints a unified diff by "
         "default, without touching anything on disk; add --write to actually rewrite the "
@@ -1339,14 +1341,16 @@ _UI: dict[str, dict[str, str]] = {
     "help_migrate": {
         "ru": "Весь путь одной командой: просканировать исходник (report.html и MIGRATION.md), "
         "подготовить копию (--prepare), сконвертировать её ora2pg по каждому типу объектов, "
-        "применить --fix и, если указан --load-check TARGET, загрузить результат в настоящий "
+        "применить --fix и вернуть то, что знает только исходник (триггеры на команду, константы "
+        "пакетов, типы ENUM), и, если указан --load-check TARGET, загрузить результат в настоящий "
         "PostgreSQL. Всё складывается в OUT_DIR; исходные файлы не меняются. Нужен ora2pg: из "
-        "PATH или --ora2pg-bin docker:IMAGE.",
+        "PATH или --ora2pg-bin docker:IMAGE (например docker:ghcr.io/lunch418/ora2pg-gap-report).",
         "en": "The whole path in one command: scan the source (report.html and MIGRATION.md), "
         "prepare a copy (--prepare), convert it with ora2pg one object type at a time, apply "
-        "--fix and, with --load-check TARGET, load the result into a real PostgreSQL. "
+        "--fix and put back what only the source knows (statement triggers, package constants, "
+        "ENUM types), and, with --load-check TARGET, load the result into a real PostgreSQL. "
         "Everything goes into OUT_DIR; the source files are not changed. Needs ora2pg: on PATH, "
-        "or --ora2pg-bin docker:IMAGE.",
+        "or --ora2pg-bin docker:IMAGE (docker:ghcr.io/lunch418/ora2pg-gap-report, for one).",
     },
     "help_write": {
         "ru": "Вместе с --fix или --prepare: реально перезаписать файлы на диске вместо "

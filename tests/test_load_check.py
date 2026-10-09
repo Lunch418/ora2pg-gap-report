@@ -616,3 +616,30 @@ def test_footprints_of_package_types(tmp_path, monkeypatch):
     )
     errors = run_load_check([path], parse_target("dbname=x")).errors
     assert [(e.category, e.gap_number) for e in errors] == [("gap", "120"), ("gap", "121"), ("dependency", None)]
+
+
+def test_a_report_for_a_file_lists_every_error_with_its_whole_path():
+    import io
+
+    from rich.console import Console
+
+    from ora2pg_gap_report.load_check import LoadCheckResult, LoadError
+    from ora2pg_gap_report.terminal_report import render_load_check
+
+    long_path = "/very/long/path/to/the/migration/output/directory/converted/07_PACKAGE_output.sql"
+    errors = tuple(
+        LoadError(file=long_path, line=i, statement_line=i, sqlstate="42P01", message=f'relation "t{i}" does not exist',
+                  detail=None, hint=None, context=None, category="dependency", detector=None, gap_number=None)
+        for i in range(1, 13)
+    )
+    result = LoadCheckResult("docker postgres:16-alpine", "16.15", (long_path,), 20, errors, (), (), 1.0)
+
+    def render(**kwargs):
+        buffer = io.StringIO()
+        render_load_check(result, console=Console(file=buffer, width=120, soft_wrap=bool(kwargs)), lang="en", **kwargs)
+        return buffer.getvalue()
+
+    screen, file = render(), render(full=True)
+    assert "and 2 errors more" in screen and f"{long_path}:12" not in screen
+    assert "more" not in file and f"{long_path}:12" in file
+    assert all(f'relation "t{i}" does not exist' in file for i in range(1, 13))

@@ -99,6 +99,11 @@ patch for fixes to existing ones.
 - The TUI's migrate screen suggests a directory next to what is migrated
   (`schema-migration/`), not inside it; its baseline fields' hints fit an
   80-column terminal whole.
+- A `--load-check` report written to a file (`load-check.txt` from
+  `--migrate`, or `-o FILE`) lists every error, not the first ten per group
+  the screen shows - the HTML report and the summary send the reader there
+  for the full list - with paths relative to `out/` and no message broken
+  across lines.
 
 ## [0.14.0] - 2026-10-08
 

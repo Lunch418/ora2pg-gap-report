@@ -867,8 +867,8 @@ _UI: dict[str, dict[str, str]] = {
         "lacks an extension, or a timeout fired. These statements weren't checked.",
     },
     "load_check_more": {
-        "ru": "... и ещё {errors} - полный список: --format json",
-        "en": "... and {errors} more - the full list: --format json",
+        "ru": "... и ещё {errors} - полный список: -o ФАЙЛ или --format json",
+        "en": "... and {errors} more - the full list: -o FILE or --format json",
     },
     "load_check_clean": {
         "ru": "Всё загрузилось: {statements} из {files}, ни одной ошибки.",

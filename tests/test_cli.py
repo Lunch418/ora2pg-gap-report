@@ -1975,3 +1975,11 @@ def test_scan_spinner_never_reaches_a_pipe(capsys, fmt):
     captured = capsys.readouterr()
     assert "Scanning" not in captured.err
     assert "Scanning" not in captured.out
+
+
+def test_explain_prints_square_brackets_as_written(capsys):
+    # GAP-087 is about [bracketed] T-SQL names; Rich markup used to eat them.
+    assert main(["--lang", "en", "--explain", "087"]) == 0
+    out = capsys.readouterr().out
+    assert "`[dbo].[Orders]`, `[Id]`, `[int]`" in out
+    assert "CREATE TABLE [dbo].[Orders](" in out

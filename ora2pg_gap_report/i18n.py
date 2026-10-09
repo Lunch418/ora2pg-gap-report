@@ -1344,13 +1344,13 @@ _UI: dict[str, dict[str, str]] = {
         "ora2pg спотыкается, не меняя смысла. Для mysql - директивы DELIMITER (GAP-106/107), "
         "DEFINER (GAP-108), обёртки /*!50003 ... */ вокруг определений (GAP-109), CREATE TABLE "
         "IF NOT EXISTS (GAP-110); для oracle - строки q'[...]' (GAP-062) и IF NOT EXISTS "
-        "(GAP-112); для mssql - имена в [скобках] (GAP-087). Как --fix: по умолчанию печатает "
+        "(GAP-112); для mssql - имена в [скобках] (GAP-087) и строки GO (GAP-126). Как --fix: по умолчанию печатает "
         "diff, --write перезаписывает файлы (работайте с копией дампа).",
         "en": "Prepare the SOURCE dump for ora2pg: mechanically rewrite what ora2pg's parser "
         "trips over, without changing its meaning. For mysql, DELIMITER directives "
         "(GAP-106/107), DEFINER (GAP-108), /*!50003 ... */ wrappers around definitions "
         "(GAP-109), CREATE TABLE IF NOT EXISTS (GAP-110); for oracle, q'[...]' strings "
-        "(GAP-062) and IF NOT EXISTS (GAP-112); for mssql, [bracketed] names (GAP-087). Like "
+        "(GAP-062) and IF NOT EXISTS (GAP-112); for mssql, [bracketed] names (GAP-087) and GO lines (GAP-126). Like "
         "--fix: prints a diff by default, --write rewrites the files (work on a copy of the "
         "dump).",
     },

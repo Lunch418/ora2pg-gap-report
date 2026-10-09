@@ -152,6 +152,7 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-104 | вычисляемый столбец получает тип `citext` независимо от выражения | `mssql_computed_column` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-104](gap-104-mssql-computed-column.md) |
 | GAP-105 | `ROWVERSION` -> `bytea`, перестаёт обновляться - блокировка ломается | `mssql_rowversion` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-105](gap-105-mssql-rowversion.md) |
 | GAP-125 | `[dbo].[Orders]` - схема `dbo` остаётся, но не создаётся, ничего не загружается | `mssql_schema_qualified_name` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-125](gap-125-mssql-schema-qualified-name.md) |
+| GAP-126 | Подпрограмма, за которой идёт `GO`, - `GO` попадает в тело, подпрограмма не загружается | `mssql_go_separator` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-126](gap-126-mssql-go-separator.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

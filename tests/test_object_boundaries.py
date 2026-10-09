@@ -16,9 +16,9 @@ from ora2pg_gap_report.core import count_objects, scan_source
 
 
 def _attribution(source: str, dialect: str) -> list[tuple[str, str]]:
-    # The schema-qualified names these use are GAP-124/125 findings of
+    # The schema-qualified names and GO lines these use are GAP-124..126 findings of
     # their own, at the CREATE; these tests are about the other ones.
-    skip = {"schema_qualified_name", "mssql_schema_qualified_name"}
+    skip = {"schema_qualified_name", "mssql_schema_qualified_name", "mssql_go_separator"}
     return [(f.detector, f.object_name) for f in scan_source(source, dialect) if f.detector not in skip]
 
 

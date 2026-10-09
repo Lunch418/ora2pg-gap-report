@@ -62,6 +62,7 @@ from .detectors.mssql_parameterless_procedure import find_mssql_parameterless_pr
 from .detectors.mssql_raiserror import find_mssql_raiserror
 from .detectors.mssql_rowversion import find_mssql_rowversion_columns
 from .detectors.mssql_schema_qualified_name import find_mssql_schema_qualified_name
+from .detectors.mssql_go_separator import find_mssql_go_separator
 from .detectors.schema_qualified_name import find_schema_qualified_name
 from .detectors.mssql_scope_identity import find_mssql_scope_identity
 from .detectors.mssql_top_clause import find_mssql_top_clause
@@ -289,6 +290,7 @@ _MSSQL_DETECTORS = (
     find_mssql_raiserror,
     find_mssql_rowversion_columns,
     find_mssql_schema_qualified_name,
+    find_mssql_go_separator,
     find_mssql_scope_identity,
     find_mssql_top_clause,
     find_mssql_try_catch,

@@ -799,6 +799,14 @@ GapEntry(
         severity="high",
         failure_stage="deployment",
         dialect="mssql", last_verified="2026-10-08"),
+    GapEntry(
+        "126",
+        "mssql_go_separator",
+        "mssql-go-separator",
+        ("test_mssql_go_separator.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mssql", last_verified="2026-10-08"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

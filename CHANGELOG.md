@@ -119,6 +119,8 @@ patch for fixes to existing ones.
 - The terminal report on an 80-column terminal: the two rows of stages
   have a blank line between them, and the severity bar shortens so its
   legend stays on the same line.
+- `--load-check` on screen: a message that wraps continues under itself,
+  not at the start of the line under the file name.
 
 ## [0.14.0] - 2026-10-08
 

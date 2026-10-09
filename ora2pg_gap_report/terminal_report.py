@@ -616,6 +616,22 @@ def _short_path(path: str) -> str:
     return ".../" + "/".join(parts[-2:])
 
 
+def _print_error_line(console: Console, where: str, error: LoadError) -> None:
+    """One failed statement on screen: file:line, SQLSTATE and the message,
+    as a grid so a message that wraps continues under itself, not under the
+    file name."""
+    line = Table.grid(padding=(0, 2))
+    line.add_column(no_wrap=True)
+    line.add_column(no_wrap=True)
+    line.add_column(overflow="fold")
+    line.add_row(
+        Text(f"{where}:{error.line}", style=_CODE_STYLE),
+        Text(error.sqlstate, style="dim"),
+        Text(error.message),
+    )
+    console.print(Padding(line, (0, 0, 0, 2)))
+
+
 def render_load_check(
     result: LoadCheckResult,
     console: Console | None = None,
@@ -701,11 +717,16 @@ def render_load_check(
         title.append(f"  {len(errors)}", style="dim")
         console.print(title)
         for error in errors[:shown]:
-            line = Text("  ")
-            line.append(f"{where(error.file)}:{error.line}", style=_CODE_STYLE)
-            line.append(f"  {error.sqlstate}  ", style="dim")
-            line.append(error.message)
-            console.print(line)
+            if full:
+                # A file keeps each error on one line, however long.
+                flat = Text("  ")
+                flat.append(f"{where(error.file)}:{error.line}", style=_CODE_STYLE)
+                flat.append(f"  {error.sqlstate}  ", style="dim")
+                flat.append(error.message)
+                console.print(flat)
+            else:
+                _print_error_line(console, where(error.file), error)
+
             if error.context and category in ("gap", "unknown", "fixable"):
                 console.print(Padding(Text(error.context, style="dim"), (0, 0, 0, 4), expand=False))
             if error.detector is not None:

@@ -261,13 +261,13 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
     return parser
 
 
-def _file_console(buffer: io.StringIO) -> Console:
+def _file_console(buffer: io.StringIO, width: int | None = None, soft_wrap: bool = False) -> Console:
     """A Console for rendering a report that's headed for a file rather
     than the screen. Writing into a buffer instead of the open file keeps
     the eventual write atomic (see atomic_write.py), and it renders
     identically either way: Rich picks its width from file.isatty(),
     which is False for both a StringIO and a real file on disk."""
-    return Console(file=buffer)
+    return Console(file=buffer, width=width, soft_wrap=soft_wrap)
 
 
 def _ora2pg_version_warning(ora2pg_bin: str, lang: str) -> str | None:
@@ -779,7 +779,7 @@ def _handle_load_check(args: argparse.Namespace, err_console: Console, lang: str
     elif args.output:
         try:
             buffer = io.StringIO()
-            render_load_check(result, console=_file_console(buffer), lang=lang)
+            render_load_check(result, console=_file_console(buffer, width=120, soft_wrap=True), lang=lang, full=True)
             write_text_atomic(args.output, buffer.getvalue())
         except OSError as exc:
             err_console.print(

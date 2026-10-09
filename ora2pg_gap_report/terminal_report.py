@@ -24,6 +24,7 @@ estimate is shown as the range it is, never collapsed to a midpoint.
 """
 
 from collections import Counter
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rich.console import Console, Group, RenderableType
@@ -604,12 +605,31 @@ def _short_path(path: str) -> str:
     return ".../" + "/".join(parts[-2:])
 
 
-def render_load_check(result: LoadCheckResult, console: Console | None = None, lang: str = "ru") -> None:
+def render_load_check(
+    result: LoadCheckResult,
+    console: Console | None = None,
+    lang: str = "ru",
+    full: bool = False,
+    relative_to: Path | None = None,
+) -> None:
     """The --load-check report: what failed, grouped by what to do about
     it -- what --fix repairs first, then known gaps, then errors the
     registry does not know, then the echoes of earlier failures and the
     statements the check itself could not run. Each error once, with the
-    file and line PostgreSQL pointed at."""
+    file and line PostgreSQL pointed at. On screen each group shows its
+    first ten; `full` (a report written to a file) shows every error with
+    its whole path, or the path from `relative_to` (--migrate's OUT_DIR,
+    where the file is written)."""
+    shown = None if full else _LOAD_ERRORS_SHOWN
+
+    def where(path: str) -> str:
+        if relative_to is not None:
+            try:
+                return Path(path).resolve().relative_to(relative_to.resolve()).as_posix()
+            except ValueError:
+                return path
+        return path if full else _short_path(path)
+
     console = console or Console()
     console.print()
     heading = Text()
@@ -669,9 +689,9 @@ def render_load_check(result: LoadCheckResult, console: Console | None = None, l
         title.append(i18n.t(lang, f"load_check_section_{category}"), style="bold")
         title.append(f"  {len(errors)}", style="dim")
         console.print(title)
-        for error in errors[:_LOAD_ERRORS_SHOWN]:
+        for error in errors[:shown]:
             line = Text("  ")
-            line.append(f"{_short_path(error.file)}:{error.line}", style=_CODE_STYLE)
+            line.append(f"{where(error.file)}:{error.line}", style=_CODE_STYLE)
             line.append(f"  {error.sqlstate}  ", style="dim")
             line.append(error.message)
             console.print(line)
@@ -694,7 +714,7 @@ def render_load_check(result: LoadCheckResult, console: Console | None = None, l
             recipe = recipe_for(error.detector) if error.detector is not None and category == "gap" else None
             if recipe is not None:
                 console.print(Padding(_recipe_text(recipe, lang), (0, 0, 0, 4), expand=False))
-        if len(errors) > _LOAD_ERRORS_SHOWN:
+        if shown is not None and len(errors) > shown:
             console.print(
                 Text(
                     "  "

@@ -317,7 +317,16 @@ def load_and_record(result: MigrationResult, target: str, *, dialect: str = "ora
         write_html(result.findings, report_file, lang=lang, load=load, handled=handled_by_migrate(dialect))
     write_text_atomic(result.out_dir / "load-check.json", to_load_check_json(load))
     buffer = io.StringIO()
-    render_load_check(load, console=Console(file=buffer), lang=lang)
+    # Every error, with its whole path: the HTML report and the summary
+    # send the reader here for the full list. Wide, so a message is not
+    # broken across lines.
+    render_load_check(
+        load,
+        console=Console(file=buffer, width=120, soft_wrap=True),
+        lang=lang,
+        full=True,
+        relative_to=result.out_dir,
+    )
     write_text_atomic(result.out_dir / "load-check.txt", buffer.getvalue())
     return load
 

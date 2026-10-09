@@ -160,7 +160,11 @@ def write_checklist(
     scanned_files: Iterable[str] = (),
     version: str = "",
     today: datetime.date | None = None,
+    handled: dict[str, str] | None = None,
 ) -> None:
+    """`handled`, from --migrate: detector -> the i18n key of a note saying
+    the run already took care of that gap (prepared the source, repaired
+    the output). The items stay open: the note asks to check and tick."""
     items = build_items(findings, previous, scanned_files)
     all_items = [i for group in items.values() for i in group]
     done = sum(1 for i in all_items if i.checked)
@@ -200,11 +204,13 @@ def write_checklist(
         w(" · ".join(meta) + "\n\n")
 
         if not group_done:
+            if handled and detector in handled:
+                w(f"**--migrate:** {i18n.t(lang, handled[detector])}\n\n")
             hint = messages.remediation_hint(detector, lang)
             if hint:
                 w(f"**{i18n.t(lang, 'report_gap_fix')}:** {hint}\n\n")
             command = prepare_command(detector)
-            if command is not None:
+            if command is not None and (handled or {}).get(detector) != "checklist_migrate_prepared":
                 w(f"**{i18n.t(lang, 'report_gap_prepare')}:** `{command}`\n\n")
             recipe = recipe_for(detector)
             if recipe is not None:

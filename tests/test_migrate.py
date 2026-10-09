@@ -231,3 +231,20 @@ def test_a_type_whose_output_repeats_an_earlier_one_is_left_out(tmp_path, monkey
     result = run_migration([_source(tmp_path)], tmp_path / "out")
     assert [p.name for p in result.converted] == ["05_FUNCTION_output.sql"]
     assert "PROCEDURE" in result.empty_types
+
+
+def test_the_checklist_says_what_the_run_already_took_care_of(tmp_path, fake):
+    run_migration([_source(tmp_path)], tmp_path / "out", lang="en")
+    checklist = (tmp_path / "out" / "MIGRATION.md").read_text(encoding="utf-8")
+    identity = checklist[checklist.index("GAP-028"):]
+    assert identity.split("## ")[0].count("**--migrate:** already repaired in converted/") == 1
+    quote = checklist[checklist.index("GAP-062"):].split("## ")[0]
+    assert "**--migrate:** the source was already prepared" in quote
+    assert "--prepare --write" not in quote  # the run did it; no command to run
+    assert "- [ ]" in identity  # still open: checked by the user, not by us
+
+
+def test_a_plain_checklist_has_no_migrate_notes(tmp_path, capsys):
+    src = _source(tmp_path)
+    assert main(["--lang", "en", "-f", "checklist", str(src)]) == 0
+    assert "--migrate:" not in capsys.readouterr().out

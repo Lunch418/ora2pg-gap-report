@@ -29,7 +29,7 @@ ora2pg-gap-report --migrate out/ --load-check docker schema/
 ```
  schema/ (DDL Oracle, mysqldump, скрипт SSMS)
     |
-    |  1. скан          125 подтверждённых пробелов ora2pg  -> out/report.html, out/MIGRATION.md
+    |  1. скан          126 подтверждённых пробелов ora2pg  -> out/report.html, out/MIGRATION.md
     |  2. подготовка    переписать то, на чём спотыкается парсер ora2pg  (--prepare)
     |  3. конвертация   ora2pg, по одному запуску на тип объектов        -> out/converted/
     |  4. исправления   известные механические баги ora2pg (--fix) и то, что знает исходник
@@ -217,7 +217,7 @@ PostgreSQL. Не замена `ora2pg`, а
 | `mysql_create_table_if_not_exists` | `CREATE TABLE IF NOT EXISTS` — превращается в таблицу `if`; загрузка падает и останавливает всю схему |
 | `mysql_temporary_table` | `CREATE TEMPORARY TABLE` — `TEMPORARY` выбрасывается, таблица становится постоянной и общей: строки одного сеанса видны всем остальным |
 
-А эти двадцать - диалект T-SQL/SQL Server (`--dialect mssql`,
+А эти двадцать один - диалект T-SQL/SQL Server (`--dialect mssql`,
 `ora2pg -M`).
 
 | Детектор | Что ловит |
@@ -242,6 +242,7 @@ PostgreSQL. Не замена `ora2pg`, а
 | `mssql_computed_column` | Вычисляемый столбец (`AS (выражение) PERSISTED`) получает тип `citext`, что бы выражение ни вычисляло, и числовой результат хранится как текст |
 | `mssql_rowversion` | `ROWVERSION` -> `bytea`, который сам не обновляется, и проверки оптимистической блокировки молча перестают видеть конфликты |
 | `mssql_schema_qualified_name` | `[dbo].[Orders]` - схема остаётся у всех имён, но не создаётся, и на чистой базе ничего не загружается; `--fix` пишет `CREATE SCHEMA IF NOT EXISTS` |
+| `mssql_go_separator` | Процедура, функция или триггер, за которыми идёт `GO`, как SSMS заканчивает каждый объект, - ora2pg кладёт `GO` в тело (`END GO END;`), подпрограмма не загружается; `--prepare` убирает строки `GO` |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -249,15 +250,15 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 
 ### Почему почти всё `high`
 
-Из 125 зарегистрированных gap'ов (`gap_registry.py`) — 80 из исходного
-диалекта Oracle, 25 из MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) и 20
+Из 126 зарегистрированных gap'ов (`gap_registry.py`) — 80 из исходного
+диалекта Oracle, 25 из MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) и 21
 из T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); см. «Исходные
 диалекты» ниже — 113 имеют severity `high` и 6 — `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 со стороны Oracle, `mysql_set_type` со стороны MySQL; в партии MSSQL
 `medium` нет вовсе). `severity` — поле `GapEntry`, и `scripts/doctor.py`
 сверяет его с литералом, который реально использует исходник детектора, а
-не просто со счётчиком, принятым на веру. Отдельно от этих 125 есть ещё
+не просто со счётчиком, принятым на веру. Отдельно от этих 126 есть ещё
 один детектор, `dbms_utl_calls` — классификатор вызовов `DBMS_*`/`UTL_*`,
 не привязанный к конкретному GAP-NNN (у него нет одного воспроизводимого
 минимального примера — это намеренно широкая категория), тоже `medium`.
@@ -451,7 +452,7 @@ ora2pg-gap-report --tui path/to/schema_dump/   # открывается там
 `--explain GAP-023` (или просто `--explain 23`) печатает research-документ
 конкретного gap'а из реестра — конструкцию, реальный вывод `ora2pg`,
 наблюдаемую проблему, вердикт и версии `ora2pg`/PostgreSQL, на которых
-находка подтверждена (сейчас 25.0/16 у всех 125 — единая версия, потому
+находка подтверждена (сейчас 25.0/16 у всех 126 — единая версия, потому
 что второй пока не было; `gap_registry.py` уже готов хранить разные версии
 для будущих находок) — без сканирования файлов:
 
@@ -493,7 +494,7 @@ PostgreSQL в качестве цели. Оба режима подтвержд�
 ```sh
 ora2pg-gap-report schema/                        # Oracle (по умолчанию)
 ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086, 106..111
-ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105, 125
+ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105, 125, 126
 ```
 
 Каждый не-Oracle gap подтверждён ровно так же, как Oracle-ские:
@@ -696,11 +697,11 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
 детекторов одинаково:
 
 - **Часть конструкций `ora2pg` копирует в вывод как есть** (`cross_apply`,
-  `json_table`, `identity_column` и ещё 52 — 55 из 126 детекторов) — для
+  `json_table`, `identity_column` и ещё 53 — 56 из 127 детекторов) — для
   них повторный прогон детектора по выводу осмыслен: `STILL_PRESENT`,
   если паттерн остался, `NOT_DETECTED`, если пропал.
 - **Часть `ora2pg` молча выбрасывает или переписывает во что-то другое**
-  (`read_only_table`, `table_partitioning` и ещё 68 — 70 из 126) —
+  (`read_only_table`, `table_partitioning` и ещё 68 — 70 из 127) —
   конструкции в выводе нет *по определению*, независимо от того, починил ли
   кто-то проблему вручную другим способом. Для них честный статус —
   `NOT_VERIFIABLE`, а не фиктивный `NOT_DETECTED`: считать отсутствие
@@ -708,7 +709,7 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
   которой этот проект специально избегает (см. «Почему почти всё `high`»
   выше).
 
-Какой режим у какого детектора и почему, по всем 125 gap'ам —
+Какой режим у какого детектора и почему, по всем 126 gap'ам —
 [`docs/verification-capability-matrix.ru.md`](docs/verification-capability-matrix.ru.md).
 
 `NOT_DETECTED` тоже не означает «доказанно исправлено» — только «паттерн в
@@ -781,6 +782,7 @@ out/
 | `oracle` | GAP-062 | `q'[it's]'` -> `'it''s'` |
 | `oracle` | GAP-112 | `CREATE TABLE IF NOT EXISTS` -> `CREATE TABLE` |
 | `mssql` | GAP-087 | `[dbo].[Orders]` -> `dbo.Orders`, `[nvarchar](100)` -> `nvarchar(100)` |
+| `mssql` | GAP-126 | строки `GO` убираются, а голый `END`, закрывавший пакет, получает `;` |
 
 ```sh
 cp -r dump/ dump.prepared/                                        # работайте с копией

@@ -115,6 +115,15 @@ CASES = {
         "CREATE SCHEMA IF NOT EXISTS dbo;",
         "INSERT INTO dbo.orders (id, customername) VALUES (1, 'a');",
     ),
+    "g126_go_separator": (
+        "mssql",
+        "PROCEDURE",
+        "CREATE PROCEDURE add_order @id int\nAS\nBEGIN\n    INSERT INTO orders (id) VALUES (@id);\nEND\nGO\n"
+        "CREATE FUNCTION next_id (@a int) RETURNS int\nAS\nBEGIN\n    RETURN @a + 1;\nEND\nGO\n",
+        "CREATE OR REPLACE PROCEDURE add_order",
+        "CREATE TABLE orders (id int);",
+        "CALL add_order(5);\nDO $$ BEGIN ASSERT next_id(1) = 2 AND (SELECT id FROM orders) = 5; END $$;",
+    ),
 }
 
 
@@ -122,6 +131,7 @@ CASES = {
 # in its output shows it. Elsewhere the object is missing altogether.
 BROKEN_SIGN = {
     "g106_function": "END //",  # the delimiter leaks into the body
+    "g126_go_separator": "\nGO\n",  # the batch separator leaks into the body
 }
 
 

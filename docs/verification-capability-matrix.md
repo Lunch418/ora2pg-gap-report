@@ -10,7 +10,7 @@ something's unimplemented, but because the question itself, "is this
 still in the output," is a tautology for them: the construct is
 guaranteed to never appear in the output on any migration, regardless of
 whether someone fixed it by hand or not. `verification.py`'s docstring
-explains this in detail; this is a table for each of the 125 gaps, so
+explains this in detail; this is a table for each of the 126 gaps, so
 nobody has to read the code just to answer "can this specific one be
 verified."
 
@@ -180,8 +180,9 @@ verified."
 | 104 | `mssql_computed_column` | `not_verifiable` | Rewritten into a trigger; the `AS (expr)` column syntax never survives. |
 | 105 | `mssql_rowversion` | `not_verifiable` | Rewritten to bytea; the ROWVERSION name never survives. |
 | 125 | `mssql_schema_qualified_name` | `verbatim` | The schema stays on every name; gone once the file creates it (`--fix` does). |
+| 126 | `mssql_go_separator` | `verbatim` | The GO stays, inside the routine body. |
 
-Totals among the 125 gaps themselves: 54 `verbatim`, 70 `not_verifiable`
+Totals among the 126 gaps themselves: 55 `verbatim`, 70 `not_verifiable`
 (including `autonomous_tx`, but for a different reason, see above), 1
 `generated_only` (`connect_by`).
 

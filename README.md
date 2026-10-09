@@ -29,7 +29,7 @@ mode of its own:
 ```
  schema/ (Oracle DDL, a mysqldump, an SSMS script)
     |
-    |  1. scan       125 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
+    |  1. scan       126 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
     |  2. prepare    rewrite what ora2pg's parser trips over  (--prepare)
     |  3. convert    ora2pg, once per object type             -> out/converted/
     |  4. fix        repair ora2pg's known mechanical bugs    (--fix), and what the source says
@@ -217,7 +217,7 @@ table is Oracle-only.
 | `mysql_create_table_if_not_exists` | `CREATE TABLE IF NOT EXISTS` — becomes a table called `if`; the load fails and stops the whole schema |
 | `mysql_temporary_table` | `CREATE TEMPORARY TABLE` — `TEMPORARY` is dropped, so the table is permanent and shared: one session's rows are visible to every other |
 
-And these twenty are the T-SQL/SQL Server dialect (`--dialect mssql`,
+And these twenty-one are the T-SQL/SQL Server dialect (`--dialect mssql`,
 `ora2pg -M`).
 
 | Detector | What it catches |
@@ -242,6 +242,7 @@ And these twenty are the T-SQL/SQL Server dialect (`--dialect mssql`,
 | `mssql_computed_column` | A computed column (`AS (expr) PERSISTED`) is typed `citext` whatever the expression computes, so a numeric result is stored as text |
 | `mssql_rowversion` | `ROWVERSION` -> `bytea`, which never self-updates, so optimistic-locking checks silently stop detecting conflicts |
 | `mssql_schema_qualified_name` | `[dbo].[Orders]` - the schema is kept on every name but never created, so nothing loads on a fresh database; `--fix` writes `CREATE SCHEMA IF NOT EXISTS` |
+| `mssql_go_separator` | A procedure, function or trigger followed by `GO`, as SSMS ends every object - ora2pg puts the `GO` into the body (`END GO END;`), the routine does not load; `--prepare` removes the `GO` lines |
 
 Plus `ora2pg_wrapper.py` — runs `ora2pg` per object type against exported DDL
 and parses `--estimate_cost`, and `oracle_connector.py`/`oracle_export.py` —
@@ -250,16 +251,16 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 125 registered gaps (`gap_registry.py`) — 80 from the Oracle source
-dialect, 25 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 20 from
+Of the 126 registered gaps (`gap_registry.py`) — 80 from the Oracle source
+dialect, 25 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 21 from
 T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); see "Source dialects"
-below — 119 are `high` and 6 are `medium` (`context_object`,
+below — 120 are `high` and 6 are `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 on the Oracle side, `mysql_set_type` on the MySQL side; the MSSQL batch has
 no `medium` at all) — `severity` is a `GapEntry` field now, cross-checked by
 `scripts/doctor.py` against the literal a detector's own source actually
 uses, not just a count taken on faith. Separately, there's one more detector
-on top of those 125, `dbms_utl_calls` — a
+on top of those 126, `dbms_utl_calls` — a
 classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
 no single reproducible minimal example — that's a deliberately broad
 category), also `medium`. `low` is a valid value in the
@@ -453,7 +454,7 @@ writes is the same too - `report.html`, `MIGRATION.md`, `converted/`, and
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 125 — a single
+finding was confirmed against (currently 25.0/16 for all 126 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -494,7 +495,7 @@ database needed), so this project scans all three:
 ```sh
 ora2pg-gap-report schema/                        # Oracle (the default)
 ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086, 106..111
-ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105, 125
+ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105, 125, 126
 ```
 
 Every non-Oracle gap was confirmed exactly the way the Oracle ones were: a
@@ -697,18 +698,18 @@ same pattern already in the generated code. And even so, it doesn't work
 the same way for every detector:
 
 - **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
-  `json_table`, `identity_column`, and 52 more — 55 of the 126 detectors) —
+  `json_table`, `identity_column`, and 53 more — 56 of the 127 detectors) —
   for these, re-running the detector against the output is meaningful:
   `STILL_PRESENT` if the pattern remains, `NOT_DETECTED` if it's gone.
 - **Some `ora2pg` drops or rewrites away entirely** (`read_only_table`,
-  `table_partitioning`, and 68 more — 70 of the 126) — the construct isn't
+  `table_partitioning`, and 68 more — 70 of the 127) — the construct isn't
   in the output *by definition*, regardless of whether someone fixed the
   problem by hand some other way. For these, the honest status is `NOT_VERIFIABLE`, not a
   fabricated `NOT_DETECTED`: treating absence as proof of a fix would be
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 125 gaps —
+Which mode applies to which detector, and why, for all 126 gaps —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't
@@ -782,6 +783,7 @@ that way, before ora2pg reads the dump:
 | `oracle` | GAP-062 | `q'[it's]'` -> `'it''s'` |
 | `oracle` | GAP-112 | `CREATE TABLE IF NOT EXISTS` -> `CREATE TABLE` |
 | `mssql` | GAP-087 | `[dbo].[Orders]` -> `dbo.Orders`, `[nvarchar](100)` -> `nvarchar(100)` |
+| `mssql` | GAP-126 | `GO` lines are removed, and a bare `END` that closed a batch gets its `;` |
 
 ```sh
 cp -r dump/ dump.prepared/                                        # work on a copy

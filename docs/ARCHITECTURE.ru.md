@@ -14,10 +14,10 @@
 принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
 госсектор.
 
-Детекторов сейчас 126 (полная таблица — в README.md, «Детекторы»; 125 из
+Детекторов сейчас 127 (полная таблица — в README.md, «Детекторы»; 126 из
 них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
 README.md, «Почему почти всё high»), в трёх исходных диалектах: 80 Oracle,
-25 MySQL/MariaDB (`ora2pg -m`) и 20 T-SQL/SQL Server (`ora2pg -M`). У
+25 MySQL/MariaDB (`ora2pg -m`) и 21 T-SQL/SQL Server (`ora2pg -M`). У
 каждого диалекта свой лексер (`plsql_lex.py`, `mysql_lex.py`,
 `mssql_lex.py`) и свой кортеж детекторов в `core.py`; они разделены
 структурно, так что файл, просканированный не с тем `--dialect`, не может
@@ -179,6 +179,7 @@ ora2pg_gap_report/
 │   ├── mssql_collation.py             # COLLATE -- выбрасывается, всё становится нечувствительным citext
 │   ├── mssql_computed_column.py       # вычисляемый столбец получает тип citext, что бы ни вычислял
 │   ├── mssql_rowversion.py            # ROWVERSION -> bytea, перестаёт обновляться, блокировка ломается
+│   ├── mssql_go_separator.py          # подпрограмма, за которой GO, -- GO попадает в тело (--prepare)
 │   └── mssql_schema_qualified_name.py  # [dbo].[Orders] -- схема dbo не создаётся (её создаёт --fix)
 ├── mssql_lex.py                 # лексика диалекта T-SQL (идентификаторы в скобках, вложенные
 │                               #  блочные комментарии -- общая основа детекторов mssql_*)

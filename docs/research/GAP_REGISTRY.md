@@ -153,6 +153,7 @@ being after them.
 | GAP-104 | A computed column gets the type `citext` regardless of the expression | `mssql_computed_column` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-104](gap-104-mssql-computed-column.md) |
 | GAP-105 | `ROWVERSION` -> `bytea`, stops updating - optimistic locking breaks | `mssql_rowversion` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-105](gap-105-mssql-rowversion.md) |
 | GAP-125 | `[dbo].[Orders]` - the `dbo` schema is kept but never created, nothing loads | `mssql_schema_qualified_name` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-125](gap-125-mssql-schema-qualified-name.md) |
+| GAP-126 | A routine followed by `GO` - the `GO` goes into the body, the routine does not load | `mssql_go_separator` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-126](gap-126-mssql-go-separator.md) |
 
 Statuses: `confirmed` — reproduced on the stated ora2pg version and still
 current; `fixed-upstream` — ora2pg fixed the problem in a newer version

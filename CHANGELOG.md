@@ -69,6 +69,13 @@ patch for fixes to existing ones.
   and `--fix` now does (`CREATE SCHEMA IF NOT EXISTS`). Confirmed on a live
   Oracle 23ai, ora2pg 25.0 and PostgreSQL 16.
 
+- **GAP-126: a T-SQL routine followed by `GO`**, as SSMS ends every
+  object: ora2pg puts the `GO` into the body (`END GO END;`) and the
+  routine does not load. `--prepare --dialect mssql` now removes the `GO`
+  lines and closes a bare `END` with `;`, a form ora2pg converts
+  correctly; `--migrate` applies it. With GAP-125 the sample SSMS script
+  goes from 4 load errors to none.
+
 ### Fixed
 
 - `--migrate`: `-t PACKAGE` now gets only the packages. Given the whole

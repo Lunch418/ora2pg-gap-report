@@ -420,6 +420,37 @@ def prepare_mssql_brackets(source: str) -> tuple[str, int]:
     return "".join(out), count
 
 
+_GO_LINE_RE = re.compile(r"^[ \t]*GO(?:[ \t]+\d+)?[ \t]*;?[ \t]*(?:\r?\n|\Z)", re.IGNORECASE | re.MULTILINE)
+_BARE_END_RE = re.compile(r"\bEND[ \t]*\Z", re.IGNORECASE)
+
+
+def prepare_mssql_go_separator(source: str) -> tuple[str, int]:
+    """Drop the `GO` lines SSMS writes after every object, and end a batch's
+    closing `END` with `;` (GAP-126).
+
+    ora2pg -M reads a routine up to the next CREATE, so the `GO` after it
+    ends up inside the PL/pgSQL body (`END GO END;`) and the routine does
+    not load. Without the GO, a routine whose last line is a bare `END`
+    loses its closing END instead; with `END;` it converts and loads. GO
+    is a client-side batch separator, not SQL, and ora2pg splits objects
+    on CREATE anyway, so nothing is lost. Strings and comments are left
+    alone."""
+    from .mssql_lex import mask_strings_and_comments
+
+    masked = mask_strings_and_comments(source)
+    gos = list(_GO_LINE_RE.finditer(masked))
+    for go in reversed(gos):
+        source = source[: go.start()] + source[go.end() :]
+        masked = masked[: go.start()] + masked[go.end() :]
+        before = masked[: go.start()].rstrip()
+        end = _BARE_END_RE.search(before)
+        if end is not None:
+            at = len(before)
+            source = source[:at] + ";" + source[at:]
+            masked = masked[:at] + ";" + masked[at:]
+    return source, len(gos)
+
+
 # Which preparers run for which source dialect, in order. The delimiter
 # comes first: the definer and version-comment rewrites must see the
 # statements as plain SQL.
@@ -431,7 +462,7 @@ PREPARERS_BY_DIALECT: dict[str, tuple[Preparer, ...]] = {
         prepare_mysql_definer,
         prepare_mysql_table_if_not_exists,
     ),
-    "mssql": (prepare_mssql_brackets,),
+    "mssql": (prepare_mssql_brackets, prepare_mssql_go_separator),
 }
 
 def prepare_command(detector: str) -> str | None:
@@ -454,6 +485,7 @@ PREPARER_DETECTOR: dict[Preparer, str] = {
     prepare_mysql_definer: "mysql_definer_procedure",
     prepare_mysql_table_if_not_exists: "mysql_create_table_if_not_exists",
     prepare_mssql_brackets: "mssql_bracket_identifier",
+    prepare_mssql_go_separator: "mssql_go_separator",
 }
 
 # Every detector whose gap a preparer removes. The DELIMITER rewrite covers

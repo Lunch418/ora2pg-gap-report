@@ -3977,6 +3977,26 @@ MESSAGES: dict[str, Message] = {
             '--fix writes CREATE SCHEMA IF NOT EXISTS.'
         ),
     ),
+    "mssql_go_separator": Message(
+        ru=(
+            'Процедура, функция или триггер, за которыми идёт разделитель пакетов GO - так SSMS заканчивает '
+            'каждый объект. ora2pg 25.0 (-M) читает подпрограмму до следующего CREATE, и GO попадает в тело '
+            'PL/pgSQL (END GO END;), так что PostgreSQL 16 её не загружает ("end label \\"go\\" specified for '
+            'unlabeled block" или "syntax error at or near \\"GO\\"" после END;). Без GO подпрограмма, которая '
+            'кончается голым END, теряет закрывающий END; с END; она конвертируется и загружается. Подтверждено '
+            'реальным прогоном ora2pg 25.0 и PostgreSQL 16, docs/research/gap-126-mssql-go-separator.md. '
+            '--prepare убирает строки GO и ставит ; после закрывающего END.'
+        ),
+        en=(
+            'A procedure, function or trigger followed by the GO batch separator - the way SSMS ends every '
+            'object. ora2pg 25.0 (-M) reads a routine up to the next CREATE, so the GO goes into the PL/pgSQL '
+            'body (END GO END;) and PostgreSQL 16 does not load it ("end label \\"go\\" specified for unlabeled '
+            'block", or "syntax error at or near \\"GO\\"" after END;). Without the GO, a routine ending in a bare '
+            'END loses its closing END instead; with END; it converts and loads. Confirmed against a real ora2pg '
+            '25.0 run and PostgreSQL 16, docs/research/gap-126-mssql-go-separator.md. --prepare removes the GO '
+            'lines and puts a ; after the closing END.'
+        ),
+    ),
     "temporal_validity.alter": Message(
         ru=(
             'PERIOD FOR (temporal validity, 12c) в записи DBMS_METADATA.GET_DDL - отдельной '
@@ -5231,6 +5251,10 @@ REMEDIATION_HINTS: dict[str, Message] = {
         ru='Запустить --fix: он пишет CREATE SCHEMA IF NOT EXISTS',
         en='Run --fix: it writes CREATE SCHEMA IF NOT EXISTS',
     ),
+    "mssql_go_separator": Message(
+        ru='Запустить --prepare до ora2pg: он убирает GO и ставит ; после END',
+        en='Run --prepare before ora2pg: it removes the GO and puts a ; after the END',
+    ),
 }
 
 
@@ -5584,6 +5608,10 @@ TITLES: dict[str, Message] = {
     "mssql_schema_qualified_name": Message(
         ru='`[dbo].[Orders]` - схема `dbo` остаётся, но не создаётся, ничего не загружается',
         en='`[dbo].[Orders]` - the `dbo` schema is kept but never created, nothing loads',
+    ),
+    "mssql_go_separator": Message(
+        ru='Подпрограмма, за которой идёт `GO`, - `GO` попадает в тело, подпрограмма не загружается',
+        en='A routine followed by `GO` - the `GO` goes into the body, the routine does not load',
     ),
     "mysql_enum_type": Message(
         ru='`ENUM(...)` - ссылка на несуществующий синтезированный тип',

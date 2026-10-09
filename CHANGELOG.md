@@ -109,6 +109,9 @@ patch for fixes to existing ones.
   printed as `.[Orders]` and nothing. In a terminal the document is now
   rendered as Markdown (headings, highlighted SQL); piped, it is printed
   exactly as written.
+- Straight quotes in the Russian interface and finding texts instead of
+  typographic ones, and no Markdown backticks in the effort caveat, which
+  the terminal, the TUI and the HTML report show as plain text.
 
 ## [0.14.0] - 2026-10-08
 

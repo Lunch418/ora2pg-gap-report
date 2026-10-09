@@ -510,7 +510,7 @@ _UI: dict[str, dict[str, str]] = {
     },
     "save_baseline_same_path_error": {
         "ru": "[red]--save и --baseline указывают на один и тот же файл ({path}) - сравнение "
-        "прогона с самим собой всегда покажет «без изменений». Используйте разные пути: "
+        "прогона с самим собой всегда покажет \"без изменений\". Используйте разные пути: "
         "--baseline на старый снапшот, --save на новый.[/red]",
         "en": "[red]--save and --baseline point at the same file ({path}) - comparing this run "
         "against itself always reports \"unchanged\". Use different paths: --baseline for the "
@@ -518,7 +518,7 @@ _UI: dict[str, dict[str, str]] = {
     },
     "save_baseline_skipped_partial_scan": {
         "ru": "[yellow]baseline не сохранён в {path}: сканирование было неполным (см. "
-        "предупреждения выше) - снапшот с пропущенными файлами не запишется как «полный»[/yellow]",
+        "предупреждения выше) - снапшот с пропущенными файлами не запишется как \"полный\"[/yellow]",
         "en": "[yellow]baseline not saved to {path}: the scan was incomplete (see warnings "
         "above) - a snapshot with skipped files won't be written as though it were complete[/yellow]",
     },
@@ -579,7 +579,7 @@ _UI: dict[str, dict[str, str]] = {
     "verify_new_footer_note": {
         "ru": "Эти детекторы сработали на сгенерированном выводе, но в baseline их нет: "
         "конструкции не было в исходнике Oracle - её внесла сама конверсия. Сравнивать "
-        "«до/после» тут не с чем, поэтому колонки «До» нет.",
+        "\"до/после\" тут не с чем, поэтому колонки \"До\" нет.",
         "en": "These detectors fired on the generated output but aren't in the baseline: "
         "the construct wasn't in the Oracle source - the conversion itself introduced it. "
         "There's no before/after to compare, which is why there's no \"Before\" column.",
@@ -589,8 +589,8 @@ _UI: dict[str, dict[str, str]] = {
         "en": "New in output",
     },
     "verify_footer_note": {
-        "ru": "NOT_DETECTED означает «в проверенном коде паттерн не нашёлся», а не "
-        "«проблема доказанно исправлена» - см. docs/ARCHITECTURE.md. NOT_VERIFIABLE - "
+        "ru": "NOT_DETECTED означает \"в проверенном коде паттерн не нашёлся\", а не "
+        "\"проблема доказанно исправлена\" - см. docs/ARCHITECTURE.md. NOT_VERIFIABLE - "
         "ora2pg отбрасывает эту конструкцию из вывода на любой миграции, повторный "
         "прогон детектора здесь ничего не доказывает в принципе.",
         "en": "NOT_DETECTED means \"the pattern wasn't found in the checked code\", not "
@@ -1077,9 +1077,11 @@ _UI: dict[str, dict[str, str]] = {
     "report_effort_label": {"ru": "Ручная доработка", "en": "Manual rework"},
     "report_effort_range": {"ru": "{lo}-{hi} ч", "en": "{lo}-{hi} h"},
     "report_effort_caveat": {
-        "ru": "неоткалиброванная эвристика по severity, не измерение (см. README.md, «Почему почти всё high»)",
+        # Plain text: the terminal, the TUI and the HTML report show it as
+        # it is, so no Markdown backticks.
+        "ru": "неоткалиброванная эвристика по severity, не измерение (см. README.md, \"Почему почти всё high\")",
         "en": "an uncalibrated heuristic based on severity, not a measurement (see README.md, "
-        "\"Why almost everything is `high`\")",
+        "\"Why almost everything is high\")",
     },
     "report_top_objects": {"ru": "Где больше всего находок", "en": "Where the findings concentrate"},
     "report_gaps_heading": {"ru": "Пробелы", "en": "Gaps"},
@@ -1109,7 +1111,7 @@ _UI: dict[str, dict[str, str]] = {
     "markdown_effort_estimate": {
         "ru": "Грубая оценка ручной доработки: {lo}-{hi} ч. "
         "- неоткалиброванная эвристика по severity, не измерение "
-        "(см. README.md, «Почему почти всё high»).\n\n",
+        "(см. README.md, \"Почему почти всё high\").\n\n",
         "en": "Rough manual-rework estimate: {lo}-{hi}h. "
         "- an uncalibrated heuristic based on severity, not a measurement "
         "(see README.md, \"Why almost everything is `high`\").\n\n",
@@ -1200,7 +1202,7 @@ _UI: dict[str, dict[str, str]] = {
     },
     "verify_dialect_mismatch": {
         "ru": "Запрошен --dialect {requested}, а baseline сделан для диалекта "
-        "{baseline_dialect}. Сверка чужими детекторами показала бы «не найдено» по всем "
+        "{baseline_dialect}. Сверка чужими детекторами показала бы \"не найдено\" по всем "
         "находкам - это была бы не проверка, а тавтология.",
         "en": "--dialect {requested} was requested, but the baseline was taken with "
         "{baseline_dialect}. Verifying with another dialect's detectors would report "

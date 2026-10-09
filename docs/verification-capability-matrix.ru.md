@@ -10,7 +10,7 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 выводе" тавтологичен: конструкция гарантированно не появится в выводе ни
 на одной миграции, независимо от того, исправил её кто-то руками или
 нет. Docstring `verification.py` объясняет это подробно; здесь — таблица
-по каждому из 126 gap'ов, чтобы не листать код ради одного вопроса
+по каждому из 128 gap'ов, чтобы не листать код ради одного вопроса
 "а можно ли верифицировать конкретно этот".
 
 ## Как читать колонку "режим"
@@ -154,6 +154,8 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 109 | `mysql_versioned_comment` | `not_verifiable` | Объект удаляется вместе с комментариями. |
 | 110 | `mysql_create_table_if_not_exists` | `not_verifiable` | Превращается в `CREATE TABLE if (`, IF NOT EXISTS в выводе нет. |
 | 111 | `mysql_temporary_table` | `not_verifiable` | TEMPORARY выбрасывается, остаётся обычный CREATE TABLE. |
+| 127 | `mysql_index_prefix` | `not_verifiable` | Предложение становится CREATE INDEX / ADD UNIQUE; --load-check узнаёт форму UNIQUE. |
+| 128 | `mysql_index_name_collision` | `not_verifiable` | Предложение становится командами CREATE INDEX. |
 
 ### MSSQL / T-SQL (`ora2pg -M`)
 
@@ -181,7 +183,7 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 125 | `mssql_schema_qualified_name` | `verbatim` | Схема остаётся у всех имён; пропадает, когда файл её создаёт (это делает `--fix`). |
 | 126 | `mssql_go_separator` | `verbatim` | GO остаётся - внутри тела подпрограммы. |
 
-Итого среди самих 126 gap'ов: 55 `verbatim`, 70 `not_verifiable`
+Итого среди самих 128 gap'ов: 55 `verbatim`, 72 `not_verifiable`
 (включая `autonomous_tx`, но по другой причине — см. выше), 1
 `generated_only` (`connect_by`).
 

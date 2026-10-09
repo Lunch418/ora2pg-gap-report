@@ -347,6 +347,47 @@ def prepare_oracle_table_if_not_exists(source: str) -> tuple[str, int]:
 _PLAIN_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
+def prepare_mysql_indexes(source: str) -> tuple[str, int]:
+    """mysqldump's index clauses, written the way ora2pg -m converts them
+    (GAP-073, GAP-128):
+
+    - `KEY idx (a)` -> `INDEX idx (a)`: the same index in MySQL; ora2pg
+      turns the KEY spelling into a broken column, the INDEX one into a
+      CREATE INDEX;
+    - an unnamed `KEY (a)` / `INDEX (a)`, which ora2pg drops silently,
+      gets the name `<table>_<first column>_idx`;
+    - an index name used on more than one table -- fine in MySQL, where
+      it belongs to the table, a clash in PostgreSQL, where it belongs to
+      the schema -- becomes `<table>_<name>`.
+
+    UNIQUE, FULLTEXT and SPATIAL keys are left alone (ora2pg converts the
+    first, the others are gaps of their own), and so is an index on a
+    column prefix, `KEY idx (note(20))` (GAP-127): PostgreSQL has no prefix
+    index, and what to write instead is not a mechanical choice."""
+    from .mysql_indexes import bare, colliding_names, index_clauses
+
+    clauses = index_clauses(source)
+    clashes = colliding_names(clauses)
+    count = 0
+    for clause in reversed(clauses):
+        if clause.qualifier is not None or clause.has_prefix:
+            continue
+        name_end = clause.name_start + len(clause.name or "")
+        if clause.name is None:
+            new_name = f"`{clause.table}_{clause.columns[0][0]}_idx`"
+            source = source[: clause.name_start] + " " + new_name + source[clause.name_start :]
+        elif bare(clause.name).lower() in clashes:
+            new_name = f"`{clause.table}_{bare(clause.name)}`"
+            source = source[: clause.name_start] + new_name + source[name_end:]
+        elif clause.keyword.upper() == "INDEX":
+            continue
+        if clause.keyword.upper() == "KEY":
+            at = clause.keyword_start
+            source = source[:at] + "INDEX" + source[at + len(clause.keyword) :]
+        count += 1
+    return source, count
+
+
 def prepare_mssql_brackets(source: str) -> tuple[str, int]:
     """`[dbo].[Orders]` -> `dbo.Orders`, `[nvarchar](100)` -> `nvarchar(100)`
     (GAP-087).
@@ -461,6 +502,7 @@ PREPARERS_BY_DIALECT: dict[str, tuple[Preparer, ...]] = {
         prepare_mysql_delimiter,
         prepare_mysql_definer,
         prepare_mysql_table_if_not_exists,
+        prepare_mysql_indexes,
     ),
     "mssql": (prepare_mssql_brackets, prepare_mssql_go_separator),
 }
@@ -485,6 +527,7 @@ PREPARER_DETECTOR: dict[Preparer, str] = {
     prepare_mysql_definer: "mysql_definer_procedure",
     prepare_mysql_table_if_not_exists: "mysql_create_table_if_not_exists",
     prepare_mssql_brackets: "mssql_bracket_identifier",
+    prepare_mysql_indexes: "mysql_key_index",
     prepare_mssql_go_separator: "mssql_go_separator",
 }
 
@@ -494,3 +537,4 @@ PREPARED_DETECTORS: dict[Preparer, tuple[str, ...]] = {
     preparer: (detector,) for preparer, detector in PREPARER_DETECTOR.items()
 }
 PREPARED_DETECTORS[prepare_mysql_delimiter] = ("mysql_delimiter_routine", "mysql_delimiter_trigger")
+PREPARED_DETECTORS[prepare_mysql_indexes] = ("mysql_key_index", "mysql_index_name_collision")

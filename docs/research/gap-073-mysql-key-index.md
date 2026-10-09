@@ -87,3 +87,13 @@ real schema is affected. Fixed by rewriting to `CREATE INDEX <name> ON
 `ora2pg_gap_report/detectors/mysql_key_index.py` — the detector
 deliberately does not flag `PRIMARY KEY`, `UNIQUE KEY`, `FOREIGN KEY`,
 `FULLTEXT KEY` (GAP-072) or `SPATIAL KEY` (GAP-074).
+
+## Repair before ora2pg
+
+`--prepare --dialect mysql` (`prepare_mysql_indexes`) writes `KEY idx (a)`
+as `INDEX idx (a)`, the same index in MySQL, which ora2pg turns into a
+working `CREATE INDEX`, and names an unnamed `KEY (a)` `<table>_<a>_idx`
+so it is not dropped. It also renames index names shared by several
+tables (GAP-128) and leaves prefix indexes alone (GAP-127). `--migrate`
+applies it; checked with ora2pg 25.0 and PostgreSQL 16, every index in
+place (`tests/test_prepare.py`, case g073).

@@ -3997,6 +3997,49 @@ MESSAGES: dict[str, Message] = {
             'lines and puts a ; after the closing END.'
         ),
     ),
+    "mysql_index_prefix": Message(
+        ru=(
+            'Индекс по префиксу столбца: KEY idx (note(20)), UNIQUE KEY uq (code(8)) - MySQL требует его для '
+            'столбцов TEXT/BLOB, и mysqldump так и пишет. В PostgreSQL префиксных индексов нет, а ora2pg 25.0 '
+            '(-m) портит предложение: вариант INDEX становится CREATE INDEX idx ON t (note"(20); - незакрытым '
+            'идентификатором в кавычках, который проглатывает весь остаток файла (psql после него ничего не '
+            'выполняет, --load-check такой файл пропускает); UNIQUE становится ADD UNIQUE ("note(20") - '
+            'несуществующим столбцом; у KEY поверх этого GAP-073. Подтверждено реальным прогоном ora2pg 25.0 и '
+            'PostgreSQL 16, docs/research/gap-127-mysql-index-prefix.md. Решите сами: индекс по выражению '
+            'left(note, 20), индекс по всему столбцу (длинные значения могут не влезть в btree) или без индекса; '
+            'UNIQUE по префиксу и по всему столбцу - разные ограничения.'
+        ),
+        en=(
+            'An index on a column prefix: KEY idx (note(20)), UNIQUE KEY uq (code(8)) - what MySQL requires for '
+            'TEXT/BLOB columns, and how mysqldump writes it. PostgreSQL has no prefix index, and ora2pg 25.0 (-m)'
+            ' mangles the clause: the INDEX spelling becomes CREATE INDEX idx ON t (note"(20); - an unterminated '
+            'quoted identifier that swallows the rest of the file (psql runs nothing after it; --load-check skips'
+            ' such a file); UNIQUE becomes ADD UNIQUE ("note(20") - a column that does not exist; KEY has GAP-073'
+            ' on top. Confirmed against a real ora2pg 25.0 run and PostgreSQL 16, '
+            'docs/research/gap-127-mysql-index-prefix.md. Decide per index: an expression index on left(note, '
+            '20), an index on the whole column (long values may not fit a btree), or none; a UNIQUE on a prefix '
+            'and on the whole column are different constraints.'
+        ),
+    ),
+    "mysql_index_name_collision": Message(
+        ru=(
+            'Одно имя индекса на нескольких таблицах: KEY customer_id (customer_id) и в orders, и в invoices - в '
+            'MySQL имя индекса принадлежит таблице, и в выгрузках mysqldump так бывает часто. В PostgreSQL имя '
+            'индекса принадлежит схеме; ora2pg 25.0 (-m) имена сохраняет, и второй CREATE INDEX падает ("relation'
+            ' \\"customer_id\\" already exists"), а таблица остаётся без индекса. Подтверждено реальным прогоном '
+            'ora2pg 25.0 и PostgreSQL 16, docs/research/gap-128-mysql-index-name-collision.md. --prepare '
+            'переименовывает совпадающие имена в <таблица>_<имя>.'
+        ),
+        en=(
+            'One index name on several tables: KEY customer_id (customer_id) in both orders and invoices - in '
+            'MySQL an index name belongs to its table, and mysqldump output has this often. In PostgreSQL an '
+            'index name belongs to the schema; ora2pg 25.0 (-m) keeps the names, so the second CREATE INDEX fails'
+            ' ("relation \\"customer_id\\" already exists") and that table is left without the index. Confirmed '
+            'against a real ora2pg 25.0 run and PostgreSQL 16, '
+            'docs/research/gap-128-mysql-index-name-collision.md. --prepare renames the clashing names to '
+            '<table>_<name>.'
+        ),
+    ),
     "temporal_validity.alter": Message(
         ru=(
             'PERIOD FOR (temporal validity, 12c) в записи DBMS_METADATA.GET_DDL - отдельной '
@@ -5255,6 +5298,14 @@ REMEDIATION_HINTS: dict[str, Message] = {
         ru='Запустить --prepare до ora2pg: он убирает GO и ставит ; после END',
         en='Run --prepare before ora2pg: it removes the GO and puts a ; after the END',
     ),
+    "mysql_index_prefix": Message(
+        ru='Решить по каждому индексу: left(col, N), весь столбец или без индекса - префиксных индексов в PostgreSQL нет',
+        en='Decide per index: left(col, N), the whole column, or none - PostgreSQL has no prefix index',
+    ),
+    "mysql_index_name_collision": Message(
+        ru='Запустить --prepare до ora2pg: он переименует совпадающие индексы в <таблица>_<имя>',
+        en='Run --prepare before ora2pg: it renames the clashing indexes to <table>_<name>',
+    ),
 }
 
 
@@ -5612,6 +5663,14 @@ TITLES: dict[str, Message] = {
     "mssql_go_separator": Message(
         ru='Подпрограмма, за которой идёт `GO`, - `GO` попадает в тело, подпрограмма не загружается',
         en='A routine followed by `GO` - the `GO` goes into the body, the routine does not load',
+    ),
+    "mysql_index_prefix": Message(
+        ru='Индекс по префиксу столбца (`KEY idx (note(20))`) - ломает файл незакрытой кавычкой',
+        en='An index on a column prefix (`KEY idx (note(20))`) - breaks the file with an unclosed quote',
+    ),
+    "mysql_index_name_collision": Message(
+        ru='Одно имя индекса на нескольких таблицах - второй `CREATE INDEX` падает',
+        en='One index name on several tables - the second `CREATE INDEX` fails',
     ),
     "mysql_enum_type": Message(
         ru='`ENUM(...)` - ссылка на несуществующий синтезированный тип',

@@ -77,6 +77,8 @@ from .detectors.mysql_foreign_key import find_mysql_foreign_keys
 from .detectors.mysql_fulltext_index import find_mysql_fulltext_indexes
 from .detectors.mysql_insert_ignore import find_mysql_insert_ignore
 from .detectors.mysql_key_index import find_mysql_key_indexes
+from .detectors.mysql_index_prefix import find_mysql_index_prefix
+from .detectors.mysql_index_name_collision import find_mysql_index_name_collision
 from .detectors.mysql_last_insert_id import find_mysql_last_insert_id
 from .detectors.mysql_limit_comma import find_mysql_limit_comma
 from .detectors.mysql_on_duplicate_key_update import find_mysql_on_duplicate_key_update
@@ -250,6 +252,8 @@ _MYSQL_DETECTORS = (
     find_mysql_signal_statements,
     find_mysql_fulltext_indexes,
     find_mysql_key_indexes,
+    find_mysql_index_prefix,
+    find_mysql_index_name_collision,
     find_mysql_spatial_indexes,
     find_mysql_limit_comma,
     find_mysql_replace_into,

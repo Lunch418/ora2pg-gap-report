@@ -87,3 +87,13 @@ MySQL-партии: `mysqldump` пишет `KEY`, а не `INDEX`, поэтом�
 Реализовано: `ora2pg_gap_report/detectors/mysql_key_index.py` — детектор
 намеренно не помечает `PRIMARY KEY`, `UNIQUE KEY`, `FOREIGN KEY`,
 `FULLTEXT KEY` (GAP-072) и `SPATIAL KEY` (GAP-074).
+
+## Исправление до ora2pg
+
+`--prepare --dialect mysql` (`prepare_mysql_indexes`) записывает `KEY idx
+(a)` как `INDEX idx (a)` - тот же индекс в MySQL, который ora2pg
+превращает в рабочий `CREATE INDEX`, - и даёт безымянному `KEY (a)` имя
+`<таблица>_<a>_idx`, чтобы он не пропал. Заодно переименовывает имена
+индексов, общие для нескольких таблиц (GAP-128), и не трогает префиксные
+индексы (GAP-127). `--migrate` это применяет; проверено на ora2pg 25.0 и
+PostgreSQL 16, все индексы на месте (`tests/test_prepare.py`, случай g073).

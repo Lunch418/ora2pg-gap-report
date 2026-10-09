@@ -29,7 +29,7 @@ mode of its own:
 ```
  schema/ (Oracle DDL, a mysqldump, an SSMS script)
     |
-    |  1. scan       126 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
+    |  1. scan       128 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
     |  2. prepare    rewrite what ora2pg's parser trips over  (--prepare)
     |  3. convert    ora2pg, once per object type             -> out/converted/
     |  4. fix        repair ora2pg's known mechanical bugs    (--fix), and what the source says
@@ -185,7 +185,7 @@ empirically against real PL/SQL code
 | `dbms_sleep` | `DBMS_LOCK.SLEEP` / `DBMS_SESSION.SLEEP` - ora2pg writes `pg_sleep(n);` without `PERFORM`, the routine does not load; `--fix` repairs it |
 | `schema_qualified_name` | A schema-qualified name (`"HR"."EMP"`, the way `GET_DDL` writes every one) - ora2pg keeps the schema on tables, views and sequences but never creates it, and drops it on triggers and in view bodies: nothing loads on a fresh database |
 
-The twenty-five below are the MySQL/MariaDB dialect (`--dialect mysql`, `ora2pg
+The twenty-seven below are the MySQL/MariaDB dialect (`--dialect mysql`, `ora2pg
 -m` — see "Source dialects" further down); every other detector in this
 table is Oracle-only.
 
@@ -197,6 +197,8 @@ table is Oracle-only.
 | `mysql_signal` | `SIGNAL`/`RESIGNAL` — copied verbatim; neither exists in PL/pgSQL, fails on first call |
 | `mysql_fulltext_index` | `FULLTEXT KEY`/`FULLTEXT INDEX` inside `CREATE TABLE`'s column list — not recognized as an index at all; the bare keywords are left where a column definition was expected, and `CREATE TABLE` fails to load |
 | `mysql_key_index` | `KEY <name> (<cols>)` — mysqldump's own default spelling for a secondary index. Left as a `key <NAME>` stub where a column was expected, so `CREATE TABLE` fails to load. The `INDEX` synonym and `UNIQUE KEY` both convert fine |
+| `mysql_index_prefix` | An index on a column prefix (`KEY idx (note(20))`, required for TEXT/BLOB) - ora2pg writes `(note"(20)`, an unclosed quote that swallows the rest of the file; PostgreSQL has no prefix index, so it is a decision per index |
+| `mysql_index_name_collision` | One index name on several tables - fine in MySQL, a clash in PostgreSQL, where the second `CREATE INDEX` fails; `--prepare` renames them `<table>_<name>` |
 | `mysql_spatial_index` | `SPATIAL KEY`/`SPATIAL INDEX` — same shape as FULLTEXT, but restored as a GiST index over a PostGIS type |
 | `mysql_limit_comma` | `LIMIT offset, count` — copied verbatim; PostgreSQL rejects the comma form outright (`LIMIT #,# syntax is not supported`) |
 | `mysql_replace_into` | `REPLACE INTO` — copied verbatim; no PostgreSQL equivalent, and `ON CONFLICT DO UPDATE` is not a literal substitute (REPLACE deletes, so delete-side cascades fire) |
@@ -251,16 +253,16 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 126 registered gaps (`gap_registry.py`) — 80 from the Oracle source
-dialect, 25 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 21 from
+Of the 128 registered gaps (`gap_registry.py`) — 80 from the Oracle source
+dialect, 27 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 21 from
 T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); see "Source dialects"
-below — 120 are `high` and 6 are `medium` (`context_object`,
+below — 122 are `high` and 6 are `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 on the Oracle side, `mysql_set_type` on the MySQL side; the MSSQL batch has
 no `medium` at all) — `severity` is a `GapEntry` field now, cross-checked by
 `scripts/doctor.py` against the literal a detector's own source actually
 uses, not just a count taken on faith. Separately, there's one more detector
-on top of those 126, `dbms_utl_calls` — a
+on top of those 128, `dbms_utl_calls` — a
 classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
 no single reproducible minimal example — that's a deliberately broad
 category), also `medium`. `low` is a valid value in the
@@ -454,7 +456,7 @@ writes is the same too - `report.html`, `MIGRATION.md`, `converted/`, and
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 126 — a single
+finding was confirmed against (currently 25.0/16 for all 128 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -698,18 +700,18 @@ same pattern already in the generated code. And even so, it doesn't work
 the same way for every detector:
 
 - **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
-  `json_table`, `identity_column`, and 53 more — 56 of the 127 detectors) —
+  `json_table`, `identity_column`, and 53 more — 56 of the 129 detectors) —
   for these, re-running the detector against the output is meaningful:
   `STILL_PRESENT` if the pattern remains, `NOT_DETECTED` if it's gone.
 - **Some `ora2pg` drops or rewrites away entirely** (`read_only_table`,
-  `table_partitioning`, and 68 more — 70 of the 127) — the construct isn't
+  `table_partitioning`, and 70 more — 72 of the 129) — the construct isn't
   in the output *by definition*, regardless of whether someone fixed the
   problem by hand some other way. For these, the honest status is `NOT_VERIFIABLE`, not a
   fabricated `NOT_DETECTED`: treating absence as proof of a fix would be
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 126 gaps —
+Which mode applies to which detector, and why, for all 128 gaps —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't
@@ -780,6 +782,7 @@ that way, before ora2pg reads the dump:
 | `mysql` | GAP-108 | `DEFINER=user@host` is removed from `CREATE` |
 | `mysql` | GAP-109 | `/*!50003 CREATE ... */` around triggers, views and routines is unwrapped (session settings stay comments) |
 | `mysql` | GAP-110 | `CREATE TABLE IF NOT EXISTS` -> `CREATE TABLE` |
+| `mysql` | GAP-073, 128 | `KEY idx (a)` -> `INDEX idx (a)`; an unnamed index gets `<table>_<column>_idx`; an index name used on several tables becomes `<table>_<name>` |
 | `oracle` | GAP-062 | `q'[it's]'` -> `'it''s'` |
 | `oracle` | GAP-112 | `CREATE TABLE IF NOT EXISTS` -> `CREATE TABLE` |
 | `mssql` | GAP-087 | `[dbo].[Orders]` -> `dbo.Orders`, `[nvarchar](100)` -> `nvarchar(100)` |

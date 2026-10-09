@@ -14,10 +14,10 @@ FUNCTION`, …), which is exactly how `ora2pg_wrapper.py` works, not
 through `SHOW_REPORT`. This is a hard requirement for the target
 audience: closed networks, air-gapped environments, the public sector.
 
-There are 127 detectors right now (the full table is in README.md,
-"Detectors"; 126 of them are tied to a registered GAP-NNN,
+There are 129 detectors right now (the full table is in README.md,
+"Detectors"; 128 of them are tied to a registered GAP-NNN,
 `dbms_utl_calls` isn't, see README.md, "Why almost everything is high"),
-split across three source dialects: 80 Oracle, 25 MySQL/MariaDB
+split across three source dialects: 80 Oracle, 27 MySQL/MariaDB
 (`ora2pg -m`) and 21 T-SQL/SQL Server (`ora2pg -M`). Each dialect has its
 own lexer (`plsql_lex.py`, `mysql_lex.py`, `mssql_lex.py`) and its own
 detector tuple in `core.py`, kept structurally separate so a file scanned
@@ -139,6 +139,8 @@ ora2pg_gap_report/
 │   ├── mysql_signal.py            # SIGNAL/RESIGNAL -- no such statement in PL/pgSQL
 │   ├── mysql_fulltext_index.py    # FULLTEXT KEY/INDEX -- dropped, keywords misparsed as a column
 │   ├── mysql_key_index.py         # KEY <name> (<cols>) -- mysqldump's own spelling, breaks CREATE TABLE
+│   ├── mysql_index_prefix.py      # KEY idx (note(20)) -- an unclosed quote swallows the rest of the file
+│   ├── mysql_index_name_collision.py  # one index name on several tables -- the second CREATE INDEX fails
 │   ├── mysql_spatial_index.py     # SPATIAL KEY/INDEX -- dropped, keywords misparsed as a column
 │   ├── mysql_limit_comma.py       # LIMIT n, m -- PostgreSQL rejects the comma form outright
 │   ├── mysql_replace_into.py      # REPLACE INTO -- copied verbatim, no PostgreSQL equivalent

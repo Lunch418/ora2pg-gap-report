@@ -14,10 +14,10 @@
 принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
 госсектор.
 
-Детекторов сейчас 127 (полная таблица — в README.md, «Детекторы»; 126 из
+Детекторов сейчас 129 (полная таблица — в README.md, «Детекторы»; 128 из
 них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
 README.md, «Почему почти всё high»), в трёх исходных диалектах: 80 Oracle,
-25 MySQL/MariaDB (`ora2pg -m`) и 21 T-SQL/SQL Server (`ora2pg -M`). У
+27 MySQL/MariaDB (`ora2pg -m`) и 21 T-SQL/SQL Server (`ora2pg -M`). У
 каждого диалекта свой лексер (`plsql_lex.py`, `mysql_lex.py`,
 `mssql_lex.py`) и свой кортеж детекторов в `core.py`; они разделены
 структурно, так что файл, просканированный не с тем `--dialect`, не может
@@ -140,6 +140,8 @@ ora2pg_gap_report/
 │   ├── mysql_signal.py            # SIGNAL/RESIGNAL -- такого оператора в PL/pgSQL нет
 │   ├── mysql_fulltext_index.py    # FULLTEXT KEY/INDEX -- выбрасывается, ключевые слова читаются как столбец
 │   ├── mysql_key_index.py         # KEY <имя> (<столбцы>) -- запись mysqldump, ломает CREATE TABLE
+│   ├── mysql_index_prefix.py      # KEY idx (note(20)) -- незакрытая кавычка проглатывает остаток файла
+│   ├── mysql_index_name_collision.py  # одно имя индекса на нескольких таблицах -- второй CREATE INDEX падает
 │   ├── mysql_spatial_index.py     # SPATIAL KEY/INDEX -- выбрасывается, ключевые слова читаются как столбец
 │   ├── mysql_limit_comma.py       # LIMIT n, m -- форму с запятой PostgreSQL отвергает
 │   ├── mysql_replace_into.py      # REPLACE INTO -- копируется как есть, аналога в PostgreSQL нет

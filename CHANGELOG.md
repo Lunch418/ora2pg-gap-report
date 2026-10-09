@@ -82,6 +82,16 @@ patch for fixes to existing ones.
 - `--migrate` says why it stopped when some paths cannot be read, and its
   "ora2pg not found" hint names an image that works:
   `--ora2pg-bin docker:ghcr.io/lunch418/ora2pg-gap-report`.
+- `--migrate` no longer reads its own output as source when OUT_DIR is
+  inside the directory being migrated; every other run used to stop with
+  "not found" after clearing the files it had just listed.
+- `--migrate` converts each standalone function and procedure once: in
+  file mode ora2pg's `-t FUNCTION` and `-t PROCEDURE` give the same output,
+  and both were loaded, so every routine was created and its errors
+  reported twice.
+- The TUI's migrate screen suggests a directory next to what is migrated
+  (`schema-migration/`), not inside it; its baseline fields' hints fit an
+  80-column terminal whole.
 
 ## [0.14.0] - 2026-10-08
 

@@ -606,7 +606,7 @@ def _handle_migrate(args: argparse.Namespace, err_console: Console, lang: str) -
     --load-check, load -- see migrate.py. Exit codes as --load-check's: 0
     done (and loaded, if checked), 1 the output does not load, 2 the run
     could not be done."""
-    from .migrate import MigrateError, load_and_record, run_migration
+    from .migrate import MigrateError, load_and_record, outside, run_migration
 
     conflicting = any(
         (
@@ -631,6 +631,7 @@ def _handle_migrate(args: argparse.Namespace, err_console: Console, lang: str) -
         err_console.print(i18n.t(lang, "no_paths_error"))
         return 2
     sources, empty_dirs = expand_paths(args.paths)
+    sources = outside(sources, args.migrate)
     missing = [p for p in sources if not p.is_file()]
     for path in missing:
         err_console.print(i18n.t(lang, "skipped_not_found", path=escape(str(path))))

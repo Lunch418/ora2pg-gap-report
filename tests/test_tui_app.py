@@ -986,3 +986,40 @@ async def test_migrate_screen_holds_while_a_run_is_going(tmp_path, monkeypatch):
         assert not screen.running and not screen.query_one("#migrate-run-btn", Button).disabled
         await pilot.press("escape")
         await _wait_until(pilot, lambda: isinstance(app.screen, ScanScreen))
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+@pytest.mark.asyncio
+async def test_baseline_placeholder_is_not_cut_off_at_eighty_columns(lang):
+    app = GapReportApp(start_path=SAMPLES, lang=lang)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        field = app.screen.query_one("#baseline-input")
+        assert len(field.placeholder) < field.content_region.width, (field.placeholder, field.content_region.width)
+
+
+@pytest.mark.asyncio
+async def test_migrate_writes_next_to_what_it_migrates_by_default(tmp_path):
+    from ora2pg_gap_report.tui_app import MigrateScreen
+
+    source = _schema(tmp_path)
+    app = GapReportApp(start_path=tmp_path, lang="en")
+    async with app.run_test(size=(100, 40)) as pilot:
+        await pilot.pause()
+        app.screen.selected_path = source.parent
+        await pilot.click("#migrate-btn")
+        await _wait_until(pilot, lambda: isinstance(app.screen, MigrateScreen))
+        assert app.screen.query_one("#migrate-out").value == str(tmp_path / "src-migration")
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+@pytest.mark.asyncio
+async def test_save_baseline_placeholder_is_not_cut_off_at_eighty_columns(lang):
+    app = GapReportApp(start_path=SAMPLES, lang=lang)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        app.screen.selected_path = SAMPLES / "logger.pks"
+        await pilot.click("#scan-btn")
+        await _wait_until(pilot, lambda: isinstance(app.screen, ResultsScreen))
+        field = app.screen.query_one("#save-baseline-input")
+        assert len(field.placeholder) < field.content_region.width, (field.placeholder, field.content_region.width)

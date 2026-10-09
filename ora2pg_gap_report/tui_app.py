@@ -772,7 +772,7 @@ class MigrateScreen(_SpinnerStatus, Screen[None]):
         yield intro
         with Horizontal(classes="migrate-row"):
             yield Label(i18n.t(self.lang, "tui_migrate_out_label"))
-            yield Input(str(self._start_path / "ora2pg-migration"), id="migrate-out", compact=True)
+            yield Input(str(self._default_out()), id="migrate-out", compact=True)
         with Horizontal(classes="migrate-row"):
             yield Label(i18n.t(self.lang, "tui_migrate_ora2pg_label"))
             yield Input(
@@ -803,6 +803,13 @@ class MigrateScreen(_SpinnerStatus, Screen[None]):
         self._set_running(False)
         self._status().display = True
         super()._show_status_error(message)
+
+    def _default_out(self) -> Path:
+        """Next to what is migrated, never inside it: schema/ ->
+        schema-migration/, schema.sql -> schema-migration/."""
+        first = self.paths[0]
+        name = first.stem if first.is_file() else first.name
+        return first.parent / f"{name or 'ora2pg'}-migration"
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "migrate-back-btn":

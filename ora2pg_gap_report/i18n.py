@@ -1413,8 +1413,10 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Check CONNECT BY",
     },
     "tui_baseline_input_placeholder": {
-        "ru": "Файл baseline (опционально - сравнить или сверить с ним)",
-        "en": "Baseline file (optional -- compare or verify against it)",
+        # Short enough to show whole in the input at 80 columns (pinned by
+        # test_baseline_placeholder_is_not_cut_off_at_eighty_columns).
+        "ru": "Файл baseline (необязательно)",
+        "en": "Baseline file (optional)",
     },
     # Shortened for the same reason -- the long form left the baseline
     # path input beside it 10 columns wide in Russian. "post-migration
@@ -1490,8 +1492,9 @@ _UI: dict[str, dict[str, str]] = {
         "en": "Select a row to see the full explanation.",
     },
     "tui_save_baseline_input_placeholder": {
-        "ru": "Сохранить эти находки как baseline в...",
-        "en": "Save these findings as a baseline to...",
+        # Whole at 80 columns, like the scan screen's baseline field.
+        "ru": "Путь для baseline...",
+        "en": "Save a baseline to...",
     },
     "tui_save_baseline_btn": {"ru": "Сохранить baseline", "en": "Save baseline"},
     "tui_back_to_scan_btn": {"ru": "Назад к сканированию", "en": "Back to scan"},

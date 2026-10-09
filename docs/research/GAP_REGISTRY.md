@@ -128,6 +128,8 @@ being after them.
 | GAP-109 | A trigger/view/routine inside `/*!50003 … */` - removed with the comments | `mysql_versioned_comment` | high | confirmed | 25.0 | 16 | 2026-09-26 | [gap-109](gap-109-mysql-versioned-comment.md) |
 | GAP-110 | `CREATE TABLE IF NOT EXISTS` - becomes a table called `if` | `mysql_create_table_if_not_exists` | high | confirmed | 25.0 | 16 | 2026-09-26 | [gap-110](gap-110-mysql-create-table-if-not-exists.md) |
 | GAP-111 | `CREATE TEMPORARY TABLE` - becomes permanent and shared between sessions | `mysql_temporary_table` | high | confirmed | 25.0 | 16 | 2026-09-26 | [gap-111](gap-111-mysql-temporary-table.md) |
+| GAP-127 | An index on a column prefix (`KEY idx (note(20))`) - breaks the file with an unclosed quote | `mysql_index_prefix` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-127](gap-127-mysql-index-prefix.md) |
+| GAP-128 | One index name on several tables - the second `CREATE INDEX` fails | `mysql_index_name_collision` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-128](gap-128-mysql-index-name-collision.md) |
 
 ### MSSQL / T-SQL (`ora2pg -M`, `dialect="mssql"`)
 

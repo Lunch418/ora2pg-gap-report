@@ -76,6 +76,16 @@ patch for fixes to existing ones.
   correctly; `--migrate` applies it. With GAP-125 the sample SSMS script
   goes from 4 load errors to none.
 
+- **mysqldump's indexes, prepared**: `--prepare --dialect mysql` now
+  writes `KEY idx (a)` as `INDEX idx (a)` (GAP-073: ora2pg turned the KEY
+  spelling into a broken column), names unnamed indexes ora2pg would drop,
+  and renames index names shared by several tables (**GAP-128**, new: the
+  second `CREATE INDEX` failed in PostgreSQL, where index names belong to
+  the schema). **GAP-127**, new: an index on a column prefix
+  (`KEY idx (note(20))`) comes out with an unclosed quote that swallows
+  the rest of the file; it is flagged, not rewritten - PostgreSQL has no
+  prefix index.
+
 ### Fixed
 
 - `--migrate`: `-t PACKAGE` now gets only the packages. Given the whole

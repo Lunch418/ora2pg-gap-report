@@ -668,6 +668,9 @@ _COLLECTION_METHOD_RE = re.compile(
     r"current_setting\('[^']*'\)::\w+\.(?:DELETE|COUNT|EXTEND|TRIM|FIRST|LAST|EXISTS|PRIOR|NEXT|LIMIT)\b",
     re.IGNORECASE,
 )
+# GAP-127: a MySQL prefix index, UNIQUE KEY uq (note(20)), comes out as a
+# column named "note(20" -- the length glued to it, the paren cut off.
+_PREFIX_KEY_COLUMN_RE = re.compile(r'^column "[^"]*\(\d+" named in key does not exist$')
 # GAP-120: %TYPE/%ROWTYPE copied into a package type's CREATE TYPE/DOMAIN.
 _ANCHORED_TYPE_DDL_RE = re.compile(r"^\s*CREATE\s+(?:TYPE|DOMAIN)\b[^;]*%(?:ROW)?TYPE\b", re.IGNORECASE)
 # GAP-121: a type the same file creates in a package schema, named bare.
@@ -694,6 +697,8 @@ def _output_signature(source: str, statement: Statement, line: int, message: str
     at = lines[line - 1] if 0 < line <= len(lines) else ""
     if _REFCURSOR_TYPE_RE.search(text):
         return "ref_cursor_type"
+    if _PREFIX_KEY_COLUMN_RE.match(message):
+        return "mysql_index_prefix"
     if _ANCHORED_TYPE_DDL_RE.search(text):
         return "package_type_anchor"
     missing_type = _MISSING_TYPE_RE.match(message)

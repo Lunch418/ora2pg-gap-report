@@ -29,7 +29,7 @@ ora2pg-gap-report --migrate out/ --load-check docker schema/
 ```
  schema/ (DDL Oracle, mysqldump, скрипт SSMS)
     |
-    |  1. скан          126 подтверждённых пробелов ora2pg  -> out/report.html, out/MIGRATION.md
+    |  1. скан          128 подтверждённых пробелов ora2pg  -> out/report.html, out/MIGRATION.md
     |  2. подготовка    переписать то, на чём спотыкается парсер ora2pg  (--prepare)
     |  3. конвертация   ora2pg, по одному запуску на тип объектов        -> out/converted/
     |  4. исправления   известные механические баги ora2pg (--fix) и то, что знает исходник
@@ -185,7 +185,7 @@ PostgreSQL. Не замена `ora2pg`, а
 | `dbms_sleep` | `DBMS_LOCK.SLEEP` / `DBMS_SESSION.SLEEP` - ora2pg пишет `pg_sleep(n);` без `PERFORM`, подпрограмма не загружается; `--fix` это чинит |
 | `schema_qualified_name` | Имя со схемой (`"HR"."EMP"`, так `GET_DDL` пишет каждое) - ora2pg оставляет схему у таблиц, представлений и последовательностей, но не создаёт её, а в триггерах и телах представлений убирает: на чистой базе ничего не загружается |
 
-Двадцать пять детекторов ниже — диалект MySQL/MariaDB (`--dialect mysql`,
+Двадцать семь детекторов ниже — диалект MySQL/MariaDB (`--dialect mysql`,
 `ora2pg -m` — см. «Исходные диалекты» ниже); все остальные детекторы этой
 таблицы — только для Oracle.
 
@@ -197,6 +197,8 @@ PostgreSQL. Не замена `ora2pg`, а
 | `mysql_signal` | `SIGNAL`/`RESIGNAL` — копируются как есть; в PL/pgSQL нет ни того, ни другого, падает на первом вызове |
 | `mysql_fulltext_index` | `FULLTEXT KEY`/`FULLTEXT INDEX` в списке столбцов `CREATE TABLE` — не распознаётся как индекс вовсе; голые ключевые слова остаются там, где ожидалось определение столбца, и `CREATE TABLE` не загружается |
 | `mysql_key_index` | `KEY <имя> (<столбцы>)` — собственная запись вторичного индекса в mysqldump по умолчанию. Остаётся заглушкой `key <ИМЯ>` на месте столбца, и `CREATE TABLE` не загружается. Синоним `INDEX` и `UNIQUE KEY` конвертируются нормально |
+| `mysql_index_prefix` | Индекс по префиксу столбца (`KEY idx (note(20))`, обязателен для TEXT/BLOB) - ora2pg пишет `(note"(20)`, незакрытую кавычку, которая проглатывает остаток файла; префиксных индексов в PostgreSQL нет, так что решать по каждому |
+| `mysql_index_name_collision` | Одно имя индекса на нескольких таблицах - в MySQL можно, в PostgreSQL второй `CREATE INDEX` падает; `--prepare` переименовывает их в `<таблица>_<имя>` |
 | `mysql_spatial_index` | `SPATIAL KEY`/`SPATIAL INDEX` — та же форма, что у FULLTEXT, только восстанавливается как GiST-индекс по типу PostGIS |
 | `mysql_limit_comma` | `LIMIT смещение, количество` — копируется как есть; запятую PostgreSQL отвергает прямо (`LIMIT #,# syntax is not supported`) |
 | `mysql_replace_into` | `REPLACE INTO` — копируется как есть; в PostgreSQL аналога нет, а `ON CONFLICT DO UPDATE` — не буквальная замена (REPLACE удаляет строку, и срабатывают каскады удаления) |
@@ -250,15 +252,15 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 
 ### Почему почти всё `high`
 
-Из 126 зарегистрированных gap'ов (`gap_registry.py`) — 80 из исходного
-диалекта Oracle, 25 из MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) и 21
+Из 128 зарегистрированных gap'ов (`gap_registry.py`) — 80 из исходного
+диалекта Oracle, 27 из MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) и 21
 из T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); см. «Исходные
 диалекты» ниже — 113 имеют severity `high` и 6 — `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 со стороны Oracle, `mysql_set_type` со стороны MySQL; в партии MSSQL
 `medium` нет вовсе). `severity` — поле `GapEntry`, и `scripts/doctor.py`
 сверяет его с литералом, который реально использует исходник детектора, а
-не просто со счётчиком, принятым на веру. Отдельно от этих 126 есть ещё
+не просто со счётчиком, принятым на веру. Отдельно от этих 128 есть ещё
 один детектор, `dbms_utl_calls` — классификатор вызовов `DBMS_*`/`UTL_*`,
 не привязанный к конкретному GAP-NNN (у него нет одного воспроизводимого
 минимального примера — это намеренно широкая категория), тоже `medium`.
@@ -452,7 +454,7 @@ ora2pg-gap-report --tui path/to/schema_dump/   # открывается там
 `--explain GAP-023` (или просто `--explain 23`) печатает research-документ
 конкретного gap'а из реестра — конструкцию, реальный вывод `ora2pg`,
 наблюдаемую проблему, вердикт и версии `ora2pg`/PostgreSQL, на которых
-находка подтверждена (сейчас 25.0/16 у всех 126 — единая версия, потому
+находка подтверждена (сейчас 25.0/16 у всех 128 — единая версия, потому
 что второй пока не было; `gap_registry.py` уже готов хранить разные версии
 для будущих находок) — без сканирования файлов:
 
@@ -697,11 +699,11 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
 детекторов одинаково:
 
 - **Часть конструкций `ora2pg` копирует в вывод как есть** (`cross_apply`,
-  `json_table`, `identity_column` и ещё 53 — 56 из 127 детекторов) — для
+  `json_table`, `identity_column` и ещё 53 — 56 из 129 детекторов) — для
   них повторный прогон детектора по выводу осмыслен: `STILL_PRESENT`,
   если паттерн остался, `NOT_DETECTED`, если пропал.
 - **Часть `ora2pg` молча выбрасывает или переписывает во что-то другое**
-  (`read_only_table`, `table_partitioning` и ещё 68 — 70 из 127) —
+  (`read_only_table`, `table_partitioning` и ещё 70 — 72 из 129) —
   конструкции в выводе нет *по определению*, независимо от того, починил ли
   кто-то проблему вручную другим способом. Для них честный статус —
   `NOT_VERIFIABLE`, а не фиктивный `NOT_DETECTED`: считать отсутствие
@@ -709,7 +711,7 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
   которой этот проект специально избегает (см. «Почему почти всё `high`»
   выше).
 
-Какой режим у какого детектора и почему, по всем 126 gap'ам —
+Какой режим у какого детектора и почему, по всем 128 gap'ам —
 [`docs/verification-capability-matrix.ru.md`](docs/verification-capability-matrix.ru.md).
 
 `NOT_DETECTED` тоже не означает «доказанно исправлено» — только «паттерн в
@@ -779,6 +781,7 @@ out/
 | `mysql` | GAP-108 | `DEFINER=user@host` убирается из `CREATE` |
 | `mysql` | GAP-109 | `/*!50003 CREATE ... */` вокруг триггеров, представлений и подпрограмм разворачивается (настройки сессии остаются комментариями) |
 | `mysql` | GAP-110 | `CREATE TABLE IF NOT EXISTS` -> `CREATE TABLE` |
+| `mysql` | GAP-073, 128 | `KEY idx (a)` -> `INDEX idx (a)`; безымянный индекс получает `<таблица>_<столбец>_idx`; имя индекса, использованное на нескольких таблицах, становится `<таблица>_<имя>` |
 | `oracle` | GAP-062 | `q'[it's]'` -> `'it''s'` |
 | `oracle` | GAP-112 | `CREATE TABLE IF NOT EXISTS` -> `CREATE TABLE` |
 | `mssql` | GAP-087 | `[dbo].[Orders]` -> `dbo.Orders`, `[nvarchar](100)` -> `nvarchar(100)` |

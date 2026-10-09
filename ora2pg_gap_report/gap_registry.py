@@ -807,6 +807,23 @@ GapEntry(
         severity="high",
         failure_stage="deployment",
         dialect="mssql", last_verified="2026-10-08"),
+    # GAP-127..128: found by running --migrate on a realistic mysqldump.
+    GapEntry(
+        "127",
+        "mysql_index_prefix",
+        "mysql-index-prefix",
+        ("test_mysql_index_prefix.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mysql", last_verified="2026-10-08"),
+    GapEntry(
+        "128",
+        "mysql_index_name_collision",
+        "mysql-index-name-collision",
+        ("test_mysql_index_name_collision.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mysql", last_verified="2026-10-08"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

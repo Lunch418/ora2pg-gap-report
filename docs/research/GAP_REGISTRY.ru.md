@@ -127,6 +127,8 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-109 | Триггер/представление/подпрограмма внутри `/*!50003 … */` - удаляется вместе с комментариями | `mysql_versioned_comment` | high | confirmed | 25.0 | 16 | 2026-09-26 | [gap-109](gap-109-mysql-versioned-comment.md) |
 | GAP-110 | `CREATE TABLE IF NOT EXISTS` - становится таблицей `if` | `mysql_create_table_if_not_exists` | high | confirmed | 25.0 | 16 | 2026-09-26 | [gap-110](gap-110-mysql-create-table-if-not-exists.md) |
 | GAP-111 | `CREATE TEMPORARY TABLE` - становится постоянной и общей для сеансов | `mysql_temporary_table` | high | confirmed | 25.0 | 16 | 2026-09-26 | [gap-111](gap-111-mysql-temporary-table.md) |
+| GAP-127 | Индекс по префиксу столбца (`KEY idx (note(20))`) - ломает файл незакрытой кавычкой | `mysql_index_prefix` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-127](gap-127-mysql-index-prefix.md) |
+| GAP-128 | Одно имя индекса на нескольких таблицах - второй `CREATE INDEX` падает | `mysql_index_name_collision` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-128](gap-128-mysql-index-name-collision.md) |
 
 ### MSSQL / T-SQL (`ora2pg -M`, `dialect="mssql"`)
 

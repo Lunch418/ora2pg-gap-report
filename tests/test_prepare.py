@@ -115,6 +115,19 @@ CASES = {
         "CREATE SCHEMA IF NOT EXISTS dbo;",
         "INSERT INTO dbo.orders (id, customername) VALUES (1, 'a');",
     ),
+    "g073_key_index": (
+        "mysql",
+        "TABLE",
+        "CREATE TABLE `orders` (\n  `id` int NOT NULL AUTO_INCREMENT,\n  `customer_id` int NOT NULL,\n"
+        "  `created_at` datetime DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `customer_id` (`customer_id`),\n"
+        "  KEY (`created_at`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n"
+        "CREATE TABLE `invoices` (\n  `id` int NOT NULL AUTO_INCREMENT,\n  `customer_id` int NOT NULL,\n"
+        "  PRIMARY KEY (`id`),\n  KEY `customer_id` (`customer_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n",
+        "CREATE INDEX invoices_customer_id ON invoices (customer_id);",
+        "",
+        "DO $$ BEGIN ASSERT (SELECT count(*) FROM pg_indexes WHERE tablename IN ('orders', 'invoices') "
+        "AND indexname NOT LIKE '%pkey') = 3; END $$;",
+    ),
     "g126_go_separator": (
         "mssql",
         "PROCEDURE",

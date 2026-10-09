@@ -201,8 +201,13 @@ def _render_rail(console: Console, gaps: list[GapGroup], lang: str) -> None:
         cell.append(i18n.count(lang, "gap", kinds[key]) + "\n", style="dim")
         cell.append(i18n.t(lang, f"stage_{key}_desc"), style="dim")
         cells.append(cell)
-    for i in range(0, len(cells), 2 if narrow else 4):
-        grid.add_row(*cells[i : i + (2 if narrow else 4)])
+    per_row = 2 if narrow else 4
+    for i in range(0, len(cells), per_row):
+        if i:
+            # Two rows of stages: a blank line between, or the second row's
+            # names run straight on from the first row's descriptions.
+            grid.add_row(*([""] * per_row))
+        grid.add_row(*cells[i : i + per_row])
     console.print(grid)
     if per_stage["none"]:
         console.print()
@@ -221,13 +226,19 @@ def _render_severity_and_effort(console: Console, findings: list[Finding], gaps:
     another so that anything that wraps stays under its value."""
     counts = summarize_by_severity(findings)
     total = len(findings)
+    legend = Text()
+    for name, n in ordered_counts(counts):
+        legend.append(f"  {_severity_dot(name)} ", style=_SEVERITY_STYLE.get(name))
+        legend.append(f"{name} ")
+        legend.append(str(n), style="bold")
+    # The bar takes what the line has left after the labels' column and the
+    # legend, up to 40, so the legend never wraps away from it.
+    labels = max(Text(i18n.t(lang, key)).cell_len for key in ("report_filter_severity", "effort_panel_title"))
+    width = max(10, min(40, console.width - labels - 2 - legend.cell_len - len(counts)))
     bar = Text()
     for name, n in ordered_counts(counts):
-        bar.append("█" * max(1, round(40 * n / total)), style=_SEVERITY_STYLE.get(name, "dim"))
-    for name, n in ordered_counts(counts):
-        bar.append(f"  {_severity_dot(name)} ", style=_SEVERITY_STYLE.get(name))
-        bar.append(f"{name} ")
-        bar.append(str(n), style="bold")
+        bar.append("█" * max(1, round(width * n / total)), style=_SEVERITY_STYLE.get(name, "dim"))
+    bar.append_text(legend)
 
     grid = Table.grid(padding=(0, 2))
     grid.add_column(style="dim", no_wrap=True)

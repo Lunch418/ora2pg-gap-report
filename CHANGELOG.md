@@ -116,6 +116,9 @@ patch for fixes to existing ones.
   clipped a long "Why" to its height, with no way to read the rest. Now it
   scrolls with the mouse and with PgUp/PgDn (the arrows stay on the table),
   and the key line says so.
+- The terminal report on an 80-column terminal: the two rows of stages
+  have a blank line between them, and the severity bar shortens so its
+  legend stays on the same line.
 
 ## [0.14.0] - 2026-10-08
 

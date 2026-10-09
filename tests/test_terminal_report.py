@@ -1,5 +1,7 @@
+import pytest
 from rich.console import Console
 
+from ora2pg_gap_report import i18n
 from ora2pg_gap_report.models import Finding
 from ora2pg_gap_report.terminal_report import render
 
@@ -383,3 +385,28 @@ def test_what_to_do_comes_before_why_in_a_gap_panel():
     # The fix is what the reader acts on; the explanation follows it, the
     # same order as the TUI's detail box and the HTML report.
     assert text.index("Что делать") < text.index("после исчерпания диапазона")
+
+
+@pytest.mark.parametrize("width", [80, 100, 140])
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_the_severity_legend_stays_on_the_bars_line(width, lang):
+    import dataclasses
+    from pathlib import Path
+
+    from ora2pg_gap_report.core import expand_paths, scan_source
+
+    paths, _ = expand_paths([Path(__file__).parents[1] / "docs" / "research" / "samples"])
+    findings = [
+        dataclasses.replace(f, source_file=str(p))
+        for p in paths
+        for f in scan_source(p.read_text(encoding="utf-8", errors="replace"))
+    ]
+    console = Console(record=True, width=width, force_terminal=False)
+    render(findings, console=console, lang=lang)
+    lines = console.export_text().splitlines()
+    bar = next(line for line in lines if "█" in line)
+    assert "high" in bar and "medium" in bar, bar
+    if width < 96:
+        # two rows of stages, a blank line between them
+        second = next(i for i, line in enumerate(lines) if i18n.t(lang, "stage_runtime_name") in line)
+        assert lines[second - 1].strip() == ""

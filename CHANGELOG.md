@@ -9,6 +9,8 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-09
+
 ### Added
 
 - **An all-in-one docker image**, `ghcr.io/lunch418/ora2pg-gap-report`: the

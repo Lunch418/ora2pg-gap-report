@@ -198,6 +198,7 @@ _COUNTED: dict[str, dict[str, tuple[str, ...]]] = {
     "statement": {"ru": ("команда", "команды", "команд"), "en": ("statement", "statements")},
     # after "из" (of): the genitive, "из 1 команды", "из 131 команды", "из 5 команд"
     "statement_of": {"ru": ("команды", "команд", "команд"), "en": ("statement", "statements")},
+    "file_of": {"ru": ("файла", "файлов", "файлов"), "en": ("file", "files")},
     "error": {"ru": ("ошибка", "ошибки", "ошибок"), "en": ("error", "errors")},
 }
 
@@ -702,6 +703,10 @@ _UI: dict[str, dict[str, str]] = {
         "en": "not checked (add --load-check docker)",
     },
     "migrate_row_load_skipped_tui": {"ru": "не проверялась", "en": "not checked"},
+    "migrate_row_load_incomplete": {
+        "ru": "не проверено: {files} не загружались вовсе",
+        "en": "not checked: {files} not loaded at all",
+    },
     "migrate_row_load_nothing": {"ru": "ora2pg ничего не выдал - загружать нечего", "en": "ora2pg produced nothing to load"},
     "migrate_row_load_clean": {"ru": "всё загрузилось: {statements}", "en": "everything loaded: {statements}"},
     "migrate_row_load_failed": {
@@ -874,6 +879,11 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "Всё загрузилось: {statements} из {files}, ни одной ошибки.",
         "en": "Everything loaded: {statements} from {files}, not a single error.",
     },
+    "load_check_clean_but_skipped": {
+        "ru": "Загруженное прошло без ошибок: {statements} из {files}; не проверено вовсе: {skipped} - причины ниже.",
+        "en": "What was loaded had no errors: {statements} from {files}; not checked at all: {skipped} - "
+        "the reasons are below.",
+    },
     "load_check_nothing_loaded": {
         "ru": "Ни один файл не удалось загрузить - причины ниже.",
         "en": "No file could be loaded - the reasons are below.",
@@ -1015,6 +1025,10 @@ _UI: dict[str, dict[str, str]] = {
     "report_load_ok": {
         "ru": "Сконвертированный код загружается: {statements}, ни одной ошибки",
         "en": "The converted code loads: {statements}, not a single error",
+    },
+    "report_load_incomplete": {
+        "ru": "Не проверено: {files} не загружались вовсе - см. load-check.txt",
+        "en": "Not checked: {files} not loaded at all - see load-check.txt",
     },
     "report_load_bad": {
         "ru": "Не загрузилось: {errors} из {statements}",

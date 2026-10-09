@@ -137,6 +137,11 @@ patch for fixes to existing ones.
   legend stays on the same line.
 - `--load-check` on screen: a message that wraps continues under itself,
   not at the start of the line under the file name.
+- `--load-check` no longer says "Everything loaded" when a file was not
+  loaded at all (it ends inside an open quote - ora2pg can write one, see
+  the MySQL prefix indexes): the verdict says what was not checked, and
+  `--migrate`'s summary, its exit code and the HTML report's load card
+  treat it as not loaded. "из 1 файла", not "из 1 файл", in Russian.
 
 ## [0.14.0] - 2026-10-08
 

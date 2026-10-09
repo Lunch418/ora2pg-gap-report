@@ -666,6 +666,8 @@ def render_load_check(
     console.print()
 
     files = i18n.count(lang, "file", len(result.files))
+    # after "из" (from): "из 1 файла", "из 3 файлов"
+    files_of = i18n.count(lang, "file_of", len(result.files))
     statements = i18n.count(lang, "statement", result.statements)
     by_category: dict[str, list[LoadError]] = {c: [] for c in CATEGORIES}
     for error in result.errors:
@@ -703,8 +705,22 @@ def render_load_check(
 
     if not result.files:
         console.print(Text(i18n.t(lang, "load_check_nothing_loaded"), style="bold #D9A21B"))
+    elif not result.errors and result.incomplete:
+        # Not "everything loaded": the skipped files below were never tried.
+        console.print(
+            Text(
+                i18n.t(
+                    lang,
+                    "load_check_clean_but_skipped",
+                    statements=statements,
+                    files=files_of,
+                    skipped=i18n.count(lang, "file", len(result.skipped_files)),
+                ),
+                style="bold #D9A21B",
+            )
+        )
     elif not result.errors:
-        console.print(Text(i18n.t(lang, "load_check_clean", statements=statements, files=files), style="bold #46A758"))
+        console.print(Text(i18n.t(lang, "load_check_clean", statements=statements, files=files_of), style="bold #46A758"))
 
     for category in CATEGORIES:
         errors = by_category[category]
@@ -855,6 +871,12 @@ def render_migration(
             style="dim",
         )
         load_where = ""
+    elif load.incomplete and not load.failed:
+        load_text = Text(
+            i18n.t(lang, "migrate_row_load_incomplete", files=i18n.count(lang, "file", len(load.skipped_files))),
+            style="bold #D9A21B",
+        )
+        load_where = "load-check.txt"
     elif not load.failed:
         load_text = Text(
             i18n.t(lang, "migrate_row_load_clean", statements=i18n.count(lang, "statement", load.statements)),
@@ -883,7 +905,7 @@ def render_migration(
     nxt.add_column()
     nxt.add_row("-", i18n.t(lang, "migrate_next_report"))
     nxt.add_row("-", i18n.t(lang, "migrate_next_checklist"))
-    if load is not None and load.failed:
+    if load is not None and (load.failed or load.incomplete):
         nxt.add_row("-", i18n.t(lang, "migrate_next_load"))
     elif load is None and not load_check_asked:
         nxt.add_row("-", i18n.t(lang, "migrate_next_add_load_check_tui" if in_tui else "migrate_next_add_load_check"))

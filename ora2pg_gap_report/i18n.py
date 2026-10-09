@@ -660,6 +660,20 @@ _UI: dict[str, dict[str, str]] = {
         "take it from a docker image: --ora2pg-bin docker:ghcr.io/lunch418/ora2pg-gap-report "
         "(any image with ora2pg will do, docker:IMAGE).[/yellow]",
     },
+    "checklist_migrate_prepared": {
+        "ru": "исходник для этого уже подготовлен в prepared/ до ora2pg - проверьте результат и отметьте.",
+        "en": "the source was already prepared for this in prepared/, before ora2pg - check the result and tick.",
+    },
+    "checklist_migrate_repaired": {
+        "ru": "уже исправлено в converted/ - проверьте и отметьте.",
+        "en": "already repaired in converted/ - check it and tick.",
+    },
+    "checklist_migrate_repaired_literal": {
+        "ru": "уже исправлено в converted/ для констант со значением-литералом - проверьте их и отметьте; "
+        "остальные (вычисляемые значения) - вручную, как сказано ниже.",
+        "en": "already repaired in converted/ for constants with a literal value - check those and tick; "
+        "the rest (computed values) by hand, as below.",
+    },
     "migrate_inputs_missing": {
         "ru": "Ничего не мигрировано: --migrate берёт весь исходник или ничего, а пути выше не прочитать.",
         "en": "Nothing was migrated: --migrate takes all of the source or none of it, and the paths above "

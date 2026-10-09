@@ -141,6 +141,25 @@ def without_packages(source: str) -> str:
     return "".join(out)
 
 
+def handled_by_migrate(dialect: str) -> dict[str, str]:
+    """Detector -> the i18n key of the checklist note for each gap a
+    --migrate run takes care of in `dialect`: what --prepare rewrites in
+    the source, what --fix and the source repairs put right in the output."""
+    from .autofix import FIXER_DETECTOR
+    from .prepare import PREPARED_DETECTORS
+
+    handled: dict[str, str] = {}
+    for preparer in PREPARERS_BY_DIALECT[dialect]:
+        for detector in PREPARED_DETECTORS.get(preparer, ()):
+            handled[detector] = "checklist_migrate_prepared"
+    for fixer in FIXERS_BY_DIALECT[dialect]:
+        if fixer in FIXER_DETECTOR:
+            handled[FIXER_DETECTOR[fixer]] = "checklist_migrate_repaired"
+    for detector, scope in source_fixes.REPAIRED.get(dialect, {}).items():
+        handled[detector] = "checklist_migrate_repaired" if scope == "all" else "checklist_migrate_repaired_literal"
+    return handled
+
+
 def prepare_out_dir(out_dir: Path) -> None:
     """Make OUT_DIR ours, or refuse it. Empty or missing: created and
     marked. Marked: the generated parts are cleared for this run. Anything
@@ -191,7 +210,13 @@ def run_migration(
         previous = None
     buffer = io.StringIO()
     write_checklist(
-        findings, buffer, lang=lang, previous=previous, scanned_files=[str(p) for p in sources], version=version
+        findings,
+        buffer,
+        lang=lang,
+        previous=previous,
+        scanned_files=[str(p) for p in sources],
+        version=version,
+        handled=handled_by_migrate(dialect),
     )
     checklist_path.write_text(buffer.getvalue(), encoding="utf-8")
 

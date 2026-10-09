@@ -240,6 +240,17 @@ def restore_enum_types(sql: str, types: dict[str, str]) -> tuple[str, int]:
 
 # --- all of it ---------------------------------------------------------------
 
+# The gaps these repairs take care of, per dialect: fully, or only for
+# constants whose value is a literal.
+REPAIRED: dict[str, dict[str, str]] = {
+    "oracle": {
+        "statement_trigger": "all",
+        "package_constant_chain": "literal",
+        "package_constant_default": "literal",
+    },
+    "mysql": {"mysql_enum_type": "all"},
+}
+
 
 @dataclasses.dataclass
 class SourceKnowledge:

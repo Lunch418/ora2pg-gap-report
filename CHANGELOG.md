@@ -53,6 +53,12 @@ patch for fixes to existing ones.
   gate last. It installs the tool from its own ref. CI runs it on every
   pull request. See `docs/ci-integration.md`.
 
+- **`--migrate`'s `MIGRATION.md` says what the run already took care of.**
+  A gap it prepared in the source or repaired in `converted/` gets a
+  "`--migrate:` already repaired - check it and tick" note (for package
+  constants: those with a literal value), instead of reading like work
+  still to do. The items stay open for the user to check.
+
 ### Fixed
 
 - `--migrate`: `-t PACKAGE` now gets only the packages. Given the whole

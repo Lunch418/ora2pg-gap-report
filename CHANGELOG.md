@@ -112,6 +112,10 @@ patch for fixes to existing ones.
 - Straight quotes in the Russian interface and finding texts instead of
   typographic ones, and no Markdown backticks in the effort caveat, which
   the terminal, the TUI and the HTML report show as plain text.
+- The TUI's finding explanation scrolls: it was a plain text box that
+  clipped a long "Why" to its height, with no way to read the rest. Now it
+  scrolls with the mouse and with PgUp/PgDn (the arrows stay on the table),
+  and the key line says so.
 
 ## [0.14.0] - 2026-10-08
 

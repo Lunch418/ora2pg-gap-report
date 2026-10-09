@@ -1023,3 +1023,39 @@ async def test_save_baseline_placeholder_is_not_cut_off_at_eighty_columns(lang):
         await _wait_until(pilot, lambda: isinstance(app.screen, ResultsScreen))
         field = app.screen.query_one("#save-baseline-input")
         assert len(field.placeholder) < field.content_region.width, (field.placeholder, field.content_region.width)
+
+
+@pytest.mark.asyncio
+async def test_page_keys_scroll_the_explanation_not_the_table():
+    app = GapReportApp(start_path=SAMPLES, lang="en")
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        app.screen.selected_path = SAMPLES / "logger.pkb"
+        await pilot.click("#scan-btn")
+        await _wait_until(pilot, lambda: isinstance(app.screen, ResultsScreen))
+        table = app.screen.query_one("#findings-table")
+        table.focus()
+        await pilot.press("enter")
+        await pilot.pause()
+        detail = app.screen.query_one("#detail-box")
+        row = table.cursor_row
+        assert detail.max_scroll_y > 0  # the explanation is longer than its box at 80x24
+        await pilot.press("pagedown")
+        await pilot.pause()
+        assert detail.scroll_y > 0 and table.cursor_row == row
+        await pilot.press("pageup")
+        await pilot.pause()
+        assert detail.scroll_y == 0
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+@pytest.mark.asyncio
+async def test_results_hints_fit_eighty_columns(lang):
+    app = GapReportApp(start_path=SAMPLES, lang=lang)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        app.screen.selected_path = SAMPLES / "logger.pks"
+        await pilot.click("#scan-btn")
+        await _wait_until(pilot, lambda: isinstance(app.screen, ResultsScreen))
+        hints = app.screen.query_one(".hints")
+        assert hints.content.cell_len <= hints.content_region.width

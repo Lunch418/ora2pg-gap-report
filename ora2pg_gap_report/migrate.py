@@ -75,6 +75,19 @@ def _has_content(sql: str) -> bool:
     return any(not _BOILERPLATE_RE.match(line) for line in sql.splitlines())
 
 
+def _content(sql: str) -> str:
+    """`sql` without ora2pg's header and blank lines, for comparing two runs."""
+    return "\n".join(line.rstrip() for line in sql.splitlines() if not _BOILERPLATE_RE.match(line))
+
+
+def outside(sources: Sequence[Path], out_dir: Path) -> list[Path]:
+    """`sources` without anything under `out_dir`. With OUT_DIR inside the
+    directory being migrated, a rerun would otherwise read the last run's
+    prepared/ and converted/ files as source -- and then clear them."""
+    root = out_dir.resolve()
+    return [p for p in sources if not p.resolve().is_relative_to(root)]
+
+
 _PACKAGE_RE = re.compile(
     r"^[ \t]*CREATE\s+(?:OR\s+REPLACE\s+)?(?:(?:NON)?EDITIONABLE\s+)?PACKAGE\b",
     re.IGNORECASE | re.MULTILINE,
@@ -154,6 +167,7 @@ def run_migration(
     """Steps 1-4 (load is the caller's, so it can reuse --load-check's own
     reporting). Raises MigrateError, or ora2pg_wrapper's errors."""
     say = progress or (lambda _key: None)
+    sources = outside(sources, out_dir)
     prepare_out_dir(out_dir)
 
     # 1. scan
@@ -212,13 +226,20 @@ def run_migration(
     converted_dir.mkdir()
     converted: list[Path] = []
     empty: list[str] = []
+    # In file mode ora2pg's -t FUNCTION and -t PROCEDURE each extract
+    # every standalone routine, functions and procedures alike, so the two
+    # outputs are the same: loading both would create every routine twice
+    # and report each of its errors twice. A type whose output repeats an
+    # earlier one's is left out.
+    seen: set[str] = set()
     for position, object_type in enumerate(CONVERT_TYPES[dialect], 1):
         say(f"migrate_step_convert:{object_type}")
         source_file = packages if object_type == "PACKAGE" else standalone
         sql = run_convert(source_file, object_type, dialect=dialect, ora2pg_bin=ora2pg_bin, lang=lang)
-        if not _has_content(sql):
+        if not _has_content(sql) or _content(sql) in seen:
             empty.append(object_type)
             continue
+        seen.add(_content(sql))
         target = converted_dir / f"{position:02d}_{object_type}_output.sql"
         target.write_text(sql, encoding="utf-8")
         converted.append(target)

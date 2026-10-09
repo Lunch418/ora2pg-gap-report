@@ -202,7 +202,7 @@ def run_migration(
     from .html_report import write_html
 
     with open(out_dir / "report.html", "w", encoding="utf-8") as report:
-        write_html(findings, report, lang=lang)
+        write_html(findings, report, lang=lang, handled=handled_by_migrate(dialect))
     checklist_path = out_dir / "MIGRATION.md"
     try:
         previous = read_previous(checklist_path)
@@ -314,7 +314,7 @@ def load_and_record(result: MigrationResult, target: str, *, dialect: str = "ora
 
     load = run_load_check(result.converted, parse_target(target), dialect=dialect)
     with open_text_atomic(result.out_dir / "report.html") as report_file:
-        write_html(result.findings, report_file, lang=lang, load=load)
+        write_html(result.findings, report_file, lang=lang, load=load, handled=handled_by_migrate(dialect))
     write_text_atomic(result.out_dir / "load-check.json", to_load_check_json(load))
     buffer = io.StringIO()
     render_load_check(load, console=Console(file=buffer), lang=lang)

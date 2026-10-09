@@ -159,6 +159,7 @@ h3 { font-size: 0.8rem; margin: 1.4rem 0 0.35rem; color: var(--muted); font-weig
        border: 1px solid var(--rule); border-radius: 10px; }
 .fix h3 { margin-top: 0; color: var(--accent); }
 .fix .recipe { margin-top: 0.5rem; }
+.fix .handled { margin: 0 0 0.5rem; color: var(--low); font-weight: 600; }
 .fix a { color: var(--accent); }
 .badge { font-size: 0.76rem; font-weight: 650; padding: 0.12rem 0.55rem; border-radius: 999px; white-space: nowrap;
          color: var(--sev); background: color-mix(in srgb, var(--sev) 13%, transparent); }
@@ -306,12 +307,18 @@ def _version() -> str:
 
 
 def write_html(
-    findings: list[Finding], stream: IO[str], lang: str = "ru", load: "LoadCheckResult | None" = None
+    findings: list[Finding],
+    stream: IO[str],
+    lang: str = "ru",
+    load: "LoadCheckResult | None" = None,
+    handled: dict[str, str] | None = None,
 ) -> None:
     """Write the report for `findings` to `stream`. With `load` (from
     --migrate --load-check), a card near the top says whether the converted
     output loaded into PostgreSQL, and lists what did not, each error
-    linked to its gap further down the page."""
+    linked to its gap further down the page. `handled` (from --migrate,
+    see migrate.handled_by_migrate) notes in a gap's card that the run
+    already took care of it."""
     w = stream.write
     gaps = group_by_gap(findings)
     counts = summarize_by_severity(findings)
@@ -407,7 +414,7 @@ def write_html(
     _write_filters(w, lang, severities_present, stages_present, gaps)
     w('<div class="gaps">\n')
     for gap in gaps:
-        _write_gap(w, lang, gap)
+        _write_gap(w, lang, gap, (handled or {}).get(gap.detector))
     w("</div>\n")
 
     # The objects with the most findings.
@@ -496,7 +503,7 @@ def _write_load_card(w: Write, lang: str, load: "LoadCheckResult", gaps_on_page:
     w("</section>\n")
 
 
-def _write_gap(w: Write, lang: str, group_: GapGroup) -> None:
+def _write_gap(w: Write, lang: str, group_: GapGroup, handled: str | None = None) -> None:
     detector, group, severity = group_.detector, group_.findings, group_.severity
     gap = gap_by_detector(detector)
     key = stage_key(group_.stage)
@@ -518,9 +525,11 @@ def _write_gap(w: Write, lang: str, group_: GapGroup) -> None:
     # under it is there for when the fix needs justifying.
     hint = messages.remediation_hint(detector, lang)
     recipe = recipe_for(detector)
-    command = prepare_command(detector)
-    if hint or recipe is not None or command is not None:
+    command = prepare_command(detector) if handled != "checklist_migrate_prepared" else None
+    if hint or recipe is not None or command is not None or handled:
         w(f'<div class="fix"><h3>{i18n.t(lang, "report_gap_fix")}</h3>\n')
+        if handled:
+            w(f'<p class="handled"><code>--migrate</code>: {html.escape(i18n.t(lang, handled))}</p>\n')
         if hint:
             w(f"<p>{html.escape(hint)}</p>\n")
         if command is not None:

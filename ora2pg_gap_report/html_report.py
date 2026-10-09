@@ -462,7 +462,10 @@ def _write_load_card(w: Write, lang: str, load: "LoadCheckResult", gaps_on_page:
     failing = [e for e in load.errors if e.category in FAILING_CATEGORIES]
     server = html.escape(load.target + (f" ({load.server_version})" if load.server_version else ""))
     statements = i18n.count(lang, "statement", load.statements)
-    if not failing:
+    if not failing and load.incomplete:
+        verdict = i18n.t(lang, "report_load_incomplete", files=i18n.count(lang, "file", len(load.skipped_files)))
+        w(f'<section class="loadcard bad"><p class="verdict">{html.escape(verdict)}</p>\n')
+    elif not failing:
         w(f'<section class="loadcard ok"><p class="verdict">{i18n.t(lang, "report_load_ok", statements=statements)}</p>\n')
     else:
         statements_of = i18n.count(lang, "statement_of", load.statements)

@@ -175,6 +175,12 @@ class LoadCheckResult:
     def failed(self) -> bool:
         return any(e.category in FAILING_CATEGORIES for e in self.errors)
 
+    @property
+    def incomplete(self) -> bool:
+        """Some files were not loaded at all (unreadable, or ending inside an
+        open quote): whatever the errors say, the check did not cover them."""
+        return bool(self.skipped_files)
+
 
 # --- choosing and ordering the files ---------------------------------------
 

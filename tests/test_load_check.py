@@ -643,3 +643,23 @@ def test_a_report_for_a_file_lists_every_error_with_its_whole_path():
     assert "and 2 errors more" in screen and f"{long_path}:12" not in screen
     assert "more" not in file and f"{long_path}:12" in file
     assert all(f'relation "t{i}" does not exist' in file for i in range(1, 13))
+
+
+def test_a_skipped_file_is_never_reported_as_everything_loaded(tmp_path):
+    import io
+
+    from rich.console import Console
+
+    from ora2pg_gap_report.load_check import LoadCheckResult, SkippedFile
+    from ora2pg_gap_report.terminal_report import render_load_check
+
+    result = LoadCheckResult(
+        "docker postgres:16-alpine", "16.15", ("ok.sql",), 1, (), (),
+        (SkippedFile("broken.sql", "unterminated", 15, "identifier"),), 1.0,
+    )
+    assert result.incomplete and not result.failed
+    buffer = io.StringIO()
+    render_load_check(result, console=Console(file=buffer, width=120), lang="en")
+    out = buffer.getvalue()
+    assert "Everything loaded" not in out
+    assert "not checked at all: 1 file - the reasons are below" in " ".join(out.split())

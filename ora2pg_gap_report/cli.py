@@ -694,7 +694,7 @@ def _handle_migrate(args: argparse.Namespace, err_console: Console, lang: str) -
         return 2
 
     render_migration(result, load, console=out, lang=lang, load_check_asked=args.load_check is not None)
-    if load is not None and load.failed:
+    if load is not None and (load.failed or load.incomplete):
         return 1
     return 0
 

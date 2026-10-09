@@ -34,7 +34,8 @@ from rich.text import Text
 from textual.content import Content
 from textual import events, work
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal
+from textual.binding import Binding
+from textual.containers import Horizontal, VerticalScroll
 from textual.screen import Screen
 from textual.theme import Theme
 from textual.timer import Timer
@@ -917,7 +918,14 @@ class ResultsScreen(Screen[None]):
     NEW/RESOLVED/UNCHANGED summary when the scan was run with a baseline
     file to compare against."""
 
-    BINDINGS = [("escape", "app.pop_screen", "Back")]
+    BINDINGS = [
+        ("escape", "app.pop_screen", "Back"),
+        # The arrows belong to the table; the explanation under it can be
+        # longer than its box, so it scrolls on its own keys.
+        # priority: the table has page keys of its own and would take them.
+        Binding("pagedown", "scroll_detail(1)", "Scroll the explanation", priority=True),
+        Binding("pageup", "scroll_detail(-1)", "Scroll the explanation", priority=True),
+    ]
 
     CSS = """
     /* The summary is capped at 7 rows (5 lines inside the border) and
@@ -930,7 +938,8 @@ class ResultsScreen(Screen[None]):
        pushed #back-btn off an 80x24 terminal. The table gets more room,
        the detail box enough for gap, stage, place and what to do. */
     #findings-table { height: 3fr; margin: 0 1; }
-    #detail { height: 2fr; margin: 0 1; padding: 0 1; overflow-y: auto; }
+    #detail-box { height: 2fr; margin: 0 1; padding: 0 1; }
+    #detail { height: auto; }
     /* Save and Back share one compact row: two rows of buttons were what
        squeezed the detail box to nothing on a 24-line terminal. */
     #baseline-save-controls { height: 1; padding: 0 2; margin-top: 1; }
@@ -981,8 +990,10 @@ class ResultsScreen(Screen[None]):
         table: DataTable[str] = DataTable(id="findings-table", cursor_type="row", zebra_stripes=False)
         table.border_title = i18n.count(self.lang, "finding", len(self.findings))
         yield table
-        detail = Static(Text(i18n.t(self.lang, "tui_results_select_row_hint"), style=_MUTED), id="detail")
-        yield detail
+        # A scroll container around the text: a Static alone clips a long
+        # explanation to its box, with no way to read the rest.
+        with VerticalScroll(id="detail-box"):
+            yield Static(Text(i18n.t(self.lang, "tui_results_select_row_hint"), style=_MUTED), id="detail")
         with Horizontal(id="baseline-save-controls"):
             yield Input(
                 placeholder=i18n.t(self.lang, "tui_save_baseline_input_placeholder"),
@@ -991,7 +1002,7 @@ class ResultsScreen(Screen[None]):
             )
             yield Button(i18n.t(self.lang, "tui_save_baseline_btn"), id="save-baseline-btn", compact=True)
             yield Button(i18n.t(self.lang, "tui_back_to_scan_btn"), id="back-btn", compact=True)
-        yield Static(_hints(self.lang, "move", "back", "quit"), classes="hints")
+        yield Static(_hints(self.lang, "move", "page", "back", "quit"), classes="hints")
 
     def on_resize(self, event: events.Resize) -> None:
         # The summary's items are laid out by hand for the current width
@@ -1101,6 +1112,13 @@ class ResultsScreen(Screen[None]):
                 key=str(i),
             )
 
+    def action_scroll_detail(self, direction: int) -> None:
+        detail = self.query_one("#detail-box", VerticalScroll)
+        if direction > 0:
+            detail.scroll_page_down(animate=False)
+        else:
+            detail.scroll_page_up(animate=False)
+
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
         # The detail box follows the cursor, so arrowing down the table
         # reads through the findings without pressing Enter on each one.
@@ -1151,12 +1169,13 @@ class ResultsScreen(Screen[None]):
             text.append(f"\n{url}", style=_MUTED)
         text.append(f"\n\n{i18n.t(lang, 'report_gap_why')}  ", style=f"bold {_MUTED}")
         text.append(messages.text(f.message_id, lang), style="#CFCBC2")
-        detail = self.query_one("#detail", Static)
+        box = self.query_one("#detail-box", VerticalScroll)
         # The box takes the colour of the stage the finding breaks at, the
         # same hue its row carries in the table's Stage column.
-        detail.styles.border = ("round", _STAGE_STYLE[key])
-        detail.border_title = i18n.t(lang, f"stage_{key}_name")
-        detail.update(text)
+        box.styles.border = ("round", _STAGE_STYLE[key])
+        box.border_title = i18n.t(lang, f"stage_{key}_name")
+        box.scroll_home(animate=False)
+        self.query_one("#detail", Static).update(text)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "back-btn":
@@ -1318,12 +1337,12 @@ class GapReportApp(App[None]):
     }
     .hints { height: 1; padding: 0 2; margin-top: 1; }
 
-    DirectoryTree, DataTable, #detail {
+    DirectoryTree, DataTable, #detail-box {
         background: $background; border: round #4A4843;
         border-title-color: $text-muted; border-title-style: none;
     }
     DirectoryTree:focus, DataTable:focus { border: round $primary; background-tint: $foreground 0%; }
-    DirectoryTree, DataTable, #detail { scrollbar-size: 0 1; }
+    DirectoryTree, DataTable, #detail-box { scrollbar-size: 0 1; }
     DirectoryTree > .directory-tree--folder { color: $primary; text-style: bold; }
     DirectoryTree > .directory-tree--extension { color: $text-muted; text-style: none; }
     DirectoryTree > .directory-tree--file { color: $foreground; }

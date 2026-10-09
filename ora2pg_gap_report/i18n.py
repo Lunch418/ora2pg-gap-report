@@ -1503,6 +1503,7 @@ _UI: dict[str, dict[str, str]] = {
     "tui_hint_tab": {"ru": "tab|следующее поле", "en": "tab|next field"},
     "tui_hint_enter": {"ru": "enter|выбрать", "en": "enter|select"},
     "tui_hint_move": {"ru": "up/down|по находкам", "en": "up/down|move through findings"},
+    "tui_hint_page": {"ru": "pgup/pgdn|описание", "en": "pgup/pgdn|explanation"},
     "tui_hint_back": {"ru": "esc|назад", "en": "esc|back"},
     "tui_hint_quit": {"ru": "q|выход", "en": "q|quit"},
     "tui_elapsed": {"ru": "{s} с", "en": "{s}s"},

@@ -104,6 +104,11 @@ patch for fixes to existing ones.
   the screen shows - the HTML report and the summary send the reader there
   for the full list - with paths relative to `out/` and no message broken
   across lines.
+- `--explain` no longer loses text in square brackets: the research
+  document went through Rich markup, so GAP-087's `[dbo].[Orders]`, `[int]`
+  printed as `.[Orders]` and nothing. In a terminal the document is now
+  rendered as Markdown (headings, highlighted SQL); piped, it is printed
+  exactly as written.
 
 ## [0.14.0] - 2026-10-08
 

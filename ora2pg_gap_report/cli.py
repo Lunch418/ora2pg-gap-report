@@ -455,7 +455,17 @@ def _handle_explain(raw_ref: str, console: Console, err_console: Console, lang: 
         # Better to say so than to print a document in a language the
         # reader did not ask for and leave them to work it out.
         console.print(i18n.t(lang, "explain_doc_not_translated"))
-    console.print(doc_path.read_text(encoding="utf-8"))
+    document = doc_path.read_text(encoding="utf-8")
+    if console.is_terminal:
+        # Rendered, for reading: headings, code blocks, inline code.
+        from rich.markdown import Markdown
+
+        console.print(Markdown(document, code_theme="monokai", inline_code_lexer="sql"))
+    else:
+        # As it is, for a pipe or a file. Never as Rich markup: a T-SQL
+        # name like [dbo] or [int] would be taken for a style tag and
+        # vanish (GAP-087's own document lost its examples that way).
+        console.print(document, markup=False, highlight=False, soft_wrap=True)
     return 0
 
 

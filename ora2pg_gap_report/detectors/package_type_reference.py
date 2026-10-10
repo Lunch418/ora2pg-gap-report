@@ -30,6 +30,43 @@ def _usage_re(name: str) -> re.Pattern[str]:
     )
 
 
+def _first_uses(clean: str, names: "set[str]", start: int, end: int) -> "dict[str, re.Match[str]]":
+    """For each of `names`, its first use in clean[start:end] that
+    _usage_re(name) matches and that is not inside another type's
+    declaration -- in one pass over the section for all the names, from
+    their occurrences, each checked by the full pattern in a short window
+    before it. Running the pattern, which opens with "any identifier",
+    over a large package once per name was most of this detector's time."""
+    alternatives = "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True))
+    occurrence = re.compile(rf"(?<![A-Za-z0-9_$#])({alternatives})\b", re.IGNORECASE)
+    first: dict[str, re.Match[str]] = {}
+    last_end: dict[str, int] = {}
+    for occ in occurrence.finditer(clean, start, end):
+        name = occ.group(1).upper()
+        if name in first or occ.start() < last_end.get(name, start):
+            continue
+        floor = last_end.get(name, start)
+        window = max(floor, occ.start() - 200)
+        # A prefix whose whitespace (masked comments) runs past the window
+        # still has to be seen whole.
+        while window > floor and clean[window - 1].isspace():
+            window -= 1
+        while window > floor and not clean[window - 1].isspace() and not clean[window].isspace():
+            window -= 1
+        for m in _usage_re(name).finditer(clean, window, end):
+            if m.start(1) > occ.start():
+                break
+            if m.start(1) == occ.start():
+                last_end[name] = m.end()
+                statement_start = max(clean.rfind(";", 0, m.start()), 0)
+                if not _STATEMENT_START_RE.match(clean, statement_start):
+                    first[name] = m
+                break
+        if len(first) == len(names):
+            break
+    return first
+
+
 def find_package_type_reference(source: str) -> list[Finding]:
     """Detect a package-level type (TYPE ... IS RECORD/TABLE OF/VARRAY,
     SUBTYPE) used without the package name in the package's own routines:
@@ -63,14 +100,12 @@ def find_package_type_reference(source: str) -> list[Finding]:
         first_routine = _ROUTINE_RE.search(clean, package.end(), end)
         if first_routine is None:
             continue
-        uses: list[tuple[int, str]] = []
-        for name in declared.get(owner, ()):
-            for m in _usage_re(name).finditer(clean, first_routine.start(), end):
-                statement_start = max(clean.rfind(";", 0, m.start()), 0)
-                if _STATEMENT_START_RE.match(clean, statement_start):
-                    continue  # inside another type's declaration: ora2pg qualifies those
-                uses.append((m.start(1), m.group(1)))
-                break
+        names = declared.get(owner)
+        if not names:
+            continue
+        # Uses inside another type's declaration are skipped: ora2pg
+        # qualifies those.
+        uses = sorted((m.start(1), m.group(1)) for m in _first_uses(clean, names, first_routine.start(), end).values())
         for pos, written in sorted(uses):
             if (owner, written.upper()) in reported:
                 continue

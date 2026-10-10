@@ -61,8 +61,11 @@ write the function.
 from __future__ import annotations
 
 import dataclasses
+import importlib
 import re
+import sys
 from collections.abc import Callable
+from functools import lru_cache
 from typing import Any
 
 from .lex_common import Lexer
@@ -197,6 +200,49 @@ def _mask_fn(lex: Lexer, mask: str) -> Callable[[str], str]:
     return fn
 
 
+# The regex parser: re._parser since Python 3.11, sre_parse before (a
+# deprecated alias since). Through importlib so the type checker does not
+# depend on which one this Python has.
+_sre_parse: Any = importlib.import_module("re._parser" if sys.version_info >= (3, 11) else "sre_parse")
+
+
+def _required_word(pattern: re.Pattern[str]) -> str | None:
+    """The longest word every match of `pattern` must contain -- a run of
+    literal characters at its top level or inside a plain group, never
+    inside an alternative, an optional part or a repeat -- or None if
+    there is none of at least three characters. Upper-cased when the
+    pattern ignores case."""
+    words: list[str] = []
+
+    def walk(items: object) -> None:
+        run: list[str] = []
+        for op, arg in items:  # type: ignore[attr-defined]
+            name = str(op)
+            if name == "LITERAL":
+                run.append(chr(arg))
+                continue
+            words.append("".join(run))
+            run = []
+            if name == "SUBPATTERN":
+                walk(arg[-1])
+        words.append("".join(run))
+
+    try:
+        walk(_sre_parse.parse(pattern.pattern, pattern.flags))
+    except Exception:  # anything this simple walk does not understand
+        return None
+    candidates = [w for w in words if len(w) >= 3 and w.replace("_", "").isalnum()]
+    if not candidates:
+        return None
+    word = max(candidates, key=len)
+    return word.upper() if pattern.flags & re.IGNORECASE else word
+
+
+@lru_cache(maxsize=4)
+def _upper(text: str) -> str:
+    return text.upper()
+
+
 def build(spec: DetectorSpec, lex: Lexer) -> Callable[[str], list[Finding]]:
     """The detector function `spec` describes, bound to `lex` -- the
     dialect's lexer module, passed in rather than imported here so this
@@ -328,6 +374,24 @@ def build(spec: DetectorSpec, lex: Lexer) -> Callable[[str], list[Finding]]:
         TABLE_STATEMENT: find_in_table_statement,
         STATEMENT_CLAUSE: find_statement_clause,
     }[spec.strategy]
+
+    # Every strategy matches spec.pattern only inside the masked text, so
+    # a word the pattern cannot match without is a cheap first test: on a
+    # large dump most constructs are absent, and a substring search is
+    # many times faster than running the regex over the whole file.
+    required = _required_word(spec.pattern)
+    if required is not None:
+        unfiltered = impl
+        ignore_case = bool(spec.pattern.flags & re.IGNORECASE)
+
+        def prefiltered(source: str) -> list[Finding]:
+            searched = search_fn(source)
+            haystack = _upper(searched) if ignore_case else searched
+            if required not in haystack:
+                return []
+            return unfiltered(source)
+
+        impl = prefiltered
     impl.__name__ = f"find_{spec.name}"
     impl.__qualname__ = impl.__name__
     # Point __module__ at the detector's own module, not at this factory.

@@ -1,4 +1,5 @@
 import re
+from bisect import bisect_right
 
 from ..models import Finding
 from ..plsql_lex import (
@@ -19,13 +20,11 @@ _PACKAGE_BODY_NAME_RE = re.compile(
 _PRAGMA_RE = re.compile(r"PRAGMA\s+AUTONOMOUS_TRANSACTION\s*;", re.IGNORECASE)
 
 
-def _package_name_at(package_matches: list[re.Match[str]], position: int) -> str:
-    name = "UNKNOWN"
-    for pm in package_matches:
-        if pm.start() > position:
-            break
-        name = pm.group(1).upper()
-    return name
+def _package_name_at(package_matches: list[re.Match[str]], starts: list[int], position: int) -> str:
+    """The last PACKAGE BODY starting at or before `position` -- by binary
+    search: one walk of the list per routine made a large file quadratic."""
+    at = bisect_right(starts, position)
+    return package_matches[at - 1].group(1).upper() if at else "UNKNOWN"
 
 
 def find_autonomous_transactions(source: str) -> list[Finding]:
@@ -82,7 +81,10 @@ def find_autonomous_transactions(source: str) -> list[Finding]:
     """
     clean = mask_strings_and_comments(source)
     visible = mask_dynamic_sql_visible(source)
+    if "AUTONOMOUS_TRANSACTION" not in visible.upper():
+        return []  # nothing to find; skips walking every routine of a large file
     package_matches = list(_PACKAGE_BODY_NAME_RE.finditer(clean))
+    package_starts = [pm.start() for pm in package_matches]
 
     findings: list[Finding] = []
     cursor = 0
@@ -109,7 +111,7 @@ def find_autonomous_transactions(source: str) -> list[Finding]:
         # body -- search() would stop at the routine's own real PRAGMA (if
         # it has one) and never look further.
         routine_text = own_declare_text(visible, declare_start, end_pos, nested_spans)
-        package_name = _package_name_at(package_matches, match.start())
+        package_name = _package_name_at(package_matches, package_starts, match.start())
 
         for pragma_match in _PRAGMA_RE.finditer(routine_text):
             absolute_pos = declare_start + pragma_match.start()

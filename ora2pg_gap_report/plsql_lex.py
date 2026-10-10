@@ -8,6 +8,7 @@ section can be told apart from a nested subprogram's).
 """
 
 import re
+from bisect import bisect_right
 from functools import lru_cache
 from .lex_common import (
     line_at,
@@ -588,11 +589,26 @@ def enclosing_object_name(index: tuple[tuple[int, str, str], ...], position: int
     object until the next CREATE. There is still no tracking of a package
     body's own END: DBMS_METADATA.GET_DDL output has no '/' at all, and
     between two of its objects there is nothing to misattribute."""
+    positions, names = _resolved_names(index)
+    at = bisect_right(positions, position)
+    return names[at - 1] if at else "UNKNOWN"
+
+
+# The name in force after each index entry, computed once per index: a
+# detector asks for one name per finding, and walking the index each time
+# made a large file's scan grow with findings x objects.
+_RESOLVED: dict[int, tuple[tuple[tuple[int, str, str], ...], list[int], list[str]]] = {}
+
+
+def _resolved_names(index: tuple[tuple[int, str, str], ...]) -> tuple[list[int], list[str]]:
+    cached = _RESOLVED.get(id(index))
+    if cached is not None and cached[0] is index:
+        return cached[1], cached[2]
+    positions: list[int] = []
+    names: list[str] = []
     package_name = None
     leaf: tuple[str, bool] | None = None  # (name, needs_package_prefix)
     for pos, kind, name in index:
-        if pos > position:
-            break
         if kind == "end":
             package_name = None
             leaf = None
@@ -603,10 +619,19 @@ def enclosing_object_name(index: tuple[tuple[int, str, str], ...], position: int
             if kind != "nested_routine":
                 package_name = None  # a standalone routine/trigger can't be inside a package
             leaf = (name, kind == "nested_routine")
-    if leaf:
-        name, needs_prefix = leaf
-        return f"{package_name}.{name}" if needs_prefix and package_name else name
-    return package_name or "UNKNOWN"
+        if leaf:
+            leaf_name, needs_prefix = leaf
+            resolved = f"{package_name}.{leaf_name}" if needs_prefix and package_name else leaf_name
+        else:
+            resolved = package_name or "UNKNOWN"
+        positions.append(pos)
+        names.append(resolved)
+    if len(_RESOLVED) > 16:
+        _RESOLVED.clear()
+    # The index itself is kept in the entry, so its id cannot be reused
+    # by another tuple while the entry lives.
+    _RESOLVED[id(index)] = (index, positions, names)
+    return positions, names
 
 
 def statement_end(text: str, search_from: int, next_match_start: int | None) -> int:

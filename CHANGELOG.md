@@ -9,6 +9,17 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Changed
+
+- **A large dump scans in linear time.** The object name of a finding
+  was looked up by walking every object before it, which made a big file
+  quadratic; a few detectors had their own versions of the same. A 5 MB
+  monolithic dump took 41 s and now takes 22 s, and a 10 MB one 45 s
+  instead of several minutes, at under 200 MB of memory. Patterns that
+  cannot match - their word is not in the file - are no longer run at
+  all. The findings are the same, checked finding for finding on every
+  sample and fixture.
+
 ## [0.15.0] - 2026-10-09
 
 ### Added

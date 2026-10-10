@@ -74,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: gaps
-        uses: Lunch418/ora2pg-gap-report@v0.18.1   # or @main for the latest
+        uses: Lunch418/ora2pg-gap-report@v0.19.0   # or @main for the latest
         with:
           paths: schema/
           fail-on: high              # "" to only report

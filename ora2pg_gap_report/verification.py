@@ -245,6 +245,10 @@ VERIFICATION_MODE: dict[str, str] = {
     "float_precision": NOT_VERIFIABLE,  # FLOAT(n) becomes double precision(n); never FLOAT again
     "plsql_integer_subtype": VERBATIM,  # the subtype is copied unchanged (until --fix)
     "instr_occurrence": VERBATIM,  # INSTR with three or four arguments is copied unchanged
+    "to_char_operator": NOT_VERIFIABLE,  # TO_CHAR(a/b) becomes a/b::text; TO_CHAR never survives
+    "to_char_default_format": NOT_VERIFIABLE,  # TO_CHAR(x) becomes x::text
+    "char_semantics": NOT_VERIFIABLE,  # CHAR(n) becomes char(n), which is wanted -- its uses are what differ
+    "round_date": VERBATIM,  # ROUND(d, 'MM') is copied unchanged
     "date_arithmetic": NOT_VERIFIABLE,  # DATE becomes timestamp(0), no longer told apart from a TIMESTAMP  # copied unchanged; NVL(x, '') becomes coalesce(x, ''), also found
     "dbms_sleep": NOT_VERIFIABLE,  # DBMS_LOCK.SLEEP becomes a bare pg_sleep, which --fix repairs
     "package_constant_default": NOT_VERIFIABLE,  # the default survives, but outside any package the detector reads

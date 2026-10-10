@@ -45,7 +45,7 @@ def find_date_arithmetic(source: str) -> list[Finding]:
     readable = mask_comments_only(source)
     findings: list[Finding] = []
 
-    def kind(operand: str, obj: str) -> str | None:
+    def kind(operand: str, obj: str, position: int) -> str | None:
         """'date' (DATE), 'timestamp' (TIMESTAMP), 'sysdate', 'number' or
         None for one side of the operator."""
         trunc = _TRUNC_OF_RE.match(operand)
@@ -54,7 +54,7 @@ def find_date_arithmetic(source: str) -> list[Finding]:
             return "sysdate"
         if _NUMBER_RE.match(name):
             return None if trunc else "number"
-        pg_type = type_of(names, obj, name)
+        pg_type = type_of(names, obj, name, position)
         if pg_type == "timestamp(0)":
             return "date"
         if pg_type == "timestamp":
@@ -63,7 +63,7 @@ def find_date_arithmetic(source: str) -> list[Finding]:
 
     for m in _ARITHMETIC_RE.finditer(clean):
         obj = enclosing_object_name(index, m.start())
-        left, right, op = kind(m.group("left"), obj), kind(m.group("right"), obj), m.group("op")
+        left, right, op = kind(m.group("left"), obj, m.start()), kind(m.group("right"), obj, m.start()), m.group("op")
         sysdate_left = left == "sysdate" and not m.group("left").upper().startswith("TRUNC")
         if left in ("date", "timestamp", "sysdate") and right == "number" and not sysdate_left:
             pass  # d + 1, TRUNC(SYSDATE) - 7 (SYSDATE + n itself ora2pg converts)

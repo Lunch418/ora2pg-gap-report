@@ -909,6 +909,40 @@ GapEntry(
         severity="high",
         failure_stage="runtime",
         dialect="oracle", last_verified="2026-10-10"),
+    # GAP-139..142: TO_CHAR, CHAR(n) and ROUND of a date, checked on a live
+    # Oracle 23ai and PostgreSQL 16.
+    GapEntry(
+        "139",
+        "to_char_operator",
+        "to-char-operator",
+        ("test_char_to_char_round.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "140",
+        "to_char_default_format",
+        "to-char-default-format",
+        ("test_char_to_char_round.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "141",
+        "char_semantics",
+        "char-semantics",
+        ("test_char_to_char_round.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "142",
+        "round_date",
+        "round-date",
+        ("test_char_to_char_round.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="oracle", last_verified="2026-10-10"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

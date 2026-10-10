@@ -107,6 +107,10 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-136 | `SIMPLE_INTEGER`, `NATURAL`, `POSITIVE`, `SIGNTYPE` - копируются как есть, не загружается | `plsql_integer_subtype` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-136](gap-136-plsql-integer-subtype.md) |
 | GAP-137 | `INSTR` с позицией или вхождением - `instr` в PostgreSQL нет, падает при вызове | `instr_occurrence` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-137](gap-137-instr-occurrence.md) |
 | GAP-138 | Арифметика с `DATE` (`d + 1`, `d1 - d2`) - `timestamp + integer` и `interval` вместо числа, падает при выполнении | `date_arithmetic` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-138](gap-138-date-arithmetic.md) |
+| GAP-139 | `TO_CHAR(a/b)` без пробелов - становится `a/b::text`, падает при вызове | `to_char_operator` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-139](gap-139-to-char-operator.md) |
+| GAP-140 | `TO_CHAR` даты или дроби без формата - `x::text`, текст другой | `to_char_default_format` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-140](gap-140-to-char-default-format.md) |
+| GAP-141 | `CHAR(n)` - в PostgreSQL хвостовые пробелы незначащие: `LENGTH`, склейка и сравнения другие | `char_semantics` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-141](gap-141-char-semantics.md) |
+| GAP-142 | `ROUND` от даты - копируется, `round(timestamp)` в PostgreSQL нет | `round_date` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-142](gap-142-round-date.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

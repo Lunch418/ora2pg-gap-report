@@ -10,7 +10,7 @@ something's unimplemented, but because the question itself, "is this
 still in the output," is a tautology for them: the construct is
 guaranteed to never appear in the output on any migration, regardless of
 whether someone fixed it by hand or not. `verification.py`'s docstring
-explains this in detail; this is a table for each of the 138 gaps, so
+explains this in detail; this is a table for each of the 142 gaps, so
 nobody has to read the code just to answer "can this specific one be
 verified."
 
@@ -135,6 +135,10 @@ verified."
 | 136 | `plsql_integer_subtype` | `verbatim` | The subtype is copied unchanged (until --fix). |
 | 137 | `instr_occurrence` | `verbatim` | INSTR with three or four arguments is copied unchanged. |
 | 138 | `date_arithmetic` | `not_verifiable` | DATE becomes timestamp(0), no longer told apart from a TIMESTAMP. |
+| 139 | `to_char_operator` | `not_verifiable` | TO_CHAR(a/b) becomes a/b::text; TO_CHAR never survives. |
+| 140 | `to_char_default_format` | `not_verifiable` | TO_CHAR(x) becomes x::text. |
+| 141 | `char_semantics` | `not_verifiable` | CHAR(n) becomes char(n), as it should; its uses are what differ. |
+| 142 | `round_date` | `verbatim` | ROUND(d, 'MM') is copied unchanged. |
 
 ### MySQL/MariaDB (`ora2pg -m`)
 
@@ -194,7 +198,7 @@ verified."
 | 125 | `mssql_schema_qualified_name` | `verbatim` | The schema stays on every name; gone once the file creates it (`--fix` does). |
 | 126 | `mssql_go_separator` | `verbatim` | The GO stays, inside the routine body. |
 
-Totals among the 138 gaps themselves: 60 `verbatim`, 77 `not_verifiable`
+Totals among the 142 gaps themselves: 61 `verbatim`, 80 `not_verifiable`
 (including `autonomous_tx`, but for a different reason, see above), 1
 `generated_only` (`connect_by`).
 

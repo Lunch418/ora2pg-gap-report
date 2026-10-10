@@ -17,7 +17,8 @@ ships: PG_NUMERIC_TYPE 1, PG_INTEGER_TYPE 1, DEFAULT_NUMERIC bigint):
   which does not parse); INTEGER, INT, SMALLINT, PLS_INTEGER,
   BINARY_INTEGER -> integer or smallint; SIMPLE_INTEGER, NATURAL(N),
   POSITIVE(N), SIGNTYPE -> copied as they are;
-- DATE -> timestamp(0), TIMESTAMP -> timestamp.
+- DATE -> timestamp(0), TIMESTAMP -> timestamp; CHAR(n) and NCHAR(n) ->
+  char(n).
 
 Checked by running ora2pg 25.0 on the declarations, see
 docs/research/gap-130-number-without-precision.md and the two after it.
@@ -36,7 +37,8 @@ _TYPE = (
     r"(?P<type>NUMBER(?:\s*\(\s*(?P<precision>\d+|\*)\s*(?:,\s*(?P<scale>-?\d+)\s*)?\))?"
     r"|FLOAT(?:\s*\(\s*\d+\s*\))?|INTEGER|INT|SMALLINT|BIGINT|PLS_INTEGER|BINARY_INTEGER"
     r"|SIMPLE_INTEGER|NATURALN?|POSITIVEN?|SIGNTYPE"
-    r"|DATE|TIMESTAMP(?:\s*\(\s*\d+\s*\))?(?:\s+WITH\s+(?:LOCAL\s+)?TIME\s+ZONE)?)(?![\w$#])"
+    r"|DATE|TIMESTAMP(?:\s*\(\s*\d+\s*\))?(?:\s+WITH\s+(?:LOCAL\s+)?TIME\s+ZONE)?"
+    r"|N?CHAR(?:\s*\(\s*\d+(?:\s+(?:BYTE|CHAR))?\s*\))?)(?![\w$#])"
 )
 # Words that can stand before a type without naming what is declared.
 _NOT_A_NAME = (
@@ -78,6 +80,8 @@ _COPIED_SUBTYPES = {"SIMPLE_INTEGER", "NATURAL", "NATURALN", "POSITIVE", "POSITI
 
 def _pg_type(base: str, precision: str | None, scale: str | None, in_table: bool) -> str:
     base = base.upper()
+    if base in ("CHAR", "NCHAR"):
+        return f"char({precision or 1})"
     if base == "DATE":
         return "timestamp(0)"
     if base == "TIMESTAMP":
@@ -110,6 +114,11 @@ def _pg_type(base: str, precision: str | None, scale: str | None, in_table: bool
     return f"decimal({p},{s})" if s <= p else "numeric"
 
 
+def _char_length(type_text: str) -> str | None:
+    m = re.match(r"N?CHAR\s*\(\s*(\d+)", type_text, re.IGNORECASE)
+    return m.group(1) if m else None
+
+
 def _table_spans(clean: str) -> list[tuple[int, int, str]]:
     spans = []
     for m in _TABLE_RE.finditer(clean):
@@ -121,7 +130,7 @@ def _table_spans(clean: str) -> list[tuple[int, int, str]]:
 
 def declarations(clean: str) -> Iterator[Declaration]:
     """Every numeric type declared in masked `clean`, in order."""
-    if not re.search(r"NUMBER|FLOAT|INT|NATURAL|POSITIVE|SIGNTYPE|DATE|TIMESTAMP", clean, re.IGNORECASE):
+    if not re.search(r"NUMBER|FLOAT|INT|NATURAL|POSITIVE|SIGNTYPE|DATE|TIMESTAMP|CHAR", clean, re.IGNORECASE):
         return
     tables = _table_spans(clean)
     index = enclosing_object_name_index(clean)
@@ -142,32 +151,34 @@ def declarations(clean: str) -> Iterator[Declaration]:
             in_table=table is not None,
             pg_type=_pg_type(
                 re.match(r"[A-Za-z_]+", m.group(f"{group}type")).group(0),  # type: ignore[union-attr]
-                m.group(f"{group}precision"),
+                m.group(f"{group}precision") or _char_length(m.group(f"{group}type")),
                 m.group(f"{group}scale"),
                 table is not None,
             ),
         )
 
 
-def typed_names(clean: str) -> dict[str, dict[str, str]]:
-    """object -> NAME -> the PostgreSQL type ora2pg gives it, for every
-    named declaration outside a CREATE TABLE (variables, parameters,
-    package-level variables)."""
-    names: dict[str, dict[str, str]] = {}
+def typed_names(clean: str) -> dict[str, dict[str, list[tuple[int, str]]]]:
+    """object -> NAME -> [(position, PostgreSQL type)], for every named
+    declaration outside a CREATE TABLE (variables, parameters,
+    package-level variables), in order. A list: overloads of one routine
+    share its name and may declare the same parameter differently."""
+    names: dict[str, dict[str, list[tuple[int, str]]]] = {}
     for d in declarations(clean):
         if d.name and not d.in_table:
-            names.setdefault(d.object_name, {})[d.name.upper()] = d.pg_type
+            names.setdefault(d.object_name, {}).setdefault(d.name.upper(), []).append((d.position, d.pg_type))
     return names
 
 
-def type_of(names: dict[str, dict[str, str]], obj: str, name: str) -> str | None:
-    """The type `name` is declared with in `obj` or in an object that
-    contains it (PKG for PKG.PROC), or None."""
+def type_of(names: dict[str, dict[str, list[tuple[int, str]]]], obj: str, name: str, position: int) -> str | None:
+    """The type `name` has at `position`: its last declaration before it in
+    `obj`, or in an object that contains it (PKG for PKG.PROC); None if
+    there is none."""
     name = name.upper()
     while True:
-        found = names.get(obj, {}).get(name)
-        if found is not None:
-            return found
+        before = [t for at, t in names.get(obj, {}).get(name, ()) if at < position]
+        if before:
+            return before[-1]
         if "." not in obj:
             return None
         obj = obj.rsplit(".", 1)[0]

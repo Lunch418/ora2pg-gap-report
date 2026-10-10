@@ -11,6 +11,23 @@ patch for fixes to existing ones.
 
 ### Added
 
+- **GAP-130..133: numbers and `SUBSTR` that load and then compute
+  something else.** Each was run in Oracle 23ai and, after ora2pg 25.0,
+  in PostgreSQL 16:
+  - `number_without_precision`: `NUMBER` with no precision becomes
+    `bigint` (the shipped ora2pg.conf: `DEFAULT_NUMERIC bigint`) - 9.99
+    is stored as 10, `v := 2.5; RETURN v * 2` returns 6;
+  - `number_as_float`: `NUMBER(p,s)` (p up to 15) and `FLOAT` become
+    `real`/`double precision` (`PG_NUMERIC_TYPE 1`) - `0.1 + 0.2 = 0.3`
+    is false, ten amounts of 0.1 sum to 0.9999999999999999;
+  - `integer_division`: `7 / 2`, `i / 2` with integer types - 3.5 in
+    Oracle, 3 in PostgreSQL (found in OraOpenSource Logger: `1/1440`);
+  - `substr_start`: `SUBSTR(s, 0, n)`, `SUBSTR(s, -n)` - another part of
+    the string (found in `file_util_pkg`: `substr(p_dir, -1)`).
+
+  The first two are one setting each, so they are reported once per file,
+  and the advice is the ora2pg.conf lines checked to fix them:
+  `DEFAULT_NUMERIC numeric`, `PG_NUMERIC_TYPE 0`, `DATA_TYPE FLOAT:numeric`.
 - **"Not checked": SQL built at run time.** `EXECUTE IMMEDIATE v_sql`,
   `OPEN c FOR v_sql`, `DBMS_SQL.PARSE`, MySQL's `PREPARE ... FROM @v`,
   T-SQL's `EXEC(@sql)` and `sp_executesql` run SQL no scan can read.

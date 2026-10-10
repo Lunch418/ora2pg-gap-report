@@ -834,6 +834,40 @@ GapEntry(
         severity="high",
         failure_stage="semantic",
         dialect="oracle", last_verified="2026-10-10"),
+    # GAP-130..133: more of what loads and then computes something else,
+    # checked on a live Oracle 23ai and PostgreSQL 16.
+    GapEntry(
+        "130",
+        "number_without_precision",
+        "number-without-precision",
+        ("test_silent_numbers.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "131",
+        "number_as_float",
+        "number-as-float",
+        ("test_silent_numbers.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "132",
+        "integer_division",
+        "integer-division",
+        ("test_silent_numbers.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "133",
+        "substr_start",
+        "substr-start",
+        ("test_silent_numbers.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="oracle", last_verified="2026-10-10"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

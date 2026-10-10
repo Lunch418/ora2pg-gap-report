@@ -119,7 +119,7 @@ def read_previous_from_text(text):
 
 SOURCE = """CREATE OR REPLACE PACKAGE BODY pkg AS
   PROCEDURE p IS
-    TYPE t IS TABLE OF NUMBER;
+    TYPE t IS TABLE OF NUMBER(10);
     v t;
   BEGIN
     SELECT 1 BULK COLLECT INTO v FROM dual;
@@ -135,7 +135,7 @@ def test_cli_checklist_round_trip(capsys):
     text = Path("MIGRATION.md").read_text(encoding="utf-8")
     assert "**Done: 0 of 1 (0 %)**" in text
 
-    Path("pkg.sql").write_text("CREATE TABLE t (id NUMBER);\n", encoding="utf-8")
+    Path("pkg.sql").write_text("CREATE TABLE t (id NUMBER(10));\n", encoding="utf-8")
     assert main(["--lang", "en", "pkg.sql", "-f", "checklist", "-o", "MIGRATION.md"]) == 0
     text = Path("MIGRATION.md").read_text(encoding="utf-8")
     assert "**Done: 1 of 1 (100 %)**" in text

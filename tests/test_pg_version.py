@@ -45,7 +45,9 @@ def test_docker_means_the_versions_image():
 def _scan(tmp_path, capsys, *flags):
     out = tmp_path / "r.json"
     assert main(["--lang", "en", "-f", "json", "-o", str(out), *flags, str(FIXTURES / "json_table_variants_source.sql")]) == 0
-    return [f["message_id"] for f in json.loads(out.read_text(encoding="utf-8"))["findings"]], capsys.readouterr().err
+    findings = json.loads(out.read_text(encoding="utf-8"))["findings"]
+    # The fixture's NUMBER columns are GAP-130's, not this test's.
+    return [f["message_id"] for f in findings if f["detector"] == "json_table"], capsys.readouterr().err
 
 
 def test_cli_leaves_out_what_the_target_no_longer_has_and_says_so(tmp_path, capsys):

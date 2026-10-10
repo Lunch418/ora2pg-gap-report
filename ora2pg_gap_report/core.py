@@ -122,6 +122,10 @@ from .detectors.package_type_reference import find_package_type_reference
 from .detectors.supplied_package_call import find_supplied_package_call
 from .detectors.dbms_sleep import find_dbms_sleep
 from .detectors.empty_string_null import find_empty_string_null
+from .detectors.number_without_precision import find_number_without_precision
+from .detectors.number_as_float import find_number_as_float
+from .detectors.integer_division import find_integer_division
+from .detectors.substr_start import find_substr_start
 from .detectors.statement_trigger import find_statement_trigger
 from .detectors.package_constant_default import find_package_constant_default
 from .detectors.table_if_not_exists import find_table_if_not_exists
@@ -233,6 +237,10 @@ _ORACLE_DETECTORS = (
     find_dbms_sleep,
     find_schema_qualified_name,
     find_empty_string_null,
+    find_number_without_precision,
+    find_number_as_float,
+    find_integer_division,
+    find_substr_start,
 )
 # MySQL detectors -- a source-language dialect, run against a MySQL/MariaDB
 # schema/procedure dump rather than an Oracle one. Deliberately a SEPARATE

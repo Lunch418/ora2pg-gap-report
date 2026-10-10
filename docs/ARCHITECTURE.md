@@ -14,10 +14,10 @@ FUNCTION`, …), which is exactly how `ora2pg_wrapper.py` works, not
 through `SHOW_REPORT`. This is a hard requirement for the target
 audience: closed networks, air-gapped environments, the public sector.
 
-There are 130 detectors right now (the full table is in README.md,
-"Detectors"; 129 of them are tied to a registered GAP-NNN,
+There are 134 detectors right now (the full table is in README.md,
+"Detectors"; 133 of them are tied to a registered GAP-NNN,
 `dbms_utl_calls` isn't, see README.md, "Why almost everything is high"),
-split across three source dialects: 81 Oracle, 27 MySQL/MariaDB
+split across three source dialects: 85 Oracle, 27 MySQL/MariaDB
 (`ora2pg -m`) and 21 T-SQL/SQL Server (`ora2pg -M`). Each dialect has its
 own lexer (`plsql_lex.py`, `mysql_lex.py`, `mssql_lex.py`) and its own
 detector tuple in `core.py`, kept structurally separate so a file scanned
@@ -132,6 +132,10 @@ ora2pg_gap_report/
 │   ├── supplied_package_call.py  # a DBMS_/UTL_/HTP procedure called as a statement -- no CALL
 │   ├── dbms_sleep.py            # DBMS_LOCK.SLEEP -> pg_sleep(n); without PERFORM (--fix repairs it)
 │   ├── empty_string_null.py     # '' compared, assigned, DEFAULT '', NVL(x, '') -- NULL in Oracle, '' in PostgreSQL
+│   ├── number_without_precision.py  # NUMBER without a precision -> bigint (once per file)
+│   ├── number_as_float.py       # NUMBER(p,s), FLOAT -> real/double precision (once per file)
+│   ├── integer_division.py      # 7 / 2, i / 2 with integer types: 3.5 in Oracle, 3 in PostgreSQL
+│   ├── substr_start.py          # SUBSTR(s, 0, n), SUBSTR(s, -n): another part of the string
 │   ├── schema_qualified_name.py  # "HR"."EMP" -- the schema is kept, never created, dropped on triggers
 │   │                             # -- MySQL/MariaDB dialect (ora2pg -m; see mysql_lex.py) --
 │   ├── mysql_enum_type.py         # ENUM(...) -- CREATE TYPE for the synthesized type is missing
@@ -191,6 +195,7 @@ ora2pg_gap_report/
 ├── ora2pg_wrapper.py            # runs ora2pg per object type, parses --estimate_cost
 ├── i18n.py                     # output language (--lang/--set-lang): resolution, English
 │                               # UI strings, and translations of detector explanations
+├── number_types.py             # numeric declarations and what ora2pg makes of them (GAP-130..132)
 ├── unchecked.py                # SQL built at run time (EXECUTE IMMEDIATE v_sql, ...): listed
 │                               #  in every report as "not checked", never a finding
 ├── load_check.py               # --load-check: loads generated output into a real PostgreSQL

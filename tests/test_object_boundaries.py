@@ -78,6 +78,7 @@ def test_a_slash_as_division_or_inside_a_line_does_not_end_an_object():
         "BEGIN INSERT ALL INTO t1 VALUES (1) INTO t2 VALUES (2) SELECT * FROM dual; END;\r\n"
     )
     assert _attribution(source, "oracle") == [
+        ("number_without_precision", "P"),
         ("insert_all", "P"),
         ("insert_all", "UNKNOWN"),
     ]

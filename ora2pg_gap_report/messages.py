@@ -4301,6 +4301,75 @@ MESSAGES: dict[str, Message] = {
             "with PostgreSQL's functions (xpath(...) for XML)."
         ),
     ),
+    "mssql_statement_terminator": Message(
+        ru=(
+            'Команды T-SQL, которые заканчиваются только строкой GO, без ; - CREATE TABLE actor (...) и затем GO, '
+            'как их пишет SSMS, - или вообще ничем перед следующим CREATE TABLE. ora2pg 25.0 (-M) нужна ;: он '
+            'конвертирует первую такую команду и молча выбрасывает всё после неё до следующей ; - таблицы, '
+            'индексы, ALTER. В Sakila (jOOQ) для SQL Server из 16 таблиц вышла одна, и ни слова об этом. '
+            'Подтверждено реальным ora2pg 25.0 и PostgreSQL 16, '
+            'docs/research/gap-149-mssql-statement-terminator.md. Сообщается один раз на файл. Запустите '
+            '--prepare: он ставит ; в конце каждой команды и убирает GO, и тогда выходят все.'
+        ),
+        en=(
+            'T-SQL statements ended by GO alone, without ; - CREATE TABLE actor (...) then GO, the way SSMS '
+            'writes them - or by nothing at all before the next CREATE TABLE. ora2pg 25.0 (-M) needs the ;: it '
+            'converts the first such statement and drops everything after it up to the next ; - tables, indexes, '
+            "ALTERs - without a word. On jOOQ's Sakila for SQL Server, 1 table of 16 came out. Confirmed with a "
+            'real ora2pg 25.0 run and PostgreSQL 16, docs/research/gap-149-mssql-statement-terminator.md. '
+            'Reported once per file. Run --prepare: it ends each statement with ; and drops the GO lines, and all '
+            'of them come out.'
+        ),
+    ),
+    "mssql_index_name_collision": Message(
+        ru=(
+            'Одно имя индекса на нескольких таблицах: CREATE INDEX idx_fk_store_id ON customer(...) и ... ON '
+            'staff(...). В SQL Server имя индекса принадлежит таблице, в PostgreSQL - схеме. ora2pg 25.0 (-M) '
+            'сохраняет имена, и второй CREATE INDEX падает (\'relation "idx_fk_store_id" already exists\') - у '
+            'таблицы нет индекса. Найдено в Sakila (jOOQ, пять раз) и pubs от Microsoft (titleidind). '
+            'Подтверждено, docs/research/gap-150-mssql-index-name-collision.md. Запустите --prepare: он '
+            'переименовывает повторы в <таблица>_<имя>, как для MySQL (GAP-128).'
+        ),
+        en=(
+            'An index name used on more than one table: CREATE INDEX idx_fk_store_id ON customer(...) and ... ON '
+            'staff(...). In SQL Server an index name belongs to its table; in PostgreSQL to the schema. ora2pg '
+            '25.0 (-M) keeps the names, so the second CREATE INDEX fails (\'relation "idx_fk_store_id" already '
+            "exists') and that table has no index. Found in jOOQ's Sakila (five) and Microsoft's pubs "
+            '(titleidind). Confirmed, docs/research/gap-150-mssql-index-name-collision.md. Run --prepare: it '
+            'renames the later ones to <table>_<name>, as for MySQL (GAP-128).'
+        ),
+    ),
+    "mssql_with_rollup": Message(
+        ru=(
+            'GROUP BY a, b WITH ROLLUP (и WITH CUBE) в T-SQL - старая форма GROUP BY ROLLUP (a, b). ora2pg 25.0 '
+            "(-M) копирует её, а PostgreSQL 16 знает только GROUP BY ROLLUP (a, b) ('syntax error at or near "
+            '"with"\') - подпрограмма или представление не загружается. Найдено в pubs от Microsoft (три '
+            'процедуры). Подтверждено, docs/research/gap-151-mssql-with-rollup.md. Запустите --fix: он '
+            'переписывает её в GROUP BY ROLLUP (...).'
+        ),
+        en=(
+            "T-SQL's GROUP BY a, b WITH ROLLUP (and WITH CUBE), the old form of GROUP BY ROLLUP (a, b). ora2pg "
+            "25.0 (-M) copies it, and PostgreSQL 16 knows only GROUP BY ROLLUP (a, b) ('syntax error at or near "
+            '"with"\') - the routine or view does not load. Found in Microsoft\'s pubs (three procedures). '
+            'Confirmed, docs/research/gap-151-mssql-with-rollup.md. Run --fix: it rewrites it as GROUP BY ROLLUP '
+            '(...).'
+        ),
+    ),
+    "mysql_with_rollup": Message(
+        ru=(
+            'GROUP BY a, b WITH ROLLUP в MySQL - старая форма GROUP BY ROLLUP (a, b). ora2pg 25.0 (-m) копирует '
+            "её в представления и подпрограммы, а PostgreSQL 16 знает только GROUP BY ROLLUP (a, b) ('syntax "
+            'error at or near "WITH"\') - представление или подпрограмма не загружается. Подтверждено, '
+            'docs/research/gap-152-mysql-with-rollup.md. Запустите --fix: он переписывает её в GROUP BY ROLLUP '
+            '(...).'
+        ),
+        en=(
+            "MySQL's GROUP BY a, b WITH ROLLUP, the old form of GROUP BY ROLLUP (a, b). ora2pg 25.0 (-m) copies "
+            "it into views and routines, and PostgreSQL 16 knows only GROUP BY ROLLUP (a, b) ('syntax error at or "
+            'near "WITH"\') - the view or routine does not load. Confirmed, '
+            'docs/research/gap-152-mysql-with-rollup.md. Run --fix: it rewrites it as GROUP BY ROLLUP (...).'
+        ),
+    ),
     "supplied_package_call": Message(
         ru=(
             'Процедура поставляемого пакета Oracle, вызванная как оператор: '
@@ -5762,6 +5831,22 @@ REMEDIATION_HINTS: dict[str, Message] = {
         ru='Сохранить результат вызова в переменную или переписать через функции PostgreSQL',
         en="Keep the call's result in a variable, or rewrite it with PostgreSQL's functions",
     ),
+    "mssql_statement_terminator": Message(
+        ru='Запустить --prepare: он ставит ; в конце каждой команды',
+        en='Run --prepare: it ends each statement with ;',
+    ),
+    "mssql_index_name_collision": Message(
+        ru='Запустить --prepare: он переименовывает повторы в <таблица>_<имя>',
+        en='Run --prepare: it renames the later ones to <table>_<name>',
+    ),
+    "mssql_with_rollup": Message(
+        ru='Запустить --fix: он пишет GROUP BY ROLLUP (...)',
+        en='Run --fix: it writes GROUP BY ROLLUP (...)',
+    ),
+    "mysql_with_rollup": Message(
+        ru='Запустить --fix: он пишет GROUP BY ROLLUP (...)',
+        en='Run --fix: it writes GROUP BY ROLLUP (...)',
+    ),
     "supplied_package_call": Message(
         ru='Заменить вызов аналогом PostgreSQL или убрать его - голый вызов не загружается',
         en='Replace the call with a PostgreSQL counterpart, or remove it - a bare call does not load',
@@ -6207,6 +6292,22 @@ TITLES: dict[str, Message] = {
     "call_result_member": Message(
         ru='`f(x).y`, `xml.extract(...).getstringval()` - становится `f[x].y`, не загружается',
         en='`f(x).y`, `xml.extract(...).getstringval()` - becomes `f[x].y`, does not load',
+    ),
+    "mssql_statement_terminator": Message(
+        ru='Команды без `;` (только `GO`) - ora2pg молча теряет всё после первой',
+        en='Statements without `;` (only `GO`) - ora2pg silently drops everything after the first',
+    ),
+    "mssql_index_name_collision": Message(
+        ru='Одно имя индекса на нескольких таблицах - второй `CREATE INDEX` падает',
+        en='One index name on several tables - the second `CREATE INDEX` fails',
+    ),
+    "mssql_with_rollup": Message(
+        ru='`GROUP BY ... WITH ROLLUP` - копируется, PostgreSQL знает только `ROLLUP (...)`',
+        en='`GROUP BY ... WITH ROLLUP` - copied, PostgreSQL knows only `ROLLUP (...)`',
+    ),
+    "mysql_with_rollup": Message(
+        ru='`GROUP BY ... WITH ROLLUP` - копируется, PostgreSQL знает только `ROLLUP (...)`',
+        en='`GROUP BY ... WITH ROLLUP` - copied, PostgreSQL knows only `ROLLUP (...)`',
     ),
     "supplied_package_call": Message(
         ru='Процедура поставляемого пакета (`DBMS_*`, `UTL_*`, `HTP`) как оператор - копируется без `CALL`, не загружается',

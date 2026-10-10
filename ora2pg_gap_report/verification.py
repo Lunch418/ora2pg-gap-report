@@ -255,6 +255,10 @@ VERIFICATION_MODE: dict[str, str] = {
     "param_after_default": VERBATIM,  # the parameter order is kept
     "hash_identifier": VERBATIM,  # the name is copied unchanged
     "call_result_member": NOT_VERIFIABLE,  # f(x).y becomes f[x].y
+    "mssql_statement_terminator": NOT_VERIFIABLE,  # what ora2pg drops is not in the output at all
+    "mssql_index_name_collision": VERBATIM,  # the CREATE INDEX statements are copied with their names
+    "mssql_with_rollup": VERBATIM,  # GROUP BY ... WITH ROLLUP is copied unchanged
+    "mysql_with_rollup": VERBATIM,  # GROUP BY ... WITH ROLLUP is copied unchanged
     "date_arithmetic": NOT_VERIFIABLE,  # DATE becomes timestamp(0), no longer told apart from a TIMESTAMP  # copied unchanged; NVL(x, '') becomes coalesce(x, ''), also found
     "dbms_sleep": NOT_VERIFIABLE,  # DBMS_LOCK.SLEEP becomes a bare pg_sleep, which --fix repairs
     "package_constant_default": NOT_VERIFIABLE,  # the default survives, but outside any package the detector reads

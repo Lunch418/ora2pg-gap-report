@@ -520,34 +520,66 @@ def prepare_mssql_brackets(source: str) -> tuple[str, int]:
 
 
 _GO_LINE_RE = re.compile(r"^[ \t]*GO(?:[ \t]+\d+)?[ \t]*;?[ \t]*(?:\r?\n|\Z)", re.IGNORECASE | re.MULTILINE)
-_BARE_END_RE = re.compile(r"\bEND[ \t]*\Z", re.IGNORECASE)
+_TABLE_LINE_RE = re.compile(r"^CREATE\s+TABLE\b", re.IGNORECASE | re.MULTILINE)
 
 
 def prepare_mssql_go_separator(source: str) -> tuple[str, int]:
-    """Drop the `GO` lines SSMS writes after every object, and end a batch's
-    closing `END` with `;` (GAP-126).
+    """Drop the `GO` lines SSMS writes after every object, and end each
+    batch's last statement with `;` (GAP-126, GAP-149).
 
     ora2pg -M reads a routine up to the next CREATE, so the `GO` after it
     ends up inside the PL/pgSQL body (`END GO END;`) and the routine does
     not load. Without the GO, a routine whose last line is a bare `END`
-    loses its closing END instead; with `END;` it converts and loads. GO
-    is a client-side batch separator, not SQL, and ora2pg splits objects
-    on CREATE anyway, so nothing is lost. Strings and comments are left
-    alone."""
+    loses its closing END instead; with `END;` it converts and loads.
+    Any other statement without its `;` -- CREATE TABLE ... ) GO, the way
+    SSMS writes them -- makes ora2pg drop everything after it up to the
+    next `;`: in Sakila, 15 of 16 tables. GO is a client-side batch
+    separator, not SQL, and ora2pg splits objects on CREATE anyway, so
+    nothing is lost. Strings and comments are left alone."""
     from .mssql_lex import mask_strings_and_comments
 
     masked = mask_strings_and_comments(source)
+    # A CREATE TABLE at the start of a line after a statement with neither
+    # ; nor GO ends that statement too (Sakila's film_text).
+    tables = [t.start() for t in _TABLE_LINE_RE.finditer(masked)]
+    for at in reversed(tables):
+        before = masked[:at].rstrip()
+        if before and not before.endswith(";") and not _GO_LINE_RE.search(before[before.rfind("\n") + 1 :] + "\n"):
+            end = len(before)
+            source = source[:end] + ";" + source[end:]
+            masked = masked[:end] + ";" + masked[end:]
     gos = list(_GO_LINE_RE.finditer(masked))
     for go in reversed(gos):
         source = source[: go.start()] + source[go.end() :]
         masked = masked[: go.start()] + masked[go.end() :]
         before = masked[: go.start()].rstrip()
-        end = _BARE_END_RE.search(before)
-        if end is not None:
+        if before and not before.endswith(";"):
             at = len(before)
             source = source[:at] + ";" + source[at:]
             masked = masked[:at] + ";" + masked[at:]
     return source, len(gos)
+
+
+def prepare_mssql_index_names(source: str) -> tuple[str, int]:
+    """An index name used on a second table -> `<table>_<name>` (GAP-150):
+    in PostgreSQL an index name belongs to the schema, so ora2pg's second
+    CREATE INDEX with the same name fails. The first table keeps it."""
+    from .detectors.mssql_index_name_collision import index_statements, table_of
+    from .mssql_lex import mask_strings_and_comments, normalize_name
+
+    masked = mask_strings_and_comments(source)
+    owner: dict[str, str] = {}
+    renames: list[tuple[int, int, str]] = []
+    for m in index_statements(masked):
+        name = normalize_name(m.group(1))
+        table = table_of(m)
+        if owner.setdefault(name.lower(), table) == table:
+            continue
+        new = f"{table}_{name}"
+        renames.append((m.start(1), m.end(1), f"[{new}]" if m.group(1).startswith("[") else new))
+    for start, end, new in reversed(renames):
+        source = source[:start] + new + source[end:]
+    return source, len(renames)
 
 
 # Which preparers run for which source dialect, in order. The delimiter
@@ -567,7 +599,7 @@ PREPARERS_BY_DIALECT: dict[str, tuple[Preparer, ...]] = {
         prepare_mysql_table_if_not_exists,
         prepare_mysql_indexes,
     ),
-    "mssql": (prepare_mssql_brackets, prepare_mssql_go_separator),
+    "mssql": (prepare_mssql_index_names, prepare_mssql_brackets, prepare_mssql_go_separator),
 }
 
 def prepare_command(detector: str) -> str | None:
@@ -594,6 +626,7 @@ PREPARER_DETECTOR: dict[Preparer, str] = {
     prepare_mssql_brackets: "mssql_bracket_identifier",
     prepare_mysql_indexes: "mysql_key_index",
     prepare_mssql_go_separator: "mssql_go_separator",
+    prepare_mssql_index_names: "mssql_index_name_collision",
 }
 
 # Every detector whose gap a preparer removes. The DELIMITER rewrite covers
@@ -603,3 +636,4 @@ PREPARED_DETECTORS: dict[Preparer, tuple[str, ...]] = {
 }
 PREPARED_DETECTORS[prepare_mysql_delimiter] = ("mysql_delimiter_routine", "mysql_delimiter_trigger")
 PREPARED_DETECTORS[prepare_mysql_indexes] = ("mysql_key_index", "mysql_index_name_collision")
+PREPARED_DETECTORS[prepare_mssql_go_separator] = ("mssql_go_separator", "mssql_statement_terminator")

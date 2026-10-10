@@ -67,6 +67,7 @@ from .recipes import recipe_for, recipe_url
 from .html_report import _version, group_by_gap, source_name, stage_key
 from . import messages
 from .models import Finding
+from .source_text import read_source
 from .verification import DetectorVerification, NewInOutput, new_in_output, verify_against_baseline
 
 # The palette of Claude Code's own terminal UI, which this app is dressed
@@ -274,7 +275,7 @@ def scan_paths(
             warnings.append(i18n.t(lang, "tui_warning_not_found", path=file_path))
             continue
         try:
-            source = file_path.read_text(encoding="utf-8", errors="replace")
+            source = read_source(file_path)
         except OSError as exc:
             warnings.append(i18n.t(lang, "tui_warning_could_not_read", path=file_path, exc=exc))
             continue
@@ -704,7 +705,7 @@ class ScanScreen(_SpinnerStatus, Screen[None]):
                 warnings.append(i18n.t(lang, "tui_warning_not_found", path=file_path))
                 continue
             try:
-                source = file_path.read_text(encoding="utf-8", errors="replace")
+                source = read_source(file_path)
             except OSError as exc:
                 warnings.append(i18n.t(lang, "tui_warning_could_not_read", path=file_path, exc=exc))
                 continue

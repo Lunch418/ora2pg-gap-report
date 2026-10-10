@@ -11,6 +11,19 @@ patch for fixes to existing ones.
 
 ### Added
 
+- **GAP-149..152: SQL Server and MySQL, checked on other people's code**
+  - jOOQ's Sakila (both editions), the Employees database, Microsoft's
+  pubs, Northwind and Wide World Importers - with real ora2pg 25.0 and
+  PostgreSQL 16:
+  - `mssql_statement_terminator`: statements ended only by `GO`, with no
+    `;` - ora2pg converts the first and silently drops everything after
+    it (Sakila: 1 table of 16 came out). `--prepare` ends each statement
+    with `;`: 15 of 16, and the last one too once a statement ended by
+    nothing before the next `CREATE TABLE` was handled;
+  - `mssql_index_name_collision`: one index name on several tables, as
+    for MySQL; `--prepare` renames the later ones;
+  - `mssql_with_rollup`, `mysql_with_rollup`: `GROUP BY ... WITH ROLLUP`
+    (and `WITH CUBE`); `--fix` writes `GROUP BY ROLLUP (...)`.
 - **GAP-143..148, found in what `--load-check` could not explain** on
   other people's code (utPLSQL, OraOpenSource Logger, the Alexandria
   PL/SQL library, Oracle's sample schemas). Each checked on a live
@@ -32,6 +45,12 @@ patch for fixes to existing ones.
 
 ### Fixed
 
+- **A UTF-16 script was scanned as UTF-8 and came back clean** - SSMS
+  saves scripts as UTF-16, so every other byte was a NUL and nothing
+  matched (Microsoft's own samples). Source files are now read by their
+  byte-order mark, or by the NUL bytes of UTF-16 without one, everywhere
+  the tool reads them; `--prepare` and `--fix` write such a file back in
+  its own encoding.
 - `--load-check` ties a failed statement to a `--fix` only when the fix
   changes the failing line or one just above it: a TRIM repaired at the
   top of a routine no longer claims a syntax error further down.

@@ -993,6 +993,40 @@ GapEntry(
         severity="high",
         failure_stage="deployment",
         dialect="oracle", last_verified="2026-10-10"),
+    # GAP-149..152: MySQL and SQL Server, found running --migrate --load-check
+    # on Sakila (jOOQ), Employees and Microsoft's sample databases.
+    GapEntry(
+        "149",
+        "mssql_statement_terminator",
+        "mssql-statement-terminator",
+        ("test_dialect_corpus_gaps.py",),
+        severity="high",
+        failure_stage="conversion",
+        dialect="mssql", last_verified="2026-10-11"),
+    GapEntry(
+        "150",
+        "mssql_index_name_collision",
+        "mssql-index-name-collision",
+        ("test_dialect_corpus_gaps.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mssql", last_verified="2026-10-11"),
+    GapEntry(
+        "151",
+        "mssql_with_rollup",
+        "mssql-with-rollup",
+        ("test_dialect_corpus_gaps.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mssql", last_verified="2026-10-11"),
+    GapEntry(
+        "152",
+        "mysql_with_rollup",
+        "mysql-with-rollup",
+        ("test_dialect_corpus_gaps.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="mysql", last_verified="2026-10-11"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

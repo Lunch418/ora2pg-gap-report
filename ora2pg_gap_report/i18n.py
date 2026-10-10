@@ -1393,7 +1393,7 @@ _UI: dict[str, dict[str, str]] = {
         "AS IDENTITY (GAP-028), пропущенный RECURSIVE в рекурсивном WITH (GAP-024), PERFORM "
         "перед pg_sleep (GAP-123), точность у double precision (GAP-135) и целые подтипы "
         "PL/SQL (GAP-136), лишний BOTH в TRIM (GAP-145), для "
-        "mysql - LIMIT a, b (GAP-075), для mssql - кавычки в CHARINDEX (GAP-100), пустой "
+        "mysql - LIMIT a, b (GAP-075) и WITH ROLLUP (GAP-152), для mssql - кавычки в CHARINDEX (GAP-100), WITH ROLLUP (GAP-151), пустой "
         "DECLARE (GAP-091) и несозданная схема (GAP-125). По умолчанию ничего "
         "не меняет на диске, только печатает unified diff; для реальной перезаписи файлов "
         "добавьте --write. Самостоятельный режим - не сочетается с --explain/--verify/--tui/"
@@ -1404,7 +1404,7 @@ _UI: dict[str, dict[str, str]] = {
         "(GAP-028), the missing RECURSIVE in a recursive WITH (GAP-024), the PERFORM before "
         "pg_sleep (GAP-123), the precision on double precision (GAP-135) and the PL/SQL "
         "integer subtypes (GAP-136), the extra BOTH in TRIM (GAP-145); for mysql, "
-        "LIMIT a, b (GAP-075); for mssql, the CHARINDEX quotes (GAP-100), the empty "
+        "LIMIT a, b (GAP-075) and WITH ROLLUP (GAP-152); for mssql, the CHARINDEX quotes (GAP-100), WITH ROLLUP (GAP-151), the empty "
         "DECLARE (GAP-091) and the schema never created (GAP-125). Prints a unified diff by "
         "default, without touching anything on disk; add --write to actually rewrite the "
         "files. A standalone mode -- not combinable with --explain/--verify/--tui/--fail-on/"
@@ -1433,13 +1433,13 @@ _UI: dict[str, dict[str, str]] = {
         "ora2pg спотыкается, не меняя смысла. Для mysql - директивы DELIMITER (GAP-106/107), "
         "DEFINER (GAP-108), обёртки /*!50003 ... */ вокруг определений (GAP-109), CREATE TABLE "
         "IF NOT EXISTS (GAP-110), KEY и совпадающие имена индексов (GAP-073, GAP-128); для oracle - строки q'[...]' (GAP-062), IF NOT EXISTS "
-        "(GAP-112), START WITH у последовательностей (GAP-143) и пробелы вокруг := в параметрах (GAP-144); для mssql - имена в [скобках] (GAP-087) и строки GO (GAP-126). Как --fix: по умолчанию печатает "
+        "(GAP-112), START WITH у последовательностей (GAP-143) и пробелы вокруг := в параметрах (GAP-144); для mssql - имена в [скобках] (GAP-087), строки GO и ; в конце команд (GAP-126, GAP-149) и совпадающие имена индексов (GAP-150). Как --fix: по умолчанию печатает "
         "diff, --write перезаписывает файлы (работайте с копией дампа).",
         "en": "Prepare the SOURCE dump for ora2pg: mechanically rewrite what ora2pg's parser "
         "trips over, without changing its meaning. For mysql, DELIMITER directives "
         "(GAP-106/107), DEFINER (GAP-108), /*!50003 ... */ wrappers around definitions "
         "(GAP-109), CREATE TABLE IF NOT EXISTS (GAP-110), KEY and clashing index names (GAP-073, GAP-128); for oracle, q'[...]' strings "
-        "(GAP-062), IF NOT EXISTS (GAP-112), a sequence's START WITH (GAP-143) and spaces around a parameter's := (GAP-144); for mssql, [bracketed] names (GAP-087) and GO lines (GAP-126). Like "
+        "(GAP-062), IF NOT EXISTS (GAP-112), a sequence's START WITH (GAP-143) and spaces around a parameter's := (GAP-144); for mssql, [bracketed] names (GAP-087), GO lines and a ; ending each statement (GAP-126, GAP-149) and clashing index names (GAP-150). Like "
         "--fix: prints a diff by default, --write rewrites the files (work on a copy of the "
         "dump).",
     },

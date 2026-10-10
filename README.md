@@ -29,7 +29,7 @@ mode of its own:
 ```
  schema/ (Oracle DDL, a mysqldump, an SSMS script)
     |
-    |  1. scan       148 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
+    |  1. scan       152 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
     |  2. prepare    rewrite what ora2pg's parser trips over  (--prepare)
     |  3. convert    ora2pg, once per object type             -> out/converted/
     |  4. fix        repair ora2pg's known mechanical bugs    (--fix), and what the source says
@@ -219,6 +219,7 @@ table is Oracle-only.
 | `mysql_key_index` | `KEY <name> (<cols>)` — mysqldump's own default spelling for a secondary index. Left as a `key <NAME>` stub where a column was expected, so `CREATE TABLE` fails to load. The `INDEX` synonym and `UNIQUE KEY` both convert fine |
 | `mysql_index_prefix` | An index on a column prefix (`KEY idx (note(20))`, required for TEXT/BLOB) - ora2pg writes `(note"(20)`, an unclosed quote that swallows the rest of the file; PostgreSQL has no prefix index, so it is a decision per index |
 | `mysql_index_name_collision` | One index name on several tables - fine in MySQL, a clash in PostgreSQL, where the second `CREATE INDEX` fails; `--prepare` renames them `<table>_<name>` |
+| `mysql_with_rollup` | `GROUP BY ... WITH ROLLUP` - copied, PostgreSQL knows only `ROLLUP (...)`; `--fix` repairs it |
 | `mysql_spatial_index` | `SPATIAL KEY`/`SPATIAL INDEX` — same shape as FULLTEXT, but restored as a GiST index over a PostGIS type |
 | `mysql_limit_comma` | `LIMIT offset, count` — copied verbatim; PostgreSQL rejects the comma form outright (`LIMIT #,# syntax is not supported`) |
 | `mysql_replace_into` | `REPLACE INTO` — copied verbatim; no PostgreSQL equivalent, and `ON CONFLICT DO UPDATE` is not a literal substitute (REPLACE deletes, so delete-side cascades fire) |
@@ -265,6 +266,9 @@ And these twenty-one are the T-SQL/SQL Server dialect (`--dialect mssql`,
 | `mssql_rowversion` | `ROWVERSION` -> `bytea`, which never self-updates, so optimistic-locking checks silently stop detecting conflicts |
 | `mssql_schema_qualified_name` | `[dbo].[Orders]` - the schema is kept on every name but never created, so nothing loads on a fresh database; `--fix` writes `CREATE SCHEMA IF NOT EXISTS` |
 | `mssql_go_separator` | A procedure, function or trigger followed by `GO`, as SSMS ends every object - ora2pg puts the `GO` into the body (`END GO END;`), the routine does not load; `--prepare` removes the `GO` lines |
+| `mssql_statement_terminator` | Statements without `;`, ended only by `GO` - ora2pg silently drops everything after the first (Sakila: 1 table of 16); `--prepare` repairs it |
+| `mssql_index_name_collision` | One index name on several tables - the second `CREATE INDEX` fails; `--prepare` repairs it |
+| `mssql_with_rollup` | `GROUP BY ... WITH ROLLUP`/`WITH CUBE` - copied, PostgreSQL knows only `ROLLUP (...)`; `--fix` repairs it |
 
 Plus `ora2pg_wrapper.py` — runs `ora2pg` per object type against exported DDL
 and parses `--estimate_cost`, and `oracle_connector.py`/`oracle_export.py` —
@@ -273,16 +277,16 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 148 registered gaps (`gap_registry.py`) — 100 from the Oracle source
-dialect, 27 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 21 from
+Of the 152 registered gaps (`gap_registry.py`) — 100 from the Oracle source
+dialect, 28 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 24 from
 T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); see "Source dialects"
-below — 142 are `high` and 6 are `medium` (`context_object`,
+below — 146 are `high` and 6 are `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 on the Oracle side, `mysql_set_type` on the MySQL side; the MSSQL batch has
 no `medium` at all) — `severity` is a `GapEntry` field now, cross-checked by
 `scripts/doctor.py` against the literal a detector's own source actually
 uses, not just a count taken on faith. Separately, there's one more detector
-on top of those 148, `dbms_utl_calls` — a
+on top of those 152, `dbms_utl_calls` — a
 classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
 no single reproducible minimal example — that's a deliberately broad
 category), also `medium`. `low` is a valid value in the
@@ -476,7 +480,7 @@ writes is the same too - `report.html`, `MIGRATION.md`, `converted/`, and
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 148 — a single
+finding was confirmed against (currently 25.0/16 for all 152 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -552,9 +556,12 @@ database needed), so this project scans all three:
 
 ```sh
 ora2pg-gap-report schema/                        # Oracle (the default)
-ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086, 106..111, 127..128
-ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105, 125, 126
+ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086, 106..111, 127..128, 152
+ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105, 125, 126, 149..151
 ```
+
+A script SSMS saved as UTF-16 is read as such (by its byte-order mark),
+and `--prepare`/`--fix` write it back in UTF-16.
 
 Every non-Oracle gap was confirmed exactly the way the Oracle ones were: a
 minimal example, a real `ora2pg -m`/`-M` run, the generated PostgreSQL
@@ -760,18 +767,18 @@ same pattern already in the generated code. And even so, it doesn't work
 the same way for every detector:
 
 - **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
-  `json_table`, `identity_column`, and 63 more — 66 of the 149 detectors) —
+  `json_table`, `identity_column`, and 66 more — 69 of the 153 detectors) —
   for these, re-running the detector against the output is meaningful:
   `STILL_PRESENT` if the pattern remains, `NOT_DETECTED` if it's gone.
 - **Some `ora2pg` drops or rewrites away entirely** (`read_only_table`,
-  `table_partitioning`, and 80 more — 82 of the 149) — the construct isn't
+  `table_partitioning`, and 81 more — 83 of the 153) — the construct isn't
   in the output *by definition*, regardless of whether someone fixed the
   problem by hand some other way. For these, the honest status is `NOT_VERIFIABLE`, not a
   fabricated `NOT_DETECTED`: treating absence as proof of a fix would be
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 148 gaps —
+Which mode applies to which detector, and why, for all 152 gaps —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't
@@ -856,6 +863,8 @@ that way, before ora2pg reads the dump:
 | `oracle` | GAP-144 | `a varchar2:= chr(10)` -> `a varchar2 := chr(10)` in parameter lists |
 | `mssql` | GAP-087 | `[dbo].[Orders]` -> `dbo.Orders`, `[nvarchar](100)` -> `nvarchar(100)` |
 | `mssql` | GAP-126 | `GO` lines are removed, and a bare `END` that closed a batch gets its `;` |
+| `mssql` | GAP-149 | every statement before a `GO` (or before a `CREATE TABLE` at the start of a line) gets its `;` - without it ora2pg drops what follows |
+| `mssql` | GAP-150 | an index name used on a second table becomes `<table>_<name>` |
 
 ```sh
 cp -r dump/ dump.prepared/                                        # work on a copy
@@ -894,7 +903,9 @@ run is decided by `--dialect`:
 | `mssql` | GAP-100 | `CHARINDEX` is translated to the right function but with the quotes doubled — `position(''abc'' in x)`, which is not valid SQL. Removes the doubling, touching nothing else |
 | `mssql` | GAP-091 | A parameterless procedure gets an empty, unparseable `DECLARE ;` block. Deletes it — which is exactly what `ora2pg` itself emits for the same procedure when it takes a parameter |
 | `mssql` | GAP-125 | SSMS qualifies every name with its schema (`[dbo].[Orders]`); ora2pg keeps it everywhere but never creates it, so nothing loads (`schema "dbo" does not exist`). Writes `CREATE SCHEMA IF NOT EXISTS dbo;` after the header for each schema the file uses and does not create |
+| `mssql` | GAP-151 | `GROUP BY a WITH ROLLUP` (and `WITH CUBE`) is copied, and PostgreSQL knows only `GROUP BY ROLLUP (a)`. Rewrites it |
 | `mysql` | GAP-075 | MySQL's `LIMIT offset, count` is copied as it is, and PostgreSQL rejects it (`LIMIT #,# syntax is not supported`). Rewrites it to `LIMIT count OFFSET offset`; every other MySQL gap needs a design decision or data the generated file no longer has, so it gets no fix |
+| `mysql` | GAP-152 | `GROUP BY a WITH ROLLUP` is copied into views and routines; rewrites it as `GROUP BY ROLLUP (a)` |
 
 All seven were verified the same way the gaps themselves were: the broken
 output failing to load into a real PostgreSQL 16, and the fixed output

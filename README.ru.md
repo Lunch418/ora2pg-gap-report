@@ -29,7 +29,7 @@ ora2pg-gap-report --migrate out/ --load-check docker schema/
 ```
  schema/ (DDL Oracle, mysqldump, скрипт SSMS)
     |
-    |  1. скан          148 подтверждённых пробелов ora2pg  -> out/report.html, out/MIGRATION.md
+    |  1. скан          152 подтверждённых пробела ora2pg  -> out/report.html, out/MIGRATION.md
     |  2. подготовка    переписать то, на чём спотыкается парсер ora2pg  (--prepare)
     |  3. конвертация   ora2pg, по одному запуску на тип объектов        -> out/converted/
     |  4. исправления   известные механические баги ora2pg (--fix) и то, что знает исходник
@@ -219,6 +219,7 @@ PostgreSQL. Не замена `ora2pg`, а
 | `mysql_key_index` | `KEY <имя> (<столбцы>)` — собственная запись вторичного индекса в mysqldump по умолчанию. Остаётся заглушкой `key <ИМЯ>` на месте столбца, и `CREATE TABLE` не загружается. Синоним `INDEX` и `UNIQUE KEY` конвертируются нормально |
 | `mysql_index_prefix` | Индекс по префиксу столбца (`KEY idx (note(20))`, обязателен для TEXT/BLOB) - ora2pg пишет `(note"(20)`, незакрытую кавычку, которая проглатывает остаток файла; префиксных индексов в PostgreSQL нет, так что решать по каждому |
 | `mysql_index_name_collision` | Одно имя индекса на нескольких таблицах - в MySQL можно, в PostgreSQL второй `CREATE INDEX` падает; `--prepare` переименовывает их в `<таблица>_<имя>` |
+| `mysql_with_rollup` | `GROUP BY ... WITH ROLLUP` - копируется, PostgreSQL знает только `ROLLUP (...)`; `--fix` это чинит |
 | `mysql_spatial_index` | `SPATIAL KEY`/`SPATIAL INDEX` — та же форма, что у FULLTEXT, только восстанавливается как GiST-индекс по типу PostGIS |
 | `mysql_limit_comma` | `LIMIT смещение, количество` — копируется как есть; запятую PostgreSQL отвергает прямо (`LIMIT #,# syntax is not supported`) |
 | `mysql_replace_into` | `REPLACE INTO` — копируется как есть; в PostgreSQL аналога нет, а `ON CONFLICT DO UPDATE` — не буквальная замена (REPLACE удаляет строку, и срабатывают каскады удаления) |
@@ -265,6 +266,9 @@ PostgreSQL. Не замена `ora2pg`, а
 | `mssql_rowversion` | `ROWVERSION` -> `bytea`, который сам не обновляется, и проверки оптимистической блокировки молча перестают видеть конфликты |
 | `mssql_schema_qualified_name` | `[dbo].[Orders]` - схема остаётся у всех имён, но не создаётся, и на чистой базе ничего не загружается; `--fix` пишет `CREATE SCHEMA IF NOT EXISTS` |
 | `mssql_go_separator` | Процедура, функция или триггер, за которыми идёт `GO`, как SSMS заканчивает каждый объект, - ora2pg кладёт `GO` в тело (`END GO END;`), подпрограмма не загружается; `--prepare` убирает строки `GO` |
+| `mssql_statement_terminator` | Команды без `;`, только с `GO` - ora2pg молча теряет всё после первой (Sakila: 1 таблица из 16); `--prepare` это чинит |
+| `mssql_index_name_collision` | Одно имя индекса на нескольких таблицах - второй `CREATE INDEX` падает; `--prepare` это чинит |
+| `mssql_with_rollup` | `GROUP BY ... WITH ROLLUP`/`WITH CUBE` - копируется, PostgreSQL знает только `ROLLUP (...)`; `--fix` это чинит |
 
 Плюс `ora2pg_wrapper.py` — запуск `ora2pg` по типам объектов на выгруженном
 DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_export.py`
@@ -272,15 +276,15 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 
 ### Почему почти всё `high`
 
-Из 148 зарегистрированных gap'ов (`gap_registry.py`) — 100 из исходного
-диалекта Oracle, 27 из MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) и 21
+Из 152 зарегистрированных gap'ов (`gap_registry.py`) — 100 из исходного
+диалекта Oracle, 28 из MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) и 24
 из T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); см. «Исходные
-диалекты» ниже — 142 имеют severity `high` и 6 — `medium` (`context_object`,
+диалекты» ниже — 146 имеют severity `high` и 6 — `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 со стороны Oracle, `mysql_set_type` со стороны MySQL; в партии MSSQL
 `medium` нет вовсе). `severity` — поле `GapEntry`, и `scripts/doctor.py`
 сверяет его с литералом, который реально использует исходник детектора, а
-не просто со счётчиком, принятым на веру. Отдельно от этих 148 есть ещё
+не просто со счётчиком, принятым на веру. Отдельно от этих 152 есть ещё
 один детектор, `dbms_utl_calls` — классификатор вызовов `DBMS_*`/`UTL_*`,
 не привязанный к конкретному GAP-NNN (у него нет одного воспроизводимого
 минимального примера — это намеренно широкая категория), тоже `medium`.
@@ -474,7 +478,7 @@ ora2pg-gap-report --tui path/to/schema_dump/   # открывается там
 `--explain GAP-023` (или просто `--explain 23`) печатает research-документ
 конкретного gap'а из реестра — конструкцию, реальный вывод `ora2pg`,
 наблюдаемую проблему, вердикт и версии `ora2pg`/PostgreSQL, на которых
-находка подтверждена (сейчас 25.0/16 у всех 148 — единая версия, потому
+находка подтверждена (сейчас 25.0/16 у всех 152 — единая версия, потому
 что второй пока не было; `gap_registry.py` уже готов хранить разные версии
 для будущих находок) — без сканирования файлов:
 
@@ -552,9 +556,12 @@ PostgreSQL в качестве цели. Оба режима подтвержд�
 
 ```sh
 ora2pg-gap-report schema/                        # Oracle (по умолчанию)
-ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086, 106..111, 127..128
-ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105, 125, 126
+ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086, 106..111, 127..128, 152
+ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105, 125, 126, 149..151
 ```
+
+Скрипт, который SSMS сохранил в UTF-16, читается как UTF-16 (по метке порядка
+байтов), а `--prepare`/`--fix` записывают его обратно в UTF-16.
 
 Каждый не-Oracle gap подтверждён ровно так же, как Oracle-ские:
 минимальный пример, реальный прогон `ora2pg -m`/`-M`, сгенерированный
@@ -759,11 +766,11 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
 детекторов одинаково:
 
 - **Часть конструкций `ora2pg` копирует в вывод как есть** (`cross_apply`,
-  `json_table`, `identity_column` и ещё 63 — 66 из 149 детекторов) — для
+  `json_table`, `identity_column` и ещё 66 — 69 из 153 детекторов) — для
   них повторный прогон детектора по выводу осмыслен: `STILL_PRESENT`,
   если паттерн остался, `NOT_DETECTED`, если пропал.
 - **Часть `ora2pg` молча выбрасывает или переписывает во что-то другое**
-  (`read_only_table`, `table_partitioning` и ещё 80 — 82 из 149) —
+  (`read_only_table`, `table_partitioning` и ещё 81 — 83 из 153) —
   конструкции в выводе нет *по определению*, независимо от того, починил ли
   кто-то проблему вручную другим способом. Для них честный статус —
   `NOT_VERIFIABLE`, а не фиктивный `NOT_DETECTED`: считать отсутствие
@@ -771,7 +778,7 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
   которой этот проект специально избегает (см. «Почему почти всё `high`»
   выше).
 
-Какой режим у какого детектора и почему, по всем 148 gap'ам —
+Какой режим у какого детектора и почему, по всем 152 gap'ам —
 [`docs/verification-capability-matrix.ru.md`](docs/verification-capability-matrix.ru.md).
 
 `NOT_DETECTED` тоже не означает «доказанно исправлено» — только «паттерн в
@@ -856,6 +863,8 @@ out/
 | `oracle` | GAP-144 | `a varchar2:= chr(10)` -> `a varchar2 := chr(10)` в списках параметров |
 | `mssql` | GAP-087 | `[dbo].[Orders]` -> `dbo.Orders`, `[nvarchar](100)` -> `nvarchar(100)` |
 | `mssql` | GAP-126 | строки `GO` убираются, а голый `END`, закрывавший пакет, получает `;` |
+| `mssql` | GAP-149 | каждая команда перед `GO` (или перед `CREATE TABLE` в начале строки) получает `;` - без неё ora2pg теряет всё, что после |
+| `mssql` | GAP-150 | имя индекса, использованное на второй таблице, становится `<таблица>_<имя>` |
 
 ```sh
 cp -r dump/ dump.prepared/                                        # работайте с копией
@@ -895,7 +904,9 @@ ora2pg -m -i dump.prepared/schema.sql ...
 | `mssql` | GAP-100 | `CHARINDEX` переводится в нужную функцию, но с удвоенными кавычками — `position(''abc'' in x)`, что не является корректным SQL. Убирает удвоение и ничего больше |
 | `mssql` | GAP-091 | Процедура без параметров получает пустой неразбираемый блок `DECLARE ;`. Удаляет его — ровно то, что сам `ora2pg` выдаёт для той же процедуры с параметром |
 | `mssql` | GAP-125 | SSMS уточняет схемой каждое имя (`[dbo].[Orders]`); ora2pg оставляет её везде, но не создаёт, и ничего не загружается (`schema "dbo" does not exist`). Дописывает `CREATE SCHEMA IF NOT EXISTS dbo;` после заголовка для каждой схемы, которую файл использует и не создаёт |
+| `mssql` | GAP-151 | `GROUP BY a WITH ROLLUP` (и `WITH CUBE`) копируется, а PostgreSQL знает только `GROUP BY ROLLUP (a)`. Переписывает |
 | `mysql` | GAP-075 | `LIMIT смещение, количество` из MySQL копируется как есть, и PostgreSQL его отвергает (`LIMIT #,# syntax is not supported`). Переписывает в `LIMIT количество OFFSET смещение`; остальным пробелам MySQL нужно проектное решение или данные, которых в сгенерированном файле уже нет, поэтому исправлений для них нет |
+| `mysql` | GAP-152 | `GROUP BY a WITH ROLLUP` копируется в представления и подпрограммы; переписывает в `GROUP BY ROLLUP (a)` |
 
 Все семь проверены так же, как сами gap'ы: сломанный вывод не загружается
 в настоящий PostgreSQL 16, а исправленный загружается и работает.

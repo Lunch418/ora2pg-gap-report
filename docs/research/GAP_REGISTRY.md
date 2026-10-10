@@ -150,6 +150,7 @@ being after them.
 | GAP-111 | `CREATE TEMPORARY TABLE` - becomes permanent and shared between sessions | `mysql_temporary_table` | high | confirmed | 25.0 | 16 | 2026-09-26 | [gap-111](gap-111-mysql-temporary-table.md) |
 | GAP-127 | An index on a column prefix (`KEY idx (note(20))`) - breaks the file with an unclosed quote | `mysql_index_prefix` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-127](gap-127-mysql-index-prefix.md) |
 | GAP-128 | One index name on several tables - the second `CREATE INDEX` fails | `mysql_index_name_collision` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-128](gap-128-mysql-index-name-collision.md) |
+| GAP-152 | `GROUP BY ... WITH ROLLUP` - copied, PostgreSQL knows only `ROLLUP (...)` | `mysql_with_rollup` | high | confirmed | 25.0 | 16 | 2026-10-11 | [gap-152](gap-152-mysql-with-rollup.md) |
 
 ### MSSQL / T-SQL (`ora2pg -M`, `dialect="mssql"`)
 
@@ -176,6 +177,9 @@ being after them.
 | GAP-105 | `ROWVERSION` -> `bytea`, stops updating - optimistic locking breaks | `mssql_rowversion` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-105](gap-105-mssql-rowversion.md) |
 | GAP-125 | `[dbo].[Orders]` - the `dbo` schema is kept but never created, nothing loads | `mssql_schema_qualified_name` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-125](gap-125-mssql-schema-qualified-name.md) |
 | GAP-126 | A routine followed by `GO` - the `GO` goes into the body, the routine does not load | `mssql_go_separator` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-126](gap-126-mssql-go-separator.md) |
+| GAP-149 | Statements without `;` (only `GO`) - ora2pg silently drops everything after the first | `mssql_statement_terminator` | high | confirmed | 25.0 | 16 | 2026-10-11 | [gap-149](gap-149-mssql-statement-terminator.md) |
+| GAP-150 | One index name on several tables - the second `CREATE INDEX` fails | `mssql_index_name_collision` | high | confirmed | 25.0 | 16 | 2026-10-11 | [gap-150](gap-150-mssql-index-name-collision.md) |
+| GAP-151 | `GROUP BY ... WITH ROLLUP` - copied, PostgreSQL knows only `ROLLUP (...)` | `mssql_with_rollup` | high | confirmed | 25.0 | 16 | 2026-10-11 | [gap-151](gap-151-mssql-with-rollup.md) |
 
 Statuses: `confirmed` — reproduced on the stated ora2pg version and still
 current; `fixed-upstream` — ora2pg fixed the problem in a newer version

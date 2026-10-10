@@ -14,11 +14,11 @@ FUNCTION`, …), which is exactly how `ora2pg_wrapper.py` works, not
 through `SHOW_REPORT`. This is a hard requirement for the target
 audience: closed networks, air-gapped environments, the public sector.
 
-There are 149 detectors right now (the full table is in README.md,
-"Detectors"; 148 of them are tied to a registered GAP-NNN,
+There are 153 detectors right now (the full table is in README.md,
+"Detectors"; 152 of them are tied to a registered GAP-NNN,
 `dbms_utl_calls` isn't, see README.md, "Why almost everything is high"),
-split across three source dialects: 100 Oracle, 27 MySQL/MariaDB
-(`ora2pg -m`) and 21 T-SQL/SQL Server (`ora2pg -M`). Each dialect has its
+split across three source dialects: 100 Oracle, 28 MySQL/MariaDB
+(`ora2pg -m`) and 24 T-SQL/SQL Server (`ora2pg -M`). Each dialect has its
 own lexer (`plsql_lex.py`, `mysql_lex.py`, `mssql_lex.py`) and its own
 detector tuple in `core.py`, kept structurally separate so a file scanned
 under the wrong `--dialect` cannot trigger another dialect's detectors.
@@ -161,6 +161,7 @@ ora2pg_gap_report/
 │   ├── mysql_key_index.py         # KEY <name> (<cols>) -- mysqldump's own spelling, breaks CREATE TABLE
 │   ├── mysql_index_prefix.py      # KEY idx (note(20)) -- an unclosed quote swallows the rest of the file
 │   ├── mysql_index_name_collision.py  # one index name on several tables -- the second CREATE INDEX fails
+│   ├── mysql_with_rollup.py           # GROUP BY ... WITH ROLLUP (--fix)
 │   ├── mysql_spatial_index.py     # SPATIAL KEY/INDEX -- dropped, keywords misparsed as a column
 │   ├── mysql_limit_comma.py       # LIMIT n, m -- PostgreSQL rejects the comma form outright
 │   ├── mysql_replace_into.py      # REPLACE INTO -- copied verbatim, no PostgreSQL equivalent
@@ -201,6 +202,9 @@ ora2pg_gap_report/
 │   ├── mssql_computed_column.py       # a computed column is typed citext whatever it computes
 │   ├── mssql_rowversion.py            # ROWVERSION -> bytea, stops self-updating, locking breaks
 │   ├── mssql_go_separator.py          # a routine followed by GO -- the GO goes into its body (--prepare)
+│   ├── mssql_statement_terminator.py  # statements without ; -- ora2pg drops what follows (--prepare)
+│   ├── mssql_index_name_collision.py  # one index name on several tables (--prepare)
+│   ├── mssql_with_rollup.py           # GROUP BY ... WITH ROLLUP/CUBE (--fix)
 │   └── mssql_schema_qualified_name.py  # [dbo].[Orders] -- the dbo schema is never created (--fix creates it)
 ├── mssql_lex.py                 # T-SQL-dialect lexical helpers (bracket identifiers, nested
 │                               #  block comments -- the mssql_* detectors' shared base)

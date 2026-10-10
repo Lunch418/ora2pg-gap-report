@@ -4107,6 +4107,86 @@ MESSAGES: dict[str, Message] = {
             "interval '1 day' and extract(epoch from (d1 - d2)) / 86400."
         ),
     ),
+    "to_char_operator": Message(
+        ru=(
+            'TO_CHAR без формата от выражения без пробелов: TO_CHAR(a/b), TO_CHAR(a+b), TO_CHAR(-a). ora2pg 25.0 '
+            'переписывает TO_CHAR с одним аргументом в приведение к text и берёт аргумент в скобки, только если в '
+            'нём есть пробел: TO_CHAR(a / b) становится (a / b)::text, а TO_CHAR(a/b) - a/b::text, где приведение '
+            "относится только к b. PostgreSQL 16 отвергает такое выражение при выполнении ('operator does not "
+            "exist: bigint / text'); Oracle 23ai для TO_CHAR(1/4) возвращает .25. Подтверждено, "
+            'docs/research/gap-139-to-char-operator.md. Возьмите выражение в скобки: (a/b)::text.'
+        ),
+        en=(
+            'TO_CHAR without a format of an expression written without spaces: TO_CHAR(a/b), TO_CHAR(a+b), '
+            'TO_CHAR(-a). ora2pg 25.0 rewrites a one-argument TO_CHAR as a cast to text and puts the argument in '
+            'parentheses only when it has a space in it: TO_CHAR(a / b) becomes (a / b)::text, but TO_CHAR(a/b) '
+            'becomes a/b::text, where the cast binds to b alone. PostgreSQL 16 rejects the expression when it '
+            "runs ('operator does not exist: bigint / text'); Oracle 23ai returns .25 for TO_CHAR(1/4). "
+            'Confirmed, docs/research/gap-139-to-char-operator.md. Put the expression in parentheses: '
+            '(a/b)::text.'
+        ),
+    ),
+    "to_char_default_format": Message(
+        ru=(
+            'TO_CHAR без формата от даты или дробного числа: TO_CHAR(d) для переменной DATE или TIMESTAMP, '
+            'TO_CHAR(SYSDATE), TO_CHAR(v) для NUMBER(p,s), TO_CHAR(0.5). Oracle форматирует их по-своему: дату - '
+            "по NLS_DATE_FORMAT сессии ('17-MAR-26' по умолчанию), число - без ведущего нуля ('.5'). ora2pg 25.0 "
+            "превращает TO_CHAR(x) в x::text, и PostgreSQL 16 пишет '2026-03-17 00:00:00' и '0.5'. Ничего не "
+            'падает, но текст другой - а с ним и всё, что его сравнивает, разбирает или показывает. Подтверждено '
+            'живым Oracle 23ai, реальным ora2pg 25.0 и PostgreSQL 16, '
+            "docs/research/gap-140-to-char-default-format.md. Укажите формат явно: to_char(d, 'DD-MON-YY')."
+        ),
+        en=(
+            'TO_CHAR without a format of a date or a fractional number: TO_CHAR(d) with d a DATE or TIMESTAMP '
+            'variable, TO_CHAR(SYSDATE), TO_CHAR(v) with v a NUMBER(p,s), TO_CHAR(0.5). Oracle formats them its '
+            "own way: a date by the session's NLS_DATE_FORMAT ('17-MAR-26' by default), a number without a "
+            "leading zero ('.5'). ora2pg 25.0 turns TO_CHAR(x) into x::text, and PostgreSQL 16 writes '2026-03-17 "
+            "00:00:00' and '0.5'. Nothing fails, but the text differs - and with it whatever compares, parses or "
+            'shows it. Confirmed against a live Oracle 23ai, a real ora2pg 25.0 run and PostgreSQL 16, '
+            'docs/research/gap-140-to-char-default-format.md. Give the format explicitly: to_char(d, '
+            "'DD-MON-YY')."
+        ),
+    ),
+    "char_semantics": Message(
+        ru=(
+            'CHAR(n) или NCHAR(n) с n > 1 - столбец или переменная. Oracle хранит CHAR(n) дополненным пробелами: '
+            "CHAR(5) 'AB' - это 'AB   ', его LENGTH - 5, c || 'x' даёт 'AB   x', а с VARCHAR2 'AB' он не равен. "
+            'ora2pg 25.0 делает его char(n), у которого PostgreSQL 16 считает хвостовые пробелы незначащими: '
+            "LENGTH 2, 'ABx', равно. Ничего не падает; меняются длины, склейки и сравнения. Подтверждено живым "
+            'Oracle 23ai, реальным ora2pg 25.0 и PostgreSQL 16, docs/research/gap-141-char-semantics.md. '
+            'Сообщается один раз на файл: выбор - varchar(n) с явным дополнением или char(n) с проверкой мест '
+            'использования - делается один раз для схемы.'
+        ),
+        en=(
+            'CHAR(n) or NCHAR(n) with n > 1 - a column or a variable. Oracle keeps CHAR(n) blank-padded: CHAR(5) '
+            "'AB' is 'AB   ', its LENGTH is 5, c || 'x' gives 'AB   x', and compared with a VARCHAR2 'AB' it is "
+            'not equal. ora2pg 25.0 makes it char(n), whose trailing blanks PostgreSQL 16 treats as '
+            "insignificant: LENGTH 2, 'ABx', equal. Nothing fails; lengths, concatenations and comparisons "
+            'change. Confirmed against a live Oracle 23ai, a real ora2pg 25.0 run and PostgreSQL 16, '
+            'docs/research/gap-141-char-semantics.md. Reported once per file: the choice - varchar(n) with '
+            'explicit padding, or char(n) with its uses checked - is made once for the schema.'
+        ),
+    ),
+    "round_date": Message(
+        ru=(
+            "ROUND от даты: ROUND(d, 'MM') (с форматом, который принимает только ROUND даты), ROUND(d) для "
+            "переменной DATE или TIMESTAMP, ROUND(SYSDATE). TRUNC(d, 'MM') ora2pg 25.0 переписывает в "
+            "date_trunc('month', d), а ROUND копирует, и в PostgreSQL 16 нет round для timestamp ('function "
+            "round(timestamp without time zone, unknown) does not exist') - подпрограмма загружается и падает при "
+            "выполнении. Oracle 23ai для ROUND(DATE '2026-03-17', 'MM') возвращает 2026-04-01. Подтверждено, "
+            "docs/research/gap-142-round-date.md. Перепишите через date_trunc: date_trunc('day', d + interval '12 "
+            "hours') для дня, date_trunc('month', d + interval '15 days') - приблизительно для 'MM'."
+        ),
+        en=(
+            "ROUND of a date: ROUND(d, 'MM') (a format, which only a date's ROUND takes), ROUND(d) with d a DATE "
+            "or TIMESTAMP variable, ROUND(SYSDATE). ora2pg 25.0 rewrites TRUNC(d, 'MM') into date_trunc('month', "
+            "d) but copies ROUND, and PostgreSQL 16 has no round for a timestamp ('function round(timestamp "
+            "without time zone, unknown) does not exist') - the routine loads and fails when it runs. Oracle 23ai "
+            "returns 2026-04-01 for ROUND(DATE '2026-03-17', 'MM'). Confirmed, "
+            "docs/research/gap-142-round-date.md. Rewrite it with date_trunc: date_trunc('day', d + interval '12 "
+            "hours') for a day, date_trunc('month', d + interval '15 days') roughly for 'MM'."
+        ),
+    ),
     "supplied_package_call": Message(
         ru=(
             'Процедура поставляемого пакета Oracle, вызванная как оператор: '
@@ -5528,6 +5608,22 @@ REMEDIATION_HINTS: dict[str, Message] = {
         ru="Писать d + interval '1 day' и extract(epoch from (d1 - d2)) / 86400",
         en="Write d + interval '1 day' and extract(epoch from (d1 - d2)) / 86400",
     ),
+    "to_char_operator": Message(
+        ru='Взять выражение в скобки: (a/b)::text',
+        en='Put the expression in parentheses: (a/b)::text',
+    ),
+    "to_char_default_format": Message(
+        ru="Указать формат явно: to_char(d, 'DD-MON-YY')",
+        en="Give the format explicitly: to_char(d, 'DD-MON-YY')",
+    ),
+    "char_semantics": Message(
+        ru='Решить для схемы: varchar(n) с rpad(...) или char(n) с проверкой LENGTH, || и сравнений',
+        en='Decide for the schema: varchar(n) with rpad(...), or char(n) with LENGTH, || and comparisons checked',
+    ),
+    "round_date": Message(
+        ru="Переписать через date_trunc: date_trunc('day', d + interval '12 hours')",
+        en="Rewrite it with date_trunc: date_trunc('day', d + interval '12 hours')",
+    ),
     "supplied_package_call": Message(
         ru='Заменить вызов аналогом PostgreSQL или убрать его - голый вызов не загружается',
         en='Replace the call with a PostgreSQL counterpart, or remove it - a bare call does not load',
@@ -5933,6 +6029,22 @@ TITLES: dict[str, Message] = {
     "date_arithmetic": Message(
         ru='Арифметика с `DATE` (`d + 1`, `d1 - d2`) - `timestamp + integer` и `interval` вместо числа, падает при выполнении',
         en='Arithmetic on a `DATE` (`d + 1`, `d1 - d2`) - `timestamp + integer` and an `interval` for a number, fails when it runs',
+    ),
+    "to_char_operator": Message(
+        ru='`TO_CHAR(a/b)` без пробелов - становится `a/b::text`, падает при вызове',
+        en='`TO_CHAR(a/b)` without spaces - becomes `a/b::text`, fails when called',
+    ),
+    "to_char_default_format": Message(
+        ru='`TO_CHAR` даты или дроби без формата - `x::text`, текст другой',
+        en='`TO_CHAR` of a date or a fraction without a format - `x::text`, different text',
+    ),
+    "char_semantics": Message(
+        ru='`CHAR(n)` - в PostgreSQL хвостовые пробелы незначащие: `LENGTH`, склейка и сравнения другие',
+        en='`CHAR(n)` - trailing blanks are insignificant in PostgreSQL: `LENGTH`, concatenation and comparisons differ',
+    ),
+    "round_date": Message(
+        ru='`ROUND` от даты - копируется, `round(timestamp)` в PostgreSQL нет',
+        en='`ROUND` of a date - copied, PostgreSQL has no `round(timestamp)`',
     ),
     "supplied_package_call": Message(
         ru='Процедура поставляемого пакета (`DBMS_*`, `UTL_*`, `HTP`) как оператор - копируется без `CALL`, не загружается',

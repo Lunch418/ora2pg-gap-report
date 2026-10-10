@@ -29,7 +29,7 @@ mode of its own:
 ```
  schema/ (Oracle DDL, a mysqldump, an SSMS script)
     |
-    |  1. scan       138 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
+    |  1. scan       142 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
     |  2. prepare    rewrite what ora2pg's parser trips over  (--prepare)
     |  3. convert    ora2pg, once per object type             -> out/converted/
     |  4. fix        repair ora2pg's known mechanical bugs    (--fix), and what the source says
@@ -193,6 +193,10 @@ empirically against real PL/SQL code
 | `plsql_integer_subtype` | `SIMPLE_INTEGER`, `NATURAL`, `POSITIVE`, `SIGNTYPE` - copied as they are, the routine does not load; `--fix` repairs it |
 | `instr_occurrence` | `INSTR(s, sub, -1)`, `INSTR(s, sub, 1, 2)` - copied, and PostgreSQL has no `instr` without orafce |
 | `date_arithmetic` | Arithmetic on a `DATE` variable (`d + 1`, `d1 - d2`, `TRUNC(d) - 7`) - `timestamp + integer` does not exist, the difference is an interval |
+| `to_char_operator` | `TO_CHAR(a/b)` written without spaces - becomes `a/b::text`, where the cast binds to `b` alone; the call fails |
+| `to_char_default_format` | `TO_CHAR` of a date or a fraction without a format - `x::text`: `2026-03-17 00:00:00` instead of `17-MAR-26`, `0.5` instead of `.5` |
+| `char_semantics` | `CHAR(n)` - PostgreSQL ignores its trailing blanks: `LENGTH`, `\|\|` and comparisons with `VARCHAR2` differ. Once per file |
+| `round_date` | `ROUND(d, 'MM')`, `ROUND(d)` of a date - copied, and PostgreSQL has no `round(timestamp)` |
 | `schema_qualified_name` | A schema-qualified name (`"HR"."EMP"`, the way `GET_DDL` writes every one) - ora2pg keeps the schema on tables, views and sequences but never creates it, and drops it on triggers and in view bodies: nothing loads on a fresh database |
 
 The twenty-seven below are the MySQL/MariaDB dialect (`--dialect mysql`, `ora2pg
@@ -263,16 +267,16 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 138 registered gaps (`gap_registry.py`) — 90 from the Oracle source
+Of the 142 registered gaps (`gap_registry.py`) — 94 from the Oracle source
 dialect, 27 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 21 from
 T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); see "Source dialects"
-below — 132 are `high` and 6 are `medium` (`context_object`,
+below — 136 are `high` and 6 are `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 on the Oracle side, `mysql_set_type` on the MySQL side; the MSSQL batch has
 no `medium` at all) — `severity` is a `GapEntry` field now, cross-checked by
 `scripts/doctor.py` against the literal a detector's own source actually
 uses, not just a count taken on faith. Separately, there's one more detector
-on top of those 138, `dbms_utl_calls` — a
+on top of those 142, `dbms_utl_calls` — a
 classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
 no single reproducible minimal example — that's a deliberately broad
 category), also `medium`. `low` is a valid value in the
@@ -466,7 +470,7 @@ writes is the same too - `report.html`, `MIGRATION.md`, `converted/`, and
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 138 — a single
+finding was confirmed against (currently 25.0/16 for all 142 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -750,18 +754,18 @@ same pattern already in the generated code. And even so, it doesn't work
 the same way for every detector:
 
 - **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
-  `json_table`, `identity_column`, and 58 more — 61 of the 139 detectors) —
+  `json_table`, `identity_column`, and 59 more — 62 of the 143 detectors) —
   for these, re-running the detector against the output is meaningful:
   `STILL_PRESENT` if the pattern remains, `NOT_DETECTED` if it's gone.
 - **Some `ora2pg` drops or rewrites away entirely** (`read_only_table`,
-  `table_partitioning`, and 75 more — 77 of the 139) — the construct isn't
+  `table_partitioning`, and 78 more — 80 of the 143) — the construct isn't
   in the output *by definition*, regardless of whether someone fixed the
   problem by hand some other way. For these, the honest status is `NOT_VERIFIABLE`, not a
   fabricated `NOT_DETECTED`: treating absence as proof of a fix would be
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 138 gaps —
+Which mode applies to which detector, and why, for all 142 gaps —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't

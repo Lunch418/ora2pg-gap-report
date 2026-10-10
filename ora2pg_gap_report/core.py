@@ -131,6 +131,10 @@ from .detectors.float_precision import find_float_precision
 from .detectors.plsql_integer_subtype import find_plsql_integer_subtype
 from .detectors.instr_occurrence import find_instr_occurrence
 from .detectors.date_arithmetic import find_date_arithmetic
+from .detectors.to_char_operator import find_to_char_operator
+from .detectors.to_char_default_format import find_to_char_default_format
+from .detectors.char_semantics import find_char_semantics
+from .detectors.round_date import find_round_date
 from .detectors.statement_trigger import find_statement_trigger
 from .detectors.package_constant_default import find_package_constant_default
 from .detectors.table_if_not_exists import find_table_if_not_exists
@@ -251,6 +255,10 @@ _ORACLE_DETECTORS = (
     find_plsql_integer_subtype,
     find_instr_occurrence,
     find_date_arithmetic,
+    find_to_char_operator,
+    find_to_char_default_format,
+    find_char_semantics,
+    find_round_date,
 )
 # MySQL detectors -- a source-language dialect, run against a MySQL/MariaDB
 # schema/procedure dump rather than an Oracle one. Deliberately a SEPARATE

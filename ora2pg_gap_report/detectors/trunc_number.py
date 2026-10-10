@@ -54,7 +54,7 @@ def find_trunc_number(source: str) -> list[Finding]:
         numeric = (
             (len(args) == 2 and bool(_NUMBER_LITERAL_RE.match(args[1])))
             or bool(_NUMBER_LITERAL_RE.match(first))
-            or (bool(_NAME_RE.match(first)) and is_numeric(type_of(names, obj, first)))
+            or (bool(_NAME_RE.match(first)) and is_numeric(type_of(names, obj, first, m.start())))
             or bool(_NUMERIC_CALL_RE.match(first))
             or ("/" in first or "*" in first)
         )

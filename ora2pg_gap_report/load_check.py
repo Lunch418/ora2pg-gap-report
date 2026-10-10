@@ -551,10 +551,18 @@ _DETECTOR_SQLSTATES: dict[str, frozenset[str]] = {
     "schema_qualified_name": frozenset({"3F000"}),
 }
 # Gaps whose output loads and runs -- it only computes something else
-# (GAP-129..133). They never explain an error: `x := 1 / 0;` fails in both
+# (GAP-129..133, 140, 141). They never explain an error: `x := 1 / 0;` fails in both
 # databases, not because of GAP-132.
 _NEVER_AN_ERROR = frozenset(
-    {"empty_string_null", "number_without_precision", "number_as_float", "integer_division", "substr_start"}
+    {
+        "empty_string_null",
+        "number_without_precision",
+        "number_as_float",
+        "integer_division",
+        "substr_start",
+        "to_char_default_format",
+        "char_semantics",
+    }
 )
 
 

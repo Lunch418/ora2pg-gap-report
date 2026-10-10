@@ -108,6 +108,10 @@ being after them.
 | GAP-136 | `SIMPLE_INTEGER`, `NATURAL`, `POSITIVE`, `SIGNTYPE` - copied as they are, does not load | `plsql_integer_subtype` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-136](gap-136-plsql-integer-subtype.md) |
 | GAP-137 | `INSTR` with a position or an occurrence - PostgreSQL has no `instr`, fails when called | `instr_occurrence` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-137](gap-137-instr-occurrence.md) |
 | GAP-138 | Arithmetic on a `DATE` (`d + 1`, `d1 - d2`) - `timestamp + integer` and an `interval` for a number, fails when it runs | `date_arithmetic` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-138](gap-138-date-arithmetic.md) |
+| GAP-139 | `TO_CHAR(a/b)` without spaces - becomes `a/b::text`, fails when called | `to_char_operator` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-139](gap-139-to-char-operator.md) |
+| GAP-140 | `TO_CHAR` of a date or a fraction without a format - `x::text`, different text | `to_char_default_format` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-140](gap-140-to-char-default-format.md) |
+| GAP-141 | `CHAR(n)` - trailing blanks are insignificant in PostgreSQL: `LENGTH`, concatenation and comparisons differ | `char_semantics` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-141](gap-141-char-semantics.md) |
+| GAP-142 | `ROUND` of a date - copied, PostgreSQL has no `round(timestamp)` | `round_date` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-142](gap-142-round-date.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

@@ -14,10 +14,10 @@ FUNCTION`, …), which is exactly how `ora2pg_wrapper.py` works, not
 through `SHOW_REPORT`. This is a hard requirement for the target
 audience: closed networks, air-gapped environments, the public sector.
 
-There are 139 detectors right now (the full table is in README.md,
-"Detectors"; 138 of them are tied to a registered GAP-NNN,
+There are 143 detectors right now (the full table is in README.md,
+"Detectors"; 142 of them are tied to a registered GAP-NNN,
 `dbms_utl_calls` isn't, see README.md, "Why almost everything is high"),
-split across three source dialects: 90 Oracle, 27 MySQL/MariaDB
+split across three source dialects: 94 Oracle, 27 MySQL/MariaDB
 (`ora2pg -m`) and 21 T-SQL/SQL Server (`ora2pg -M`). Each dialect has its
 own lexer (`plsql_lex.py`, `mysql_lex.py`, `mssql_lex.py`) and its own
 detector tuple in `core.py`, kept structurally separate so a file scanned
@@ -141,6 +141,10 @@ ora2pg_gap_report/
 │   ├── plsql_integer_subtype.py # SIMPLE_INTEGER/NATURAL/POSITIVE/SIGNTYPE copied, does not load (--fix)
 │   ├── instr_occurrence.py      # INSTR with a position or occurrence: no instr without orafce
 │   ├── date_arithmetic.py       # d + 1, d1 - d2 on DATE variables: timestamp + integer, interval
+│   ├── to_char_operator.py      # TO_CHAR(a/b) -> a/b::text, the cast binds to b alone
+│   ├── to_char_default_format.py  # TO_CHAR(date or fraction) -> x::text, another text
+│   ├── char_semantics.py        # CHAR(n): trailing blanks insignificant in PostgreSQL (once per file)
+│   ├── round_date.py            # ROUND(d, 'MM'): no round(timestamp)
 │   ├── schema_qualified_name.py  # "HR"."EMP" -- the schema is kept, never created, dropped on triggers
 │   │                             # -- MySQL/MariaDB dialect (ora2pg -m; see mysql_lex.py) --
 │   ├── mysql_enum_type.py         # ENUM(...) -- CREATE TYPE for the synthesized type is missing

@@ -193,3 +193,19 @@ def test_recursive_cte_not_first_in_the_with_list_is_still_detected():
     # not be flagged just because it shares a WITH list with 'tree'.
     assert len(findings) == 1
     assert findings[0].snippet == "WITH TREE AS (...)"
+
+
+def test_a_later_recursive_cte_is_reported_on_its_own_line():
+    # utPLSQL's ut_suite_cache_manager: the ',' closing the previous CTE is
+    # on the line before.
+    source = (
+        "SELECT * FROM (\n"
+        "WITH seed AS (\n"
+        "  SELECT 1 AS id FROM dual),\n"
+        "  tree(id) AS (\n"
+        "  SELECT id FROM seed\n"
+        "  UNION ALL\n"
+        "  SELECT t.id + 1 FROM tree t WHERE t.id < 3)\n"
+        "SELECT id FROM tree);\n"
+    )
+    assert [f.line for f in find_recursive_with_missing_keyword(source)] == [4]

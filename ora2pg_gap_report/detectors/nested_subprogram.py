@@ -115,7 +115,7 @@ def find_nested_subprograms(source: str) -> list[Finding]:
                     detector="nested_subprogram",
                     severity="high",
                     object_name=f"{outer_object_name}.{nested_name}",
-                    line=line_at(clean, nested_start),
+                    line=line_at(clean, nested_match.start(1) if nested_match else nested_start),
                     snippet=snippet,
                     message_id="nested_subprogram",
                 )

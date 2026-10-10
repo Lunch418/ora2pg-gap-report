@@ -198,3 +198,23 @@ def test_reported_line_is_the_nested_declaration_line():
     findings = find_nested_subprograms(source)
     assert len(findings) == 1
     assert findings[0].line == 2
+
+
+def test_a_nested_routine_is_reported_on_its_own_line():
+    # oos-utils: a comment line and a blank line before the nested routine
+    # used to be where it was reported.
+    source = (
+        "CREATE OR REPLACE PROCEDURE outer_p IS\n"
+        "  --\n"
+        "\n"
+        "  PROCEDURE gg(a NUMBER) IS\n"
+        "  BEGIN\n"
+        "    NULL;\n"
+        "  END;\n"
+        "BEGIN\n"
+        "  gg(1);\n"
+        "END;\n"
+        "/\n"
+    )
+    (finding,) = find_nested_subprograms(source)
+    assert finding.line == 4

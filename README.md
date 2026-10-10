@@ -29,7 +29,7 @@ mode of its own:
 ```
  schema/ (Oracle DDL, a mysqldump, an SSMS script)
     |
-    |  1. scan       128 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
+    |  1. scan       129 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
     |  2. prepare    rewrite what ora2pg's parser trips over  (--prepare)
     |  3. convert    ora2pg, once per object type             -> out/converted/
     |  4. fix        repair ora2pg's known mechanical bugs    (--fix), and what the source says
@@ -183,6 +183,7 @@ empirically against real PL/SQL code
 | `package_type_reference` | A package type (`SUBTYPE`, `RECORD`, `TABLE OF`) used in the package's own routines without its name - ora2pg creates it in the package schema and leaves the uses bare: `type does not exist` |
 | `supplied_package_call` | A procedure of a supplied package called as a statement (`DBMS_STATS.GATHER_TABLE_STATS(...)`, `UTL_FILE.FCLOSE(f)`, `HTP.P(...)`) - copied without `CALL`, the routine does not load |
 | `dbms_sleep` | `DBMS_LOCK.SLEEP` / `DBMS_SESSION.SLEEP` - ora2pg writes `pg_sleep(n);` without `PERFORM`, the routine does not load; `--fix` repairs it |
+| `empty_string_null` | `''` compared, assigned, as a `DEFAULT` or the fallback of `NVL`/`COALESCE` - NULL in Oracle, an empty string in PostgreSQL: loads, then returns different results |
 | `schema_qualified_name` | A schema-qualified name (`"HR"."EMP"`, the way `GET_DDL` writes every one) - ora2pg keeps the schema on tables, views and sequences but never creates it, and drops it on triggers and in view bodies: nothing loads on a fresh database |
 
 The twenty-seven below are the MySQL/MariaDB dialect (`--dialect mysql`, `ora2pg
@@ -253,16 +254,16 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 128 registered gaps (`gap_registry.py`) — 80 from the Oracle source
+Of the 129 registered gaps (`gap_registry.py`) — 81 from the Oracle source
 dialect, 27 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 21 from
 T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); see "Source dialects"
-below — 122 are `high` and 6 are `medium` (`context_object`,
+below — 123 are `high` and 6 are `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 on the Oracle side, `mysql_set_type` on the MySQL side; the MSSQL batch has
 no `medium` at all) — `severity` is a `GapEntry` field now, cross-checked by
 `scripts/doctor.py` against the literal a detector's own source actually
 uses, not just a count taken on faith. Separately, there's one more detector
-on top of those 128, `dbms_utl_calls` — a
+on top of those 129, `dbms_utl_calls` — a
 classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
 no single reproducible minimal example — that's a deliberately broad
 category), also `medium`. `low` is a valid value in the
@@ -456,7 +457,7 @@ writes is the same too - `report.html`, `MIGRATION.md`, `converted/`, and
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 128 — a single
+finding was confirmed against (currently 25.0/16 for all 129 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -722,18 +723,18 @@ same pattern already in the generated code. And even so, it doesn't work
 the same way for every detector:
 
 - **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
-  `json_table`, `identity_column`, and 53 more — 56 of the 129 detectors) —
+  `json_table`, `identity_column`, and 54 more — 57 of the 130 detectors) —
   for these, re-running the detector against the output is meaningful:
   `STILL_PRESENT` if the pattern remains, `NOT_DETECTED` if it's gone.
 - **Some `ora2pg` drops or rewrites away entirely** (`read_only_table`,
-  `table_partitioning`, and 70 more — 72 of the 129) — the construct isn't
+  `table_partitioning`, and 70 more — 72 of the 130) — the construct isn't
   in the output *by definition*, regardless of whether someone fixed the
   problem by hand some other way. For these, the honest status is `NOT_VERIFIABLE`, not a
   fabricated `NOT_DETECTED`: treating absence as proof of a fix would be
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 128 gaps —
+Which mode applies to which detector, and why, for all 129 gaps —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't

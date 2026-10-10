@@ -29,7 +29,7 @@ ora2pg-gap-report --migrate out/ --load-check docker schema/
 ```
  schema/ (DDL Oracle, mysqldump, скрипт SSMS)
     |
-    |  1. скан          128 подтверждённых пробелов ora2pg  -> out/report.html, out/MIGRATION.md
+    |  1. скан          129 подтверждённых пробелов ora2pg  -> out/report.html, out/MIGRATION.md
     |  2. подготовка    переписать то, на чём спотыкается парсер ora2pg  (--prepare)
     |  3. конвертация   ora2pg, по одному запуску на тип объектов        -> out/converted/
     |  4. исправления   известные механические баги ora2pg (--fix) и то, что знает исходник
@@ -183,6 +183,7 @@ PostgreSQL. Не замена `ora2pg`, а
 | `package_type_reference` | Тип пакета (`SUBTYPE`, `RECORD`, `TABLE OF`) в подпрограммах самого пакета без его имени - ora2pg создаёт тип в схеме пакета, а использования оставляет без схемы: `type does not exist` |
 | `supplied_package_call` | Процедура поставляемого пакета, вызванная как оператор (`DBMS_STATS.GATHER_TABLE_STATS(...)`, `UTL_FILE.FCLOSE(f)`, `HTP.P(...)`) - копируется без `CALL`, подпрограмма не загружается |
 | `dbms_sleep` | `DBMS_LOCK.SLEEP` / `DBMS_SESSION.SLEEP` - ora2pg пишет `pg_sleep(n);` без `PERFORM`, подпрограмма не загружается; `--fix` это чинит |
+| `empty_string_null` | `''` в сравнении, присваивании, `DEFAULT` или как запасное значение `NVL`/`COALESCE` - в Oracle это NULL, в PostgreSQL пустая строка: загружается и возвращает другие результаты |
 | `schema_qualified_name` | Имя со схемой (`"HR"."EMP"`, так `GET_DDL` пишет каждое) - ora2pg оставляет схему у таблиц, представлений и последовательностей, но не создаёт её, а в триггерах и телах представлений убирает: на чистой базе ничего не загружается |
 
 Двадцать семь детекторов ниже — диалект MySQL/MariaDB (`--dialect mysql`,
@@ -252,15 +253,15 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 
 ### Почему почти всё `high`
 
-Из 128 зарегистрированных gap'ов (`gap_registry.py`) — 80 из исходного
+Из 129 зарегистрированных gap'ов (`gap_registry.py`) — 81 из исходного
 диалекта Oracle, 27 из MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) и 21
 из T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); см. «Исходные
-диалекты» ниже — 113 имеют severity `high` и 6 — `medium` (`context_object`,
+диалекты» ниже — 123 имеют severity `high` и 6 — `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 со стороны Oracle, `mysql_set_type` со стороны MySQL; в партии MSSQL
 `medium` нет вовсе). `severity` — поле `GapEntry`, и `scripts/doctor.py`
 сверяет его с литералом, который реально использует исходник детектора, а
-не просто со счётчиком, принятым на веру. Отдельно от этих 128 есть ещё
+не просто со счётчиком, принятым на веру. Отдельно от этих 129 есть ещё
 один детектор, `dbms_utl_calls` — классификатор вызовов `DBMS_*`/`UTL_*`,
 не привязанный к конкретному GAP-NNN (у него нет одного воспроизводимого
 минимального примера — это намеренно широкая категория), тоже `medium`.
@@ -454,7 +455,7 @@ ora2pg-gap-report --tui path/to/schema_dump/   # открывается там
 `--explain GAP-023` (или просто `--explain 23`) печатает research-документ
 конкретного gap'а из реестра — конструкцию, реальный вывод `ora2pg`,
 наблюдаемую проблему, вердикт и версии `ora2pg`/PostgreSQL, на которых
-находка подтверждена (сейчас 25.0/16 у всех 128 — единая версия, потому
+находка подтверждена (сейчас 25.0/16 у всех 129 — единая версия, потому
 что второй пока не было; `gap_registry.py` уже готов хранить разные версии
 для будущих находок) — без сканирования файлов:
 
@@ -720,11 +721,11 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
 детекторов одинаково:
 
 - **Часть конструкций `ora2pg` копирует в вывод как есть** (`cross_apply`,
-  `json_table`, `identity_column` и ещё 53 — 56 из 129 детекторов) — для
+  `json_table`, `identity_column` и ещё 54 — 57 из 130 детекторов) — для
   них повторный прогон детектора по выводу осмыслен: `STILL_PRESENT`,
   если паттерн остался, `NOT_DETECTED`, если пропал.
 - **Часть `ora2pg` молча выбрасывает или переписывает во что-то другое**
-  (`read_only_table`, `table_partitioning` и ещё 70 — 72 из 129) —
+  (`read_only_table`, `table_partitioning` и ещё 70 — 72 из 130) —
   конструкции в выводе нет *по определению*, независимо от того, починил ли
   кто-то проблему вручную другим способом. Для них честный статус —
   `NOT_VERIFIABLE`, а не фиктивный `NOT_DETECTED`: считать отсутствие
@@ -732,7 +733,7 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
   которой этот проект специально избегает (см. «Почему почти всё `high`»
   выше).
 
-Какой режим у какого детектора и почему, по всем 128 gap'ам —
+Какой режим у какого детектора и почему, по всем 129 gap'ам —
 [`docs/verification-capability-matrix.ru.md`](docs/verification-capability-matrix.ru.md).
 
 `NOT_DETECTED` тоже не означает «доказанно исправлено» — только «паттерн в

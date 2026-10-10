@@ -3907,6 +3907,31 @@ MESSAGES: dict[str, Message] = {
             "the package's schema, or put the schema on the function's search_path."
         ),
     ),
+    "empty_string_null": Message(
+        ru=(
+            "Пустая строка '' там, где Oracle читает её как NULL: сравнение (x = '', x <> ''), присваивание "
+            "(v := ''), DEFAULT '' или запасное значение NVL/COALESCE (NVL(x, '')). В Oracle '' - это NULL, в "
+            "PostgreSQL - обычная пустая строка. ora2pg 25.0 копирует всё это как есть (NULL_EQUAL_EMPTY по "
+            "умолчанию выключен), код загружается без ошибок и ведёт себя иначе: x = '' в Oracle никогда не "
+            "истинно, в PostgreSQL истинно для пустой строки; после v := '' проверка v IS NULL истинна в Oracle "
+            "и ложна в PostgreSQL; DEFAULT '' заполняет столбец NULL в Oracle и '' в PostgreSQL; NVL(p, '') "
+            "возвращает NULL в Oracle и '' в PostgreSQL. Подтверждено живым Oracle 23ai, реальным ora2pg 25.0 "
+            "и PostgreSQL 16, docs/research/gap-129-empty-string-null.md. Замените '' на NULL и сравнение на "
+            "IS NULL (или x = '' на coalesce(x, '') = '', если пустые строки в данных возможны)."
+        ),
+        en=(
+            "An empty string '' where Oracle reads it as NULL: compared (x = '', x <> ''), assigned (v := ''), "
+            "a DEFAULT '' or the fallback of NVL/COALESCE (NVL(x, '')). In Oracle '' is NULL; in PostgreSQL it "
+            "is an ordinary empty string. ora2pg 25.0 copies all of these as they are (NULL_EQUAL_EMPTY is off "
+            "by default), and the code loads with no error and then behaves differently: x = '' is never true "
+            "in Oracle and true for an empty string in PostgreSQL; after v := '', v IS NULL is true in Oracle "
+            "and false in PostgreSQL; DEFAULT '' fills the column with NULL in Oracle and '' in PostgreSQL; "
+            "NVL(p, '') returns NULL in Oracle and '' in PostgreSQL. Confirmed against a live Oracle 23ai, a "
+            "real ora2pg 25.0 run and PostgreSQL 16, docs/research/gap-129-empty-string-null.md. Write NULL "
+            "for '' and IS NULL for the comparison (or coalesce(x, '') = '' for x = '' if the data can hold "
+            "empty strings)."
+        ),
+    ),
     "supplied_package_call": Message(
         ru=(
             'Процедура поставляемого пакета Oracle, вызванная как оператор: '
@@ -5288,6 +5313,10 @@ REMEDIATION_HINTS: dict[str, Message] = {
         ru='Дописать к типу схему пакета (pkg.t) или добавить её в search_path функции',
         en="Qualify the type with the package's schema (pkg.t), or put it on the function's search_path",
     ),
+    "empty_string_null": Message(
+        ru="Заменить '' на NULL, а сравнение с '' - на IS NULL",
+        en="Write NULL for '' and IS NULL for the comparison with ''",
+    ),
     "supplied_package_call": Message(
         ru='Заменить вызов аналогом PostgreSQL или убрать его - голый вызов не загружается',
         en='Replace the call with a PostgreSQL counterpart, or remove it - a bare call does not load',
@@ -5653,6 +5682,10 @@ TITLES: dict[str, Message] = {
     "package_type_reference": Message(
         ru='Тип пакета в его подпрограммах без имени пакета - `type does not exist`',
         en='A package type used in its routines without the package name - `type does not exist`',
+    ),
+    "empty_string_null": Message(
+        ru="`''` в сравнении, присваивании, `DEFAULT` или `NVL` - в Oracle это NULL, в PostgreSQL пустая строка; загружается и ведёт себя иначе",
+        en="`''` compared, assigned, in a `DEFAULT` or `NVL` - NULL in Oracle, an empty string in PostgreSQL; loads and behaves differently",
     ),
     "supplied_package_call": Message(
         ru='Процедура поставляемого пакета (`DBMS_*`, `UTL_*`, `HTP`) как оператор - копируется без `CALL`, не загружается',

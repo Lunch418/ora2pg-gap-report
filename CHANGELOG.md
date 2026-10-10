@@ -11,6 +11,14 @@ patch for fixes to existing ones.
 
 ### Added
 
+- **GAP-129 `empty_string_null`: `''` that Oracle reads as NULL.** The
+  first gap where nothing fails: `x = ''`, `v := ''`, `DEFAULT ''`,
+  `NVL(x, '')` / `COALESCE(x, '')` are copied by ora2pg 25.0 as they are
+  (NVL as `coalesce`), load in PostgreSQL 16 with no error and then
+  return different results - on a live Oracle 23ai `gx_e2('')` is
+  `other`, in PostgreSQL `empty`. The other differences of the same kind
+  (concatenation with NULL, `LENGTH('')`) depend on the data and are
+  described in the research doc, not flagged.
 - **`--pg-version N`: the target PostgreSQL version.** Findings that
   version no longer has a problem with are left out, and stderr says
   which; `--load-check docker` and `--migrate` load into `postgres:N`.

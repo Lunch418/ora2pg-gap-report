@@ -121,6 +121,7 @@ from .detectors.package_type_anchor import find_package_type_anchor
 from .detectors.package_type_reference import find_package_type_reference
 from .detectors.supplied_package_call import find_supplied_package_call
 from .detectors.dbms_sleep import find_dbms_sleep
+from .detectors.empty_string_null import find_empty_string_null
 from .detectors.statement_trigger import find_statement_trigger
 from .detectors.package_constant_default import find_package_constant_default
 from .detectors.table_if_not_exists import find_table_if_not_exists
@@ -231,6 +232,7 @@ _ORACLE_DETECTORS = (
     find_supplied_package_call,
     find_dbms_sleep,
     find_schema_qualified_name,
+    find_empty_string_null,
 )
 # MySQL detectors -- a source-language dialect, run against a MySQL/MariaDB
 # schema/procedure dump rather than an Oracle one. Deliberately a SEPARATE

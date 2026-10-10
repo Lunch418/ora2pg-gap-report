@@ -1102,6 +1102,7 @@ _UI: dict[str, dict[str, str]] = {
     "checklist_line": {"ru": "(строка {lines})", "en": "(line {lines})"},
     "checklist_lines": {"ru": "(строки {lines})", "en": "(lines {lines})"},
     "checklist_gone": {"ru": "больше не найдено", "en": "no longer found"},
+    "checklist_moved": {"ru": "раньше было: {where}", "en": "was: {where}"},
     "checklist_not_scanned": {"ru": "файл в этот раз не сканировался", "en": "file not scanned this time"},
     "checklist_not_ours": {
         "ru": "[red]{path} уже существует и не похож на чеклист ora2pg-gap-report - не перезаписываю. "

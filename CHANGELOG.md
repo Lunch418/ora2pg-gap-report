@@ -29,6 +29,11 @@ patch for fixes to existing ones.
   HTML report's load card and in the JSON (`caused_by`, `echoes`,
   `missing`).
   The JSON's `schema_version` is now 2.
+- **The checklist keeps a tick through a rename.** Items were keyed by
+  object and file, so renaming a file or splitting a package turned a
+  ticked item into a new, open one. A tick now follows its object into a
+  renamed or moved file, and a routine into another package, marked
+  "was: ..." - only when the match is unambiguous.
 
 ### Changed
 

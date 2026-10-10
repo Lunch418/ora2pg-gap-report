@@ -157,3 +157,61 @@ def test_cli_checklist_to_stdout(capsys):
     assert out.startswith(MARKER)
     assert "Сделано: 0 из 1" in out
     assert os.listdir(".") == ["pkg.sql"]
+
+
+# --- ticks that follow a renamed file or a moved routine ----------------------
+
+
+def _ticked_checklist(tmp_path, findings, scanned):
+    from ora2pg_gap_report.checklist import read_previous, write_checklist
+
+    out = tmp_path / "MIGRATION.md"
+    buffer = io.StringIO()
+    write_checklist(findings, buffer, lang="en", scanned_files=scanned)
+    out.write_text(buffer.getvalue().replace("- [ ]", "- [x]"), encoding="utf-8")
+    return read_previous(out)
+
+
+def _render_after(findings, previous, scanned):
+    from ora2pg_gap_report.checklist import write_checklist
+
+    buffer = io.StringIO()
+    write_checklist(findings, buffer, lang="en", previous=previous, scanned_files=scanned)
+    return buffer.getvalue()
+
+
+def _found_in(detector, obj, file, line=1):
+    from ora2pg_gap_report.models import Finding
+
+    return Finding(detector=detector, severity="high", object_name=obj, line=line, snippet="x",
+                   message_id=detector, source_file=file)
+
+
+def test_a_tick_follows_its_object_into_a_renamed_file(tmp_path):
+    previous = _ticked_checklist(tmp_path, [_found_in("autonomous_tx", "PKG.LOG", "old/pkg.pkb")], ["old/pkg.pkb"])
+    text = _render_after([_found_in("autonomous_tx", "PKG.LOG", "new/pkg_body.sql")], previous, ["new/pkg_body.sql"])
+    assert "- [x] `PKG.LOG` - `new/pkg_body.sql`" in text
+    assert "was: `old/pkg.pkb`" in text
+    assert text.count("PKG.LOG") == 2  # the item and its key comment, not a second item for the old file
+    assert "Done: 1 of 1" in text
+
+
+def test_a_tick_follows_a_routine_into_another_package(tmp_path):
+    previous = _ticked_checklist(tmp_path, [_found_in("autonomous_tx", "PKG.LOG", "a.pkb")], ["a.pkb"])
+    text = _render_after([_found_in("autonomous_tx", "PKG_LOGGING.LOG", "a.pkb")], previous, ["a.pkb"])
+    assert "- [x] `PKG_LOGGING.LOG`" in text and "was: `PKG.LOG`" in text
+
+
+def test_an_ambiguous_move_carries_nothing(tmp_path):
+    # Two old candidates for one new item: no guessing.
+    previous = _ticked_checklist(
+        tmp_path, [_found_in("autonomous_tx", "A.LOG", "a.pkb"), _found_in("autonomous_tx", "B.LOG", "a.pkb")], ["a.pkb"]
+    )
+    text = _render_after([_found_in("autonomous_tx", "C.LOG", "a.pkb")], previous, ["a.pkb"])
+    assert "- [ ] `C.LOG`" in text and "was:" not in text
+
+
+def test_a_bare_name_is_not_moved_by_its_last_part(tmp_path):
+    previous = _ticked_checklist(tmp_path, [_found_in("authid_clause", "P", "a.sql")], ["a.sql"])
+    text = _render_after([_found_in("authid_clause", "Q", "a.sql")], previous, ["a.sql"])
+    assert "- [ ] `Q`" in text and "was:" not in text

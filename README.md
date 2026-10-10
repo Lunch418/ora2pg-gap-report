@@ -633,8 +633,12 @@ ticked stays ticked, an item no longer found in a file this run scanned
 again ticks itself ("no longer found"), and an item in a file not scanned
 this time keeps its state, so scanning a subset never marks the rest done.
 Run it from the same directory each time: items are keyed by object and
-by file path relative to it. An existing file that is not a checklist this
-tool wrote is never overwritten.
+by file path relative to it. A tick follows its object when the file is
+renamed or moved, and a routine when its package is split or renamed
+(`PKG.LOG` -> `PKG_LOGGING.LOG`), marked "was: ..." - but only when the
+match is unambiguous; otherwise the old item and the new one both stay.
+An existing file that is not a checklist this tool wrote is never
+overwritten.
 
 ### CI gate
 

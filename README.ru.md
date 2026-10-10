@@ -716,7 +716,7 @@ echo $?   # 1, если нашлась хотя бы одна находка hig
 загрузку SARIF в code scanning и порог:
 
 ```yaml
-- uses: Lunch418/ora2pg-gap-report@v0.18.1
+- uses: Lunch418/ora2pg-gap-report@v0.19.0
   with:
     paths: schema/
     fail-on: high

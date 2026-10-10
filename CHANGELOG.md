@@ -9,6 +9,22 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The older detectors, checked on the same ~240,000 lines** of other
+  people's PL/SQL (Alexandria, utPLSQL, oos-utils, Logger, Oracle's
+  sample schemas):
+  - `alt_quote_literal` took a `q` at the end of an ordinary string
+    (`'... a CD-ROM q'||'ue ...'`, Oracle's sample schemas) for `q'...'`
+    quoting: 64 of 699 findings. It now reads literals the way Oracle
+    does;
+  - `nested_subprogram` reported a nested routine on the comment or
+    blank line above it, and `recursive_with` a later CTE on the line of
+    the comma before it; both now point at the name.
+
+  The rest were read finding by finding and match what their research
+  documents describe.
+
 ## [0.18.0] - 2026-10-10
 
 ### Added

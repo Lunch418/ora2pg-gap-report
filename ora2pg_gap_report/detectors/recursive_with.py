@@ -81,7 +81,7 @@ def find_recursive_with_missing_keyword(source: str) -> list[Finding]:
             if next_m is None:
                 break
             next_body_start = next_m.end() - 1
-            ctes.append((next_m.group(1), next_m.start(), next_body_start))
+            ctes.append((next_m.group(1), next_m.start(1), next_body_start))
             pos = skip_balanced_parens(visible, next_body_start)
 
         for cte_name, name_start, body_start in ctes:

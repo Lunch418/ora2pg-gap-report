@@ -60,3 +60,15 @@ def test_real_open_source_utplsql_q_literals_are_flagged():
     findings = find_alt_quote_literals(source)
     assert len(findings) == 3
     assert [f.line for f in findings] == [1, 2, 3]
+
+
+def test_a_q_at_the_end_of_an_ordinary_string_is_not_alternative_quoting():
+    # Oracle's sample schemas (oe_p_e.sql) split a word across two literals:
+    # '... un CD-ROM q'||'ue contiene ...'.
+    source = (
+        "INSERT INTO t VALUES (UNISTR(\n"
+        "'El ajuste incluye un CD-ROM q'||\n"
+        "'ue contiene un software'));\n"
+    )
+    assert find_alt_quote_literals(source) == []
+    assert len(find_alt_quote_literals(source + "x := q'[it's]';\n")) == 1

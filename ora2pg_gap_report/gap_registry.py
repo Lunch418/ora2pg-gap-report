@@ -1002,7 +1002,7 @@ GapEntry(
         ("test_dialect_corpus_gaps.py",),
         severity="high",
         failure_stage="conversion",
-        dialect="mssql", last_verified="2026-10-11"),
+        dialect="mssql", last_verified="2026-10-10"),
     GapEntry(
         "150",
         "mssql_index_name_collision",
@@ -1010,7 +1010,7 @@ GapEntry(
         ("test_dialect_corpus_gaps.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="mssql", last_verified="2026-10-11"),
+        dialect="mssql", last_verified="2026-10-10"),
     GapEntry(
         "151",
         "mssql_with_rollup",
@@ -1018,7 +1018,7 @@ GapEntry(
         ("test_dialect_corpus_gaps.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="mssql", last_verified="2026-10-11"),
+        dialect="mssql", last_verified="2026-10-10"),
     GapEntry(
         "152",
         "mysql_with_rollup",
@@ -1026,7 +1026,7 @@ GapEntry(
         ("test_dialect_corpus_gaps.py",),
         severity="high",
         failure_stage="deployment",
-        dialect="mysql", last_verified="2026-10-11"),
+        dialect="mysql", last_verified="2026-10-10"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

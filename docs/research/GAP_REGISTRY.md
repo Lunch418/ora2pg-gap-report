@@ -98,6 +98,7 @@ being after them.
 | GAP-122 | A supplied package's procedure (`DBMS_*`, `UTL_*`, `HTP`) as a statement - copied without `CALL`, does not load | `supplied_package_call` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-122](gap-122-supplied-package-call.md) |
 | GAP-123 | `DBMS_LOCK.SLEEP` - becomes `pg_sleep(n);` without `PERFORM`, does not load | `dbms_sleep` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-123](gap-123-dbms-sleep.md) |
 | GAP-124 | A schema-qualified name (`"HR"."EMP"`) - the schema is kept but never created, and dropped on triggers | `schema_qualified_name` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-124](gap-124-schema-qualified-name.md) |
+| GAP-129 | `''` compared, assigned, in a `DEFAULT` or `NVL` - NULL in Oracle, an empty string in PostgreSQL; loads and behaves differently | `empty_string_null` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-129](gap-129-empty-string-null.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

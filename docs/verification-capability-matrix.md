@@ -10,7 +10,7 @@ something's unimplemented, but because the question itself, "is this
 still in the output," is a tautology for them: the construct is
 guaranteed to never appear in the output on any migration, regardless of
 whether someone fixed it by hand or not. `verification.py`'s docstring
-explains this in detail; this is a table for each of the 128 gaps, so
+explains this in detail; this is a table for each of the 129 gaps, so
 nobody has to read the code just to answer "can this specific one be
 verified."
 
@@ -125,6 +125,7 @@ verified."
 | 122 | `supplied_package_call` | `verbatim` | The call statement is copied unchanged. |
 | 123 | `dbms_sleep` | `not_verifiable` | DBMS_LOCK.SLEEP becomes a bare pg_sleep, which --fix repairs. |
 | 124 | `schema_qualified_name` | `verbatim` | The schema stays on tables, views and sequences; gone once the file creates the schema. |
+| 129 | `empty_string_null` | `verbatim` | Copied unchanged; NVL(x, '') becomes coalesce(x, ''), which is found too. |
 
 ### MySQL/MariaDB (`ora2pg -m`)
 
@@ -184,7 +185,7 @@ verified."
 | 125 | `mssql_schema_qualified_name` | `verbatim` | The schema stays on every name; gone once the file creates it (`--fix` does). |
 | 126 | `mssql_go_separator` | `verbatim` | The GO stays, inside the routine body. |
 
-Totals among the 128 gaps themselves: 55 `verbatim`, 72 `not_verifiable`
+Totals among the 129 gaps themselves: 56 `verbatim`, 72 `not_verifiable`
 (including `autonomous_tx`, but for a different reason, see above), 1
 `generated_only` (`connect_by`).
 

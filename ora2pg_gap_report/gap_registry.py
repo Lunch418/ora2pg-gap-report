@@ -824,6 +824,16 @@ GapEntry(
         severity="high",
         failure_stage="deployment",
         dialect="mysql", last_verified="2026-10-08"),
+    # GAP-129: the critique's "runtime blindness" -- what loads and then
+    # behaves differently. Checked on a live Oracle 23ai and PostgreSQL 16.
+    GapEntry(
+        "129",
+        "empty_string_null",
+        "empty-string-null",
+        ("test_empty_string_null.py",),
+        severity="high",
+        failure_stage="semantic",
+        dialect="oracle", last_verified="2026-10-10"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

@@ -236,6 +236,7 @@ VERIFICATION_MODE: dict[str, str] = {
     "package_type_reference": NOT_VERIFIABLE,  # the declaration becomes CREATE TYPE/DOMAIN; the bare use is all that is left
     "supplied_package_call": VERBATIM,  # the call statement is copied unchanged
     "schema_qualified_name": VERBATIM,  # the schema stays on tables, views, sequences; gone once CREATE SCHEMA is in the file
+    "empty_string_null": VERBATIM,  # copied unchanged; NVL(x, '') becomes coalesce(x, ''), also found
     "dbms_sleep": NOT_VERIFIABLE,  # DBMS_LOCK.SLEEP becomes a bare pg_sleep, which --fix repairs
     "package_constant_default": NOT_VERIFIABLE,  # the default survives, but outside any package the detector reads
     # GENERATED_ONLY -- already only ever analyzes generated output

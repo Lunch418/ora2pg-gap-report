@@ -97,6 +97,7 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-122 | Процедура поставляемого пакета (`DBMS_*`, `UTL_*`, `HTP`) как оператор - копируется без `CALL`, не загружается | `supplied_package_call` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-122](gap-122-supplied-package-call.md) |
 | GAP-123 | `DBMS_LOCK.SLEEP` - становится `pg_sleep(n);` без `PERFORM`, не загружается | `dbms_sleep` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-123](gap-123-dbms-sleep.md) |
 | GAP-124 | Имя со схемой (`"HR"."EMP"`) - схема остаётся, но не создаётся, в триггерах пропадает | `schema_qualified_name` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-124](gap-124-schema-qualified-name.md) |
+| GAP-129 | `''` в сравнении, присваивании, `DEFAULT` или `NVL` - в Oracle это NULL, в PostgreSQL пустая строка; загружается и ведёт себя иначе | `empty_string_null` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-129](gap-129-empty-string-null.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

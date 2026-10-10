@@ -38,6 +38,6 @@ ERROR:  operator does not exist: bigint / text
 
 ## Verdict
 
-**Gap confirmed, severity high, failure_stage runtime.** Put the expression in parentheses: `(a/b)::text`. The detector flags a one-argument `TO_CHAR` whose argument has no space and an operator outside parentheses - exactly the shape ora2pg leaves unparenthesized.
+**Gap confirmed, severity high, failure_stage runtime.** Put the expression in parentheses: `(a/b)::text`. ora2pg decides on the space after hiding each function call behind a placeholder, so `TO_CHAR(abs(n - 1)+1)` and `TO_CHAR((n+1))` lose their parentheses too; the detector applies the same rule. Found in the Alexandria PL/SQL library: `to_char(n+1)`, `to_char(i+1)`, `to_char(3+2*i)`.
 
 Implemented: `ora2pg_gap_report/detectors/to_char_operator.py`.

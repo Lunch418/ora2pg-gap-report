@@ -83,6 +83,14 @@ table - `IS NULL` on a value that came in as `''`, concatenation with NULL,
 `LENGTH('')` - depend on the data, not on the code, and cannot be told
 from ordinary use by reading the source; they are left to testing.
 
+An assignment (`v := ''`) or a parameter's default (`p VARCHAR2 DEFAULT
+''`) is flagged only where the same routine - or, for a package variable,
+the package - asks whether that name is NULL (`IS [NOT] NULL`, `NVL`,
+`COALESCE`, `DECODE`, `LENGTH`): `v := ''; v := v || x` is the same in
+both, and on real code (the Alexandria PL/SQL library, oos-utils,
+utPLSQL) that was most of them. A column's `DEFAULT ''`, a comparison and
+`NVL(x, '')` are always flagged.
+
 There is no mechanical fix: whether `x = ''` should become `x IS NULL` or
 `coalesce(x, '') = ''` depends on whether the data in PostgreSQL can hold
 empty strings. `--verify` re-runs the detector on the output: ora2pg keeps

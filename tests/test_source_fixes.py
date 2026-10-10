@@ -196,3 +196,43 @@ def test_enum_before_and_after(tmp_path):
     fixed, _ = sf.restore_enum_types(output, sf.mysql_enum_types(MYSQL))
     (tmp_path / "after").mkdir()
     assert _load(tmp_path / "after", fixed, check, dialect="mysql") == ()
+
+
+def test_a_constant_holding_backslashes_is_written_as_it_is():
+    # Found running --migrate on the Alexandria PL/SQL library: a package
+    # constant holding a regular expression broke the repair ("bad escape").
+    source = "CREATE OR REPLACE PACKAGE p AS\n  c_word CONSTANT VARCHAR2(10) := '\\w+\\1';\nEND p;\n/\n"
+    line = "    RETURN regexp_replace(s, current_setting('p.c_word')::varchar(10), 'x');"
+    fixed, count = sf.restore_constants(line, sf.package_constants(source))
+    assert (fixed, count) == ("    RETURN regexp_replace(s, '\\w+\\1'::varchar(10), 'x');", 1)
+
+
+ALEXANDRIA = """CREATE OR REPLACE PACKAGE BODY amazon_aws_s3_pkg AS
+  g_aws_namespace_s3       constant varchar2(255) := 'http://s3.amazonaws.com/doc/2006-03-01/';
+  g_aws_namespace_s3_full  constant varchar2(255) := 'xmlns="' || g_aws_namespace_s3 || '"';
+END amazon_aws_s3_pkg;
+/
+"""
+
+
+@pytest.mark.parametrize(
+    "spliced",
+    [
+        # two shapes ora2pg 25.0 wrote for the same line of the Alexandria
+        # PL/SQL library, in two runs
+        "current_setting('amazon_aws_s3_pkg.g_aws_namespace_s3_full')::varchar(255)'xmlns=\"'||g_aws_namespace_s3||",
+        "current_setting('amazon_aws_s3_pkg.g_aws_namespace_s3_full')::varchar(255)'xmlns=\"'||"
+        "current_setting('amazon_aws_s3_pkg.g_aws_namespace_s3')::varchar(255)||",
+    ],
+)
+def test_a_spliced_chain_with_a_literal_in_it(spliced):
+    line = f"    if l_xml.existsnode('/LocationConstraint', {spliced}) = 1 then"
+    fixed, count = sf.restore_constants(line, sf.package_constants(ALEXANDRIA))
+    assert fixed == "    if l_xml.existsnode('/LocationConstraint', 'xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"') = 1 then"
+    assert count == 1
+
+
+def test_a_read_followed_by_a_concatenation_is_not_a_spliced_chain():
+    line = "    RETURN current_setting('amazon_aws_s3_pkg.g_aws_namespace_s3')::varchar(255)||'x';"
+    fixed, _ = sf.restore_constants(line, sf.package_constants(ALEXANDRIA))
+    assert fixed == "    RETURN 'http://s3.amazonaws.com/doc/2006-03-01/'::varchar(255)||'x';"

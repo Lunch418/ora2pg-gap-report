@@ -66,9 +66,28 @@ def test_trunc_number_only_when_the_argument_is_a_number(call, flagged):
     assert bool(find_trunc_number(_routine(f"RETURN {call};"))) is flagged
 
 
-def test_trunc_number_found_in_logger():
-    found = _found(find_trunc_number, (SAMPLES / "logger.pkb").read_text(encoding="utf-8"))
-    assert [(line, snippet) for _, line, snippet in found] == [(562, "TRUNC((p_date_stop-p_date_start)/7)")]
+@pytest.mark.parametrize(
+    "call",
+    [
+        "TRUNC((n - 1) / 26)",  # parentheses that are not a call: ora2pg keeps TRUNC
+        "TRUNC(power(10, (floor(n) + 1)) / 3)",
+        "TRUNC(n * (n + 1))",
+    ],
+)
+def test_trunc_number_leaves_what_ora2pg_leaves(call):
+    # Checked on ora2pg 25.0: it hides each function call behind a
+    # placeholder and rewrites TRUNC only when no other parentheses remain.
+    assert find_trunc_number(_routine(f"RETURN {call};")) == []
+
+
+@pytest.mark.parametrize("call", ["TRUNC(abs(n) / 2)", "TRUNC(n / power(2, n))", "NVL(TRUNC(n), 0)"])
+def test_trunc_number_takes_calls_inside(call):
+    assert find_trunc_number(_routine(f"RETURN {call};"))
+
+
+def test_trunc_number_not_in_logger():
+    # trunc((p_date_stop-p_date_start)/7): ora2pg keeps it (date_arithmetic's).
+    assert find_trunc_number((SAMPLES / "logger.pkb").read_text(encoding="utf-8")) == []
 
 
 # --- GAP-135: FLOAT(n) ---------------------------------------------------------------

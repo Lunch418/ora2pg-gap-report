@@ -135,3 +135,17 @@ def test_the_output_loads_and_then_behaves_differently(tmp_path):
     assert [e.sqlstate for e in errors] == ["P0004"] * 4  # every one differs, none fails to load
     (tmp_path / "postgresql").mkdir()
     assert _load(tmp_path / "postgresql", output, SETUP, AS_IN_POSTGRESQL) == ()
+
+
+def test_an_assignment_counts_only_where_the_name_is_tested_for_null():
+    reset = (
+        "CREATE OR REPLACE PROCEDURE p IS\n  v VARCHAR2(100);\nBEGIN\n"
+        "  v := '';\n  v := v || 'x';\nEND;\n/\n"
+    )
+    assert _found(reset) == []  # NULL || 'x' and '' || 'x' are both 'x'
+    tested = reset.replace("  v := v || 'x';\n", "  IF v IS NULL THEN NULL; END IF;\n")
+    assert [s for _, _, s in _found(tested)] == [":= ''"]
+    default = "CREATE OR REPLACE PROCEDURE p(a VARCHAR2 DEFAULT '') IS\nBEGIN\n  NULL;\nEND;\n/\n"
+    assert _found(default) == []
+    assert _found(default.replace("  NULL;", "  x := NVL(a, 'none');"))
+    assert _found("CREATE TABLE t (note VARCHAR2(20) DEFAULT '');\n")  # a column: always

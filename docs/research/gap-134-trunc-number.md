@@ -41,7 +41,9 @@ Both functions load, and the first call fails:
 ERROR:  function date_trunc(unknown, bigint) does not exist
 ```
 
-Found in OraOpenSource Logger: `trunc((p_date_stop-p_date_start)/7) || ' weeks'`.
+Found in OraOpenSource oos-utils (`trunc(t_pad / 2)`, `trunc(p_x / power(2, p_y))`) and the Alexandria PL/SQL library (`trunc(tmp / 2)`, `trunc(abs(l_hours))`).
+
+Not every `TRUNC` is rewritten: ora2pg first hides each function call behind a placeholder and takes `TRUNC` only when no other parentheses are left in it. `TRUNC((n - 1) / 26)` is kept as it is, and works; the detector follows the same rule.
 
 **Reproducible: YES.** Ora2Pg version: 25.0, PostgreSQL 16, Oracle 23ai.
 

@@ -37,7 +37,10 @@ from .core import (
 from .effort_estimator import estimate_hours, ordered_counts, summarize_by_severity
 from .load_check import LoadCheckError, order_files, parse_target, run_load_check
 from .gap_registry import (
+    CONFIRMED_ON_POSTGRESQL,
     GAPS,
+    applies_on,
+    gap_by_detector,
     gap_by_number,
     normalize_gap_number,
     research_doc_is_translated,
@@ -177,6 +180,14 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
         help=i18n.t(lang, "help_dialect"),
     )
     parser.add_argument(
+        "--pg-version",
+        type=int,
+        choices=range(12, 19),
+        metavar="N",
+        default=None,
+        help=i18n.t(lang, "help_pg_version"),
+    )
+    parser.add_argument(
         "--severity",
         choices=("high", "medium", "low"),
         default=None,
@@ -291,6 +302,40 @@ def _ora2pg_version_warning(ora2pg_bin: str, lang: str) -> str | None:
         installed=installed,
         verified=", ".join(sorted(verified_ora2pg_versions())),
     )
+
+
+def _for_target_version(
+    findings: list[Finding], pg_version: int | None, err_console: Console, lang: str
+) -> list[Finding]:
+    """`findings` without those --pg-version's PostgreSQL no longer has a
+    problem with, and a line on stderr saying what was left out -- or, for
+    a version older than the one the gaps were confirmed on, a line saying
+    so. Unchanged without --pg-version."""
+    if pg_version is None:
+        return findings
+    kept = [f for f in findings if applies_on(f.message_id, pg_version)]
+    dropped = [f for f in findings if not applies_on(f.message_id, pg_version)]
+    if dropped:
+        gaps = sorted({f"GAP-{g.number}" for f in dropped if (g := gap_by_detector(f.detector)) is not None})
+        err_console.print(
+            i18n.t(
+                lang,
+                "pg_version_resolved",
+                version=pg_version,
+                findings=i18n.count(lang, "finding", len(dropped)),
+                gaps=", ".join(gaps),
+            )
+        )
+    if pg_version < CONFIRMED_ON_POSTGRESQL:
+        err_console.print(i18n.t(lang, "pg_version_older", version=pg_version, confirmed=CONFIRMED_ON_POSTGRESQL))
+    return kept
+
+
+def _load_target(raw: str, pg_version: int | None) -> str:
+    """--load-check's TARGET, with `docker` meaning the --pg-version image."""
+    if raw.strip().lower() == "docker" and pg_version is not None:
+        return f"docker:postgres:{pg_version}-alpine"
+    return raw
 
 
 def _apply_filters(findings: list[Finding], severity: str | None, object_substring: str | None) -> list[Finding]:
@@ -677,11 +722,14 @@ def _handle_migrate(args: argparse.Namespace, err_console: Console, lang: str) -
                 lang=lang,
                 version=_package_version(),
                 progress=progress,
+                pg_version=args.pg_version,
             )
             load = None
             if args.load_check is not None and result.converted:
                 progress("migrate_step_load")
-                load = load_and_record(result, args.load_check, dialect=args.dialect, lang=lang)
+                load = load_and_record(
+                    result, _load_target(args.load_check, args.pg_version), dialect=args.dialect, lang=lang
+                )
     except MigrateError as exc:
         err_console.print(i18n.t(lang, exc.key, **{k: escape(str(v)) for k, v in exc.kwargs.items()}))
         return 2
@@ -733,7 +781,7 @@ def _handle_load_check(args: argparse.Namespace, err_console: Console, lang: str
         err_console.print(i18n.t(lang, "load_check_unsupported_format"))
         return 2
 
-    target = parse_target(args.load_check)
+    target = parse_target(_load_target(args.load_check, args.pg_version))
     files, empty_dirs = order_files(args.paths)
     had_error = False
     for empty_dir in empty_dirs:
@@ -1338,6 +1386,7 @@ def _main(argv: list[str] | None = None) -> int:
 
     elapsed_seconds = time.perf_counter() - start_time
     sort_findings(all_findings)
+    all_findings = _for_target_version(all_findings, args.pg_version, err_console, lang)
 
     if files_scanned == 0 and (had_error or had_internal_error) and fmt in ("terminal", "markdown", "html"):
         # Nothing was scanned at all: every path was missing, unreadable,

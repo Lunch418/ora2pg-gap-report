@@ -675,6 +675,16 @@ _UI: dict[str, dict[str, str]] = {
         "en": "already repaired in converted/ for constants with a literal value - check those and tick them in MIGRATION.md; "
         "the rest (computed values) by hand, as below.",
     },
+    "pg_version_resolved": {
+        "ru": "[dim]PostgreSQL {version}: там это уже не проблема, не показано: {findings} ({gaps}).[/dim]",
+        "en": "[dim]PostgreSQL {version}: {findings} not shown - no longer a problem there ({gaps}).[/dim]",
+    },
+    "pg_version_older": {
+        "ru": "[yellow]Пробелы подтверждены на PostgreSQL {confirmed}. На {version} сгенерированный код может "
+        "падать и по другим причинам - проверьте его: --load-check docker --pg-version {version}.[/yellow]",
+        "en": "[yellow]The gaps were confirmed on PostgreSQL {confirmed}. On {version} the generated code may "
+        "fail for other reasons too - check it: --load-check docker --pg-version {version}.[/yellow]",
+    },
     "migrate_inputs_missing": {
         "ru": "Ничего не мигрировано: --migrate берёт весь исходник или ничего, а пути выше не прочитать.",
         "en": "Nothing was migrated: --migrate takes all of the source or none of it, and the paths above "
@@ -1381,6 +1391,14 @@ _UI: dict[str, dict[str, str]] = {
         "ENUM types), and, with --load-check TARGET, load the result into a real PostgreSQL. "
         "Everything goes into OUT_DIR; the source files are not changed. Needs ora2pg: on PATH, "
         "or --ora2pg-bin docker:IMAGE (docker:ghcr.io/lunch418/ora2pg-gap-report, for one).",
+    },
+    "help_pg_version": {
+        "ru": "Целевая версия PostgreSQL (12-18). Находки, которые на ней уже не проблема, не показываются "
+        "- например JSON_TABLE с 17-й; --load-check docker берёт образ postgres:N. По умолчанию - 16, на "
+        "которой подтверждены все пробелы.",
+        "en": "The target PostgreSQL version (12-18). Findings that are no longer a problem there are left "
+        "out - JSON_TABLE from 17, for one; --load-check docker uses the postgres:N image. Default: 16, the "
+        "version every gap was confirmed on.",
     },
     "help_write": {
         "ru": "Вместе с --fix или --prepare: реально перезаписать файлы на диске вместо "

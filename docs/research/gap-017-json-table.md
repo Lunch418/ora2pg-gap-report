@@ -48,3 +48,19 @@ failure on the still more widespread 16 and earlier.
 
 **Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/json_table.py`.
+
+## PostgreSQL 17 and 18
+
+Checked later with ora2pg 25.0 and real PostgreSQL 16, 17 and 18
+(`tests/test_pg_version.py`, the output recorded in
+`tests/fixtures/pg_version/`). ora2pg rewrites the column types (`NUMBER`
+-> `bigint`) and keeps the rest; on 17 and 18 the procedure loads and
+returns the same count, and a `NESTED PATH ... COLUMNS (...)` works too.
+What does not is Oracle's placement of the error handling, before the
+column list: `'$[*]' ERROR ON ERROR COLUMNS (...)` fails with `syntax
+error at or near "ERROR"` - PostgreSQL takes `ON ERROR`/`ON EMPTY` after
+`COLUMNS (...)`.
+
+So with `--pg-version 17` (or 18) a plain JSON_TABLE is no longer
+reported; one with `ON ERROR`/`ON EMPTY` before `COLUMNS` is, with its own
+message (`json_table.on_error`): move the clause after the column list.

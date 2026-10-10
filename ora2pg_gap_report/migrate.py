@@ -182,6 +182,7 @@ def run_migration(
     lang: str = "ru",
     version: str = "",
     progress: Callable[[str], None] | None = None,
+    pg_version: int | None = None,
 ) -> MigrationResult:
     """Steps 1-4 (load is the caller's, so it can reuse --load-check's own
     reporting). Raises MigrateError, or ora2pg_wrapper's errors."""
@@ -198,6 +199,11 @@ def run_migration(
         texts[path] = text
         readable = text.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace")
         findings.extend(dataclasses.replace(f, source_file=str(path)) for f in scan_source(readable, dialect=dialect))
+    if pg_version is not None:
+        # What that PostgreSQL no longer has a problem with is not work.
+        from .gap_registry import applies_on
+
+        findings = [f for f in findings if applies_on(f.message_id, pg_version)]
 
     from .html_report import write_html
 

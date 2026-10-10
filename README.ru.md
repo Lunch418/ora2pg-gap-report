@@ -485,6 +485,24 @@ HTML-отчётов, TUI, чеклиста и `--load-check`.
 настоящий PostgreSQL 16 и выполняют `ASSERT` из неё, на обоих языках, так
 что рецепт, который перестал работать, роняет сборку.
 
+### Целевая версия PostgreSQL (`--pg-version`)
+
+Все пробелы подтверждены на PostgreSQL 16. Часть из них в более новой
+версии перестаёт быть проблемой, и `--pg-version` это учитывает - только
+там, где это проверено на той версии:
+
+```sh
+ora2pg-gap-report --pg-version 17 schema/                          # JSON_TABLE не сообщается
+ora2pg-gap-report --pg-version 17 --load-check docker generated/   # загрузка в postgres:17
+```
+
+Пока это `JSON_TABLE` (GAP-017): на 17 и 18 он загружается и возвращает
+те же строки, `NESTED PATH` тоже, - кроме записи Oracle с `ERROR ON ERROR`
+перед `COLUMNS`, о которой по-прежнему сообщается. Что не показано,
+говорится в stderr. С версией старше 16 ничего не убирается, а примечание
+напоминает, что пробелы подтверждены на 16: проверьте сгенерированный код
+через `--load-check docker --pg-version N` - он загрузит его в ту версию.
+
 ### Исходные диалекты (`--dialect`)
 
 `ora2pg` работает не только с Oracle: `-m`/`--mysql` и `-M`/`--mssql`
@@ -495,7 +513,7 @@ PostgreSQL в качестве цели. Оба режима подтвержд�
 
 ```sh
 ora2pg-gap-report schema/                        # Oracle (по умолчанию)
-ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086, 106..111
+ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086, 106..111, 127..128
 ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105, 125, 126
 ```
 

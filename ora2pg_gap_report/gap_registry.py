@@ -927,3 +927,25 @@ def research_doc_url(gap: GapEntry) -> str:
         "https://github.com/Lunch418/ora2pg-gap-report/blob/main/"
         f"docs/research/gap-{gap.number}-{gap.slug}.md"
     )
+
+
+# The PostgreSQL major version from which a finding no longer describes a
+# problem: ora2pg's output for it loads and behaves there. Keyed by the
+# finding's message id, so a detector can be resolved for some shapes and
+# not others (JSON_TABLE: yes on 17, except with Oracle's ON ERROR before
+# COLUMNS, which keeps its own message). Only what was actually checked
+# on that version is listed -- see each gap's research document.
+RESOLVED_IN_POSTGRESQL: dict[str, int] = {
+    "json_table": 17,
+}
+
+# The PostgreSQL major version every gap in this registry was confirmed on.
+CONFIRMED_ON_POSTGRESQL = 16
+
+
+def applies_on(message_id: str, pg_version: int) -> bool:
+    """Whether a finding with `message_id` is still a problem when the
+    target is PostgreSQL `pg_version`."""
+    resolved = RESOLVED_IN_POSTGRESQL.get(message_id)
+    return resolved is None or pg_version < resolved
+

@@ -663,3 +663,55 @@ def test_a_skipped_file_is_never_reported_as_everything_loaded(tmp_path):
     out = buffer.getvalue()
     assert "Everything loaded" not in out
     assert "not checked at all: 1 file - the reasons are below" in " ".join(out.split())
+
+
+@pytest.mark.docker
+@pytest.mark.skipif(not _docker_usable(), reason="needs a working docker (Linux)")
+def test_echoes_are_tied_to_their_root_and_missing_objects_named(tmp_path):
+    from ora2pg_gap_report.load_check import DEPENDENCY
+
+    path = tmp_path / "chain.sql"
+    path.write_text(
+        "CREATE TABLE orders (id int, total no_such_type);\n"  # the root: fails
+        "CREATE VIEW big_orders AS SELECT id FROM orders;\n"  # echo
+        "CREATE VIEW bigger_orders AS SELECT id FROM big_orders;\n"  # echo of the echo
+        "CREATE FUNCTION n() RETURNS bigint LANGUAGE sql AS $$ SELECT count(*) FROM bigger_orders $$;\n"  # and of that
+        "CREATE VIEW elsewhere AS SELECT * FROM not_loaded_at_all;\n",  # missing, not an echo
+        encoding="utf-8",
+    )
+    errors = run_load_check([path], parse_target("docker")).errors
+    root = errors[0]
+    assert root.statement_line == 1 and root.echoes == 3 and root.caused_by is None
+    echoes = [e for e in errors if e.caused_by is not None]
+    assert [e.statement_line for e in echoes] == [2, 3, 4]
+    assert all(e.caused_by == (str(path), 1) and e.category == DEPENDENCY for e in echoes)
+    absent = errors[-1]
+    assert (absent.missing, absent.caused_by, absent.echoes) == ("not_loaded_at_all", None, 0)
+
+
+def test_the_report_groups_missing_objects_and_counts_echoes():
+    import io
+
+    from rich.console import Console
+
+    from ora2pg_gap_report.load_check import LoadCheckResult, LoadError
+    from ora2pg_gap_report.terminal_report import render_load_check
+
+    def err(line, message, category, **kw):
+        return LoadError(file="a.sql", line=line, statement_line=line, sqlstate="42P01", message=message,
+                         detail=None, hint=None, context=None, category=category, **kw)
+
+    errors = (
+        err(1, 'type "no_such_type" does not exist', "unknown", echoes=2),
+        err(2, 'relation "orders" does not exist', "dependency", caused_by=("a.sql", 1), missing="orders"),
+        err(3, 'relation "app.orders" does not exist', "dependency", caused_by=("a.sql", 1), missing="app.orders"),
+        err(4, 'relation "logs" does not exist', "dependency", missing="logs"),
+    )
+    result = LoadCheckResult("docker", "16", ("a.sql",), 4, errors, (), (), 1.0)
+    buffer = io.StringIO()
+    render_load_check(result, console=Console(file=buffer, width=120), lang="en")
+    out = " ".join(buffer.getvalue().split())
+    assert "They come down to 2 objects:" in out
+    assert "app.orders 2 statements not made - failed above, a.sql:1" in out  # one object, with and without schema
+    assert "logs 1 statement not in the loaded files" in out
+    assert "+ because of this one, also failed: 2 statements" in out

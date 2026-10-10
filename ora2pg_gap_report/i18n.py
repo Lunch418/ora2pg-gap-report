@@ -889,6 +889,22 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "Всё загрузилось: {statements} из {files}, ни одной ошибки.",
         "en": "Everything loaded: {statements} from {files}, not a single error.",
     },
+    "load_check_missing_objects": {
+        "ru": "Сводятся к объектам ({n}):",
+        "en": "They come down to {n} objects:",
+    },
+    "load_check_missing_failed": {
+        "ru": "не создан - ошибка выше, {where}",
+        "en": "not made - failed above, {where}",
+    },
+    "load_check_missing_absent": {
+        "ru": "нет в загруженных файлах",
+        "en": "not in the loaded files",
+    },
+    "load_check_echoes": {
+        "ru": "из-за этого не загрузилось ещё: {n}",
+        "en": "because of this one, also failed: {n}",
+    },
     "load_check_clean_but_skipped": {
         "ru": "Загруженное прошло без ошибок: {statements} из {files}; не проверено вовсе: {skipped} - причины ниже.",
         "en": "What was loaded had no errors: {statements} from {files}; not checked at all: {skipped} - "
@@ -1035,6 +1051,10 @@ _UI: dict[str, dict[str, str]] = {
     "report_load_ok": {
         "ru": "Сконвертированный код загружается: {statements}, ни одной ошибки",
         "en": "The converted code loads: {statements}, not a single error",
+    },
+    "report_load_missing": {
+        "ru": "Недостающие объекты ({n}), больше всего ссылок на: {top}",
+        "en": "Missing objects ({n}), most referred to: {top}",
     },
     "report_load_incomplete": {
         "ru": "Не проверено: {files} не загружались вовсе - см. load-check.txt",

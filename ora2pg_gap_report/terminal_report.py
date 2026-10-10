@@ -25,6 +25,7 @@ estimate is shown as the range it is, never collapsed to a midpoint.
 
 from collections import Counter
 from pathlib import Path
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from rich.console import Console, Group, RenderableType
@@ -632,6 +633,37 @@ def _print_error_line(console: Console, where: str, error: LoadError) -> None:
     console.print(Padding(line, (0, 0, 0, 2)))
 
 
+def _print_missing_objects(console: Console, errors: list[LoadError], where: Callable[[str], str], lang: str) -> None:
+    """The missing-object errors by the object they miss: a first run on a
+    large schema has many, and they come down to a few objects -- each
+    either made by a statement that failed above (fix that one) or not in
+    the loaded files at all."""
+    # By the bare name: logger.tab_param and tab_param are one type, named
+    # with and without its schema.
+    groups: dict[str, list[LoadError]] = {}
+    for error in errors:
+        if error.missing:
+            groups.setdefault(error.missing.lower().rsplit(".", 1)[-1], []).append(error)
+    if not groups:
+        return
+    console.print(Text("  " + i18n.t(lang, "load_check_missing_objects", n=len(groups)), style="dim"))
+    table = Table.grid(padding=(0, 2))
+    table.add_column(style=_CODE_STYLE, no_wrap=True)
+    table.add_column(justify="right", no_wrap=True)
+    table.add_column()
+    ordered = sorted(groups.values(), key=lambda g: (-len(g), g[0].missing or ""))
+    for group in ordered:
+        shown_name = max((e.missing or "" for e in group), key=len)  # the qualified spelling, if any
+        cause = next((e.caused_by for e in group if e.caused_by is not None), None)
+        if cause is not None:
+            file, line = cause
+            why = Text(i18n.t(lang, "load_check_missing_failed", where=f"{Path(where(file)).name}:{line}"))
+        else:
+            why = Text(i18n.t(lang, "load_check_missing_absent"), style="dim")
+        table.add_row(shown_name, i18n.count(lang, "statement", len(group)), why)
+    console.print(Padding(table, (0, 0, 0, 4)))
+
+
 def render_load_check(
     result: LoadCheckResult,
     console: Console | None = None,
@@ -732,6 +764,8 @@ def render_load_check(
         title.append(i18n.t(lang, f"load_check_section_{category}"), style="bold")
         title.append(f"  {len(errors)}", style="dim")
         console.print(title)
+        if category == "dependency":
+            _print_missing_objects(console, errors, where, lang)
         for error in errors[:shown]:
             if full:
                 # A file keeps each error on one line, however long.
@@ -762,6 +796,12 @@ def render_load_check(
             recipe = recipe_for(error.detector) if error.detector is not None and category == "gap" else None
             if recipe is not None:
                 console.print(Padding(_recipe_text(recipe, lang), (0, 0, 0, 4), expand=False))
+            if error.echoes:
+                echoes = Text(
+                    "+ " + i18n.t(lang, "load_check_echoes", n=i18n.count(lang, "statement", error.echoes)),
+                    style=_ACCENT,
+                )
+                console.print(Padding(echoes, (0, 0, 0, 4), expand=False))
         if shown is not None and len(errors) > shown:
             console.print(
                 Text(

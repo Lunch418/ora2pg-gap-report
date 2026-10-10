@@ -479,6 +479,19 @@ def _write_load_card(w: Write, lang: str, load: "LoadCheckResult", gaps_on_page:
             if counts.get(category):
                 w(f"<li>{i18n.t(lang, f'load_check_cat_{category}')} <b>{counts[category]}</b></li>")
         w("</ul>\n")
+        # The missing-object errors by the object they miss: many errors,
+        # few objects -- the ones to bring in or fix first.
+        missing: Counter[str] = Counter()
+        spelled: dict[str, str] = {}
+        for e in load.errors:
+            if e.missing:
+                key = e.missing.lower().rsplit(".", 1)[-1]
+                missing[key] += 1
+                if len(e.missing) > len(spelled.get(key, "")):
+                    spelled[key] = e.missing
+        if missing:
+            top = ", ".join(f"<code>{html.escape(spelled[k])}</code> {n}" for k, n in missing.most_common(5))
+            w(f'<p class="where-to">{i18n.t(lang, "report_load_missing", n=len(missing), top=top)}</p>\n')
         w(f'<details><summary>{i18n.t(lang, "report_load_show", n=len(load.errors))}</summary>\n')
         w(
             f'<table class="where"><thead><tr><th>{i18n.t(lang, "report_col_file")}</th>'

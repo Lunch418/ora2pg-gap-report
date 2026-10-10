@@ -150,6 +150,14 @@ class LoadError:
     category: str
     detector: str | None = None
     gap_number: str | None = None
+    # A missing object's error whose object was to be made by a statement
+    # that failed earlier: that statement's (file, statement_line) -- the
+    # root, past any echo in between. None when nothing in the run made it.
+    caused_by: tuple[str, int] | None = None
+    # For a root: how many later statements failed only because of it.
+    echoes: int = 0
+    # A missing-object error's object, as the message names it.
+    missing: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -741,6 +749,78 @@ def classify_errors(raw_errors: Sequence[_RawError], prepared: Sequence[_Prepare
     return out
 
 
+# --- root causes --------------------------------------------------------------
+
+_PG_NAME = r'(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)'
+# What a statement makes: CREATE [OR REPLACE] TABLE/VIEW/TYPE/... [s.]name.
+_CREATES_RE = re.compile(
+    r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:(?:GLOBAL\s+|LOCAL\s+)?(?:TEMP|TEMPORARY)\s+|UNLOGGED\s+)?"
+    r"(?:TABLE|VIEW|MATERIALIZED\s+VIEW|TYPE|DOMAIN|SEQUENCE|FUNCTION|PROCEDURE|SCHEMA)\s+"
+    rf"(?:IF\s+NOT\s+EXISTS\s+)?({_PG_NAME}(?:\s*\.\s*{_PG_NAME})?)",
+    re.IGNORECASE,
+)
+# What a missing-object error names.
+_MISSING_RE = re.compile(
+    r'^(?:relation|type|schema) "?([^"]+?)"? does not exist$'
+    r"|^(?:function|procedure) ([^\s(]+)\(.*\) does not exist$",
+    re.IGNORECASE,
+)
+
+
+def _object_names(raw: str) -> set[str]:
+    """`raw` ([schema.]name, quoted or not) as the names it can be looked up
+    by: the qualified one and the bare one, lower case unless quoted."""
+    parts = [p.strip() for p in re.split(r"\s*\.\s*", raw.strip())]
+    norm = [p[1:-1] if p.startswith('"') and p.endswith('"') else p.lower() for p in parts]
+    names = {norm[-1]}
+    if len(norm) > 1:
+        names.add(".".join(norm))
+    return names
+
+
+def link_root_causes(errors: Sequence[LoadError], prepared: Sequence[_PreparedFile]) -> list[LoadError]:
+    """`errors` (in the order they happened) with each missing-object error
+    tied to the failed statement that was to make its object -- through any
+    echo in between, to the root -- and each root counting its echoes.
+
+    A first run on a large schema reports many such errors: a table that
+    failed takes every view, trigger and routine on it down with it. This
+    is what tells the few errors to fix from the many that will then go
+    away by themselves."""
+    texts: dict[tuple[str, int], str] = {}
+    for p in prepared:
+        for statement in p.parsed.statements:
+            texts[(str(p.path), statement.start_line)] = p.source[statement.start : statement.end]
+    made_by: dict[str, tuple[str, int]] = {}  # object name -> the failed statement that was to make it
+    roots: dict[tuple[str, int], tuple[str, int]] = {}  # failed statement -> its root
+    linked: list[LoadError] = []
+    for error in errors:
+        here = (error.file, error.statement_line)
+        root: tuple[str, int] | None = None
+        missing = _MISSING_RE.match(error.message) if error.category == DEPENDENCY else None
+        name = (missing.group(1) or missing.group(2) or "").removesuffix("[]") if missing else None
+        if name:
+            for candidate in sorted(_object_names(name), key=len, reverse=True):
+                if candidate in made_by:
+                    maker = made_by[candidate]
+                    root = roots.get(maker, maker)
+                    break
+        roots[here] = root if root is not None else here
+        text = texts.get(here, "")
+        for created in _CREATES_RE.finditer(text):
+            for made in _object_names(created.group(1)):
+                made_by.setdefault(made, here)
+        linked.append(dataclasses.replace(error, caused_by=root, missing=name or None))
+    echoes: dict[tuple[str, int], int] = {}
+    for error in linked:
+        if error.caused_by is not None:
+            echoes[error.caused_by] = echoes.get(error.caused_by, 0) + 1
+    return [
+        dataclasses.replace(e, echoes=echoes.get((e.file, e.statement_line), 0)) if e.caused_by is None else e
+        for e in linked
+    ]
+
+
 # --- the whole check -------------------------------------------------------
 
 
@@ -786,7 +866,7 @@ def run_load_check(
             # never tried -- not a result to present as complete.
             raise LoadCheckError("load_check_incomplete", detail=stderr.strip()[-2000:])
         raw_errors = parse_psql_errors(stderr, [p.script_name for p in prepared])
-        errors = classify_errors(raw_errors, prepared, dialect)
+        errors = link_root_causes(classify_errors(raw_errors, prepared, dialect), prepared)
         return LoadCheckResult(
             target=target.describe(),
             server_version=server_version(stdout),

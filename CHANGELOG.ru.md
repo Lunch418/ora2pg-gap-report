@@ -11,6 +11,23 @@ patch — исправления в существующих.
 
 ### Добавлено
 
+- **GAP-130..133: числа и `SUBSTR`, которые загружаются, а потом считают
+  иначе.** Каждый запущен в Oracle 23ai и, после ora2pg 25.0, в
+  PostgreSQL 16:
+  - `number_without_precision`: `NUMBER` без точности становится `bigint`
+    (ora2pg.conf из поставки: `DEFAULT_NUMERIC bigint`) - 9.99
+    записывается как 10, `v := 2.5; RETURN v * 2` возвращает 6;
+  - `number_as_float`: `NUMBER(p,s)` (p до 15) и `FLOAT` становятся
+    `real`/`double precision` (`PG_NUMERIC_TYPE 1`) - `0.1 + 0.2 = 0.3`
+    ложно, сумма десяти сумм по 0.1 - 0.9999999999999999;
+  - `integer_division`: `7 / 2`, `i / 2` целых типов - в Oracle 3.5, в
+    PostgreSQL 3 (найдено в OraOpenSource Logger: `1/1440`);
+  - `substr_start`: `SUBSTR(s, 0, n)`, `SUBSTR(s, -n)` - другая часть
+    строки (найдено в `file_util_pkg`: `substr(p_dir, -1)`).
+
+  Первые два - это одна настройка каждый, поэтому сообщаются один раз на
+  файл, а совет - проверенные строки ora2pg.conf: `DEFAULT_NUMERIC
+  numeric`, `PG_NUMERIC_TYPE 0`, `DATA_TYPE FLOAT:numeric`.
 - **"Не проверено": SQL, собранный во время выполнения.**
   `EXECUTE IMMEDIATE v_sql`, `OPEN c FOR v_sql`, `DBMS_SQL.PARSE`,
   `PREPARE ... FROM @v` в MySQL, `EXEC(@sql)` и `sp_executesql` в T-SQL

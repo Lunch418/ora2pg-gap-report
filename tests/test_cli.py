@@ -44,6 +44,8 @@ def test_scan_source_runs_all_detectors_on_logger():
         "package_state",
         "package_constant_chain",
         "supplied_package_call",  # htp.p, dbms_session.set_context ...
+        "number_without_precision",  # l_count number, ...
+        "integer_division",  # p_date_stop-p_date_start < 1/1440
         "package_constant_default",
         "pragma_exception_init",
     }
@@ -80,7 +82,10 @@ def test_scan_source_runs_all_detectors_on_logger():
     # supplied_package_call: four DBMS_SESSION context calls and htp.p
     # called as statements (GAP-122); dbms_utl_calls keeps the other 13
     # DBMS_/UTL_ uses (it had 17 before the four calls moved).
-    assert len(findings) == 8 + 13 + 1 + 229 + 5 + 25 + 1 + 2 + 11 + 5
+    # number_without_precision: once for the file (g_log_id number, ...);
+    # integer_division: 'p_date_stop-p_date_start < 1/1440' and '1/24'
+    # (GAP-130, GAP-132).
+    assert len(findings) == 8 + 13 + 1 + 229 + 5 + 25 + 1 + 2 + 11 + 5 + 1 + 2
 
 
 def test_scan_source_sorts_high_severity_first():
@@ -867,7 +872,7 @@ def test_main_fail_on_ignores_an_unrelated_severity_display_filter():
 
 def test_main_fail_on_passes_when_no_qualifying_findings_exist(tmp_path):
     empty_source = tmp_path / "empty.sql"
-    empty_source.write_text("create table t (id number);\n", encoding="utf-8")
+    empty_source.write_text("create table t (id number(10));\n", encoding="utf-8")
     exit_code = main([str(empty_source), "--format", "json", "--fail-on", "high"])
     assert exit_code == 0
 
@@ -1112,7 +1117,7 @@ def test_main_set_lang_fails_cleanly_without_a_real_terminal(monkeypatch, capsys
 
 _ORACLE_CROSS_APPLY_SOURCE = """
 CREATE OR REPLACE PACKAGE BODY report_pkg IS
-  FUNCTION get_tree(p_id NUMBER) RETURN VARCHAR2 IS
+  FUNCTION get_tree(p_id INTEGER) RETURN VARCHAR2 IS
     v_result VARCHAR2(4000);
   BEGIN
     SELECT a.name INTO v_result
@@ -1205,7 +1210,7 @@ def test_verify_json_output(tmp_path, capsys):
 def test_verify_reports_not_verifiable_for_a_dropped_construct_detector(tmp_path, capsys):
     oracle_file = tmp_path / "oracle_schema.sql"
     oracle_file.write_text(
-        "CREATE TABLE audit_log (log_id NUMBER, message VARCHAR2(200)) READ ONLY;\n"
+        "CREATE TABLE audit_log (log_id NUMBER(10), message VARCHAR2(200)) READ ONLY;\n"
     , encoding="utf-8")
     baseline_path = tmp_path / "baseline.json"
     scan_report_path = tmp_path / "_discard_scan_report.json"

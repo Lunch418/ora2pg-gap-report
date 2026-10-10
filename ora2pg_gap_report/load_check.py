@@ -550,6 +550,12 @@ _LINES_BEFORE = 3
 _DETECTOR_SQLSTATES: dict[str, frozenset[str]] = {
     "schema_qualified_name": frozenset({"3F000"}),
 }
+# Gaps whose output loads and runs -- it only computes something else
+# (GAP-129..133). They never explain an error: `x := 1 / 0;` fails in both
+# databases, not because of GAP-132.
+_NEVER_AN_ERROR = frozenset(
+    {"empty_string_null", "number_without_precision", "number_as_float", "integer_division", "substr_start"}
+)
 
 
 def _gap_finding(findings: Sequence[Finding], statement: Statement, line: int, sqlstate: str) -> Finding | None:
@@ -567,6 +573,7 @@ def _gap_finding(findings: Sequence[Finding], statement: Statement, line: int, s
         f
         for f in findings
         if statement.start_line <= f.line <= statement.end_line
+        and f.detector not in _NEVER_AN_ERROR
         and sqlstate in _DETECTOR_SQLSTATES.get(f.detector, frozenset({sqlstate}))
     ]
     exact = [f for f in inside if f.line == line]

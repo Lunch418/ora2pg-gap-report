@@ -98,6 +98,10 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-123 | `DBMS_LOCK.SLEEP` - становится `pg_sleep(n);` без `PERFORM`, не загружается | `dbms_sleep` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-123](gap-123-dbms-sleep.md) |
 | GAP-124 | Имя со схемой (`"HR"."EMP"`) - схема остаётся, но не создаётся, в триггерах пропадает | `schema_qualified_name` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-124](gap-124-schema-qualified-name.md) |
 | GAP-129 | `''` в сравнении, присваивании, `DEFAULT` или `NVL` - в Oracle это NULL, в PostgreSQL пустая строка; загружается и ведёт себя иначе | `empty_string_null` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-129](gap-129-empty-string-null.md) |
+| GAP-130 | `NUMBER` без точности - становится `bigint`, дробная часть молча теряется | `number_without_precision` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-130](gap-130-number-without-precision.md) |
+| GAP-131 | `NUMBER(p,s)` и `FLOAT` - становятся `real`/`double precision`, 0.1 + 0.2 уже не 0.3 | `number_as_float` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-131](gap-131-number-as-float.md) |
+| GAP-132 | Деление целых (`7 / 2`, `i / 2`) - в Oracle 3.5, в PostgreSQL 3 | `integer_division` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-132](gap-132-integer-division.md) |
+| GAP-133 | `SUBSTR` с позиции 0 или отрицательной - в PostgreSQL возвращает другую часть строки | `substr_start` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-133](gap-133-substr-start.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

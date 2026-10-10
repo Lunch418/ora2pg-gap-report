@@ -36,7 +36,7 @@ GOTO_PROCEDURE = (
 
 
 def test_a_finding_in_an_exported_standalone_procedure_is_attributed_to_it():
-    assert _found(GOTO_PROCEDURE) == [("goto_statement", "HOP")]
+    assert _found(GOTO_PROCEDURE) == [("goto_statement", "HOP"), ("number_without_precision", "HOP")]
 
 
 def test_an_exported_standalone_procedure_is_counted_as_an_object():

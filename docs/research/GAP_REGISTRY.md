@@ -99,6 +99,10 @@ being after them.
 | GAP-123 | `DBMS_LOCK.SLEEP` - becomes `pg_sleep(n);` without `PERFORM`, does not load | `dbms_sleep` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-123](gap-123-dbms-sleep.md) |
 | GAP-124 | A schema-qualified name (`"HR"."EMP"`) - the schema is kept but never created, and dropped on triggers | `schema_qualified_name` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-124](gap-124-schema-qualified-name.md) |
 | GAP-129 | `''` compared, assigned, in a `DEFAULT` or `NVL` - NULL in Oracle, an empty string in PostgreSQL; loads and behaves differently | `empty_string_null` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-129](gap-129-empty-string-null.md) |
+| GAP-130 | `NUMBER` without a precision - becomes `bigint`, the fraction is silently lost | `number_without_precision` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-130](gap-130-number-without-precision.md) |
+| GAP-131 | `NUMBER(p,s)` and `FLOAT` - become `real`/`double precision`, 0.1 + 0.2 is no longer 0.3 | `number_as_float` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-131](gap-131-number-as-float.md) |
+| GAP-132 | A division of integers (`7 / 2`, `i / 2`) - 3.5 in Oracle, 3 in PostgreSQL | `integer_division` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-132](gap-132-integer-division.md) |
+| GAP-133 | `SUBSTR` from position 0 or a negative one - returns another part of the string in PostgreSQL | `substr_start` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-133](gap-133-substr-start.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

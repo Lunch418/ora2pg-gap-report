@@ -3932,6 +3932,88 @@ MESSAGES: dict[str, Message] = {
             "empty strings)."
         ),
     ),
+    "number_without_precision": Message(
+        ru=(
+            'NUMBER без точности - столбец, переменная, параметр, тип результата (price NUMBER, v NUMBER := 2.5, '
+            'RETURN NUMBER). В Oracle такой NUMBER хранит любое десятичное значение. ora2pg 25.0 со своим '
+            'ora2pg.conf по умолчанию (PG_INTEGER_TYPE 1, DEFAULT_NUMERIC bigint) делает каждый такой NUMBER '
+            'типом bigint. Ничего не падает: 9.99 в столбце превращается в 10, v NUMBER := 2.5; RETURN v * 2 '
+            'возвращает 6 вместо 5, p / 4 при p = 10 даёт 2 вместо 2.5. Подтверждено живым Oracle 23ai, реальным '
+            'ora2pg 25.0 и PostgreSQL 16, docs/research/gap-130-number-without-precision.md. Сообщается один раз '
+            'на файл: причина - одна настройка. Поставьте в ora2pg.conf DEFAULT_NUMERIC numeric и сконвертируйте '
+            'заново.'
+        ),
+        en=(
+            'NUMBER without a precision - a column, a variable, a parameter, a return type (price NUMBER, v '
+            'NUMBER := 2.5, RETURN NUMBER). In Oracle such a NUMBER holds any decimal value. ora2pg 25.0 with the '
+            'ora2pg.conf it ships (PG_INTEGER_TYPE 1, DEFAULT_NUMERIC bigint) makes every one of them bigint. '
+            'Nothing fails: 9.99 in the column becomes 10, v NUMBER := 2.5; RETURN v * 2 returns 6 instead of 5, '
+            'p / 4 with p = 10 gives 2 instead of 2.5. Confirmed against a live Oracle 23ai, a real ora2pg 25.0 '
+            'run and PostgreSQL 16, docs/research/gap-130-number-without-precision.md. Reported once per file: '
+            'the cause is one setting. Set DEFAULT_NUMERIC numeric in ora2pg.conf and convert again.'
+        ),
+    ),
+    "number_as_float": Message(
+        ru=(
+            'Десятичный тип, который ora2pg делает двоичным числом с плавающей точкой: NUMBER(p,s) с 0 < s <= p '
+            '<= 15 и FLOAT. В Oracle они десятичные: 0.1 + 0.2 = 0.3. ora2pg 25.0 со своим ora2pg.conf по '
+            'умолчанию (PG_NUMERIC_TYPE 1) делает их real или double precision (NUMBER(p,s) с p <= 6 - real в '
+            'PL/SQL, у столбца - decimal). Ничего не падает, а потом: a + b = 0.3 при a = 0.1, b = 0.2 истинно в '
+            'Oracle и ложно в PostgreSQL, сумма десяти сумм по 0.1 - 1 в Oracle и 0.9999999999999999 в '
+            'PostgreSQL. Подтверждено живым Oracle 23ai, реальным ora2pg 25.0 и PostgreSQL 16, '
+            'docs/research/gap-131-number-as-float.md. Сообщается один раз на файл. Поставьте в ora2pg.conf '
+            'PG_NUMERIC_TYPE 0 и DATA_TYPE FLOAT:numeric и сконвертируйте заново.'
+        ),
+        en=(
+            'A decimal type ora2pg turns into binary floating point: NUMBER(p,s) with 0 < s <= p <= 15, and '
+            'FLOAT. In Oracle they are decimal: 0.1 + 0.2 = 0.3. ora2pg 25.0 with the ora2pg.conf it ships '
+            '(PG_NUMERIC_TYPE 1) makes them real or double precision (NUMBER(p,s) with p <= 6 is real in PL/SQL, '
+            'decimal in a column). Nothing fails, and then: a + b = 0.3 with a = 0.1, b = 0.2 is true in Oracle '
+            'and false in PostgreSQL, the sum of ten amounts of 0.1 is 1 in Oracle and 0.9999999999999999 in '
+            'PostgreSQL. Confirmed against a live Oracle 23ai, a real ora2pg 25.0 run and PostgreSQL 16, '
+            'docs/research/gap-131-number-as-float.md. Reported once per file. Set PG_NUMERIC_TYPE 0 and '
+            'DATA_TYPE FLOAT:numeric in ora2pg.conf and convert again.'
+        ),
+    ),
+    "integer_division": Message(
+        ru=(
+            'Деление целых: целые литералы (7 / 2) или переменные и параметры INTEGER, PLS_INTEGER, '
+            'BINARY_INTEGER, SMALLINT, NUMBER(p) или NUMBER(p,0) с p <= 19 (i / 2, n / m). В Oracle результат - '
+            'NUMBER: 7 / 2 = 3.5. ora2pg 25.0 делает эти типы smallint, integer или bigint и копирует деление, а '
+            'в PostgreSQL деление целых отбрасывает дробную часть: 7 / 2 = 3, -7 / 2 = -3, ROUND(i / 2) = 3 '
+            'вместо 4. Ничего не падает. Подтверждено живым Oracle 23ai, реальным ora2pg 25.0 и PostgreSQL 16, '
+            'docs/research/gap-132-integer-division.md. Приведите одно из чисел к numeric: i::numeric / 2.'
+        ),
+        en=(
+            'A division of integers: integer literals (7 / 2), or variables and parameters declared INTEGER, '
+            'PLS_INTEGER, BINARY_INTEGER, SMALLINT, NUMBER(p) or NUMBER(p,0) with p <= 19 (i / 2, n / m). In '
+            'Oracle the result is a NUMBER: 7 / 2 = 3.5. ora2pg 25.0 makes those types smallint, integer or '
+            'bigint and copies the division, and in PostgreSQL integer division truncates: 7 / 2 = 3, -7 / 2 = '
+            '-3, ROUND(i / 2) = 3 instead of 4. Nothing fails. Confirmed against a live Oracle 23ai, a real '
+            'ora2pg 25.0 run and PostgreSQL 16, docs/research/gap-132-integer-division.md. Cast one side to '
+            'numeric: i::numeric / 2.'
+        ),
+    ),
+    "substr_start": Message(
+        ru=(
+            'SUBSTR с позиции 0 и длиной (SUBSTR(s, 0, 3)) или с отрицательной позиции (SUBSTR(s, -3)). Oracle '
+            "читает позицию 0 как 1, а отрицательную - как отсчёт с конца: SUBSTR('abcdef', 0, 3) = 'abc', "
+            "SUBSTR('abcdef', -3) = 'def', SUBSTR('abcdef', -3, 2) = 'de'. ora2pg 25.0 копирует вызов, а substr в "
+            "PostgreSQL считает позиции до первого символа как настоящие: 'ab', 'abcdef' и '' - без ошибки. "
+            'Подтверждено живым Oracle 23ai, реальным ora2pg 25.0 и PostgreSQL 16, '
+            'docs/research/gap-133-substr-start.md. Пишите 1 вместо 0, а для отсчёта с конца - right(s, 3) или '
+            'substr(s, length(s) - 2, 2).'
+        ),
+        en=(
+            'SUBSTR from position 0 with a length (SUBSTR(s, 0, 3)) or from a negative position (SUBSTR(s, -3)). '
+            "Oracle reads position 0 as 1 and a negative one as counting from the end: SUBSTR('abcdef', 0, 3) = "
+            "'abc', SUBSTR('abcdef', -3) = 'def', SUBSTR('abcdef', -3, 2) = 'de'. ora2pg 25.0 copies the call, "
+            "and PostgreSQL's substr counts positions before the first character as real ones: 'ab', 'abcdef' and "
+            "'' - no error. Confirmed against a live Oracle 23ai, a real ora2pg 25.0 run and PostgreSQL 16, "
+            'docs/research/gap-133-substr-start.md. Write 1 for 0, and right(s, 3) or substr(s, length(s) - 2, 2) '
+            'for counting from the end.'
+        ),
+    ),
     "supplied_package_call": Message(
         ru=(
             'Процедура поставляемого пакета Oracle, вызванная как оператор: '
@@ -5317,6 +5399,22 @@ REMEDIATION_HINTS: dict[str, Message] = {
         ru="Заменить '' на NULL, а сравнение с '' - на IS NULL",
         en="Write NULL for '' and IS NULL for the comparison with ''",
     ),
+    "number_without_precision": Message(
+        ru='Поставить в ora2pg.conf DEFAULT_NUMERIC numeric и сконвертировать заново',
+        en='Set DEFAULT_NUMERIC numeric in ora2pg.conf and convert again',
+    ),
+    "number_as_float": Message(
+        ru='Поставить в ora2pg.conf PG_NUMERIC_TYPE 0 и DATA_TYPE FLOAT:numeric и сконвертировать заново',
+        en='Set PG_NUMERIC_TYPE 0 and DATA_TYPE FLOAT:numeric in ora2pg.conf and convert again',
+    ),
+    "integer_division": Message(
+        ru='Привести одно из чисел к numeric: i::numeric / 2',
+        en='Cast one side to numeric: i::numeric / 2',
+    ),
+    "substr_start": Message(
+        ru='Писать 1 вместо 0, а с конца - right(s, n) или substr(s, length(s) - n + 1, ...)',
+        en='Write 1 for 0, and right(s, n) or substr(s, length(s) - n + 1, ...) from the end',
+    ),
     "supplied_package_call": Message(
         ru='Заменить вызов аналогом PostgreSQL или убрать его - голый вызов не загружается',
         en='Replace the call with a PostgreSQL counterpart, or remove it - a bare call does not load',
@@ -5686,6 +5784,22 @@ TITLES: dict[str, Message] = {
     "empty_string_null": Message(
         ru="`''` в сравнении, присваивании, `DEFAULT` или `NVL` - в Oracle это NULL, в PostgreSQL пустая строка; загружается и ведёт себя иначе",
         en="`''` compared, assigned, in a `DEFAULT` or `NVL` - NULL in Oracle, an empty string in PostgreSQL; loads and behaves differently",
+    ),
+    "number_without_precision": Message(
+        ru='`NUMBER` без точности - становится `bigint`, дробная часть молча теряется',
+        en='`NUMBER` without a precision - becomes `bigint`, the fraction is silently lost',
+    ),
+    "number_as_float": Message(
+        ru='`NUMBER(p,s)` и `FLOAT` - становятся `real`/`double precision`, 0.1 + 0.2 уже не 0.3',
+        en='`NUMBER(p,s)` and `FLOAT` - become `real`/`double precision`, 0.1 + 0.2 is no longer 0.3',
+    ),
+    "integer_division": Message(
+        ru='Деление целых (`7 / 2`, `i / 2`) - в Oracle 3.5, в PostgreSQL 3',
+        en='A division of integers (`7 / 2`, `i / 2`) - 3.5 in Oracle, 3 in PostgreSQL',
+    ),
+    "substr_start": Message(
+        ru='`SUBSTR` с позиции 0 или отрицательной - в PostgreSQL возвращает другую часть строки',
+        en='`SUBSTR` from position 0 or a negative one - returns another part of the string in PostgreSQL',
     ),
     "supplied_package_call": Message(
         ru='Процедура поставляемого пакета (`DBMS_*`, `UTL_*`, `HTP`) как оператор - копируется без `CALL`, не загружается',

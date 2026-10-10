@@ -14,9 +14,9 @@
 принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
 госсектор.
 
-Детекторов сейчас 130 (полная таблица — в README.md, «Детекторы»; 129 из
+Детекторов сейчас 134 (полная таблица — в README.md, «Детекторы»; 133 из
 них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
-README.md, «Почему почти всё high»), в трёх исходных диалектах: 81 Oracle,
+README.md, «Почему почти всё high»), в трёх исходных диалектах: 85 Oracle,
 27 MySQL/MariaDB (`ora2pg -m`) и 21 T-SQL/SQL Server (`ora2pg -M`). У
 каждого диалекта свой лексер (`plsql_lex.py`, `mysql_lex.py`,
 `mssql_lex.py`) и свой кортеж детекторов в `core.py`; они разделены
@@ -133,6 +133,10 @@ ora2pg_gap_report/
 │   ├── supplied_package_call.py  # процедура DBMS_/UTL_/HTP как оператор -- без CALL
 │   ├── dbms_sleep.py            # DBMS_LOCK.SLEEP -> pg_sleep(n); без PERFORM (чинит --fix)
 │   ├── empty_string_null.py     # '' в сравнении, присваивании, DEFAULT '', NVL(x, '') -- в Oracle NULL, в PostgreSQL ''
+│   ├── number_without_precision.py  # NUMBER без точности -> bigint (один раз на файл)
+│   ├── number_as_float.py       # NUMBER(p,s), FLOAT -> real/double precision (один раз на файл)
+│   ├── integer_division.py      # 7 / 2, i / 2 целых типов: в Oracle 3.5, в PostgreSQL 3
+│   ├── substr_start.py          # SUBSTR(s, 0, n), SUBSTR(s, -n): другая часть строки
 │   ├── schema_qualified_name.py  # "HR"."EMP" -- схема остаётся, не создаётся, в триггерах пропадает
 │   │                             # -- диалект MySQL/MariaDB (ora2pg -m; см. mysql_lex.py) --
 │   ├── mysql_enum_type.py         # ENUM(...) -- нет CREATE TYPE для синтезированного типа
@@ -193,6 +197,7 @@ ora2pg_gap_report/
 ├── ora2pg_wrapper.py            # запуск ora2pg по типам объектов, парсинг --estimate_cost
 ├── i18n.py                     # язык вывода (--lang/--set-lang): резолюция, английские
 │                               # строки UI и переводы объяснений детекторов
+├── number_types.py             # числовые объявления и что из них делает ora2pg (GAP-130..132)
 ├── unchecked.py                # SQL, собранный во время выполнения (EXECUTE IMMEDIATE v_sql, ...):
 │                               #  в каждом отчёте как "не проверено", никогда не находка
 ├── load_check.py               # --load-check: загрузка сгенерированного кода в настоящий

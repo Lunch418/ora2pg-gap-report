@@ -48,3 +48,19 @@ PostgreSQL 16), поэтому детектор не делает различи
 
 **Gap подтверждён.** Реализовано:
 `ora2pg_gap_report/detectors/json_table.py`.
+
+## PostgreSQL 17 и 18
+
+Проверено позже на ora2pg 25.0 и настоящих PostgreSQL 16, 17 и 18
+(`tests/test_pg_version.py`, вывод записан в `tests/fixtures/pg_version/`).
+ora2pg переписывает типы столбцов (`NUMBER` -> `bigint`) и оставляет
+остальное; на 17 и 18 процедура загружается и возвращает то же число
+строк, `NESTED PATH ... COLUMNS (...)` тоже работает. Не работает только
+место обработки ошибок по Oracle - перед списком столбцов: `'$[*]' ERROR ON
+ERROR COLUMNS (...)` падает с `syntax error at or near "ERROR"` -
+PostgreSQL принимает `ON ERROR`/`ON EMPTY` после `COLUMNS (...)`.
+
+Поэтому с `--pg-version 17` (или 18) простой JSON_TABLE больше не
+сообщается, а с `ON ERROR`/`ON EMPTY` перед `COLUMNS` - сообщается, со
+своим текстом (`json_table.on_error`): перенесите предложение за список
+столбцов.

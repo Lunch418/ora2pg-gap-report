@@ -9,6 +9,17 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Added
+
+- **`--pg-version N`: the target PostgreSQL version.** Findings that
+  version no longer has a problem with are left out, and stderr says
+  which; `--load-check docker` and `--migrate` load into `postgres:N`.
+  Only what was checked on that version counts: so far `JSON_TABLE`
+  (GAP-017), which ora2pg's output runs on PostgreSQL 17 and 18 - except
+  with Oracle's `ERROR ON ERROR` before `COLUMNS`, now a message of its
+  own. A version older than 16 gets a note that the gaps were confirmed
+  on 16.
+
 ### Changed
 
 - **A large dump scans in linear time.** The object name of a finding

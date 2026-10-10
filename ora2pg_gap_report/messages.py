@@ -1023,30 +1023,40 @@ MESSAGES: dict[str, Message] = {
     ),
     "json_table": Message(
         ru=(
-            "JSON_TABLE(...) - табличная проекция JSON-документа в реляционные "
-            "строки/столбцы. ora2pg копирует вызов как есть (подтверждено "
-            "реальным прогоном ora2pg + PostgreSQL 16, "
-            "docs/research/gap-017-json-table.md). На PostgreSQL 16 и старше "
-            "падает с синтаксической ошибкой прямо на COLUMNS - функции "
-            "JSON_TABLE в PostgreSQL нет вообще (появилась только в PostgreSQL "
-            "17, и то с другим синтаксисом секции COLUMNS, не идентичным Oracle - "
-            "не проверялось эмпирически в этом исследовании, но использовать как "
-            "прямую замену без сверки нельзя). До PostgreSQL 17 нужен полностью "
-            "ручной переход на jsonb_to_recordset()/jsonb_array_elements() с "
-            "явным приведением типов."
+            'JSON_TABLE(...) - табличная проекция JSON-документа в реляционные строки и столбцы. ora2pg копирует '
+            'вызов как есть. В PostgreSQL 16 и старше такой функции нет, и подпрограмма падает на первом вызове с'
+            ' синтаксической ошибкой на COLUMNS. В PostgreSQL 17 она появилась, и вывод ora2pg там загружается и '
+            'возвращает те же строки, NESTED PATH тоже, - проверено реальным прогоном ora2pg 25.0 на PostgreSQL '
+            '16, 17 и 18, docs/research/gap-017-json-table.md. Для PostgreSQL 16 и старше перепишите на '
+            'jsonb_to_recordset()/jsonb_array_elements() с явным приведением типов; если целевая версия 17+, '
+            'укажите --pg-version 17.'
         ),
         en=(
-            "JSON_TABLE(...) - projects a JSON document into relational "
-            "rows/columns. ora2pg copies the call verbatim (confirmed by a real "
-            "ora2pg + PostgreSQL 16 run, docs/research/gap-017-json-table.md). On "
-            "PostgreSQL 16 and earlier it fails with a syntax error right at "
-            "COLUMNS - PostgreSQL has no JSON_TABLE function at all (it only "
-            "appeared in PostgreSQL 17, and even then with a different "
-            "COLUMNS-section syntax that isn't identical to Oracle's - not "
-            "verified empirically in this research, but it can't be used as a "
-            "drop-in replacement without checking). Before PostgreSQL 17, needs a "
-            "fully manual rewrite to jsonb_to_recordset()/jsonb_array_elements() "
-            "with explicit type casts."
+            'JSON_TABLE(...) - projects a JSON document into relational rows and columns. ora2pg copies the call '
+            'as it is. PostgreSQL 16 and earlier have no such function, and the routine fails on its first call '
+            "with a syntax error at COLUMNS. PostgreSQL 17 added it, and there ora2pg's output loads and returns "
+            'the same rows, NESTED PATH included - checked with a real ora2pg 25.0 run on PostgreSQL 16, 17 and '
+            '18, docs/research/gap-017-json-table.md. For PostgreSQL 16 and earlier rewrite it with '
+            'jsonb_to_recordset()/jsonb_array_elements() and explicit casts; if the target is 17+, pass '
+            '--pg-version 17.'
+        ),
+    ),
+    "json_table.on_error": Message(
+        ru=(
+            "JSON_TABLE(...) с обработкой ошибок или пустого результата перед COLUMNS: '$[*]' ERROR ON ERROR "
+            'COLUMNS (...). ora2pg копирует вызов как есть. В PostgreSQL 16 и старше JSON_TABLE нет вообще, а в '
+            'PostgreSQL 17 и 18, где он появился, ON ERROR/ON EMPTY стоят после списка COLUMNS, и запись Oracle '
+            'падает с "syntax error at or near \\"ERROR\\"" - проверено реальным прогоном ora2pg 25.0 на PostgreSQL'
+            ' 16, 17 и 18, docs/research/gap-017-json-table.md. На 17+ перенесите ON ERROR/ON EMPTY за '
+            'закрывающую скобку COLUMNS; на 16 и старше перепишите на функции jsonb.'
+        ),
+        en=(
+            "JSON_TABLE(...) with its error or empty handling before COLUMNS: '$[*]' ERROR ON ERROR COLUMNS "
+            '(...). ora2pg copies the call as it is. PostgreSQL 16 and earlier have no JSON_TABLE at all, and in '
+            "PostgreSQL 17 and 18, which added it, ON ERROR/ON EMPTY come after the COLUMNS list, so Oracle's "
+            'spelling fails with "syntax error at or near \\"ERROR\\"" - checked with a real ora2pg 25.0 run on '
+            'PostgreSQL 16, 17 and 18, docs/research/gap-017-json-table.md. On 17+ move ON ERROR/ON EMPTY after '
+            'the closing parenthesis of COLUMNS; on 16 and earlier rewrite it with the jsonb functions.'
         ),
     ),
     "keep_dense_rank": Message(

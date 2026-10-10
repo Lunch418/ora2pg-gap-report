@@ -487,6 +487,24 @@ The code in the recipes is not illustration: the test suite loads every
 page's SQL into a real PostgreSQL 16 and runs the `ASSERT`s in it, in
 both languages, so a recipe that stops working fails the build.
 
+### Target PostgreSQL version (`--pg-version`)
+
+Every gap was confirmed on PostgreSQL 16. Some stop being a problem on a
+newer version, and `--pg-version` takes that into account - only where it
+was checked on that version:
+
+```sh
+ora2pg-gap-report --pg-version 17 schema/                          # JSON_TABLE is not reported
+ora2pg-gap-report --pg-version 17 --load-check docker generated/   # loads into postgres:17
+```
+
+So far: `JSON_TABLE` (GAP-017) loads and returns the same rows on 17 and
+18, `NESTED PATH` included - except with Oracle's `ERROR ON ERROR` before
+`COLUMNS`, which is still reported. What was left out is said on stderr.
+With a version older than 16 nothing is left out, and a note says the
+gaps were confirmed on 16: check the generated code with `--load-check
+docker --pg-version N`, which loads it into that version.
+
 ### Source dialects (`--dialect`)
 
 `ora2pg` isn't Oracle-only: `-m`/`--mysql` and `-M`/`--mssql` point it at a
@@ -496,7 +514,7 @@ database needed), so this project scans all three:
 
 ```sh
 ora2pg-gap-report schema/                        # Oracle (the default)
-ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086, 106..111
+ora2pg-gap-report --dialect mysql mysqldump.sql  # GAP-068..086, 106..111, 127..128
 ora2pg-gap-report --dialect mssql ssms.sql       # GAP-087..105, 125, 126
 ```
 

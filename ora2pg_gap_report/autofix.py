@@ -5,9 +5,9 @@ docs/ARCHITECTURE.md: the detectors aren't a real parser, and rewriting
 DDL that's about to be deployed carries a much higher cost of being wrong
 than a missed or extra flag does).
 
-Scope is deliberately narrow: seven gaps so far (GAP-028, GAP-024 and
-GAP-123 for Oracle, GAP-075 for MySQL, GAP-100, GAP-091 and GAP-125 for
-T-SQL, see
+Scope is deliberately narrow: twelve gaps so far (GAP-028, GAP-024,
+GAP-123, GAP-135, GAP-136 and GAP-145 for Oracle, GAP-075 and GAP-152 for
+MySQL, GAP-100, GAP-091, GAP-125 and GAP-151 for T-SQL, see
 FIXERS_BY_DIALECT). GAP-028,
 the first, shows what qualifies: it qualifies specifically because the bug is
 a single, always-identical shape (ora2pg wraps its own correctly-derived
@@ -338,6 +338,24 @@ def fix_trim_both_side(source: str) -> tuple[str, int]:
     return source, len(spans)
 
 
+def fix_mssql_with_rollup(source: str) -> tuple[str, int]:
+    """`GROUP BY a WITH ROLLUP` -> `GROUP BY ROLLUP (a)`, and CUBE (GAP-151):
+    T-SQL's old form, which ora2pg copies and PostgreSQL does not take."""
+    from .pg_script import mask_literals
+    from .rollup import rewrite_with_rollup
+
+    return rewrite_with_rollup(source, mask_literals(source))
+
+
+def fix_mysql_with_rollup(source: str) -> tuple[str, int]:
+    """`GROUP BY a WITH ROLLUP` -> `GROUP BY ROLLUP (a)` (GAP-152): MySQL's
+    form, which ora2pg copies and PostgreSQL does not take."""
+    from .pg_script import mask_literals
+    from .rollup import rewrite_with_rollup
+
+    return rewrite_with_rollup(source, mask_literals(source))
+
+
 _PG_NAME = r'(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)'
 _PG_CREATE_QUALIFIED_RE = re.compile(
     r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:UNLOGGED\s+)?(?:TABLE|VIEW|SEQUENCE|PROCEDURE|FUNCTION)\s+"
@@ -407,8 +425,8 @@ FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
         fix_plsql_integer_subtypes,
         fix_trim_both_side,
     ),
-    "mysql": (fix_mysql_limit_comma,),
-    "mssql": (fix_mssql_charindex_quotes, fix_mssql_empty_declare, fix_mssql_missing_schema),
+    "mysql": (fix_mysql_limit_comma, fix_mysql_with_rollup),
+    "mssql": (fix_mssql_charindex_quotes, fix_mssql_empty_declare, fix_mssql_missing_schema, fix_mssql_with_rollup),
 }
 
 # The detector whose gap each fix undoes. --load-check uses it to say
@@ -425,6 +443,8 @@ FIXER_DETECTOR: dict[Fixer, str] = {
     fix_mssql_charindex_quotes: "mssql_charindex",
     fix_mssql_empty_declare: "mssql_parameterless_procedure",
     fix_mssql_missing_schema: "mssql_schema_qualified_name",
+    fix_mssql_with_rollup: "mssql_with_rollup",
+    fix_mysql_with_rollup: "mysql_with_rollup",
 }
 
 # A fix that answers only one kind of load error: --load-check claims a

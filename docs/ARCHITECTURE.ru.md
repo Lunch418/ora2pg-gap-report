@@ -14,10 +14,10 @@
 принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
 госсектор.
 
-Детекторов сейчас 149 (полная таблица — в README.md, «Детекторы»; 148 из
+Детекторов сейчас 153 (полная таблица — в README.md, «Детекторы»; 152 из
 них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
 README.md, «Почему почти всё high»), в трёх исходных диалектах: 100 Oracle,
-27 MySQL/MariaDB (`ora2pg -m`) и 21 T-SQL/SQL Server (`ora2pg -M`). У
+28 MySQL/MariaDB (`ora2pg -m`) и 24 T-SQL/SQL Server (`ora2pg -M`). У
 каждого диалекта свой лексер (`plsql_lex.py`, `mysql_lex.py`,
 `mssql_lex.py`) и свой кортеж детекторов в `core.py`; они разделены
 структурно, так что файл, просканированный не с тем `--dialect`, не может
@@ -162,6 +162,7 @@ ora2pg_gap_report/
 │   ├── mysql_key_index.py         # KEY <имя> (<столбцы>) -- запись mysqldump, ломает CREATE TABLE
 │   ├── mysql_index_prefix.py      # KEY idx (note(20)) -- незакрытая кавычка проглатывает остаток файла
 │   ├── mysql_index_name_collision.py  # одно имя индекса на нескольких таблицах -- второй CREATE INDEX падает
+│   ├── mysql_with_rollup.py           # GROUP BY ... WITH ROLLUP (--fix)
 │   ├── mysql_spatial_index.py     # SPATIAL KEY/INDEX -- выбрасывается, ключевые слова читаются как столбец
 │   ├── mysql_limit_comma.py       # LIMIT n, m -- форму с запятой PostgreSQL отвергает
 │   ├── mysql_replace_into.py      # REPLACE INTO -- копируется как есть, аналога в PostgreSQL нет
@@ -202,6 +203,9 @@ ora2pg_gap_report/
 │   ├── mssql_computed_column.py       # вычисляемый столбец получает тип citext, что бы ни вычислял
 │   ├── mssql_rowversion.py            # ROWVERSION -> bytea, перестаёт обновляться, блокировка ломается
 │   ├── mssql_go_separator.py          # подпрограмма, за которой GO, -- GO попадает в тело (--prepare)
+│   ├── mssql_statement_terminator.py  # команды без ; -- ora2pg теряет всё, что после (--prepare)
+│   ├── mssql_index_name_collision.py  # одно имя индекса на нескольких таблицах (--prepare)
+│   ├── mssql_with_rollup.py           # GROUP BY ... WITH ROLLUP/CUBE (--fix)
 │   └── mssql_schema_qualified_name.py  # [dbo].[Orders] -- схема dbo не создаётся (её создаёт --fix)
 ├── mssql_lex.py                 # лексика диалекта T-SQL (идентификаторы в скобках, вложенные
 │                               #  блочные комментарии -- общая основа детекторов mssql_*)

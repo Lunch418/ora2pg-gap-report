@@ -35,6 +35,7 @@ from . import source_fixes
 from .checklist import ChecklistError, read_previous, write_checklist
 from .core import scan_source
 from .models import Finding
+from .source_text import decode_source
 from .unchecked import Unchecked, find_unchecked
 from .ora2pg_wrapper import CONVERT_TYPES, default_config, numeric_config, run_convert
 from .prepare import PREPARERS_BY_DIALECT
@@ -221,7 +222,8 @@ def run_migration(
     findings: list[Finding] = []
     unchecked: list[Unchecked] = []
     for path in sources:
-        text = path.read_bytes().decode("utf-8", errors="surrogateescape")
+        # UTF-16 (SSMS's default) becomes text here, and UTF-8 from here on.
+        text = decode_source(path.read_bytes(), errors="surrogateescape")[0]
         texts[path] = text
         readable = text.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace")
         findings.extend(dataclasses.replace(f, source_file=str(path)) for f in scan_source(readable, dialect=dialect))

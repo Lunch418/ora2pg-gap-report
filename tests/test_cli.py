@@ -249,14 +249,14 @@ def test_main_reports_unreadable_file_as_error_not_traceback(tmp_path, capsys, m
     # (as this sandbox runs), so it wouldn't actually reproduce the failure.
     unreadable = tmp_path / "secret.pkb"
     unreadable.write_text("create or replace package body x as end x; /", encoding="utf-8")
-    original_read_text = Path.read_text
+    original_read_bytes = Path.read_bytes
 
     def boom(self, *args, **kwargs):
         if self == unreadable:
             raise PermissionError("Permission denied")
-        return original_read_text(self, *args, **kwargs)
+        return original_read_bytes(self, *args, **kwargs)
 
-    monkeypatch.setattr(Path, "read_text", boom)
+    monkeypatch.setattr(Path, "read_bytes", boom)
 
     exit_code = main([str(unreadable)])
     captured = capsys.readouterr()

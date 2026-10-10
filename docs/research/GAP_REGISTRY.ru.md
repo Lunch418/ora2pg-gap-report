@@ -149,6 +149,7 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-111 | `CREATE TEMPORARY TABLE` - становится постоянной и общей для сеансов | `mysql_temporary_table` | high | confirmed | 25.0 | 16 | 2026-09-26 | [gap-111](gap-111-mysql-temporary-table.md) |
 | GAP-127 | Индекс по префиксу столбца (`KEY idx (note(20))`) - ломает файл незакрытой кавычкой | `mysql_index_prefix` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-127](gap-127-mysql-index-prefix.md) |
 | GAP-128 | Одно имя индекса на нескольких таблицах - второй `CREATE INDEX` падает | `mysql_index_name_collision` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-128](gap-128-mysql-index-name-collision.md) |
+| GAP-152 | `GROUP BY ... WITH ROLLUP` - копируется, PostgreSQL знает только `ROLLUP (...)` | `mysql_with_rollup` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-152](gap-152-mysql-with-rollup.md) |
 
 ### MSSQL / T-SQL (`ora2pg -M`, `dialect="mssql"`)
 
@@ -175,6 +176,9 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-105 | `ROWVERSION` -> `bytea`, перестаёт обновляться - блокировка ломается | `mssql_rowversion` | high | confirmed | 25.0 | 16 | 2026-09-01 | [gap-105](gap-105-mssql-rowversion.md) |
 | GAP-125 | `[dbo].[Orders]` - схема `dbo` остаётся, но не создаётся, ничего не загружается | `mssql_schema_qualified_name` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-125](gap-125-mssql-schema-qualified-name.md) |
 | GAP-126 | Подпрограмма, за которой идёт `GO`, - `GO` попадает в тело, подпрограмма не загружается | `mssql_go_separator` | high | confirmed | 25.0 | 16 | 2026-10-08 | [gap-126](gap-126-mssql-go-separator.md) |
+| GAP-149 | Команды без `;` (только `GO`) - ora2pg молча теряет всё после первой | `mssql_statement_terminator` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-149](gap-149-mssql-statement-terminator.md) |
+| GAP-150 | Одно имя индекса на нескольких таблицах - второй `CREATE INDEX` падает | `mssql_index_name_collision` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-150](gap-150-mssql-index-name-collision.md) |
+| GAP-151 | `GROUP BY ... WITH ROLLUP` - копируется, PostgreSQL знает только `ROLLUP (...)` | `mssql_with_rollup` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-151](gap-151-mssql-with-rollup.md) |
 
 Статусы: `confirmed` — воспроизведено на указанной версии ora2pg и
 остаётся актуальным; `fixed-upstream` — ora2pg исправил проблему в более

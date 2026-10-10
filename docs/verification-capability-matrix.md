@@ -10,7 +10,7 @@ something's unimplemented, but because the question itself, "is this
 still in the output," is a tautology for them: the construct is
 guaranteed to never appear in the output on any migration, regardless of
 whether someone fixed it by hand or not. `verification.py`'s docstring
-explains this in detail; this is a table for each of the 148 gaps, so
+explains this in detail; this is a table for each of the 152 gaps, so
 nobody has to read the code just to answer "can this specific one be
 verified."
 
@@ -177,6 +177,7 @@ verified."
 | 111 | `mysql_temporary_table` | `not_verifiable` | TEMPORARY is dropped; a plain CREATE TABLE is left. |
 | 127 | `mysql_index_prefix` | `not_verifiable` | The clause becomes a CREATE INDEX / ADD UNIQUE; --load-check knows the UNIQUE shape. |
 | 128 | `mysql_index_name_collision` | `not_verifiable` | The clause becomes CREATE INDEX statements. |
+| 152 | `mysql_with_rollup` | `verbatim` | GROUP BY ... WITH ROLLUP is copied unchanged. |
 
 ### MSSQL / T-SQL (`ora2pg -M`)
 
@@ -203,8 +204,11 @@ verified."
 | 105 | `mssql_rowversion` | `not_verifiable` | Rewritten to bytea; the ROWVERSION name never survives. |
 | 125 | `mssql_schema_qualified_name` | `verbatim` | The schema stays on every name; gone once the file creates it (`--fix` does). |
 | 126 | `mssql_go_separator` | `verbatim` | The GO stays, inside the routine body. |
+| 149 | `mssql_statement_terminator` | `not_verifiable` | What ora2pg drops is not in the output at all. |
+| 150 | `mssql_index_name_collision` | `verbatim` | The CREATE INDEX statements are copied with their names. |
+| 151 | `mssql_with_rollup` | `verbatim` | GROUP BY ... WITH ROLLUP is copied unchanged. |
 
-Totals among the 148 gaps themselves: 65 `verbatim`, 82 `not_verifiable`
+Totals among the 152 gaps themselves: 68 `verbatim`, 83 `not_verifiable`
 (including `autonomous_tx`, but for a different reason, see above), 1
 `generated_only` (`connect_by`).
 

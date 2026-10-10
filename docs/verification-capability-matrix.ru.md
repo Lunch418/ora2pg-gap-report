@@ -10,7 +10,7 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 выводе" тавтологичен: конструкция гарантированно не появится в выводе ни
 на одной миграции, независимо от того, исправил её кто-то руками или
 нет. Docstring `verification.py` объясняет это подробно; здесь — таблица
-по каждому из 148 gap'ов, чтобы не листать код ради одного вопроса
+по каждому из 152 gap'ов, чтобы не листать код ради одного вопроса
 "а можно ли верифицировать конкретно этот".
 
 ## Как читать колонку "режим"
@@ -176,6 +176,7 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 111 | `mysql_temporary_table` | `not_verifiable` | TEMPORARY выбрасывается, остаётся обычный CREATE TABLE. |
 | 127 | `mysql_index_prefix` | `not_verifiable` | Предложение становится CREATE INDEX / ADD UNIQUE; --load-check узнаёт форму UNIQUE. |
 | 128 | `mysql_index_name_collision` | `not_verifiable` | Предложение становится командами CREATE INDEX. |
+| 152 | `mysql_with_rollup` | `verbatim` | GROUP BY ... WITH ROLLUP копируется без изменений. |
 
 ### MSSQL / T-SQL (`ora2pg -M`)
 
@@ -202,8 +203,11 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 105 | `mssql_rowversion` | `not_verifiable` | Переписывается в bytea; имя ROWVERSION не переживает конвертацию. |
 | 125 | `mssql_schema_qualified_name` | `verbatim` | Схема остаётся у всех имён; пропадает, когда файл её создаёт (это делает `--fix`). |
 | 126 | `mssql_go_separator` | `verbatim` | GO остаётся - внутри тела подпрограммы. |
+| 149 | `mssql_statement_terminator` | `not_verifiable` | То, что ora2pg выбрасывает, в выводе отсутствует. |
+| 150 | `mssql_index_name_collision` | `verbatim` | CREATE INDEX копируются с именами. |
+| 151 | `mssql_with_rollup` | `verbatim` | GROUP BY ... WITH ROLLUP копируется без изменений. |
 
-Итого среди самих 148 gap'ов: 65 `verbatim`, 82 `not_verifiable`
+Итого среди самих 152 gap'ов: 68 `verbatim`, 83 `not_verifiable`
 (включая `autonomous_tx`, но по другой причине — см. выше), 1
 `generated_only` (`connect_by`).
 

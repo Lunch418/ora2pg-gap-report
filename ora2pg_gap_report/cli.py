@@ -49,6 +49,7 @@ from .gap_registry import (
     verified_ora2pg_versions,
 )
 from .models import Finding
+from .source_text import codec, decode_source, read_source
 from .unchecked import Unchecked, find_unchecked
 from .recipes import recipe_for, recipe_path, recipe_url
 from .report_generator import (
@@ -624,7 +625,7 @@ def _handle_verify(args: argparse.Namespace, err_console: Console, lang: str) ->
             had_error = True
             continue
         try:
-            source = path.read_text(encoding="utf-8", errors="replace")
+            source = read_source(path)
         except OSError as exc:
             err_console.print(
                 i18n.t(lang, "skipped_unreadable", exc=escape(str(exc)), path=escape(str(path)))
@@ -966,7 +967,8 @@ def _handle_fix(
             # than reading text keeps line endings untranslated. Reading
             # with errors="replace" used to turn every Cyrillic letter of
             # a cp1251 file into U+FFFD, permanently, once written back.
-            source = path.read_bytes().decode("utf-8", errors="surrogateescape")
+            # UTF-16 (SSMS's default) is decoded, and written back as UTF-16.
+            source, encoding = decode_source(path.read_bytes(), errors="surrogateescape")
         except OSError as exc:
             err_console.print(
                 i18n.t(lang, "skipped_unreadable", exc=escape(str(exc)), path=escape(str(path)))
@@ -996,7 +998,11 @@ def _handle_fix(
 
         if args.write:
             try:
-                write_text_atomic(path, fixed, errors="surrogateescape", newline="")
+                if encoding == "utf-8":
+                    write_text_atomic(path, fixed, errors="surrogateescape", newline="")
+                else:
+                    name, mark = codec(encoding)
+                    write_text_atomic(path, mark + fixed, encoding=name, newline="")
             except OSError as exc:
                 err_console.print(
                     i18n.t(lang, "fix_write_error", path=escape(str(path)), exc=escape(str(exc)))
@@ -1325,7 +1331,7 @@ def _main(argv: list[str] | None = None) -> int:
                 had_error = True
                 continue
             try:
-                source = path.read_text(encoding="utf-8", errors="replace")
+                source = read_source(path)
             except OSError as exc:
                 err_console.print(
                     i18n.t(lang, "skipped_unreadable", exc=escape(str(exc)), path=escape(str(path)))

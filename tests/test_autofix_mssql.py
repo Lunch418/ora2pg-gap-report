@@ -17,6 +17,7 @@ from ora2pg_gap_report.autofix import (
     fix_recursive_with_keyword,
     fix_mssql_empty_declare,
     fix_mysql_limit_comma,
+    fix_mysql_with_rollup,
 )
 from ora2pg_gap_report.core import DIALECTS
 
@@ -27,11 +28,11 @@ def test_the_fixer_registry_covers_every_dialect():
     assert set(FIXERS_BY_DIALECT) == set(DIALECTS)
 
 
-def test_mysql_has_only_its_one_syntax_fix_on_purpose():
-    # Documented in autofix.py: LIMIT a, b is pure syntax; every other
+def test_mysql_has_only_its_two_syntax_fixes_on_purpose():
+    # LIMIT a, b and GROUP BY ... WITH ROLLUP are pure syntax; every other
     # confirmed MySQL gap needs either a design decision or data the
     # generated file no longer carries.
-    assert FIXERS_BY_DIALECT["mysql"] == (fix_mysql_limit_comma,)
+    assert FIXERS_BY_DIALECT["mysql"] == (fix_mysql_limit_comma, fix_mysql_with_rollup)
 
 
 def test_oracle_has_exactly_its_six_fixers():

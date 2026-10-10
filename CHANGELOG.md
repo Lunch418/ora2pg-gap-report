@@ -9,6 +9,17 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Added
+
+- **"Not checked": SQL built at run time.** `EXECUTE IMMEDIATE v_sql`,
+  `OPEN c FOR v_sql`, `DBMS_SQL.PARSE`, MySQL's `PREPARE ... FROM @v`,
+  T-SQL's `EXEC(@sql)` and `sp_executesql` run SQL no scan can read.
+  Every report now lists them after the findings - file, line, object,
+  the statement, "partly" where string literals in it were scanned - and
+  `MIGRATION.md` makes each a box to tick once run on PostgreSQL. They are
+  not findings and count toward nothing; `--migrate` mentions them in its
+  next steps. JSON: the `unchecked` array, `schema_version` 3.
+
 ## [0.16.0] - 2026-10-10
 
 ### Added

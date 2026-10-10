@@ -191,6 +191,8 @@ ora2pg_gap_report/
 ├── ora2pg_wrapper.py            # runs ora2pg per object type, parses --estimate_cost
 ├── i18n.py                     # output language (--lang/--set-lang): resolution, English
 │                               # UI strings, and translations of detector explanations
+├── unchecked.py                # SQL built at run time (EXECUTE IMMEDIATE v_sql, ...): listed
+│                               #  in every report as "not checked", never a finding
 ├── load_check.py               # --load-check: loads generated output into a real PostgreSQL
 │                               #  (docker or a DSN) in one rolled-back transaction, ties each
 │                               #  failing statement to a GAP-NNN / --fix / an earlier failure
@@ -291,6 +293,15 @@ for it. Both cases are rarer in practice than a direct `EXECUTE IMMEDIATE`
 with a literal or concatenation (which was enough to produce real
 findings in `utPLSQL`, see above), but haven't been verified empirically
 with the same rigor.
+
+What no detector can see is not left unsaid. `unchecked.py` lists every
+statement whose SQL is built at run time - `EXECUTE IMMEDIATE` and `OPEN
+... FOR` with anything but literals, `DBMS_SQL.PARSE`'s text argument,
+MySQL's `PREPARE ... FROM`, T-SQL's `EXEC(...)` and `sp_executesql` - and
+every report shows them after the findings, as "not checked". They are
+deliberately not findings: nothing is known to be wrong with them, so
+they stay out of severities, stages, the effort estimate and
+`--fail-on`.
 
 ## Memory on a large scan
 

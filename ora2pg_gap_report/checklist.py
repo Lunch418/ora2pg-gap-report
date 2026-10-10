@@ -36,10 +36,14 @@ from .html_report import STAGES, group_by_gap, severity_rank, source_name, stage
 from .models import Finding
 from .prepare import prepare_command
 from .recipes import recipe_for, recipe_url
+from .unchecked import Unchecked
 
 MARKER = "<!-- ora2pg-gap-report checklist v1 -->"
 _ITEM_RE = re.compile(r"^- \[(?P<mark>[ xX])\] .*<!-- item: (?P<key>[^>]*?) -->\s*$")
 _FIELD_SEP = " | "
+# The items of the "not checked" section (unchecked.py) carry this in
+# place of a detector name; no detector is called that.
+UNCHECKED = "unchecked"
 
 
 class ChecklistError(Exception):
@@ -201,10 +205,27 @@ def write_checklist(
     version: str = "",
     today: datetime.date | None = None,
     handled: dict[str, str] | None = None,
+    unchecked: Iterable[Unchecked] = (),
 ) -> None:
     """`handled`, from --migrate: detector -> the i18n key of a note saying
     the run already took care of that gap (prepared the source, repaired
-    the output). The items stay open: the note asks to check and tick."""
+    the output). The items stay open: the note asks to check and tick.
+
+    `unchecked` (unchecked.py) become a last section of their own, one box
+    per object and file to tick once tested on PostgreSQL. They remember
+    their ticks like the rest but are not part of the progress line: that
+    counts the gaps to fix, and these are not known to be wrong."""
+    previous = previous or {}
+    scanned_files = list(scanned_files)
+    unchecked_items = build_items(
+        [
+            Finding(UNCHECKED, "high", u.object_name, u.line, u.snippet, UNCHECKED, u.source_file)
+            for u in unchecked
+        ],
+        {k: v for k, v in previous.items() if k.detector == UNCHECKED},
+        scanned_files,
+    ).get(UNCHECKED, [])
+    previous = {k: v for k, v in previous.items() if k.detector != UNCHECKED}
     items = build_items(findings, previous, scanned_files)
     all_items = [i for group in items.values() for i in group]
     done = sum(1 for i in all_items if i.checked)
@@ -221,6 +242,9 @@ def write_checklist(
         w(i18n.t(lang, "checklist_how") + "\n\n")
     else:
         w(i18n.t(lang, "checklist_empty") + "\n")
+        if unchecked_items:
+            w("\n")
+            _write_unchecked(w, unchecked_items, lang)
         return
 
     for detector in _detector_order(findings, items):
@@ -259,20 +283,37 @@ def write_checklist(
                 w(f"**{i18n.t(lang, 'checklist_details')}:** `ora2pg-gap-report --explain GAP-{gap.number}`\n\n")
 
         for item in group:
-            mark = "x" if item.checked else " "
-            where = _code(item.key.source_file) if item.key.source_file else ""
-            line = f"- [{mark}] {_code(item.key.object_name)}"
-            if where:
-                line += f" - {where}"
-            if item.lines:
-                line += f" {_lines_text(item.lines, lang)}"
-            if item.moved_from is not None:
-                was = item.moved_from
-                where = was.source_file if was.object_name.upper() == item.key.object_name.upper() else was.object_name
-                line += f" - {i18n.t(lang, 'checklist_moved', where=_code(where))}"
-            if item.state == "gone":
-                line += f" - {i18n.t(lang, 'checklist_gone')}"
-            elif item.state == "kept":
-                line += f" - {i18n.t(lang, 'checklist_not_scanned')}"
-            w(f"{line} <!-- item: {item.key.encode()} -->\n")
+            _write_item(w, item, lang)
         w("\n")
+    _write_unchecked(w, unchecked_items, lang)
+
+
+def _write_unchecked(w: Callable[[str], object], items: list[Item], lang: str) -> None:
+    if not items:
+        return
+    w(f"## {i18n.t(lang, 'checklist_unchecked_heading')}\n\n")
+    done = sum(1 for i in items if i.checked)
+    w(i18n.t(lang, "checklist_open_of", open=len(items) - done, total=len(items)) + "\n\n")
+    w(i18n.t(lang, "unchecked_text") + "\n\n")
+    for item in items:
+        _write_item(w, item, lang)
+    w("\n")
+
+
+def _write_item(w: Callable[[str], object], item: Item, lang: str) -> None:
+    mark = "x" if item.checked else " "
+    where = _code(item.key.source_file) if item.key.source_file else ""
+    line = f"- [{mark}] {_code(item.key.object_name)}"
+    if where:
+        line += f" - {where}"
+    if item.lines:
+        line += f" {_lines_text(item.lines, lang)}"
+    if item.moved_from is not None:
+        was = item.moved_from
+        where = was.source_file if was.object_name.upper() == item.key.object_name.upper() else was.object_name
+        line += f" - {i18n.t(lang, 'checklist_moved', where=_code(where))}"
+    if item.state == "gone":
+        line += f" - {i18n.t(lang, 'checklist_gone')}"
+    elif item.state == "kept":
+        line += f" - {i18n.t(lang, 'checklist_not_scanned')}"
+    w(f"{line} <!-- item: {item.key.encode()} -->\n")

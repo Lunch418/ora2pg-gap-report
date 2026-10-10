@@ -77,18 +77,66 @@
           "description": "Key into the report's own top-level `messages` object, which carries the explanation text once per distinct message rather than repeating it on every finding. Stable across releases and independent of the prose, so it can be grouped or filtered on -- see ora2pg_gap_report/messages.py."
         }
       }
+    },
+    "unchecked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "object_name",
+        "line",
+        "snippet",
+        "partial",
+        "source_file"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "execute_immediate",
+            "open_for",
+            "dbms_sql_parse",
+            "prepare",
+            "exec",
+            "sp_executesql"
+          ],
+          "description": "Which statement runs the SQL."
+        },
+        "object_name": {
+          "type": "string",
+          "description": "The object it is in, as for a finding; 'UNKNOWN' outside any."
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based line of the statement in source_file."
+        },
+        "snippet": {
+          "type": "string",
+          "description": "The statement, whitespace collapsed, cut at 80 characters."
+        },
+        "partial": {
+          "type": "boolean",
+          "description": "true: the text is joined from string literals and something else; the literals were scanned, what the rest adds was not. false: none of the text was scanned."
+        },
+        "source_file": {
+          "type": "string",
+          "description": "The scanned file, as for a finding."
+        }
+      }
     }
   },
   "additionalProperties": false,
   "required": [
     "schema_version",
     "messages",
-    "findings"
+    "findings",
+    "unchecked"
   ],
   "properties": {
     "schema_version": {
-      "const": 2,
-      "description": "Bumped when the shape of this document changes. 2 replaced the bare array of findings (each inlining its own explanation) with this object, carrying the explanations once under `messages`."
+      "const": 3,
+      "description": "Bumped when the shape of this document changes. 2 replaced the bare array of findings (each inlining its own explanation) with this object, carrying the explanations once under `messages`. 3 added `unchecked`."
     },
     "messages": {
       "type": "object",
@@ -102,6 +150,13 @@
       "items": {
         "$ref": "#/$defs/finding"
       }
+    },
+    "unchecked": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/unchecked"
+      },
+      "description": "Statements whose SQL is built at run time (EXECUTE IMMEDIATE v_sql, OPEN c FOR v_sql, DBMS_SQL.PARSE, PREPARE ... FROM @v, EXEC(@sql), sp_executesql). Not findings: nothing is known to be wrong with them, and they count toward no severity, stage, estimate or --fail-on. They are the places the scan could not read. See ora2pg_gap_report/unchecked.py."
     }
   }
 }

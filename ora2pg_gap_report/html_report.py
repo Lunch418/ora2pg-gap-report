@@ -24,6 +24,7 @@ from importlib import metadata
 from typing import IO, TYPE_CHECKING
 
 from . import i18n, messages
+from .unchecked import explanation as unchecked_explanation
 from .effort_estimator import estimate_hours, summarize_by_severity
 from .gap_registry import gap_by_detector
 from .models import Finding
@@ -32,6 +33,7 @@ from .recipes import recipe_for, recipe_url
 
 if TYPE_CHECKING:
     from .load_check import LoadCheckResult
+    from .unchecked import Unchecked
 
 Write = Callable[[str], object]
 
@@ -177,6 +179,9 @@ table.where tr:first-child td { border-top: 0; }
 table.where td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
 table.where td.file { color: var(--muted); word-break: break-all; }
 table.where td.snippet { word-break: break-word; color: var(--accent); }
+table.unchecked { margin-top: 1rem; }
+table.unchecked td.snippet { color: var(--ink); }
+.partly { font-size: 0.76rem; color: var(--muted); white-space: nowrap; }
 
 .objects { list-style: none; padding: 0; margin: 0; columns: 2; column-gap: 2.5rem; }
 .objects li { break-inside: avoid; display: flex; justify-content: space-between; gap: 1rem;
@@ -312,13 +317,15 @@ def write_html(
     lang: str = "ru",
     load: "LoadCheckResult | None" = None,
     handled: dict[str, str] | None = None,
+    unchecked: "list[Unchecked] | None" = None,
 ) -> None:
     """Write the report for `findings` to `stream`. With `load` (from
     --migrate --load-check), a card near the top says whether the converted
     output loaded into PostgreSQL, and lists what did not, each error
     linked to its gap further down the page. `handled` (from --migrate,
     see migrate.handled_by_migrate) notes in a gap's card that the run
-    already took care of it."""
+    already took care of it. `unchecked` (unchecked.py) lists, last, the
+    statements with SQL built at run time, which no scan can read."""
     w = stream.write
     gaps = group_by_gap(findings)
     counts = summarize_by_severity(findings)
@@ -352,6 +359,7 @@ def write_html(
 <p>{i18n.t(lang, "report_empty_text")}</p>
 </section>
 """)
+        _write_unchecked(w, lang, unchecked or [])
         _write_footer(w, lang)
         return
 
@@ -425,6 +433,7 @@ def write_html(
             w(f'<li><span class="mono">{html.escape(obj)}</span><span class="n">{n}</span></li>\n')
         w("</ol>\n")
 
+    _write_unchecked(w, lang, unchecked or [])
     _write_footer(w, lang)
 
 
@@ -517,6 +526,35 @@ def _write_load_card(w: Write, lang: str, load: "LoadCheckResult", gaps_on_page:
             w(f'<p class="where-to">{i18n.t(lang, "report_load_more", n=len(load.errors) - _LOAD_ROWS_SHOWN)}</p>\n')
         w("</details>\n")
     w("</section>\n")
+
+
+_UNCHECKED_ROWS_SHOWN = 100
+
+
+def _write_unchecked(w: Write, lang: str, unchecked: "list[Unchecked]") -> None:
+    """The statements with SQL built at run time: not findings, the places
+    the report cannot vouch for."""
+    if not unchecked:
+        return
+    heading = i18n.t(lang, "unchecked_heading", statements=i18n.count(lang, "statement", len(unchecked)))
+    w(f'<h2 id="unchecked">{html.escape(heading)}</h2>\n')
+    w(f'<p class="lede">{html.escape(unchecked_explanation(unchecked, lang))}</p>\n')
+    w(
+        f'<table class="where unchecked"><thead><tr><th>{i18n.t(lang, "report_col_file")}</th>'
+        f'<th>{i18n.t(lang, "report_col_line")}</th><th>{i18n.t(lang, "report_col_object")}</th>'
+        f'<th>{i18n.t(lang, "report_col_snippet")}</th><th></th></tr></thead>\n<tbody>\n'
+    )
+    for u in unchecked[:_UNCHECKED_ROWS_SHOWN]:
+        partial = f'<span class="partly">{i18n.t(lang, "unchecked_partial")}</span>' if u.partial else ""
+        w(
+            f'<tr><td class="file">{html.escape(PurePath(u.source_file).name)}</td><td class="num">{u.line}</td>'
+            f'<td class="mono">{html.escape(u.object_name)}</td><td class="snippet mono">{html.escape(u.snippet)}</td>'
+            f"<td>{partial}</td></tr>\n"
+        )
+    w("</tbody></table>\n")
+    rest = len(unchecked) - _UNCHECKED_ROWS_SHOWN
+    if rest > 0:
+        w(f'<p class="lede">{html.escape(i18n.t(lang, "unchecked_more", statements=i18n.count(lang, "statement", rest)))}</p>\n')
 
 
 def _write_gap(w: Write, lang: str, group_: GapGroup, handled: str | None = None) -> None:

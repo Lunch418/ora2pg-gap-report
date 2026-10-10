@@ -9,7 +9,7 @@ backlog, and items only get pulled out of it once there's a confirmed
 reason (a real user, a real issue, real pain). See the rule at the end of
 the document.
 
-Status current as of v0.18.0 (2026-10-10).
+Status current as of v0.18.1 (2026-10-10).
 
 ## How to read this list
 

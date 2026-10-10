@@ -9,6 +9,8 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-10-10
+
 ### Fixed
 
 - **The older detectors, checked on the same ~240,000 lines** of other

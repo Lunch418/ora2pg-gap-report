@@ -80,4 +80,6 @@ DATA_TYPE       FLOAT:numeric
 declaration. `BINARY_FLOAT`/`BINARY_DOUBLE` are IEEE in Oracle too and are
 not flagged.
 
+`--migrate` converts with these settings by default (see README, `--migrate`).
+
 Implemented: `ora2pg_gap_report/detectors/number_as_float.py`.

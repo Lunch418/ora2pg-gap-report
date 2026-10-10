@@ -929,7 +929,7 @@ def render_migration(
         "3",
         i18n.t(lang, "migrate_row_convert"),
         i18n.t(lang, "migrate_row_convert_value", files=i18n.count(lang, "file", len(result.converted)), kinds=kinds),
-        "converted/",
+        "converted/, ora2pg.conf" if result.numeric_config else "converted/",
     )
     steps.add_row(
         "4",

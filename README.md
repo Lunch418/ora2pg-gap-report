@@ -791,6 +791,7 @@ out/
   MIGRATION.md       the work as a checklist (keeps your ticks on the next run)
   prepared/          a copy of the source after --prepare; the source itself is not touched
   converted/         ora2pg's output, one file per object type, in load order, after --fix
+  ora2pg.conf        the configuration ora2pg ran with: its own, with NUMBER kept decimal
   load-check.txt     with --load-check: every statement that did not load, and why
   load-check.json    the same for a pipeline
 ```
@@ -814,6 +815,12 @@ not:
   `current_setting()` read or a `DEFAULT` naming it (GAP-114, GAP-119,
   GAP-036), a MySQL `ENUM` column gets the `CREATE TYPE` ora2pg names but
   never writes (GAP-068);
+- ora2pg runs with a copy of its own `ora2pg.conf` (read from its default
+  location, inside the image for `docker:IMAGE`) in which `PG_NUMERIC_TYPE
+  0`, `DEFAULT_NUMERIC numeric` and `FLOAT:numeric` keep Oracle's decimal
+  `NUMBER` decimal - not `bigint` or `double precision` (GAP-130,
+  GAP-131). Checked on the samples: only those types change in the
+  output. `--keep-ora2pg-types` converts with the file as it is;
 - running again into the same `out/` replaces the generated files and
   keeps the checklist's ticks; a directory it did not create is refused.
 

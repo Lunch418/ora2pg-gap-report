@@ -855,10 +855,11 @@ def _fake_ora2pg(monkeypatch):
         "PROCEDURE": "CREATE OR REPLACE PROCEDURE say_it () AS $body$ BEGIN NULL; END; $body$ LANGUAGE plpgsql;\n",
     }
 
-    def run_convert(input_file, object_type, dialect="oracle", ora2pg_bin="ora2pg", lang="ru"):
+    def run_convert(input_file, object_type, dialect="oracle", ora2pg_bin="ora2pg", lang="ru", config=None):
         return outputs.get(object_type, "")
 
     monkeypatch.setattr(migrate, "run_convert", run_convert)
+    monkeypatch.setattr(migrate, "default_config", lambda ora2pg_bin: None)
 
 
 def _schema(tmp_path):
@@ -961,11 +962,12 @@ async def test_migrate_screen_holds_while_a_run_is_going(tmp_path, monkeypatch):
 
     release = threading.Event()
 
-    def slow_convert(input_file, object_type, dialect="oracle", ora2pg_bin="ora2pg", lang="ru"):
+    def slow_convert(input_file, object_type, dialect="oracle", ora2pg_bin="ora2pg", lang="ru", config=None):
         release.wait(5)
         return ""
 
     monkeypatch.setattr(migrate, "run_convert", slow_convert)
+    monkeypatch.setattr(migrate, "default_config", lambda ora2pg_bin: None)
     source = _schema(tmp_path)
     app = GapReportApp(start_path=tmp_path, lang="en")
     async with app.run_test(size=(100, 40)) as pilot:

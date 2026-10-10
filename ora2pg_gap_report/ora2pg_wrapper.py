@@ -249,6 +249,83 @@ def ora2pg_command(ora2pg_bin: str, mounts: list[Path]) -> list[str]:
     return command + ["--entrypoint", "ora2pg", image]
 
 
+# Where ora2pg reads its configuration when given no -c: its --help says,
+# "Set an alternate configuration file other than the default
+# /etc/ora2pg/ora2pg.conf."
+_DEFAULT_CONFIG_RE = re.compile(r"default\s+(\S*ora2pg\.conf)\b")
+
+
+def default_config(ora2pg_bin: str = "ora2pg", timeout: int = 120) -> str | None:
+    """The text of the ora2pg.conf `ora2pg_bin` reads by default -- from
+    inside the image for `docker:IMAGE` -- or None if it cannot be found
+    or read."""
+    try:
+        shown = subprocess.run(
+            ora2pg_command(ora2pg_bin, []) + ["--help"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = _DEFAULT_CONFIG_RE.search(shown.stdout + shown.stderr)
+    if m is None:
+        return None
+    path = m.group(1)
+    if ora2pg_bin.startswith("docker:"):
+        try:
+            read = subprocess.run(
+                ["docker", "run", "--rm", "--entrypoint", "cat", ora2pg_bin[len("docker:") :], path],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return read.stdout if read.returncode == 0 and read.stdout.strip() else None
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    return text if text.strip() else None
+
+
+# The settings that make ora2pg keep Oracle's decimal NUMBER decimal
+# (GAP-130, GAP-131): NUMBER without a precision -> numeric instead of
+# bigint, NUMBER(p,s) -> decimal(p,s) instead of real/double precision,
+# FLOAT -> numeric. Checked on ora2pg 25.0: nothing else in its output
+# changes.
+_NUMERIC_SETTINGS = (("PG_NUMERIC_TYPE", "0"), ("DEFAULT_NUMERIC", "numeric"))
+_FLOAT_MAPPING_RE = re.compile(r"\bFLOAT\s*:\s*[^,]*", re.IGNORECASE)
+
+
+def numeric_config(text: str) -> str:
+    """`text`, an ora2pg.conf, with the settings above: each replaced where
+    it is set, added where it is not; FLOAT:numeric put into DATA_TYPE."""
+    lines = text.splitlines()
+    for key, value in _NUMERIC_SETTINGS:
+        at = [i for i, line in enumerate(lines) if re.match(rf"{key}\s", line)]
+        for i in at:
+            lines[i] = f"{key}\t{value}"
+        if not at:
+            lines.append(f"{key}\t{value}")
+    data_type = [i for i, line in enumerate(lines) if re.match(r"DATA_TYPE\s", line)]
+    for i in data_type:
+        if _FLOAT_MAPPING_RE.search(lines[i]):
+            lines[i] = _FLOAT_MAPPING_RE.sub("FLOAT:numeric", lines[i])
+        else:
+            lines[i] = lines[i].rstrip() + ",FLOAT:numeric"
+    if not data_type:
+        lines.append("DATA_TYPE\tFLOAT:numeric")
+    header = "# Written by ora2pg-gap-report --migrate: ora2pg's own configuration, with\n" \
+        "# PG_NUMERIC_TYPE 0, DEFAULT_NUMERIC numeric and FLOAT:numeric (GAP-130, GAP-131).\n"
+    return header + "\n".join(lines) + "\n"
+
+
 def run_convert(
     input_file: Path,
     object_type: str,
@@ -256,13 +333,17 @@ def run_convert(
     ora2pg_bin: str = "ora2pg",
     timeout: int = 600,
     lang: str = "ru",
+    config: Path | None = None,
 ) -> str:
-    """Run `ora2pg [-m|-M] -t <object_type> -i <input_file>` and return the
-    converted PostgreSQL (empty when the file holds nothing of that type).
-    Raises Ora2PgNotFoundError / Ora2PgRunError like run_estimate_cost()."""
+    """Run `ora2pg [-m|-M] [-c <config>] -t <object_type> -i <input_file>`
+    and return the converted PostgreSQL (empty when the file holds nothing
+    of that type). Raises Ora2PgNotFoundError / Ora2PgRunError like
+    run_estimate_cost()."""
     with tempfile.TemporaryDirectory() as tmp:
         out_path = Path(tmp) / "out.sql"
-        command = ora2pg_command(ora2pg_bin, [input_file.parent, Path(tmp)]) + [
+        mounts = [input_file.parent, Path(tmp)] + ([config.parent] if config is not None else [])
+        command = ora2pg_command(ora2pg_bin, mounts) + [
+            *(["-c", str(config.resolve())] if config is not None else []),
             *_DIALECT_FLAGS[dialect],
             "-t", object_type,
             "-i", str(input_file.resolve()),

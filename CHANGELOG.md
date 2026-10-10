@@ -11,32 +11,6 @@ patch for fixes to existing ones.
 
 ### Added
 
-- **GAP-139..142: `TO_CHAR`, `CHAR(n)` and `ROUND` of a date.** Each
-  run in Oracle 23ai and, after ora2pg 25.0, in PostgreSQL 16:
-  - `to_char_operator`: `TO_CHAR(a/b)` without spaces becomes
-    `a/b::text`, where the cast binds to `b` alone - the call fails
-    (with spaces ora2pg adds the parentheses);
-  - `to_char_default_format`: `TO_CHAR` of a date or a fraction without
-    a format becomes `x::text` - `2026-03-17 00:00:00` instead of
-    `17-MAR-26`, `0.5` instead of `.5`;
-  - `char_semantics`: `CHAR(n)` keeps its type, but PostgreSQL ignores
-    the trailing blanks - `LENGTH` 2 instead of 5, `'ABx'` instead of
-    `'AB   x'`, equal to a `VARCHAR2` where Oracle says not (once per
-    file);
-  - `round_date`: `ROUND(d, 'MM')` and `ROUND(d)` are copied, and
-    PostgreSQL has no `round(timestamp)`.
-
-  Checked and left out: `ORDER BY ... DESC` puts NULLs first in both,
-  and `TRUNC(d, 'MM'/'IW'/'Q')` is converted right.
-
-### Fixed
-
-- A variable's type is taken from its own declaration when overloads of
-  one routine declare the same parameter differently (OraOpenSource
-  Logger's `tochar`).
-
-### Added
-
 - **GAP-134..138: five constructs whose output fails.** Each run in
   Oracle 23ai and, after ora2pg 25.0, in PostgreSQL 16:
   - `trunc_number`: `TRUNC` of a number becomes `date_trunc` (ora2pg
@@ -55,6 +29,42 @@ patch for fixes to existing ones.
 
   Found in OraOpenSource Logger and `file_util_pkg` as well: eleven date
   differences, `trunc(.../7)`, six `INSTR` calls.
+
+- **GAP-139..142: `TO_CHAR`, `CHAR(n)` and `ROUND` of a date.** Each
+  run in Oracle 23ai and, after ora2pg 25.0, in PostgreSQL 16:
+  - `to_char_operator`: `TO_CHAR(a/b)` without spaces becomes
+    `a/b::text`, where the cast binds to `b` alone - the call fails
+    (with spaces ora2pg adds the parentheses);
+  - `to_char_default_format`: `TO_CHAR` of a date or a fraction without
+    a format becomes `x::text` - `2026-03-17 00:00:00` instead of
+    `17-MAR-26`, `0.5` instead of `.5`;
+  - `char_semantics`: `CHAR(n)` keeps its type, but PostgreSQL ignores
+    the trailing blanks - `LENGTH` 2 instead of 5, `'ABx'` instead of
+    `'AB   x'`, equal to a `VARCHAR2` where Oracle says not (once per
+    file);
+  - `round_date`: `ROUND(d, 'MM')` and `ROUND(d)` are copied, and
+    PostgreSQL has no `round(timestamp)`.
+
+  Checked and left out: `ORDER BY ... DESC` puts NULLs first in both,
+  and `TRUNC(d, 'MM'/'IW'/'Q')` is converted right.
+
+### Changed
+
+- **`--migrate` keeps `NUMBER` decimal.** ora2pg runs with a copy of its
+  own `ora2pg.conf`, written to `OUT_DIR/ora2pg.conf`, with
+  `PG_NUMERIC_TYPE 0`, `DEFAULT_NUMERIC numeric` and `FLOAT:numeric`:
+  `NUMBER` becomes `numeric`, `NUMBER(10,2)` `decimal(10,2)`, instead of
+  `bigint` and `double precision` (GAP-130, GAP-131, which the checklist
+  then marks as handled). On the samples only those types change, and
+  the load result is the same. `--keep-ora2pg-types` converts with the
+  file as it is; when ora2pg's default file cannot be read, nothing
+  changes.
+
+### Fixed
+
+- A variable's type is taken from its own declaration when overloads of
+  one routine declare the same parameter differently (OraOpenSource
+  Logger's `tochar`).
 
 ## [0.17.0] - 2026-10-10
 

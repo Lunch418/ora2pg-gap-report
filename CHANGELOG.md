@@ -9,6 +9,8 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-10
+
 ### Added
 
 - **GAP-130..133: numbers and `SUBSTR` that load and then compute

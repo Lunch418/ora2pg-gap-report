@@ -1037,8 +1037,8 @@ _UI: dict[str, dict[str, str]] = {
         "en": "\"partly\" - the string literals in it were scanned, what the variables add was not.",
     },
     "migrate_next_unchecked": {
-        "ru": "Прогнать на PostgreSQL {statements} с SQL, собранным во время выполнения: их не проверить по исходнику (список - в конце report.html и MIGRATION.md)",
-        "en": "Run {statements} with SQL built at run time on PostgreSQL: reading the source cannot check them (listed at the end of report.html and MIGRATION.md)",
+        "ru": "Прогнать на PostgreSQL {statements} с SQL, собранным во время выполнения: такой SQL по исходнику не проверить (список - в конце report.html и MIGRATION.md)",
+        "en": "Run {statements} with SQL built at run time on PostgreSQL: reading the source cannot check such SQL (listed at the end of report.html and MIGRATION.md)",
     },
     "checklist_unchecked_heading": {
         "ru": "Не проверено инструментом: SQL, собранный во время выполнения",

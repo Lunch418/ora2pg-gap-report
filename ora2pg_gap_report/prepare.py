@@ -320,12 +320,23 @@ def prepare_oracle_alt_quote(source: str) -> tuple[str, int]:
 
     Both spell the same string in Oracle. ora2pg copies the q-form as it
     is, and PostgreSQL has no such syntax; the ordinary form converts
-    like any other literal. `nq'...'` keeps its N prefix."""
+    like any other literal. `nq'...'` keeps its N prefix.
+
+    Only inside a named routine, package or trigger, which ora2pg
+    converts. An install script's anonymous block is not converted, but
+    ora2pg -t TABLE lifts the DDL out of its strings -- OraOpenSource
+    Logger creates its tables that way, `execute immediate q'!alter table
+    ... check (x in ('OFF', ...))!'` -- and from an ordinary literal it
+    would lift `''OFF''`, which does not load."""
+    from .plsql_lex import enclosing_object_name, enclosing_object_name_index, mask_strings_and_comments
+
+    clean = mask_strings_and_comments(source)
+    index = enclosing_object_name_index(clean)
     count = 0
     out: list[str] = []
     for start, end, kind in _oracle_segments(source):
         piece = source[start:end]
-        if kind == "qstring" and piece.endswith("'"):
+        if kind == "qstring" and piece.endswith("'") and enclosing_object_name(index, start) != "UNKNOWN":
             prefix = "N" if piece[0] in "nN" else ""
             quote = piece.index("'")
             content = piece[quote + 2 : -2]

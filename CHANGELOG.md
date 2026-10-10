@@ -54,6 +54,16 @@ patch for fixes to existing ones.
 - `--load-check` ties a failed statement to a `--fix` only when the fix
   changes the failing line or one just above it: a TRIM repaired at the
   top of a routine no longer claims a syntax error further down.
+- **The routine after a nested one in a package body was lost silently** -
+  ora2pg drops it along with the routine that holds the nested one
+  (GAP-034; four routines of OraOpenSource Logger). `nested_subprogram`
+  now reports it too, as "lost after".
+- `--prepare` rewrote a q'[...]' string outside any named routine, in an
+  install script's anonymous block, and ora2pg -t TABLE then lifted
+  `''OFF''` out of the doubled quotes (Logger). Such strings are now left
+  alone.
+- `param_after_default` points at the routine's line, where PostgreSQL
+  reports the error, so `--load-check` ties that error to GAP-146.
 
 ## [0.18.1] - 2026-10-10
 

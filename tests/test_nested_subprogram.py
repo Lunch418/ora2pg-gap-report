@@ -218,3 +218,32 @@ def test_a_nested_routine_is_reported_on_its_own_line():
     )
     (finding,) = find_nested_subprograms(source)
     assert finding.line == 4
+
+
+def test_the_routine_after_it_in_a_package_body_is_reported_lost():
+    # ora2pg 25.0 writes neither outer_f nor next_f (OraOpenSource Logger
+    # lost four routines this way); third_f comes out.
+    source = (
+        "CREATE OR REPLACE PACKAGE BODY gx_nest AS\n"
+        "  FUNCTION outer_f(p NUMBER) RETURN NUMBER IS\n"
+        "    FUNCTION inner_f(x NUMBER) RETURN NUMBER IS\n"
+        "    BEGIN\n      RETURN x * 2;\n    END inner_f;\n"
+        "  BEGIN\n    RETURN inner_f(p);\n  END outer_f;\n\n"
+        "  FUNCTION next_f(p NUMBER) RETURN NUMBER IS\n  BEGIN\n    RETURN p + 1;\n  END next_f;\n\n"
+        "  FUNCTION third_f(p NUMBER) RETURN NUMBER IS\n  BEGIN\n    RETURN p + 2;\n  END third_f;\n"
+        "END gx_nest;\n/\n"
+    )
+    assert [(f.object_name, f.line, f.snippet) for f in find_nested_subprograms(source)] == [
+        ("GX_NEST.OUTER_F.INNER_F", 3, "FUNCTION inner_f"),
+        ("GX_NEST.NEXT_F", 11, "FUNCTION next_f (lost after outer_f)"),
+    ]
+
+
+def test_a_standalone_routine_after_it_is_not_lost():
+    source = (
+        "CREATE OR REPLACE FUNCTION gx_outer(p NUMBER) RETURN NUMBER IS\n"
+        "  FUNCTION inner_f(x NUMBER) RETURN NUMBER IS\n  BEGIN\n    RETURN x * 2;\n  END inner_f;\n"
+        "BEGIN\n  RETURN inner_f(p);\nEND gx_outer;\n/\n"
+        "CREATE OR REPLACE FUNCTION gx_next(p NUMBER) RETURN NUMBER IS\nBEGIN\n  RETURN p + 1;\nEND gx_next;\n/\n"
+    )
+    assert [f.object_name for f in find_nested_subprograms(source)] == ["GX_OUTER.INNER_F"]

@@ -91,7 +91,10 @@ def test_scan_source_runs_all_detectors_on_logger():
     # instr_occurrence, date_arithmetic: 3 and 11 in get_call_stack and
     # date_text_format_base (GAP-137, 138).
     # param_after_default: ins_logger_logs and purge (GAP-146).
-    assert len(findings) == 8 + 13 + 1 + 229 + 5 + 25 + 1 + 2 + 11 + 5 + 1 + 2 + 3 + 11 + 2
+    # nested_subprogram, again: the four routines ora2pg loses right after
+    # a routine with a nested one (admin_security_check, null_global_contexts,
+    # log_userenv, set_level) -- what --migrate found missing.
+    assert len(findings) == 8 + 13 + 1 + 229 + 5 + 25 + 1 + 2 + 11 + 5 + 1 + 2 + 3 + 11 + 2 + 4
 
 
 def test_scan_source_sorts_high_severity_first():

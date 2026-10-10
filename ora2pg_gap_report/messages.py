@@ -2639,7 +2639,10 @@ MESSAGES: dict[str, Message] = {
             "(синтаксически неверный) текст. CREATE PROCEDURE/FUNCTION проходит "
             "без единой ошибки (ora2pg отключает check_function_bodies в своём "
             "выводе), а падает только при первом реальном вызове - 'syntax error "
-            "at or near \"BEGIN\"' на этапе компиляции тела. Нужно вручную вынести "
+            "at or near \"BEGIN\"' на этапе компиляции тела. В теле пакета "
+            "пропадает и следующая за ним подпрограмма - её CREATE не пишется "
+            "вовсе (в OraOpenSource Logger так исчезли четыре; о ней сообщается "
+            "отдельной находкой с пометкой 'lost after'). Нужно вручную вынести "
             "вложенную логику в отдельную функцию/процедуру PostgreSQL верхнего "
             "уровня."
         ),
@@ -2656,7 +2659,10 @@ MESSAGES: dict[str, Message] = {
             "PROCEDURE/FUNCTION runs without a single error (ora2pg disables "
             "check_function_bodies in its own output), it only fails on the first "
             "real call - 'syntax error at or near \"BEGIN\"' at body-compilation "
-            "time. The nested logic needs to be manually moved out into a "
+            "time. In a package body the routine right after it is lost as well - "
+            "its CREATE is not written at all (four vanished that way in "
+            "OraOpenSource Logger; it is reported as a finding of its own, marked "
+            "'lost after'). The nested logic needs to be manually moved out into a "
             "separate, top-level PostgreSQL function/procedure."
         ),
     ),

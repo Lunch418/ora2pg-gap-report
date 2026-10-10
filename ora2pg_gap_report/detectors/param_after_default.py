@@ -52,7 +52,8 @@ def find_param_after_default(source: str) -> list[Finding]:
                     detector="param_after_default",
                     severity="high",
                     object_name=enclosing_object_name(index, m.start()),
-                    line=line_at(clean, at + len(param) - len(param.lstrip())),
+                    # The routine's line: where PostgreSQL reports the error.
+                    line=line_at(clean, m.start()),
                     snippet=f"{name} {kind} after a DEFAULT",
                     message_id="param_after_default",
                 )

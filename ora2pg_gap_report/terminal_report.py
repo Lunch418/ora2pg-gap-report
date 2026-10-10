@@ -48,6 +48,8 @@ from .load_check import CATEGORIES, FAILING_CATEGORIES, LoadCheckResult, LoadErr
 from .html_report import source_dialect
 from .html_report import STAGES, GapGroup, group_by_gap, source_name, stage_key
 from .models import Finding
+from .unchecked import Unchecked
+from .unchecked import explanation as unchecked_explanation
 from .prepare import prepare_command
 
 if TYPE_CHECKING:
@@ -102,10 +104,13 @@ def render(
     elapsed_seconds: float | None = None,
     objects_scanned: int | None = None,
     lang: str = "ru",
+    unchecked: list[Unchecked] | None = None,
 ) -> None:
     """The interactive report, in the same order as the HTML one: where the
     gaps break the migration, how serious and how costly, each gap once,
-    then each gap in detail with its first few occurrences.
+    then each gap in detail with its first few occurrences -- and, last,
+    the statements with SQL built at run time, which the scan could not
+    read (`unchecked`, see unchecked.py).
 
     Every piece of scanned content -- object names, paths, snippets -- goes
     through Text(), never through Rich markup: a path like
@@ -120,6 +125,7 @@ def render(
         if elapsed_seconds is not None:
             empty_message.append(i18n.t(lang, "elapsed_inline", s=i18n.number(lang, round(elapsed_seconds, 1))), style="dim")
         console.print(Panel(empty_message, border_style="#46A758"))
+        _render_unchecked(console, unchecked or [], lang)
         return
 
     gaps = group_by_gap(findings)
@@ -129,6 +135,7 @@ def render(
     _render_gap_list(console, gaps, lang)
     _render_gap_details(console, gaps, lang)
     _render_top_objects(findings, console, lang)
+    _render_unchecked(console, unchecked or [], lang)
     _render_footer_hints(console, lang, findings)
 
 
@@ -384,6 +391,36 @@ def _render_top_objects(findings: list[Finding], console: Console, lang: str = "
     rest = len(per_object) - _TOP_OBJECTS_LIMIT
     if rest > 0:
         console.print(Text(i18n.t(lang, "term_more_objects", objects=i18n.count(lang, "object", rest)), style="dim"))
+
+
+_UNCHECKED_LIMIT = 10
+
+
+def _render_unchecked(console: Console, unchecked: list[Unchecked], lang: str) -> None:
+    """The statements whose SQL is built at run time: where they are, in
+    which object, and how much of the text was scanned."""
+    if not unchecked:
+        return
+    console.print()
+    console.print(Text(i18n.t(lang, "unchecked_heading", statements=i18n.count(lang, "statement", len(unchecked))), style="bold"))
+    console.print(Text(unchecked_explanation(unchecked, lang), style="dim"))
+    grid = Table.grid(padding=(0, 2))
+    grid.add_column(no_wrap=True, style=_CODE_STYLE)
+    grid.add_column(no_wrap=True, overflow="ellipsis", max_width=40)
+    grid.add_column(overflow="fold")
+    grid.add_column(no_wrap=True, style="dim")
+    for site in unchecked[:_UNCHECKED_LIMIT]:
+        where = f"{Path(site.source_file).name}:{site.line}" if site.source_file else str(site.line)
+        grid.add_row(
+            Text(where),
+            Text(site.object_name),
+            Text(site.snippet),
+            Text(i18n.t(lang, "unchecked_partial") if site.partial else ""),
+        )
+    console.print(Padding(grid, (0, 0, 0, 2)))
+    rest = len(unchecked) - _UNCHECKED_LIMIT
+    if rest > 0:
+        console.print(Text(i18n.t(lang, "unchecked_more", statements=i18n.count(lang, "statement", rest)), style="dim"))
 
 
 def render_baseline_diff(diff: BaselineDiff, console: Console | None = None, lang: str = "ru") -> None:
@@ -945,6 +982,11 @@ def render_migration(
     nxt.add_column()
     nxt.add_row("-", i18n.t(lang, "migrate_next_report"))
     nxt.add_row("-", i18n.t(lang, "migrate_next_checklist"))
+    if result.unchecked:
+        nxt.add_row(
+            "-",
+            i18n.t(lang, "migrate_next_unchecked", statements=i18n.count(lang, "statement", len(result.unchecked))),
+        )
     if load is not None and (load.failed or load.incomplete):
         nxt.add_row("-", i18n.t(lang, "migrate_next_load"))
     elif load is None and not load_check_asked:

@@ -35,6 +35,7 @@ from . import source_fixes
 from .checklist import ChecklistError, read_previous, write_checklist
 from .core import scan_source
 from .models import Finding
+from .unchecked import Unchecked, find_unchecked
 from .ora2pg_wrapper import CONVERT_TYPES, run_convert
 from .prepare import PREPARERS_BY_DIALECT
 
@@ -64,6 +65,8 @@ class MigrationResult:
     fixes: int
     source_fixes: int = 0
     empty_types: list[str] = dataclasses.field(default_factory=list)
+    # SQL built at run time, which the scan could not read (unchecked.py)
+    unchecked: list[Unchecked] = dataclasses.field(default_factory=list)
 
 
 # Only a comment, a client setting or a psql command: what ora2pg writes for
@@ -194,11 +197,13 @@ def run_migration(
     say("migrate_step_scan")
     texts: dict[Path, str] = {}
     findings: list[Finding] = []
+    unchecked: list[Unchecked] = []
     for path in sources:
         text = path.read_bytes().decode("utf-8", errors="surrogateescape")
         texts[path] = text
         readable = text.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace")
         findings.extend(dataclasses.replace(f, source_file=str(path)) for f in scan_source(readable, dialect=dialect))
+        unchecked.extend(dataclasses.replace(u, source_file=str(path)) for u in find_unchecked(readable, dialect))
     if pg_version is not None:
         # What that PostgreSQL no longer has a problem with is not work.
         from .gap_registry import applies_on
@@ -208,7 +213,7 @@ def run_migration(
     from .html_report import write_html
 
     with open(out_dir / "report.html", "w", encoding="utf-8") as report:
-        write_html(findings, report, lang=lang, handled=handled_by_migrate(dialect))
+        write_html(findings, report, lang=lang, handled=handled_by_migrate(dialect), unchecked=unchecked)
     checklist_path = out_dir / "MIGRATION.md"
     try:
         previous = read_previous(checklist_path)
@@ -223,6 +228,7 @@ def run_migration(
         scanned_files=[str(p) for p in sources],
         version=version,
         handled=handled_by_migrate(dialect),
+        unchecked=unchecked,
     )
     checklist_path.write_text(buffer.getvalue(), encoding="utf-8")
 
@@ -301,6 +307,7 @@ def run_migration(
         fixes=fixes,
         source_fixes=source_repairs,
         empty_types=empty,
+        unchecked=unchecked,
     )
 
 
@@ -320,7 +327,14 @@ def load_and_record(result: MigrationResult, target: str, *, dialect: str = "ora
 
     load = run_load_check(result.converted, parse_target(target), dialect=dialect)
     with open_text_atomic(result.out_dir / "report.html") as report_file:
-        write_html(result.findings, report_file, lang=lang, load=load, handled=handled_by_migrate(dialect))
+        write_html(
+            result.findings,
+            report_file,
+            lang=lang,
+            load=load,
+            handled=handled_by_migrate(dialect),
+            unchecked=result.unchecked,
+        )
     write_text_atomic(result.out_dir / "load-check.json", to_load_check_json(load))
     buffer = io.StringIO()
     # Every error, with its whole path: the HTML report and the summary

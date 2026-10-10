@@ -13,6 +13,8 @@ from .gap_registry import gap_by_detector, gap_metadata, research_doc_url
 from . import html_report, messages
 from .baseline import group_key
 from .models import Finding
+from .unchecked import Unchecked
+from .unchecked import explanation as unchecked_explanation
 
 from .load_check import CATEGORIES, LoadCheckResult
 from .verification import DetectorVerification, NewInOutput
@@ -25,8 +27,9 @@ JsonObject = dict[str, Any]
 
 # Bumped when the shape of --format json changes. 2 introduced the
 # object envelope with a shared `messages` table, replacing the bare
-# array of findings that inlined each explanation.
-REPORT_SCHEMA_VERSION = 2
+# array of findings that inlined each explanation. 3 added `unchecked`:
+# the statements with SQL built at run time (unchecked.py).
+REPORT_SCHEMA_VERSION = 3
 
 SARIF_SCHEMA_URI = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
 _TOOL_INFORMATION_URI = "https://github.com/Lunch418/ora2pg-gap-report"
@@ -136,7 +139,7 @@ def message_map(findings: list[Finding], lang: str) -> dict[str, str]:
     return {mid: messages.text(mid, lang) for mid in sorted({f.message_id for f in findings})}
 
 
-def to_json(findings: list[Finding], lang: str = "ru") -> str:
+def to_json(findings: list[Finding], lang: str = "ru", unchecked: list[Unchecked] | None = None) -> str:
     """Findings plus a shared message table, not one inlined paragraph per
     finding.
 
@@ -154,17 +157,20 @@ def to_json(findings: list[Finding], lang: str = "ru") -> str:
     say that than making them sniff for a leading '['.
     """
     buffer = io.StringIO()
-    write_json(findings, buffer, lang=lang)
+    write_json(findings, buffer, lang=lang, unchecked=unchecked)
     return buffer.getvalue()
 
 
-def write_json(findings: list[Finding], stream: IO[str], lang: str = "ru") -> None:
+def write_json(
+    findings: list[Finding], stream: IO[str], lang: str = "ru", unchecked: list[Unchecked] | None = None
+) -> None:
     """to_json()'s output, written straight to `stream`. Same bytes; see
     _stream_json() for why the difference matters on a large scan."""
     document = {
         "schema_version": REPORT_SCHEMA_VERSION,
         "messages": message_map(findings, lang),
         "findings": _ARRAY_PLACEHOLDER,
+        "unchecked": [asdict(u) for u in unchecked or []],
     }
     _stream_json_with_array(document, (_enrich(f) for f in findings), stream)
 
@@ -311,16 +317,32 @@ def _write_markdown_explanations(
         stream.write(f"### {detector}\n\n{text}\n\n")
 
 
-def to_markdown(findings: list[Finding], lang: str = "ru") -> str:
+def to_markdown(findings: list[Finding], lang: str = "ru", unchecked: list[Unchecked] | None = None) -> str:
     buffer = io.StringIO()
-    write_markdown(findings, buffer, lang=lang)
+    write_markdown(findings, buffer, lang=lang, unchecked=unchecked)
     return buffer.getvalue()
 
 
-def write_markdown(findings: list[Finding], stream: IO[str], lang: str = "ru") -> None:
+def _write_markdown_unchecked(unchecked: list[Unchecked], stream: IO[str], lang: str) -> None:
+    """The statements with SQL built at run time, after everything else."""
+    if not unchecked:
+        return
+    heading = i18n.t(lang, "unchecked_heading", statements=i18n.count(lang, "statement", len(unchecked)))
+    stream.write(f"\n## {heading}\n\n{unchecked_explanation(unchecked, lang)}\n\n")
+    stream.write(i18n.t(lang, "md_unchecked_header") + "\n|---|---|---|---|---|\n")
+    for u in unchecked:
+        cells = [c.replace("|", "\\|") for c in (u.source_file, u.object_name, u.snippet)]
+        partial = i18n.t(lang, "unchecked_partial") if u.partial else ""
+        stream.write(f"| {cells[0]} | `{cells[1]}` | {u.line} | `{cells[2]}` | {partial} |\n")
+
+
+def write_markdown(
+    findings: list[Finding], stream: IO[str], lang: str = "ru", unchecked: list[Unchecked] | None = None
+) -> None:
     """to_markdown()'s output, written a row at a time."""
     if not findings:
         stream.write(i18n.t(lang, "md_no_findings"))
+        _write_markdown_unchecked(unchecked or [], stream, lang)
         return
 
     stream.write(i18n.t(lang, "md_table_header") + "\n")
@@ -346,21 +368,24 @@ def write_markdown(findings: list[Finding], stream: IO[str], lang: str = "ru") -
         )
 
     _write_markdown_explanations(findings, stream, lang)
+    _write_markdown_unchecked(unchecked or [], stream, lang)
 
 
-def to_html(findings: list[Finding], lang: str = "ru") -> str:
+def to_html(findings: list[Finding], lang: str = "ru", unchecked: list[Unchecked] | None = None) -> str:
     buffer = io.StringIO()
-    write_html(findings, buffer, lang=lang)
+    write_html(findings, buffer, lang=lang, unchecked=unchecked)
     return buffer.getvalue()
 
 
-def write_html(findings: list[Finding], stream: IO[str], lang: str = "ru") -> None:
+def write_html(
+    findings: list[Finding], stream: IO[str], lang: str = "ru", unchecked: list[Unchecked] | None = None
+) -> None:
     """Self-contained HTML report; see html_report.py for its design --
     inline CSS only, no script and nothing fetched from anywhere, for the
     same closed-network reason as every other format here. Same counts and
     effort range as the Markdown/terminal header, with the same
     "uncalibrated heuristic, not a measurement" caveat."""
-    html_report.write_html(findings, stream, lang=lang)
+    html_report.write_html(findings, stream, lang=lang, unchecked=unchecked)
 
 
 def _sarif_rule_id(detector: str, message_id: str) -> str:

@@ -49,6 +49,7 @@ from .gap_registry import (
     verified_ora2pg_versions,
 )
 from .models import Finding
+from .unchecked import Unchecked, find_unchecked
 from .recipes import recipe_for, recipe_path, recipe_url
 from .report_generator import (
     to_csv,
@@ -347,6 +348,15 @@ def _apply_filters(findings: list[Finding], severity: str | None, object_substri
     return findings
 
 
+def _filter_unchecked(unchecked: list[Unchecked], object_substring: str | None) -> list[Unchecked]:
+    """--object narrows the unchecked statements the way it narrows the
+    findings. --severity does not: they have none."""
+    if object_substring is None:
+        return unchecked
+    needle = object_substring.upper()
+    return [u for u in unchecked if needle in u.object_name.upper()]
+
+
 def _markdown_header(findings: list[Finding], lang: str) -> str:
     counts = summarize_by_severity(findings)
     counts_text = ", ".join(f"{name}: {n}" for name, n in ordered_counts(counts))
@@ -363,19 +373,25 @@ def _markdown_header(findings: list[Finding], lang: str) -> str:
     )
 
 
-def _render(findings: list[Finding], fmt: str, lang: str = "ru") -> str:
+def _render(findings: list[Finding], fmt: str, lang: str = "ru", unchecked: list[Unchecked] | None = None) -> str:
     if fmt == "json":
-        return to_json(findings, lang=lang)
+        return to_json(findings, lang=lang, unchecked=unchecked)
     if fmt == "csv":
         return to_csv(findings, lang=lang)
     if fmt == "sarif":
         return to_sarif(findings, tool_version=_package_version(), lang=lang)
     if fmt == "html":
-        return to_html(findings, lang=lang)
-    return _markdown_header(findings, lang) + to_markdown(findings, lang=lang)
+        return to_html(findings, lang=lang, unchecked=unchecked)
+    return _markdown_header(findings, lang) + to_markdown(findings, lang=lang, unchecked=unchecked)
 
 
-def _write_report(findings: list[Finding], fmt: str, stream: IO[str], lang: str = "ru") -> None:
+def _write_report(
+    findings: list[Finding],
+    fmt: str,
+    stream: IO[str],
+    lang: str = "ru",
+    unchecked: list[Unchecked] | None = None,
+) -> None:
     """_render()'s output, written straight to `stream`.
 
     Byte-identical to _render() -- the same generators, pointed at the
@@ -386,16 +402,16 @@ def _write_report(findings: list[Finding], fmt: str, stream: IO[str], lang: str 
     peak for a 107 MB SARIF document over an 1,800-file scan).
     """
     if fmt == "json":
-        write_json(findings, stream, lang=lang)
+        write_json(findings, stream, lang=lang, unchecked=unchecked)
     elif fmt == "csv":
         write_csv(findings, stream, lang=lang)
     elif fmt == "sarif":
         write_sarif(findings, stream, tool_version=_package_version(), lang=lang)
     elif fmt == "html":
-        write_html(findings, stream, lang=lang)
+        write_html(findings, stream, lang=lang, unchecked=unchecked)
     else:
         stream.write(_markdown_header(findings, lang))
-        write_markdown(findings, stream, lang=lang)
+        write_markdown(findings, stream, lang=lang, unchecked=unchecked)
 
 
 # What a report file's extension says its format is. Only the
@@ -1266,6 +1282,7 @@ def _main(argv: list[str] | None = None) -> int:
 
     start_time = time.perf_counter()
     all_findings: list[Finding] = []
+    all_unchecked: list[Unchecked] = []
     checked_ora2pg_version = False
     objects_scanned = 0
     files_scanned = 0
@@ -1365,6 +1382,25 @@ def _main(argv: list[str] | None = None) -> int:
                     )
                 )
 
+            # Isolated like a detector: a bug here costs this file's list of
+            # unchecked statements, never its findings.
+            try:
+                all_unchecked.extend(
+                    dataclasses.replace(u, source_file=str(path)) for u in find_unchecked(source, args.dialect)
+                )
+            except Exception as exc:
+                had_internal_error = True
+                err_console.print(
+                    i18n.t(
+                        lang,
+                        "scan_detector_errors",
+                        names="unchecked",
+                        path=escape(str(path)),
+                        exc_type=type(exc).__name__,
+                        exc=escape(str(exc)),
+                    )
+                )
+
             all_findings.extend(file_findings)
             files_scanned += 1
             scanned_paths.append(str(path))
@@ -1434,6 +1470,7 @@ def _main(argv: list[str] | None = None) -> int:
         baseline_diff = diff_against_baseline(all_findings, baseline)
 
     display_findings = _apply_filters(all_findings, args.severity, args.object)
+    display_unchecked = _filter_unchecked(all_unchecked, args.object)
 
     if fmt == "checklist":
         # Read before writing: the ticks in the previous checklist are the
@@ -1451,6 +1488,7 @@ def _main(argv: list[str] | None = None) -> int:
             previous=previous,
             scanned_files=scanned_paths,
             version=_package_version(),
+            unchecked=display_unchecked,
         )
         if args.output:
             try:
@@ -1474,6 +1512,7 @@ def _main(argv: list[str] | None = None) -> int:
                     elapsed_seconds=elapsed_seconds,
                     objects_scanned=objects_scanned,
                     lang=lang,
+                    unchecked=display_unchecked,
                 )
                 write_text_atomic(args.output, buffer.getvalue())
             except OSError as exc:
@@ -1487,11 +1526,12 @@ def _main(argv: list[str] | None = None) -> int:
                 elapsed_seconds=elapsed_seconds,
                 objects_scanned=objects_scanned,
                 lang=lang,
+                unchecked=display_unchecked,
             )
     elif args.output:
         try:
             with open_text_atomic(args.output) as report_file:
-                _write_report(display_findings, fmt, report_file, lang=lang)
+                _write_report(display_findings, fmt, report_file, lang=lang, unchecked=display_unchecked)
         except OSError as exc:
             err_console.print(
                 i18n.t(lang, "write_report_error", path=escape(str(args.output)), exc=escape(str(exc)))
@@ -1500,7 +1540,7 @@ def _main(argv: list[str] | None = None) -> int:
     else:
         # print() would build the whole report as one string first, which
         # is the allocation _write_report() exists to avoid.
-        _write_report(display_findings, fmt, sys.stdout, lang=lang)
+        _write_report(display_findings, fmt, sys.stdout, lang=lang, unchecked=display_unchecked)
         sys.stdout.write("\n")
 
     # Printed to stderr regardless of --format: it's supplementary

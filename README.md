@@ -506,6 +506,24 @@ With a version older than 16 nothing is left out, and a note says the
 gaps were confirmed on 16: check the generated code with `--load-check
 docker --pg-version N`, which loads it into that version.
 
+### What the scan cannot see: SQL built at run time
+
+`EXECUTE IMMEDIATE v_sql`, `OPEN c FOR v_sql`, `DBMS_SQL.PARSE(c, v_sql)`,
+MySQL's `PREPARE s FROM @sql`, T-SQL's `EXEC(@sql)` and `sp_executesql
+@sql` run SQL whose text is only known when the program runs. No reading
+of the source can check it, this tool included. So instead of staying
+silent about it, every report lists these statements in a section of
+their own, "Not checked", after the findings: file, line, object, the
+statement, and "partly" where the text is joined from string literals and
+variables (the literals are scanned, what the variables add is not). SQL
+made only of literals is scanned in full and is not listed.
+
+They are not findings: they count toward no severity, stage, effort
+estimate or `--fail-on`. In `MIGRATION.md` each is a box to tick once it
+has been run on PostgreSQL, and the ticks are kept like the others'. In
+JSON they are the `unchecked` array (`schema_version` 3); CSV and SARIF
+carry findings only.
+
 ### Source dialects (`--dialect`)
 
 `ora2pg` isn't Oracle-only: `-m`/`--mysql` and `-M`/`--mssql` point it at a

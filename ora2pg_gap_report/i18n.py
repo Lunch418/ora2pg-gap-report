@@ -989,6 +989,10 @@ _UI: dict[str, dict[str, str]] = {
     },
     # report_generator.py (to_markdown / to_html)
     "md_no_findings": {"ru": "Проблемных конструкций не найдено.\n", "en": "No problematic constructs found.\n"},
+    "md_unchecked_header": {
+        "ru": "| Файл | Объект | Строка | Команда | |",
+        "en": "| File | Object | Line | Statement | |",
+    },
     "md_table_header": {
         "ru": "| Файл | Объект | Строка | Серьёзность | Фрагмент | Что не так | GAP | Когда ломается |",
         "en": "| File | Object | Line | Severity | Snippet | Problem | GAP | Fails at |",
@@ -1016,6 +1020,32 @@ _UI: dict[str, dict[str, str]] = {
         "en": "… and {findings} more - the full list: ora2pg-gap-report ... -f html -o report.html",
     },
     "term_more_objects": {"ru": "… и ещё {objects}", "en": "… and {objects} more"},
+    # unchecked.py: SQL built at run time, which no scan can read.
+    "unchecked_heading": {
+        "ru": "Не проверено: {statements} с SQL, собранным во время выполнения",
+        "en": "Not checked: {statements} with SQL built at run time",
+    },
+    "unchecked_text": {
+        "ru": (
+            "Текст такого SQL известен только при выполнении, и по исходнику его не проверить. "
+            "Прогоните эти места на PostgreSQL."
+        ),
+        "en": "The text of this SQL is only known when it runs, so reading the source cannot check it. Run these on PostgreSQL.",
+    },
+    "unchecked_partial_text": {
+        "ru": "\"частично\" - строковые части просканированы, а то, что добавляют переменные, - нет.",
+        "en": "\"partly\" - the string literals in it were scanned, what the variables add was not.",
+    },
+    "migrate_next_unchecked": {
+        "ru": "Прогнать на PostgreSQL {statements} с SQL, собранным во время выполнения: их не проверить по исходнику (список - в конце report.html и MIGRATION.md)",
+        "en": "Run {statements} with SQL built at run time on PostgreSQL: reading the source cannot check them (listed at the end of report.html and MIGRATION.md)",
+    },
+    "checklist_unchecked_heading": {
+        "ru": "Не проверено инструментом: SQL, собранный во время выполнения",
+        "en": "Not checked by the tool: SQL built at run time",
+    },
+    "unchecked_partial": {"ru": "частично", "en": "partly"},
+    "unchecked_more": {"ru": "… и ещё {statements}", "en": "… and {statements} more"},
     "term_details_heading": {"ru": "Подробно", "en": "In detail"},
     "term_verify_heading": {
         "ru": "Что из найденного до миграции осталось в сгенерированном коде",

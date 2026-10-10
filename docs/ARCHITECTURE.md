@@ -14,10 +14,10 @@ FUNCTION`, …), which is exactly how `ora2pg_wrapper.py` works, not
 through `SHOW_REPORT`. This is a hard requirement for the target
 audience: closed networks, air-gapped environments, the public sector.
 
-There are 143 detectors right now (the full table is in README.md,
-"Detectors"; 142 of them are tied to a registered GAP-NNN,
+There are 149 detectors right now (the full table is in README.md,
+"Detectors"; 148 of them are tied to a registered GAP-NNN,
 `dbms_utl_calls` isn't, see README.md, "Why almost everything is high"),
-split across three source dialects: 94 Oracle, 27 MySQL/MariaDB
+split across three source dialects: 100 Oracle, 27 MySQL/MariaDB
 (`ora2pg -m`) and 21 T-SQL/SQL Server (`ora2pg -M`). Each dialect has its
 own lexer (`plsql_lex.py`, `mysql_lex.py`, `mssql_lex.py`) and its own
 detector tuple in `core.py`, kept structurally separate so a file scanned
@@ -145,6 +145,12 @@ ora2pg_gap_report/
 │   ├── to_char_default_format.py  # TO_CHAR(date or fraction) -> x::text, another text
 │   ├── char_semantics.py        # CHAR(n): trailing blanks insignificant in PostgreSQL (once per file)
 │   ├── round_date.py            # ROUND(d, 'MM'): no round(timestamp)
+│   ├── sequence_without_start.py  # CREATE SEQUENCE without START WITH: empty START (--prepare)
+│   ├── param_default_spacing.py # a varchar2:= x -> VARCHAR2DEFAULT x (--prepare)
+│   ├── trim_leading_trailing.py # TRIM(LEADING ...) -> trim(both leading ...) (--fix)
+│   ├── param_after_default.py   # a parameter without a default after one with a default
+│   ├── hash_identifier.py       # a name with # in it
+│   ├── call_result_member.py    # f(x).y -> f[x].y
 │   ├── schema_qualified_name.py  # "HR"."EMP" -- the schema is kept, never created, dropped on triggers
 │   │                             # -- MySQL/MariaDB dialect (ora2pg -m; see mysql_lex.py) --
 │   ├── mysql_enum_type.py         # ENUM(...) -- CREATE TYPE for the synthesized type is missing

@@ -135,6 +135,12 @@ from .detectors.to_char_operator import find_to_char_operator
 from .detectors.to_char_default_format import find_to_char_default_format
 from .detectors.char_semantics import find_char_semantics
 from .detectors.round_date import find_round_date
+from .detectors.sequence_without_start import find_sequence_without_start
+from .detectors.param_default_spacing import find_param_default_spacing
+from .detectors.trim_leading_trailing import find_trim_leading_trailing
+from .detectors.param_after_default import find_param_after_default
+from .detectors.hash_identifier import find_hash_identifier
+from .detectors.call_result_member import find_call_result_member
 from .detectors.statement_trigger import find_statement_trigger
 from .detectors.package_constant_default import find_package_constant_default
 from .detectors.table_if_not_exists import find_table_if_not_exists
@@ -259,6 +265,12 @@ _ORACLE_DETECTORS = (
     find_to_char_default_format,
     find_char_semantics,
     find_round_date,
+    find_sequence_without_start,
+    find_param_default_spacing,
+    find_trim_leading_trailing,
+    find_param_after_default,
+    find_hash_identifier,
+    find_call_result_member,
 )
 # MySQL detectors -- a source-language dialect, run against a MySQL/MariaDB
 # schema/procedure dump rather than an Oracle one. Deliberately a SEPARATE

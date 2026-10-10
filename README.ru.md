@@ -29,7 +29,7 @@ ora2pg-gap-report --migrate out/ --load-check docker schema/
 ```
  schema/ (DDL Oracle, mysqldump, скрипт SSMS)
     |
-    |  1. скан          142 подтверждённых пробела ora2pg  -> out/report.html, out/MIGRATION.md
+    |  1. скан          148 подтверждённых пробелов ora2pg  -> out/report.html, out/MIGRATION.md
     |  2. подготовка    переписать то, на чём спотыкается парсер ora2pg  (--prepare)
     |  3. конвертация   ora2pg, по одному запуску на тип объектов        -> out/converted/
     |  4. исправления   известные механические баги ora2pg (--fix) и то, что знает исходник
@@ -197,6 +197,12 @@ PostgreSQL. Не замена `ora2pg`, а
 | `to_char_default_format` | `TO_CHAR` даты или дроби без формата - `x::text`: `2026-03-17 00:00:00` вместо `17-MAR-26`, `0.5` вместо `.5` |
 | `char_semantics` | `CHAR(n)` - PostgreSQL не учитывает хвостовые пробелы: `LENGTH`, `\|\|` и сравнения с `VARCHAR2` другие. Один раз на файл |
 | `round_date` | `ROUND(d, 'MM')`, `ROUND(d)` от даты - копируется, а `round(timestamp)` в PostgreSQL нет |
+| `sequence_without_start` | `CREATE SEQUENCE` без `START WITH` - ora2pg пишет пустой `START` (и отрезает последнюю цифру у имени без опций); `--prepare` это чинит |
+| `param_default_spacing` | Значение параметра `тип:= значение` - становится склеенным `VARCHAR2DEFAULT`; `--prepare` это чинит |
+| `trim_leading_trailing` | `TRIM(LEADING x FROM y)` - становится `trim(both leading ...)`; `--fix` это чинит |
+| `param_after_default` | Параметр без значения по умолчанию после параметра со значением - PostgreSQL отвергает подпрограмму |
+| `hash_identifier` | Имя с `#` (`n#count`) - PostgreSQL его не принимает |
+| `call_result_member` | `f(x).y`, `xml.extract(...).getstringval()` - ora2pg делает из этого `f[x].y` |
 | `schema_qualified_name` | Имя со схемой (`"HR"."EMP"`, так `GET_DDL` пишет каждое) - ora2pg оставляет схему у таблиц, представлений и последовательностей, но не создаёт её, а в триггерах и телах представлений убирает: на чистой базе ничего не загружается |
 
 Двадцать семь детекторов ниже — диалект MySQL/MariaDB (`--dialect mysql`,
@@ -266,15 +272,15 @@ DDL с парсингом `--estimate_cost`, и `oracle_connector.py`/`oracle_ex
 
 ### Почему почти всё `high`
 
-Из 142 зарегистрированных gap'ов (`gap_registry.py`) — 94 из исходного
+Из 148 зарегистрированных gap'ов (`gap_registry.py`) — 100 из исходного
 диалекта Oracle, 27 из MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) и 21
 из T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); см. «Исходные
-диалекты» ниже — 136 имеют severity `high` и 6 — `medium` (`context_object`,
+диалекты» ниже — 142 имеют severity `high` и 6 — `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 со стороны Oracle, `mysql_set_type` со стороны MySQL; в партии MSSQL
 `medium` нет вовсе). `severity` — поле `GapEntry`, и `scripts/doctor.py`
 сверяет его с литералом, который реально использует исходник детектора, а
-не просто со счётчиком, принятым на веру. Отдельно от этих 142 есть ещё
+не просто со счётчиком, принятым на веру. Отдельно от этих 148 есть ещё
 один детектор, `dbms_utl_calls` — классификатор вызовов `DBMS_*`/`UTL_*`,
 не привязанный к конкретному GAP-NNN (у него нет одного воспроизводимого
 минимального примера — это намеренно широкая категория), тоже `medium`.
@@ -468,7 +474,7 @@ ora2pg-gap-report --tui path/to/schema_dump/   # открывается там
 `--explain GAP-023` (или просто `--explain 23`) печатает research-документ
 конкретного gap'а из реестра — конструкцию, реальный вывод `ora2pg`,
 наблюдаемую проблему, вердикт и версии `ora2pg`/PostgreSQL, на которых
-находка подтверждена (сейчас 25.0/16 у всех 142 — единая версия, потому
+находка подтверждена (сейчас 25.0/16 у всех 148 — единая версия, потому
 что второй пока не было; `gap_registry.py` уже готов хранить разные версии
 для будущих находок) — без сканирования файлов:
 
@@ -753,11 +759,11 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
 детекторов одинаково:
 
 - **Часть конструкций `ora2pg` копирует в вывод как есть** (`cross_apply`,
-  `json_table`, `identity_column` и ещё 59 — 62 из 143 детекторов) — для
+  `json_table`, `identity_column` и ещё 63 — 66 из 149 детекторов) — для
   них повторный прогон детектора по выводу осмыслен: `STILL_PRESENT`,
   если паттерн остался, `NOT_DETECTED`, если пропал.
 - **Часть `ora2pg` молча выбрасывает или переписывает во что-то другое**
-  (`read_only_table`, `table_partitioning` и ещё 78 — 80 из 143) —
+  (`read_only_table`, `table_partitioning` и ещё 80 — 82 из 149) —
   конструкции в выводе нет *по определению*, независимо от того, починил ли
   кто-то проблему вручную другим способом. Для них честный статус —
   `NOT_VERIFIABLE`, а не фиктивный `NOT_DETECTED`: считать отсутствие
@@ -765,7 +771,7 @@ read_only_table   GAP-026   1 -> —   NOT_VERIFIABLE
   которой этот проект специально избегает (см. «Почему почти всё `high`»
   выше).
 
-Какой режим у какого детектора и почему, по всем 142 gap'ам —
+Какой режим у какого детектора и почему, по всем 148 gap'ам —
 [`docs/verification-capability-matrix.ru.md`](docs/verification-capability-matrix.ru.md).
 
 `NOT_DETECTED` тоже не означает «доказанно исправлено» — только «паттерн в
@@ -846,6 +852,8 @@ out/
 | `mysql` | GAP-073, 128 | `KEY idx (a)` -> `INDEX idx (a)`; безымянный индекс получает `<таблица>_<столбец>_idx`; имя индекса, использованное на нескольких таблицах, становится `<таблица>_<имя>` |
 | `oracle` | GAP-062 | `q'[it's]'` -> `'it''s'` |
 | `oracle` | GAP-112 | `CREATE TABLE IF NOT EXISTS` -> `CREATE TABLE` |
+| `oracle` | GAP-143 | `CREATE SEQUENCE s CACHE 100` -> `CREATE SEQUENCE s START WITH 1 CACHE 100` (начало, которое подразумевает Oracle) |
+| `oracle` | GAP-144 | `a varchar2:= chr(10)` -> `a varchar2 := chr(10)` в списках параметров |
 | `mssql` | GAP-087 | `[dbo].[Orders]` -> `dbo.Orders`, `[nvarchar](100)` -> `nvarchar(100)` |
 | `mssql` | GAP-126 | строки `GO` убираются, а голый `END`, закрывавший пакет, получает `;` |
 
@@ -883,6 +891,7 @@ ora2pg -m -i dump.prepared/schema.sql ...
 | `oracle` | GAP-123 | `DBMS_LOCK.SLEEP` становится `pg_sleep(n);` - собственное правило ora2pg с `PERFORM` перекрыто более ранней голой заменой, а PL/pgSQL не принимает вызов функции как оператор. Дописывает `PERFORM` перед `pg_sleep(`, с которого начинается оператор |
 | `oracle` | GAP-135 | `FLOAT(n)` в PL/SQL становится `double precision(n)`, а это не разбирается. Убирает точность |
 | `oracle` | GAP-136 | `SIMPLE_INTEGER`, `NATURAL(N)`, `POSITIVE(N)` и `SIGNTYPE` копируются, а таких типов в PostgreSQL нет. Пишет в объявлениях `integer` (`smallint` для `SIGNTYPE`); ограничение подтипа не переносится |
+| `oracle` | GAP-145 | ora2pg ставит BOTH перед каждым TRIM, в том числе перед LEADING или TRAILING: `trim(both leading x from y)` не разбирается. Убирает лишний BOTH |
 | `mssql` | GAP-100 | `CHARINDEX` переводится в нужную функцию, но с удвоенными кавычками — `position(''abc'' in x)`, что не является корректным SQL. Убирает удвоение и ничего больше |
 | `mssql` | GAP-091 | Процедура без параметров получает пустой неразбираемый блок `DECLARE ;`. Удаляет его — ровно то, что сам `ora2pg` выдаёт для той же процедуры с параметром |
 | `mssql` | GAP-125 | SSMS уточняет схемой каждое имя (`[dbo].[Orders]`); ora2pg оставляет её везде, но не создаёт, и ничего не загружается (`schema "dbo" does not exist`). Дописывает `CREATE SCHEMA IF NOT EXISTS dbo;` после заголовка для каждой схемы, которую файл использует и не создаёт |

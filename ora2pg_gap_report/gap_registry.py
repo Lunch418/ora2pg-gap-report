@@ -943,6 +943,56 @@ GapEntry(
         severity="high",
         failure_stage="runtime",
         dialect="oracle", last_verified="2026-10-10"),
+    # GAP-143..148: found in --load-check errors no gap explained, on
+    # other people's code (utPLSQL, Logger, Alexandria, Oracle's samples).
+    GapEntry(
+        "143",
+        "sequence_without_start",
+        "sequence-without-start",
+        ("test_corpus_gaps.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "144",
+        "param_default_spacing",
+        "param-default-spacing",
+        ("test_corpus_gaps.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "145",
+        "trim_leading_trailing",
+        "trim-leading-trailing",
+        ("test_corpus_gaps.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "146",
+        "param_after_default",
+        "param-after-default",
+        ("test_corpus_gaps.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "147",
+        "hash_identifier",
+        "hash-identifier",
+        ("test_corpus_gaps.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "148",
+        "call_result_member",
+        "call-result-member",
+        ("test_corpus_gaps.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-10"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

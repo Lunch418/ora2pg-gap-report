@@ -249,6 +249,12 @@ VERIFICATION_MODE: dict[str, str] = {
     "to_char_default_format": NOT_VERIFIABLE,  # TO_CHAR(x) becomes x::text
     "char_semantics": NOT_VERIFIABLE,  # CHAR(n) becomes char(n), which is wanted -- its uses are what differ
     "round_date": VERBATIM,  # ROUND(d, 'MM') is copied unchanged
+    "sequence_without_start": VERBATIM,  # the sequence comes out with an empty START, still without one
+    "param_default_spacing": NOT_VERIFIABLE,  # := becomes a glued DEFAULT; the := the detector reads is gone
+    "trim_leading_trailing": VERBATIM,  # TRIM(LEADING ...) becomes trim(both leading ...), which it reads too
+    "param_after_default": VERBATIM,  # the parameter order is kept
+    "hash_identifier": VERBATIM,  # the name is copied unchanged
+    "call_result_member": NOT_VERIFIABLE,  # f(x).y becomes f[x].y
     "date_arithmetic": NOT_VERIFIABLE,  # DATE becomes timestamp(0), no longer told apart from a TIMESTAMP  # copied unchanged; NVL(x, '') becomes coalesce(x, ''), also found
     "dbms_sleep": NOT_VERIFIABLE,  # DBMS_LOCK.SLEEP becomes a bare pg_sleep, which --fix repairs
     "package_constant_default": NOT_VERIFIABLE,  # the default survives, but outside any package the detector reads

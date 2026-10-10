@@ -524,7 +524,29 @@ def _error_line(source: str, statement: Statement, raw: _RawError) -> int:
     return min(matches, key=lambda line: abs(line - guess))
 
 
-def _fixer_detector(statement_text: str, dialect: str, sqlstate: str = "") -> str | None:
+def _changed_lines(before: str, after: str) -> set[int]:
+    """The lines of `before` (0-based) a fix changed."""
+    import difflib
+
+    changed: set[int] = set()
+    matcher = difflib.SequenceMatcher(None, before.split("\n"), after.split("\n"), autojunk=False)
+    for tag, i1, i2, _j1, _j2 in matcher.get_opcodes():
+        if tag != "equal":
+            changed.update(range(i1, max(i2, i1 + 1)))
+    return changed
+
+
+def _fixer_detector(
+    statement_text: str, dialect: str, sqlstate: str = "", error_offset: int | None = None
+) -> str | None:
+    """The detector whose --fix repairs this failed statement, or None.
+    A fix tied to this very SQLSTATE answers it wherever it applies. For
+    a syntax error, whose position is where the parser stopped, any other
+    fix has to change that line or one just above it -- otherwise a TRIM
+    repaired at the top of a long routine would claim a syntax error at
+    its bottom. Other errors point where a name is used ("relation tree
+    does not exist"), not where it is defined, so the whole statement
+    counts."""
     fixers = FIXERS_BY_DIALECT.get(dialect, ())
     # A fix that answers exactly this SQLSTATE explains the error better
     # than one that merely changes something else in the statement.
@@ -532,9 +554,14 @@ def _fixer_detector(statement_text: str, dialect: str, sqlstate: str = "") -> st
     for fixer in ordered:
         if FIXER_SQLSTATE.get(fixer, sqlstate) != sqlstate:
             continue
-        _, applied = fixer(statement_text)
-        if applied:
-            return FIXER_DETECTOR.get(fixer)
+        fixed, applied = fixer(statement_text)
+        if not applied:
+            continue
+        if error_offset is not None and sqlstate == "42601" and FIXER_SQLSTATE.get(fixer) != sqlstate:
+            near = range(error_offset - _LINES_BEFORE, error_offset + 1)
+            if not _changed_lines(statement_text, fixed) & set(near):
+                continue
+        return FIXER_DETECTOR.get(fixer)
     return None
 
 
@@ -625,7 +652,9 @@ def _classify(
     if raw.sqlstate in _ENVIRONMENT_STATES:
         return _load_error(raw, file, line, statement.start_line, ENVIRONMENT)
 
-    fixer_detector = _fixer_detector(prepared.source[statement.start : statement.end], dialect, raw.sqlstate)
+    fixer_detector = _fixer_detector(
+        prepared.source[statement.start : statement.end], dialect, raw.sqlstate, line - statement.start_line
+    )
     if fixer_detector is not None:
         return _load_error(raw, file, line, statement.start_line, FIXABLE, fixer_detector)
 
@@ -704,6 +733,14 @@ _SUPPLIED_CALL_RE = re.compile(
 )
 
 
+# GAP-144: a parameter's := turned into DEFAULT glued to its neighbours --
+# VARCHAR2DEFAULT '.', DEFAULT0.
+_GLUED_DEFAULT_RE = re.compile(r"[A-Za-z0-9_)]DEFAULT\b|\bDEFAULT(?=[A-Za-z0-9_'(-])", re.IGNORECASE)
+# GAP-148: a call's result taken a member of, rewritten as a collection
+# element -- p_xml.extract['/a'].getstringval().
+_BRACKETED_CALL_RE = re.compile(r"\b[A-Za-z_]\w*\s*\.\s*[A-Za-z_]\w*\[[^\]]*\]\s*\.\s*[A-Za-z_]")
+
+
 def _created_in_a_schema(source: str, name: str) -> bool:
     return bool(re.search(rf"\bCREATE\s+(?:TYPE|DOMAIN)\s+\w+\.{re.escape(name)}\b", source, re.IGNORECASE))
 
@@ -742,6 +779,10 @@ def _output_signature(source: str, statement: Statement, line: int, message: str
         return "trigger_package_call" if _BARE_CALL_RE.match(at) else None
     if _EMPTY_PARENS_CALL_RE.match(at):
         return "repeated_package_call"
+    if _GLUED_DEFAULT_RE.search(at):
+        return "param_default_spacing"
+    if _BRACKETED_CALL_RE.search(at):
+        return "call_result_member"
     return None
 
 

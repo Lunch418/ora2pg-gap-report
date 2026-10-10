@@ -111,6 +111,12 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-140 | `TO_CHAR` даты или дроби без формата - `x::text`, текст другой | `to_char_default_format` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-140](gap-140-to-char-default-format.md) |
 | GAP-141 | `CHAR(n)` - в PostgreSQL хвостовые пробелы незначащие: `LENGTH`, склейка и сравнения другие | `char_semantics` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-141](gap-141-char-semantics.md) |
 | GAP-142 | `ROUND` от даты - копируется, `round(timestamp)` в PostgreSQL нет | `round_date` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-142](gap-142-round-date.md) |
+| GAP-143 | `CREATE SEQUENCE` без `START WITH` - пустой `START`, не загружается | `sequence_without_start` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-143](gap-143-sequence-without-start.md) |
+| GAP-144 | Значение параметра через `:=` без пробела - склеенный `VARCHAR2DEFAULT`, не загружается | `param_default_spacing` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-144](gap-144-param-default-spacing.md) |
+| GAP-145 | `TRIM(LEADING ... FROM ...)` - становится `trim(both leading ...)`, не загружается | `trim_leading_trailing` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-145](gap-145-trim-leading-trailing.md) |
+| GAP-146 | Параметр без значения по умолчанию после параметра со значением - не загружается | `param_after_default` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-146](gap-146-param-after-default.md) |
+| GAP-147 | Имя с `#` (`n#count`) - копируется, PostgreSQL его не принимает | `hash_identifier` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-147](gap-147-hash-identifier.md) |
+| GAP-148 | `f(x).y`, `xml.extract(...).getstringval()` - становится `f[x].y`, не загружается | `call_result_member` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-148](gap-148-call-result-member.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

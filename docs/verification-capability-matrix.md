@@ -10,7 +10,7 @@ something's unimplemented, but because the question itself, "is this
 still in the output," is a tautology for them: the construct is
 guaranteed to never appear in the output on any migration, regardless of
 whether someone fixed it by hand or not. `verification.py`'s docstring
-explains this in detail; this is a table for each of the 142 gaps, so
+explains this in detail; this is a table for each of the 148 gaps, so
 nobody has to read the code just to answer "can this specific one be
 verified."
 
@@ -139,6 +139,12 @@ verified."
 | 140 | `to_char_default_format` | `not_verifiable` | TO_CHAR(x) becomes x::text. |
 | 141 | `char_semantics` | `not_verifiable` | CHAR(n) becomes char(n), as it should; its uses are what differ. |
 | 142 | `round_date` | `verbatim` | ROUND(d, 'MM') is copied unchanged. |
+| 143 | `sequence_without_start` | `verbatim` | The sequence comes out with an empty START, still without one. |
+| 144 | `param_default_spacing` | `not_verifiable` | := becomes a glued DEFAULT; the := the detector reads is gone. |
+| 145 | `trim_leading_trailing` | `verbatim` | TRIM(LEADING ...) becomes trim(both leading ...), which the detector reads too. |
+| 146 | `param_after_default` | `verbatim` | The parameter order is kept. |
+| 147 | `hash_identifier` | `verbatim` | The name is copied unchanged. |
+| 148 | `call_result_member` | `not_verifiable` | f(x).y becomes f[x].y. |
 
 ### MySQL/MariaDB (`ora2pg -m`)
 
@@ -198,7 +204,7 @@ verified."
 | 125 | `mssql_schema_qualified_name` | `verbatim` | The schema stays on every name; gone once the file creates it (`--fix` does). |
 | 126 | `mssql_go_separator` | `verbatim` | The GO stays, inside the routine body. |
 
-Totals among the 142 gaps themselves: 61 `verbatim`, 80 `not_verifiable`
+Totals among the 148 gaps themselves: 65 `verbatim`, 82 `not_verifiable`
 (including `autonomous_tx`, but for a different reason, see above), 1
 `generated_only` (`connect_by`).
 

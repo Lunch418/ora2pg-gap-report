@@ -342,6 +342,64 @@ def prepare_oracle_table_if_not_exists(source: str) -> tuple[str, int]:
     return _sub_in_code(source, masked, _IF_NOT_EXISTS_RE, r"\1")
 
 
+_SEQUENCE_RE = re.compile(r"\bCREATE\s+SEQUENCE\s+((?:\"[^\"]+\"|[A-Za-z_][\w$#]*)(?:\s*\.\s*(?:\"[^\"]+\"|[A-Za-z_][\w$#]*))?)", re.IGNORECASE)
+_SEQUENCE_END_RE = re.compile(r";|^\s*/\s*$", re.MULTILINE)
+_START_WITH_RE = re.compile(r"\bSTART\s+WITH\b", re.IGNORECASE)
+_INCREMENT_RE = re.compile(r"\bINCREMENT\s+BY\s+(-?)\s*\d", re.IGNORECASE)
+_MINVALUE_RE = re.compile(r"\bMINVALUE\s+(-?\s*\d+)", re.IGNORECASE)
+_MAXVALUE_RE = re.compile(r"\bMAXVALUE\s+(-?\s*\d+)", re.IGNORECASE)
+
+
+def prepare_oracle_sequence_start(source: str) -> tuple[str, int]:
+    """`CREATE SEQUENCE s CACHE 100` -> `CREATE SEQUENCE s START WITH 1
+    CACHE 100`: the start Oracle implies -- MINVALUE (1 by default) going
+    up, MAXVALUE (-1 by default) going down -- written out (GAP-143).
+
+    ora2pg 25.0 writes an empty START for a sequence without one, which
+    PostgreSQL does not parse, and cuts a trailing digit off a sequence
+    name with no options at all."""
+    masked = _masked(source, _oracle_segments(source), frozenset({"string", "qstring", "comment"}))
+    inserts: list[tuple[int, str]] = []
+    for m in _SEQUENCE_RE.finditer(masked):
+        end = _SEQUENCE_END_RE.search(masked, m.end())
+        options = masked[m.end() : end.start() if end else len(masked)]
+        if _START_WITH_RE.search(options):
+            continue
+        down = (inc := _INCREMENT_RE.search(options)) is not None and inc.group(1) == "-"
+        bound = (_MAXVALUE_RE if down else _MINVALUE_RE).search(options)
+        start = "".join(bound.group(1).split()) if bound else ("-1" if down else "1")
+        inserts.append((m.end(), f" START WITH {start}"))
+    for at, text in reversed(inserts):
+        source = source[:at] + text + source[at:]
+    return source, len(inserts)
+
+
+_ROUTINE_HEADER_RE = re.compile(
+    r"\b(?:FUNCTION|PROCEDURE)\s+(?:[A-Za-z_][\w$#]*\s*\.\s*)?[A-Za-z_][\w$#]*\s*\(", re.IGNORECASE
+)
+_ASSIGN_RE = re.compile(r":=")
+
+
+def prepare_oracle_param_default_spacing(source: str) -> tuple[str, int]:
+    """`a varchar2:= chr(10)` -> `a varchar2 := chr(10)` in routine
+    parameter lists (GAP-144): ora2pg 25.0 turns the := into DEFAULT
+    without a space and glues it to its neighbours (`VARCHAR2DEFAULT`)."""
+    from .lex_common import skip_balanced_parens
+
+    masked = _masked(source, _oracle_segments(source), frozenset({"string", "qstring", "comment", "name"}))
+    tight: list[int] = []
+    for m in _ROUTINE_HEADER_RE.finditer(masked):
+        close = skip_balanced_parens(masked, m.end() - 1)
+        for a in _ASSIGN_RE.finditer(masked, m.end(), close):
+            if not source[a.start() - 1].isspace() or not source[a.end()].isspace():
+                tight.append(a.start())
+    for at in reversed(tight):
+        before = "" if source[at - 1].isspace() else " "
+        after = "" if source[at + 2].isspace() else " "
+        source = source[:at] + before + ":=" + after + source[at + 2 :]
+    return source, len(tight)
+
+
 # --- T-SQL -------------------------------------------------------------------
 
 _PLAIN_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -496,7 +554,12 @@ def prepare_mssql_go_separator(source: str) -> tuple[str, int]:
 # comes first: the definer and version-comment rewrites must see the
 # statements as plain SQL.
 PREPARERS_BY_DIALECT: dict[str, tuple[Preparer, ...]] = {
-    "oracle": (prepare_oracle_alt_quote, prepare_oracle_table_if_not_exists),
+    "oracle": (
+        prepare_oracle_alt_quote,
+        prepare_oracle_table_if_not_exists,
+        prepare_oracle_sequence_start,
+        prepare_oracle_param_default_spacing,
+    ),
     "mysql": (
         prepare_mysql_versioned_comments,
         prepare_mysql_delimiter,
@@ -522,6 +585,8 @@ def prepare_command(detector: str) -> str | None:
 PREPARER_DETECTOR: dict[Preparer, str] = {
     prepare_oracle_alt_quote: "alt_quote_literal",
     prepare_oracle_table_if_not_exists: "table_if_not_exists",
+    prepare_oracle_sequence_start: "sequence_without_start",
+    prepare_oracle_param_default_spacing: "param_default_spacing",
     prepare_mysql_versioned_comments: "mysql_versioned_comment",
     prepare_mysql_delimiter: "mysql_delimiter_routine",
     prepare_mysql_definer: "mysql_definer_procedure",

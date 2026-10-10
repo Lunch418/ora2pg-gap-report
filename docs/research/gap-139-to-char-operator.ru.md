@@ -38,6 +38,6 @@ ERROR:  operator does not exist: bigint / text
 
 ## Вердикт
 
-**Пробел подтверждён, severity high, failure_stage runtime.** Возьмите выражение в скобки: `(a/b)::text`. Детектор помечает `TO_CHAR` с одним аргументом без пробелов и с оператором вне скобок - ровно ту форму, которую ora2pg оставляет без скобок.
+**Пробел подтверждён, severity high, failure_stage runtime.** Возьмите выражение в скобки: `(a/b)::text`. ora2pg смотрит на пробелы после того, как спрятал каждый вызов функции за заглушкой, поэтому `TO_CHAR(abs(n - 1)+1)` и `TO_CHAR((n+1))` тоже теряют скобки; детектор применяет то же правило. Найдено в библиотеке Alexandria PL/SQL: `to_char(n+1)`, `to_char(i+1)`, `to_char(3+2*i)`.
 
 Реализовано: `ora2pg_gap_report/detectors/to_char_operator.py`.

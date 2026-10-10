@@ -46,7 +46,6 @@ def test_scan_source_runs_all_detectors_on_logger():
         "supplied_package_call",  # htp.p, dbms_session.set_context ...
         "number_without_precision",  # l_count number, ...
         "integer_division",  # p_date_stop-p_date_start < 1/1440
-        "trunc_number",  # trunc((p_date_stop-p_date_start)/7)
         "instr_occurrence",  # instr(l_callstack, chr(10), 1, 5)
         "date_arithmetic",  # p_date_stop-p_date_start, eleven times
         "package_constant_default",
@@ -88,9 +87,9 @@ def test_scan_source_runs_all_detectors_on_logger():
     # number_without_precision: once for the file (g_log_id number, ...);
     # integer_division: 'p_date_stop-p_date_start < 1/1440' and '1/24'
     # (GAP-130, GAP-132).
-    # trunc_number, instr_occurrence, date_arithmetic: 1, 3 and 11 in
-    # date_text_format_base and get_call_stack (GAP-134, 137, 138).
-    assert len(findings) == 8 + 13 + 1 + 229 + 5 + 25 + 1 + 2 + 11 + 5 + 1 + 2 + 1 + 3 + 11
+    # instr_occurrence, date_arithmetic: 3 and 11 in get_call_stack and
+    # date_text_format_base (GAP-137, 138).
+    assert len(findings) == 8 + 13 + 1 + 229 + 5 + 25 + 1 + 2 + 11 + 5 + 1 + 2 + 3 + 11
 
 
 def test_scan_source_sorts_high_severity_first():

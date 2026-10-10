@@ -41,7 +41,9 @@ ora2pg переписывает любой `TRUNC` как TRUNC даты, как
 ERROR:  function date_trunc(unknown, bigint) does not exist
 ```
 
-Найдено в OraOpenSource Logger: `trunc((p_date_stop-p_date_start)/7) || ' weeks'`.
+Найдено в OraOpenSource oos-utils (`trunc(t_pad / 2)`, `trunc(p_x / power(2, p_y))`) и в библиотеке Alexandria PL/SQL (`trunc(tmp / 2)`, `trunc(abs(l_hours))`).
+
+Переписывается не каждый `TRUNC`: ora2pg сначала прячет каждый вызов функции за заглушкой и берёт `TRUNC`, только если в нём не осталось других скобок. `TRUNC((n - 1) / 26)` остаётся как есть и работает; детектор следует тому же правилу.
 
 **Воспроизводится: ДА.** Версия Ora2Pg: 25.0, PostgreSQL 16, Oracle 23ai.
 

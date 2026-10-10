@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+from collections.abc import Callable
 
 from .detectors.statement_trigger import find_statement_trigger
 from .plsql_lex import IDENTIFIER, mask_strings_and_comments
@@ -139,6 +140,11 @@ _ROUTINE_HEAD_RE = re.compile(
 )
 
 
+def _constant(literal: str) -> Callable[[re.Match[str]], str]:
+    """A replacement that writes `literal` as it is."""
+    return lambda _m: literal
+
+
 def restore_constants(sql: str, constants: list[Constant]) -> tuple[str, int]:
     count = 0
     # GAP-114 first, for every constant: the read spliced with the
@@ -152,8 +158,12 @@ def restore_constants(sql: str, constants: list[Constant]) -> tuple[str, int]:
     literals = {f"{c.package}.{c.name}": c.literal for c in constants}
     if literals:
         keys = "|".join(re.escape(k) for k in sorted(literals, key=len, reverse=True))
+        # The tail is glued to the cast -- never valid SQL on its own -- and
+        # holds what is left of the chain: other reads, names, literals
+        # ('xmlns="'||g_ns||, in the Alexandria PL/SQL library), ending in ||.
         spliced = re.compile(
-            rf"current_setting\('({keys})'\){_CAST}(?:current_setting\('[^']*'\){_CAST}|[A-Za-z_]\w*)+(?:\|\|)+",
+            rf"current_setting\('({keys})'\){_CAST}"
+            rf"(?:(?:current_setting\('[^']*'\){_CAST}|[A-Za-z_]\w*|'(?:[^']|'')*')(?:\|\|)*)+(?<=\|\|)",
             re.IGNORECASE,
         )
         sql, n = spliced.subn(lambda m: literals[m.group(1).lower()], sql)
@@ -163,7 +173,9 @@ def restore_constants(sql: str, constants: list[Constant]) -> tuple[str, int]:
     for c in constants:
         key = re.escape(f"{c.package}.{c.name}")
         read = re.compile(rf"current_setting\('{key}'\)(?={_CAST})", re.IGNORECASE)
-        sql, n = read.subn(c.literal, sql)
+        # A function, not the literal itself: a literal is a template to
+        # re.sub, and a constant holding a regex ('\w+') would be read as one.
+        sql, n = read.subn(_constant(c.literal), sql)
         count += n
 
     # GAP-119: a parameter DEFAULT naming a constant, bare or qualified.

@@ -1,6 +1,6 @@
 import re
 
-from ..lex_common import call_arguments
+from ..lex_common import call_arguments, collapse_calls, skip_balanced_parens
 from ..models import Finding
 from ..number_types import is_numeric, type_of, typed_names
 from ..plsql_lex import (
@@ -34,9 +34,12 @@ def find_trunc_number(source: str) -> list[Finding]:
     bigint) does not exist'); Oracle 23ai returns 3 for TRUNC(10 / 3).
     See docs/research/gap-134-trunc-number.md.
 
-    Only a TRUNC whose argument is visibly a number is flagged: a numeric
-    literal, a numeric variable or parameter, a numeric function, an
-    expression with * or /, or a second argument that is a number (a
+    Only a TRUNC ora2pg rewrites is flagged: it hides each function call
+    behind a placeholder first and takes TRUNC only when no other
+    parentheses are left in it -- TRUNC((n - 1) / 26) is kept as it is
+    and works. Of those, only one whose argument is visibly a number: a
+    numeric literal, a numeric variable or parameter, a numeric function,
+    an expression with * or /, or a second argument that is a number (a
     date's is a format string). TRUNC of a column cannot be told apart."""
     if "TRUNC" not in source.upper():
         return []
@@ -49,6 +52,9 @@ def find_trunc_number(source: str) -> list[Finding]:
         args = [a.strip() for a in call_arguments(clean, m.end() - 1)]
         if not args or len(args) > 2 or not args[0]:
             continue
+        inside = collapse_calls(clean[m.end() : skip_balanced_parens(clean, m.end() - 1) - 1])
+        if "(" in inside or ")" in inside:
+            continue  # ora2pg leaves it alone
         obj = enclosing_object_name(index, m.start())
         first = args[0]
         numeric = (

@@ -21,6 +21,7 @@ package body and has to be reported as PACKAGE.ROUTINE.
 
 from __future__ import annotations
 
+import re
 from bisect import bisect_right
 from collections.abc import Callable
 from functools import lru_cache
@@ -68,6 +69,22 @@ def skip_balanced_parens(text: str, start: int) -> int:
                 return i + 1
         i += 1
     return len(text)
+
+
+_INNERMOST_CALL_RE = re.compile(r"\b[A-Za-z0-9_.]+\s*\([^()]*\)")
+
+
+def collapse_calls(text: str) -> str:
+    """`text` with every function call replaced by `F`, innermost first, the
+    way ora2pg's PLSQL.pm hides calls behind placeholders before it
+    rewrites one: `trunc(abs(n) / 2)` -> `F`, its argument `abs(n) / 2`
+    -> `F / 2`. Parentheses that are not a call -- `(n - 1) / 26` -- stay,
+    and ora2pg's rules for TRUNC and TO_CHAR do not apply past them."""
+    while True:
+        collapsed = _INNERMOST_CALL_RE.sub("F", text)
+        if collapsed == text:
+            return text
+        text = collapsed
 
 
 def call_arguments(text: str, open_paren: int) -> list[str]:

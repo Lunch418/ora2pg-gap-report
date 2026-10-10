@@ -28,7 +28,7 @@ patch for fixes to existing ones.
     is an interval, not a number of days.
 
   Found in OraOpenSource Logger and `file_util_pkg` as well: eleven date
-  differences, `trunc(.../7)`, six `INSTR` calls.
+  differences and six `INSTR` calls.
 
 - **GAP-139..142: `TO_CHAR`, `CHAR(n)` and `ROUND` of a date.** Each
   run in Oracle 23ai and, after ora2pg 25.0, in PostgreSQL 16:
@@ -62,6 +62,24 @@ patch for fixes to existing ones.
 
 ### Fixed
 
+- **Checked on other people's code** - the Alexandria PL/SQL library,
+  utPLSQL, OraOpenSource oos-utils and Logger, Oracle's sample schemas
+  (about 240,000 lines), with real ora2pg 25.0 and PostgreSQL 16:
+  - `--migrate` stopped with an internal error ("bad escape \w") when a
+    package constant held a regular expression: its value was read as a
+    replacement template;
+  - a package constant chain that ora2pg splices with a string literal
+    in it (`'xmlns="'||g_ns||`) is repaired too;
+  - `trunc_number` follows ora2pg's own rule: `TRUNC((n - 1) / 26)` is
+    kept by ora2pg and works, and is no longer flagged (20 of 72 were
+    such);
+  - `to_char_operator` also finds `TO_CHAR(abs(n - 1)+1)` and
+    `TO_CHAR((n+1))`, which lose their parentheses the same way;
+  - `empty_string_null` flags `v := ''` and a parameter's `DEFAULT ''`
+    only where the name is then tested for NULL (53 -> 19: most were
+    `v := ''; v := v || x`, the same in both);
+  - `plsql_integer_subtype` and `float_precision` skip package
+    specifications, whose routines ora2pg converts from the body.
 - A variable's type is taken from its own declaration when overloads of
   one routine declare the same parameter differently (OraOpenSource
   Logger's `tochar`).

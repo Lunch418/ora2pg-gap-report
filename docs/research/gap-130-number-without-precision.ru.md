@@ -76,5 +76,7 @@ DEFAULT_NUMERIC numeric
 столбец: работа - это настройка, а не каждое объявление. `NUMBER(p)`,
 `NUMBER(p,s)`, `TO_NUMBER`, `%TYPE` и `CAST(x AS NUMBER)` не помечаются.
 
+`--migrate` по умолчанию конвертирует с этими настройками (см. README, `--migrate`).
+
 Реализовано: `ora2pg_gap_report/detectors/number_without_precision.py`
 (объявления читает `ora2pg_gap_report/number_types.py`).

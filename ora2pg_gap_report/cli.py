@@ -265,6 +265,11 @@ def _build_arg_parser(lang: str = "ru") -> argparse.ArgumentParser:
         help=i18n.t(lang, "help_migrate"),
     )
     parser.add_argument(
+        "--keep-ora2pg-types",
+        action="store_true",
+        help=i18n.t(lang, "help_keep_ora2pg_types"),
+    )
+    parser.add_argument(
         "--load-check",
         default=None,
         metavar="TARGET",
@@ -739,6 +744,7 @@ def _handle_migrate(args: argparse.Namespace, err_console: Console, lang: str) -
                 version=_package_version(),
                 progress=progress,
                 pg_version=args.pg_version,
+                numeric_types=not args.keep_ora2pg_types,
             )
             load = None
             if args.load_check is not None and result.converted:

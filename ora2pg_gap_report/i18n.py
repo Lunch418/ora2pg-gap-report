@@ -1040,6 +1040,18 @@ _UI: dict[str, dict[str, str]] = {
         "ru": "Прогнать на PostgreSQL {statements} с SQL, собранным во время выполнения: такой SQL по исходнику не проверить (список - в конце report.html и MIGRATION.md)",
         "en": "Run {statements} with SQL built at run time on PostgreSQL: reading the source cannot check such SQL (listed at the end of report.html and MIGRATION.md)",
     },
+    "help_keep_ora2pg_types": {
+        "ru": "С --migrate: конвертировать с ora2pg.conf как есть. По умолчанию --migrate запускает ora2pg "
+        "с копией его же ora2pg.conf (OUT_DIR/ora2pg.conf), где PG_NUMERIC_TYPE 0, DEFAULT_NUMERIC numeric и "
+        "FLOAT:numeric: NUMBER остаётся десятичным, а не bigint/double precision (GAP-130, GAP-131).",
+        "en": "With --migrate: convert with ora2pg.conf as it is. By default --migrate runs ora2pg with a copy "
+        "of its own ora2pg.conf (OUT_DIR/ora2pg.conf) that sets PG_NUMERIC_TYPE 0, DEFAULT_NUMERIC numeric and "
+        "FLOAT:numeric: NUMBER stays decimal instead of bigint/double precision (GAP-130, GAP-131).",
+    },
+    "checklist_migrate_configured": {
+        "ru": "ora2pg запущен с ora2pg.conf, где NUMBER остаётся десятичным (PG_NUMERIC_TYPE 0, DEFAULT_NUMERIC numeric, FLOAT:numeric) - проверьте типы в converted/ и отметьте в MIGRATION.md.",
+        "en": "ora2pg ran with an ora2pg.conf that keeps NUMBER decimal (PG_NUMERIC_TYPE 0, DEFAULT_NUMERIC numeric, FLOAT:numeric) - check the types in converted/ and tick it in MIGRATION.md.",
+    },
     "checklist_unchecked_heading": {
         "ru": "Не проверено инструментом: SQL, собранный во время выполнения",
         "en": "Not checked by the tool: SQL built at run time",

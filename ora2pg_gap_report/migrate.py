@@ -36,13 +36,15 @@ from .checklist import ChecklistError, read_previous, write_checklist
 from .core import scan_source
 from .models import Finding
 from .unchecked import Unchecked, find_unchecked
-from .ora2pg_wrapper import CONVERT_TYPES, run_convert
+from .ora2pg_wrapper import CONVERT_TYPES, default_config, numeric_config, run_convert
 from .prepare import PREPARERS_BY_DIALECT
 
 if TYPE_CHECKING:
     from .load_check import LoadCheckResult
 
 MARKER_NAME = ".ora2pg-gap-report-migrate"
+# ora2pg's configuration with NUMBER kept decimal, written into OUT_DIR.
+CONFIG_NAME = "ora2pg.conf"
 
 
 class MigrateError(Exception):
@@ -67,6 +69,9 @@ class MigrationResult:
     empty_types: list[str] = dataclasses.field(default_factory=list)
     # SQL built at run time, which the scan could not read (unchecked.py)
     unchecked: list[Unchecked] = dataclasses.field(default_factory=list)
+    # ora2pg converted with OUT_DIR/ora2pg.conf, which keeps NUMBER decimal
+    # (GAP-130, GAP-131)
+    numeric_config: bool = False
 
 
 # Only a comment, a client setting or a psql command: what ora2pg writes for
@@ -144,10 +149,12 @@ def without_packages(source: str) -> str:
     return "".join(out)
 
 
-def handled_by_migrate(dialect: str) -> dict[str, str]:
+def handled_by_migrate(dialect: str, numeric_config: bool = False) -> dict[str, str]:
     """Detector -> the i18n key of the checklist note for each gap a
     --migrate run takes care of in `dialect`: what --prepare rewrites in
-    the source, what --fix and the source repairs put right in the output."""
+    the source, what --fix and the source repairs put right in the output,
+    and -- with `numeric_config` -- the NUMBER types ora2pg converted with
+    the settings that keep them decimal."""
     from .autofix import FIXER_DETECTOR
     from .prepare import PREPARED_DETECTORS
 
@@ -160,6 +167,9 @@ def handled_by_migrate(dialect: str) -> dict[str, str]:
             handled[FIXER_DETECTOR[fixer]] = "checklist_migrate_repaired"
     for detector, scope in source_fixes.REPAIRED.get(dialect, {}).items():
         handled[detector] = "checklist_migrate_repaired" if scope == "all" else "checklist_migrate_repaired_literal"
+    if numeric_config:
+        handled["number_without_precision"] = "checklist_migrate_configured"
+        handled["number_as_float"] = "checklist_migrate_configured"
     return handled
 
 
@@ -174,6 +184,7 @@ def prepare_out_dir(out_dir: Path) -> None:
     marker.write_text("Created by ora2pg-gap-report --migrate. Safe to delete with the directory.\n", encoding="utf-8")
     for generated in ("prepared", "converted"):
         shutil.rmtree(out_dir / generated, ignore_errors=True)
+    (out_dir / CONFIG_NAME).unlink(missing_ok=True)
 
 
 def run_migration(
@@ -186,12 +197,23 @@ def run_migration(
     version: str = "",
     progress: Callable[[str], None] | None = None,
     pg_version: int | None = None,
+    numeric_types: bool = True,
 ) -> MigrationResult:
     """Steps 1-4 (load is the caller's, so it can reuse --load-check's own
     reporting). Raises MigrateError, or ora2pg_wrapper's errors."""
     say = progress or (lambda _key: None)
     sources = outside(sources, out_dir)
     prepare_out_dir(out_dir)
+
+    # ora2pg's own configuration, with the settings that keep NUMBER
+    # decimal (GAP-130, GAP-131) -- when its default file can be read.
+    config = None
+    if numeric_types and dialect == "oracle":
+        default = default_config(ora2pg_bin)
+        if default is not None:
+            config = out_dir / CONFIG_NAME
+            config.write_text(numeric_config(default), encoding="utf-8")
+    handled = handled_by_migrate(dialect, numeric_config=config is not None)
 
     # 1. scan
     say("migrate_step_scan")
@@ -213,7 +235,7 @@ def run_migration(
     from .html_report import write_html
 
     with open(out_dir / "report.html", "w", encoding="utf-8") as report:
-        write_html(findings, report, lang=lang, handled=handled_by_migrate(dialect), unchecked=unchecked)
+        write_html(findings, report, lang=lang, handled=handled, unchecked=unchecked)
     checklist_path = out_dir / "MIGRATION.md"
     try:
         previous = read_previous(checklist_path)
@@ -227,7 +249,7 @@ def run_migration(
         previous=previous,
         scanned_files=[str(p) for p in sources],
         version=version,
-        handled=handled_by_migrate(dialect),
+        handled=handled,
         unchecked=unchecked,
     )
     checklist_path.write_text(buffer.getvalue(), encoding="utf-8")
@@ -272,7 +294,7 @@ def run_migration(
     for position, object_type in enumerate(CONVERT_TYPES[dialect], 1):
         say(f"migrate_step_convert:{object_type}")
         source_file = packages if object_type == "PACKAGE" else standalone
-        sql = run_convert(source_file, object_type, dialect=dialect, ora2pg_bin=ora2pg_bin, lang=lang)
+        sql = run_convert(source_file, object_type, dialect=dialect, ora2pg_bin=ora2pg_bin, lang=lang, config=config)
         if not _has_content(sql) or _content(sql) in seen:
             empty.append(object_type)
             continue
@@ -308,6 +330,7 @@ def run_migration(
         source_fixes=source_repairs,
         empty_types=empty,
         unchecked=unchecked,
+        numeric_config=config is not None,
     )
 
 
@@ -332,7 +355,7 @@ def load_and_record(result: MigrationResult, target: str, *, dialect: str = "ora
             report_file,
             lang=lang,
             load=load,
-            handled=handled_by_migrate(dialect),
+            handled=handled_by_migrate(dialect, numeric_config=result.numeric_config),
             unchecked=result.unchecked,
         )
     write_text_atomic(result.out_dir / "load-check.json", to_load_check_json(load))

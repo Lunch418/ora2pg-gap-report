@@ -5573,12 +5573,12 @@ REMEDIATION_HINTS: dict[str, Message] = {
         en="Write NULL for '' and IS NULL for the comparison with ''",
     ),
     "number_without_precision": Message(
-        ru='Поставить в ora2pg.conf DEFAULT_NUMERIC numeric и сконвертировать заново',
-        en='Set DEFAULT_NUMERIC numeric in ora2pg.conf and convert again',
+        ru='Поставить в ora2pg.conf DEFAULT_NUMERIC numeric и сконвертировать заново - --migrate делает это сам',
+        en='Set DEFAULT_NUMERIC numeric in ora2pg.conf and convert again - --migrate does it itself',
     ),
     "number_as_float": Message(
-        ru='Поставить в ora2pg.conf PG_NUMERIC_TYPE 0 и DATA_TYPE FLOAT:numeric и сконвертировать заново',
-        en='Set PG_NUMERIC_TYPE 0 and DATA_TYPE FLOAT:numeric in ora2pg.conf and convert again',
+        ru='Поставить в ora2pg.conf PG_NUMERIC_TYPE 0 и DATA_TYPE FLOAT:numeric и сконвертировать заново - --migrate делает это сам',
+        en='Set PG_NUMERIC_TYPE 0 and DATA_TYPE FLOAT:numeric in ora2pg.conf and convert again - --migrate does it itself',
     ),
     "integer_division": Message(
         ru='Привести одно из чисел к numeric: i::numeric / 2',

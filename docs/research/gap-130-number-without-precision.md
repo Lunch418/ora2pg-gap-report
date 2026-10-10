@@ -76,5 +76,7 @@ per file, at the first `NUMBER` without a precision, not once per column:
 the work is the setting, not each declaration. `NUMBER(p)`, `NUMBER(p,s)`,
 `TO_NUMBER`, `%TYPE` and `CAST(x AS NUMBER)` are not flagged.
 
+`--migrate` converts with these settings by default (see README, `--migrate`).
+
 Implemented: `ora2pg_gap_report/detectors/number_without_precision.py`
 (the declarations are read by `ora2pg_gap_report/number_types.py`).

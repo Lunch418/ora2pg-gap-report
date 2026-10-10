@@ -198,7 +198,7 @@ def to_verification_json(
 
 # Bumped when the shape of --load-check --format json changes; see
 # schemas/load-check.schema.json.
-LOAD_CHECK_SCHEMA_VERSION = 1
+LOAD_CHECK_SCHEMA_VERSION = 2
 
 
 def to_load_check_json(result: LoadCheckResult) -> str:

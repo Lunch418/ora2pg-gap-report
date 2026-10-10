@@ -19,8 +19,8 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 1,
-      "description": "Matches report_generator.LOAD_CHECK_SCHEMA_VERSION."
+      "const": 2,
+      "description": "Matches report_generator.LOAD_CHECK_SCHEMA_VERSION. 2 added caused_by, echoes and missing to every error."
     },
     "target": {
       "type": "string",
@@ -105,7 +105,10 @@
         "context",
         "category",
         "detector",
-        "gap_number"
+        "gap_number",
+        "caused_by",
+        "echoes",
+        "missing"
       ],
       "properties": {
         "file": {"type": "string"},
@@ -121,7 +124,23 @@
           "description": "fixable: --fix repairs the statement. gap: a registered gap's construct is in it. unknown: matches nothing in the registry. dependency: refers to an object that doesn't exist. environment: the check could not run it (transaction rules, privileges, timeouts)."
         },
         "detector": {"type": ["string", "null"]},
-        "gap_number": {"type": ["string", "null"], "pattern": "^[0-9]{3}$"}
+        "gap_number": {"type": ["string", "null"], "pattern": "^[0-9]{3}$"},
+        "caused_by": {
+          "type": ["array", "null"],
+          "prefixItems": [{"type": "string"}, {"type": "integer", "minimum": 1}],
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "For a missing-object error: [file, statement_line] of the failed statement that was to make the object - the root, past any echo in between. null when nothing in the run made it."
+        },
+        "echoes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "For a root: how many later statements failed because of it."
+        },
+        "missing": {
+          "type": ["string", "null"],
+          "description": "For a missing-object error: the object, as the message names it."
+        }
       }
     }
   }

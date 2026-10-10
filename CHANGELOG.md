@@ -19,6 +19,16 @@ patch for fixes to existing ones.
   with Oracle's `ERROR ON ERROR` before `COLUMNS`, now a message of its
   own. A version older than 16 gets a note that the gaps were confirmed
   on 16.
+- **`--load-check` shows root causes.** On a first run a failed table
+  takes every view, trigger and routine on it down with it. Each
+  missing-object error is now tied to the failed statement that was to
+  make its object (through echoes of echoes, to the root), the root says
+  how many failed because of it, and the missing-object errors are summed
+  up by object: on the samples, 41 such errors come down to 8 objects,
+  each marked "failed above" or "not in the loaded files". Also in the
+  HTML report's load card and in the JSON (`caused_by`, `echoes`,
+  `missing`).
+  The JSON's `schema_version` is now 2.
 
 ### Changed
 

@@ -705,7 +705,7 @@ On GitHub, the repository is a ready-made Action that does the scan, the
 SARIF upload to code scanning and the gate in one step:
 
 ```yaml
-- uses: Lunch418/ora2pg-gap-report@v0.17.0
+- uses: Lunch418/ora2pg-gap-report@v0.18.0
   with:
     paths: schema/
     fail-on: high

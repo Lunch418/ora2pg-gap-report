@@ -102,6 +102,11 @@ GAP-001/004/005 просто потому, что реестр появился 
 | GAP-131 | `NUMBER(p,s)` и `FLOAT` - становятся `real`/`double precision`, 0.1 + 0.2 уже не 0.3 | `number_as_float` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-131](gap-131-number-as-float.md) |
 | GAP-132 | Деление целых (`7 / 2`, `i / 2`) - в Oracle 3.5, в PostgreSQL 3 | `integer_division` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-132](gap-132-integer-division.md) |
 | GAP-133 | `SUBSTR` с позиции 0 или отрицательной - в PostgreSQL возвращает другую часть строки | `substr_start` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-133](gap-133-substr-start.md) |
+| GAP-134 | `TRUNC` от числа - становится `date_trunc`, падает при вызове | `trunc_number` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-134](gap-134-trunc-number.md) |
+| GAP-135 | `FLOAT(n)` в PL/SQL - становится `double precision(n)`, не загружается | `float_precision` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-135](gap-135-float-precision.md) |
+| GAP-136 | `SIMPLE_INTEGER`, `NATURAL`, `POSITIVE`, `SIGNTYPE` - копируются как есть, не загружается | `plsql_integer_subtype` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-136](gap-136-plsql-integer-subtype.md) |
+| GAP-137 | `INSTR` с позицией или вхождением - `instr` в PostgreSQL нет, падает при вызове | `instr_occurrence` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-137](gap-137-instr-occurrence.md) |
+| GAP-138 | Арифметика с `DATE` (`d + 1`, `d1 - d2`) - `timestamp + integer` и `interval` вместо числа, падает при выполнении | `date_arithmetic` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-138](gap-138-date-arithmetic.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

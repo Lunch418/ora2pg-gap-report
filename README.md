@@ -29,7 +29,7 @@ mode of its own:
 ```
  schema/ (Oracle DDL, a mysqldump, an SSMS script)
     |
-    |  1. scan       133 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
+    |  1. scan       138 confirmed ora2pg gaps    -> out/report.html, out/MIGRATION.md
     |  2. prepare    rewrite what ora2pg's parser trips over  (--prepare)
     |  3. convert    ora2pg, once per object type             -> out/converted/
     |  4. fix        repair ora2pg's known mechanical bugs    (--fix), and what the source says
@@ -188,6 +188,11 @@ empirically against real PL/SQL code
 | `number_as_float` | `NUMBER(p,s)` and `FLOAT` - ora2pg makes them `real`/`double precision`: 0.1 + 0.2 is no longer 0.3. Once per file; `PG_NUMERIC_TYPE 0` and `DATA_TYPE FLOAT:numeric` fix it |
 | `integer_division` | A division of integers (`7 / 2`, `i / 2` with `i PLS_INTEGER`) - 3.5 in Oracle, 3 in PostgreSQL |
 | `substr_start` | `SUBSTR(s, 0, n)` or `SUBSTR(s, -n)` - PostgreSQL's `substr` returns another part of the string |
+| `trunc_number` | `TRUNC` of a number (`TRUNC(n / 3)`, `TRUNC(x, 2)`) - ora2pg makes every `TRUNC` a `date_trunc`, the call fails |
+| `float_precision` | `FLOAT(n)` in PL/SQL - becomes `double precision(n)`, the routine does not load; `--fix` repairs it |
+| `plsql_integer_subtype` | `SIMPLE_INTEGER`, `NATURAL`, `POSITIVE`, `SIGNTYPE` - copied as they are, the routine does not load; `--fix` repairs it |
+| `instr_occurrence` | `INSTR(s, sub, -1)`, `INSTR(s, sub, 1, 2)` - copied, and PostgreSQL has no `instr` without orafce |
+| `date_arithmetic` | Arithmetic on a `DATE` variable (`d + 1`, `d1 - d2`, `TRUNC(d) - 7`) - `timestamp + integer` does not exist, the difference is an interval |
 | `schema_qualified_name` | A schema-qualified name (`"HR"."EMP"`, the way `GET_DDL` writes every one) - ora2pg keeps the schema on tables, views and sequences but never creates it, and drops it on triggers and in view bodies: nothing loads on a fresh database |
 
 The twenty-seven below are the MySQL/MariaDB dialect (`--dialect mysql`, `ora2pg
@@ -258,16 +263,16 @@ a live export of `PACKAGE BODY`/`TRIGGER` straight from an Oracle schema via
 
 ### Why almost everything is `high`
 
-Of the 133 registered gaps (`gap_registry.py`) — 85 from the Oracle source
+Of the 138 registered gaps (`gap_registry.py`) — 90 from the Oracle source
 dialect, 27 from MySQL/MariaDB (`dialect="mysql"`, `ora2pg -m`) and 21 from
 T-SQL/SQL Server (`dialect="mssql"`, `ora2pg -M`); see "Source dialects"
-below — 127 are `high` and 6 are `medium` (`context_object`,
+below — 132 are `high` and 6 are `medium` (`context_object`,
 `invisible_index`, `virtual_column`, `index_organized_table`, `sdo_geometry`
 on the Oracle side, `mysql_set_type` on the MySQL side; the MSSQL batch has
 no `medium` at all) — `severity` is a `GapEntry` field now, cross-checked by
 `scripts/doctor.py` against the literal a detector's own source actually
 uses, not just a count taken on faith. Separately, there's one more detector
-on top of those 133, `dbms_utl_calls` — a
+on top of those 138, `dbms_utl_calls` — a
 classifier for `DBMS_*`/`UTL_*` calls, not tied to a specific GAP-NNN (it has
 no single reproducible minimal example — that's a deliberately broad
 category), also `medium`. `low` is a valid value in the
@@ -461,7 +466,7 @@ writes is the same too - `report.html`, `MIGRATION.md`, `converted/`, and
 `--explain GAP-023` (or just `--explain 23`) prints a specific gap's research
 document from the registry — the Oracle construct, real `ora2pg` output, the
 observed problem, the verdict, and the `ora2pg`/PostgreSQL versions the
-finding was confirmed against (currently 25.0/16 for all 133 — a single
+finding was confirmed against (currently 25.0/16 for all 138 — a single
 version, because there hasn't been a second one yet; `gap_registry.py` is
 already set up to store different versions for future findings) — without
 scanning any files:
@@ -745,18 +750,18 @@ same pattern already in the generated code. And even so, it doesn't work
 the same way for every detector:
 
 - **Some constructs `ora2pg` copies into its output as-is** (`cross_apply`,
-  `json_table`, `identity_column`, and 56 more — 59 of the 134 detectors) —
+  `json_table`, `identity_column`, and 58 more — 61 of the 139 detectors) —
   for these, re-running the detector against the output is meaningful:
   `STILL_PRESENT` if the pattern remains, `NOT_DETECTED` if it's gone.
 - **Some `ora2pg` drops or rewrites away entirely** (`read_only_table`,
-  `table_partitioning`, and 70 more — 74 of the 134) — the construct isn't
+  `table_partitioning`, and 75 more — 77 of the 139) — the construct isn't
   in the output *by definition*, regardless of whether someone fixed the
   problem by hand some other way. For these, the honest status is `NOT_VERIFIABLE`, not a
   fabricated `NOT_DETECTED`: treating absence as proof of a fix would be
   exactly the kind of manufactured confidence this project specifically
   avoids (see "Why almost everything is `high`" above).
 
-Which mode applies to which detector, and why, for all 133 gaps —
+Which mode applies to which detector, and why, for all 138 gaps —
 [`docs/verification-capability-matrix.md`](docs/verification-capability-matrix.md).
 
 `NOT_DETECTED` also doesn't mean "provably fixed" — only "the pattern wasn't
@@ -864,6 +869,8 @@ run is decided by `--dialect`:
 | `oracle` | GAP-028 | `ora2pg` wraps an identity column's sequence options in an extra, redundant pair of parens (`GENERATED ALWAYS AS IDENTITY ((START WITH 1))`), which won't load. Strips exactly that outer pair |
 | `oracle` | GAP-024 | A recursive `WITH` is copied without the `RECURSIVE` keyword Oracle does not need and PostgreSQL does (`relation "tree" does not exist`). Adds the keyword to a `WITH` whose CTE refers to itself; one followed by Oracle's `SEARCH`/`CYCLE` clause is left alone |
 | `oracle` | GAP-123 | `DBMS_LOCK.SLEEP` becomes `pg_sleep(n);` - ora2pg's own `PERFORM` rule is shadowed by an earlier bare rewrite, and PL/pgSQL rejects a function called as a statement. Writes `PERFORM` before a `pg_sleep(` that starts a statement |
+| `oracle` | GAP-135 | A PL/SQL `FLOAT(n)` becomes `double precision(n)`, which does not parse. Drops the precision |
+| `oracle` | GAP-136 | `SIMPLE_INTEGER`, `NATURAL(N)`, `POSITIVE(N)` and `SIGNTYPE` are copied, and PostgreSQL has no such types. Writes `integer` (`smallint` for `SIGNTYPE`) in declarations; the subtype's own constraint is not carried over |
 | `mssql` | GAP-100 | `CHARINDEX` is translated to the right function but with the quotes doubled — `position(''abc'' in x)`, which is not valid SQL. Removes the doubling, touching nothing else |
 | `mssql` | GAP-091 | A parameterless procedure gets an empty, unparseable `DECLARE ;` block. Deletes it — which is exactly what `ora2pg` itself emits for the same procedure when it takes a parameter |
 | `mssql` | GAP-125 | SSMS qualifies every name with its schema (`[dbo].[Orders]`); ora2pg keeps it everywhere but never creates it, so nothing loads (`schema "dbo" does not exist`). Writes `CREATE SCHEMA IF NOT EXISTS dbo;` after the header for each schema the file uses and does not create |

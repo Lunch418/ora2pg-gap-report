@@ -10,7 +10,7 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 выводе" тавтологичен: конструкция гарантированно не появится в выводе ни
 на одной миграции, независимо от того, исправил её кто-то руками или
 нет. Docstring `verification.py` объясняет это подробно; здесь — таблица
-по каждому из 133 gap'ов, чтобы не листать код ради одного вопроса
+по каждому из 138 gap'ов, чтобы не листать код ради одного вопроса
 "а можно ли верифицировать конкретно этот".
 
 ## Как читать колонку "режим"
@@ -129,6 +129,11 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 131 | `number_as_float` | `not_verifiable` | NUMBER(p,s) становится real/double precision; NUMBER(p,s) больше не встречается. |
 | 132 | `integer_division` | `verbatim` | Деление копируется; типы становятся integer/bigint, которые детектор тоже читает. |
 | 133 | `substr_start` | `verbatim` | Вызов SUBSTR копируется без изменений. |
+| 134 | `trunc_number` | `not_verifiable` | TRUNC становится date_trunc; TRUNC больше не встречается. |
+| 135 | `float_precision` | `not_verifiable` | FLOAT(n) становится double precision(n); FLOAT больше не встречается. |
+| 136 | `plsql_integer_subtype` | `verbatim` | Подтип копируется без изменений (до --fix). |
+| 137 | `instr_occurrence` | `verbatim` | INSTR с тремя или четырьмя аргументами копируется без изменений. |
+| 138 | `date_arithmetic` | `not_verifiable` | DATE становится timestamp(0), и его уже не отличить от TIMESTAMP. |
 
 ### MySQL/MariaDB (`ora2pg -m`)
 
@@ -188,7 +193,7 @@ pre-migration находки (снапшот `--save`) с тем, что реа�
 | 125 | `mssql_schema_qualified_name` | `verbatim` | Схема остаётся у всех имён; пропадает, когда файл её создаёт (это делает `--fix`). |
 | 126 | `mssql_go_separator` | `verbatim` | GO остаётся - внутри тела подпрограммы. |
 
-Итого среди самих 133 gap'ов: 58 `verbatim`, 74 `not_verifiable`
+Итого среди самих 138 gap'ов: 60 `verbatim`, 77 `not_verifiable`
 (включая `autonomous_tx`, но по другой причине — см. выше), 1
 `generated_only` (`connect_by`).
 

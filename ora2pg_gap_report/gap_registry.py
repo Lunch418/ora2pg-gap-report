@@ -868,6 +868,47 @@ GapEntry(
         severity="high",
         failure_stage="semantic",
         dialect="oracle", last_verified="2026-10-10"),
+    # GAP-134..138: found while checking GAP-130..133 -- these fail.
+    GapEntry(
+        "134",
+        "trunc_number",
+        "trunc-number",
+        ("test_loud_types.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "135",
+        "float_precision",
+        "float-precision",
+        ("test_loud_types.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "136",
+        "plsql_integer_subtype",
+        "plsql-integer-subtype",
+        ("test_loud_types.py",),
+        severity="high",
+        failure_stage="deployment",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "137",
+        "instr_occurrence",
+        "instr-occurrence",
+        ("test_loud_types.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="oracle", last_verified="2026-10-10"),
+    GapEntry(
+        "138",
+        "date_arithmetic",
+        "date-arithmetic",
+        ("test_loud_types.py",),
+        severity="high",
+        failure_stage="runtime",
+        dialect="oracle", last_verified="2026-10-10"),
 )
 
 _BY_NUMBER = {g.number: g for g in GAPS}

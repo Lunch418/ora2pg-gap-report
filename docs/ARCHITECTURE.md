@@ -14,10 +14,10 @@ FUNCTION`, …), which is exactly how `ora2pg_wrapper.py` works, not
 through `SHOW_REPORT`. This is a hard requirement for the target
 audience: closed networks, air-gapped environments, the public sector.
 
-There are 134 detectors right now (the full table is in README.md,
-"Detectors"; 133 of them are tied to a registered GAP-NNN,
+There are 139 detectors right now (the full table is in README.md,
+"Detectors"; 138 of them are tied to a registered GAP-NNN,
 `dbms_utl_calls` isn't, see README.md, "Why almost everything is high"),
-split across three source dialects: 85 Oracle, 27 MySQL/MariaDB
+split across three source dialects: 90 Oracle, 27 MySQL/MariaDB
 (`ora2pg -m`) and 21 T-SQL/SQL Server (`ora2pg -M`). Each dialect has its
 own lexer (`plsql_lex.py`, `mysql_lex.py`, `mssql_lex.py`) and its own
 detector tuple in `core.py`, kept structurally separate so a file scanned
@@ -136,6 +136,11 @@ ora2pg_gap_report/
 │   ├── number_as_float.py       # NUMBER(p,s), FLOAT -> real/double precision (once per file)
 │   ├── integer_division.py      # 7 / 2, i / 2 with integer types: 3.5 in Oracle, 3 in PostgreSQL
 │   ├── substr_start.py          # SUBSTR(s, 0, n), SUBSTR(s, -n): another part of the string
+│   ├── trunc_number.py          # TRUNC of a number -> date_trunc, fails when called
+│   ├── float_precision.py       # FLOAT(n) in PL/SQL -> double precision(n), does not load (--fix)
+│   ├── plsql_integer_subtype.py # SIMPLE_INTEGER/NATURAL/POSITIVE/SIGNTYPE copied, does not load (--fix)
+│   ├── instr_occurrence.py      # INSTR with a position or occurrence: no instr without orafce
+│   ├── date_arithmetic.py       # d + 1, d1 - d2 on DATE variables: timestamp + integer, interval
 │   ├── schema_qualified_name.py  # "HR"."EMP" -- the schema is kept, never created, dropped on triggers
 │   │                             # -- MySQL/MariaDB dialect (ora2pg -m; see mysql_lex.py) --
 │   ├── mysql_enum_type.py         # ENUM(...) -- CREATE TYPE for the synthesized type is missing

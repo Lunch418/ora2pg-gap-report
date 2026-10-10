@@ -9,6 +9,8 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-10
+
 ### Added
 
 - **GAP-129 `empty_string_null`: `''` that Oracle reads as NULL.** The

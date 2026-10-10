@@ -31,10 +31,7 @@ def find_param_after_default(source: str) -> list[Finding]:
     for m in _HEADER_RE.finditer(clean):
         is_procedure = m.group(1).upper() == "PROCEDURE"
         seen_default = False
-        offset = m.end()
         for param in call_arguments(clean, m.end() - 1):
-            at = offset
-            offset += len(param) + 1
             if _DEFAULT_RE.search(param):
                 seen_default = True
                 continue

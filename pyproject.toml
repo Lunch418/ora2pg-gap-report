@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ora2pg-gap-report"
-version = "0.15.0"
+version = "0.16.0"
 description = "Migrate Oracle, MySQL and SQL Server to PostgreSQL with ora2pg: find what ora2pg gets wrong before you start, repair what is mechanical, and check the result on a real PostgreSQL."
 readme = "README.md"
 license = "Apache-2.0"

@@ -193,10 +193,19 @@ def test_if_not_exists_is_dropped_in_code_only():
 
 
 def test_alt_quote_becomes_the_literal_it_spells():
-    source = "v := q'[it's]' || Q'{a}' || nq'<b>' || q'!x!' || 'q''[y]''' ; -- q'[c]'"
+    head = "CREATE OR REPLACE PROCEDURE p IS\nBEGIN\n  "
+    tail = "\nEND;\n/\n"
+    source = head + "v := q'[it's]' || Q'{a}' || nq'<b>' || q'!x!' || 'q''[y]''' ; -- q'[c]'" + tail
     fixed, count = prepare_oracle_alt_quote(source)
     assert count == 4
-    assert fixed == "v := 'it''s' || 'a' || N'b' || 'x' || 'q''[y]''' ; -- q'[c]'"
+    assert fixed == head + "v := 'it''s' || 'a' || N'b' || 'x' || 'q''[y]''' ; -- q'[c]'" + tail
+
+
+def test_alt_quote_in_an_anonymous_block_is_left_alone():
+    # OraOpenSource Logger's install scripts: ora2pg -t TABLE lifts the DDL
+    # out of the string, and from an ordinary literal it lifts ''OFF''.
+    source = "BEGIN\n  execute immediate q'!alter table t add check (c in ('OFF', 'ON'))!';\nEND;\n/\n"
+    assert prepare_oracle_alt_quote(source) == (source, 0)
 
 
 def test_brackets_unwrap_plain_names_and_quote_the_rest():

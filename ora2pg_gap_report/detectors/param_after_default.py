@@ -31,10 +31,7 @@ def find_param_after_default(source: str) -> list[Finding]:
     for m in _HEADER_RE.finditer(clean):
         is_procedure = m.group(1).upper() == "PROCEDURE"
         seen_default = False
-        offset = m.end()
         for param in call_arguments(clean, m.end() - 1):
-            at = offset
-            offset += len(param) + 1
             if _DEFAULT_RE.search(param):
                 seen_default = True
                 continue
@@ -52,7 +49,8 @@ def find_param_after_default(source: str) -> list[Finding]:
                     detector="param_after_default",
                     severity="high",
                     object_name=enclosing_object_name(index, m.start()),
-                    line=line_at(clean, at + len(param) - len(param.lstrip())),
+                    # The routine's line: where PostgreSQL reports the error.
+                    line=line_at(clean, m.start()),
                     snippet=f"{name} {kind} after a DEFAULT",
                     message_id="param_after_default",
                 )

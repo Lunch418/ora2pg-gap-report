@@ -121,4 +121,32 @@ def find_nested_subprograms(source: str) -> list[Finding]:
                 )
             )
 
+        # In a package body ora2pg loses the routine right after this one
+        # as well -- its CREATE is not written at all (checked on ora2pg
+        # 25.0; standalone routines are not affected). Name it: nothing
+        # else says it is gone.
+        if kind == "package_member":
+            following = ROUTINE_START_RE.search(clean, end_pos, _package_end(package_matches, match.start(), len(clean)))
+            if following is not None:
+                lost = following.group(1).upper()
+                findings.append(
+                    Finding(
+                        detector="nested_subprogram",
+                        severity="high",
+                        object_name=f"{package_name}.{lost}" if package_name else lost,
+                        line=line_at(clean, following.start(1)),
+                        snippet=f"{' '.join(following.group(0).split())} (lost after {match.group(1)})",
+                        message_id="nested_subprogram",
+                    )
+                )
+
     return findings
+
+
+def _package_end(package_matches: list[re.Match[str]], position: int, default: int) -> int:
+    """Where the package body containing `position` ends: at the next
+    package body's start, or `default`."""
+    for m in package_matches:
+        if m.start() > position:
+            return m.start()
+    return default

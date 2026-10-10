@@ -69,3 +69,21 @@ but also whatever called it.
 
 **Gap confirmed.** Implemented in
 `ora2pg_gap_report/detectors/nested_subprogram.py`.
+
+## Addendum: the routine after it is lost too (2026-10-11)
+
+Running `--migrate` on OraOpenSource Logger, eight of its package
+routines were missing from ora2pg's output. Four were outer routines with
+a nested one, as described above. The other four were each the routine
+right after one of those - `admin_security_check` after
+`get_sys_context`, `null_global_contexts` after `run_plugin`,
+`log_userenv` after `get_cgi_env`, `set_level` after `status`.
+Reproduced on a minimal package body: an outer function with a nested
+one, then `next_f`, then `third_f` - ora2pg 25.0 writes `inner_f` and
+`third_f`; `outer_f` and `next_f` are gone, with no trace of `next_f`'s
+body. Standalone routines are not affected: a `CREATE FUNCTION` after one
+with a nested function comes out.
+
+The detector now reports that routine as a finding of its own, `<name>
+(lost after <outer>)`, since nothing else says it is gone.
+

@@ -9,6 +9,8 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-10
+
 ### Added
 
 - **GAP-134..138: five constructs whose output fails.** Each run in

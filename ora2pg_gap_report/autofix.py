@@ -321,6 +321,23 @@ def fix_plsql_integer_subtypes(source: str) -> tuple[str, int]:
     return source, len(spans)
 
 
+_TRIM_BOTH_SIDE_RE = re.compile(r"\b(trim\s*\(\s*)both\s+(leading|trailing)\b", re.IGNORECASE)
+
+
+def fix_trim_both_side(source: str) -> tuple[str, int]:
+    """`trim(both leading x from y)` -> `trim(leading x from y)` (GAP-145):
+    ora2pg 25.0 puts BOTH in front of every TRIM, also in front of the
+    LEADING or TRAILING Oracle's source already had, and PostgreSQL does
+    not parse the two together."""
+    from .pg_script import mask_literals
+
+    masked = mask_literals(source)
+    spans = [(m.start(), m.end(), m.group(1), m.group(2)) for m in _TRIM_BOTH_SIDE_RE.finditer(masked)]
+    for start, end, opening, side in reversed(spans):
+        source = source[:start] + source[start : start + len(opening)] + source[end - len(side) : end] + source[end:]
+    return source, len(spans)
+
+
 _PG_NAME = r'(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)'
 _PG_CREATE_QUALIFIED_RE = re.compile(
     r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:UNLOGGED\s+)?(?:TABLE|VIEW|SEQUENCE|PROCEDURE|FUNCTION)\s+"
@@ -388,6 +405,7 @@ FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
         fix_bare_pg_sleep,
         fix_double_precision_length,
         fix_plsql_integer_subtypes,
+        fix_trim_both_side,
     ),
     "mysql": (fix_mysql_limit_comma,),
     "mssql": (fix_mssql_charindex_quotes, fix_mssql_empty_declare, fix_mssql_missing_schema),
@@ -402,6 +420,7 @@ FIXER_DETECTOR: dict[Fixer, str] = {
     fix_bare_pg_sleep: "dbms_sleep",
     fix_double_precision_length: "float_precision",
     fix_plsql_integer_subtypes: "plsql_integer_subtype",
+    fix_trim_both_side: "trim_leading_trailing",
     fix_mysql_limit_comma: "mysql_limit_comma",
     fix_mssql_charindex_quotes: "mssql_charindex",
     fix_mssql_empty_declare: "mssql_parameterless_procedure",

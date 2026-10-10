@@ -9,6 +9,35 @@ patch — исправления в существующих.
 
 ## [Не выпущено]
 
+### Добавлено
+
+- **GAP-143..148, найденные в том, чего не мог объяснить
+  `--load-check`,** на чужом коде (utPLSQL, OraOpenSource Logger,
+  библиотека Alexandria PL/SQL, демо-схемы Oracle). Каждый проверен на
+  живом Oracle 23ai, ora2pg 25.0 и PostgreSQL 16:
+  - `sequence_without_start`: `CREATE SEQUENCE s CACHE 100` получает
+    пустой `START`, а голый `CREATE SEQUENCE s2` теряет последнюю цифру;
+    `--prepare` дописывает `START WITH`, который подразумевает Oracle;
+  - `param_default_spacing`: значение параметра `varchar2:= chr(10)`
+    становится `VARCHAR2DEFAULT chr(10)`; `--prepare` расставляет пробелы;
+  - `trim_leading_trailing`: `TRIM(LEADING x FROM y)` становится
+    `trim(both leading ...)`; `--fix` убирает лишний BOTH;
+  - `param_after_default`: параметр без значения по умолчанию после
+    параметра со значением, PostgreSQL такое отвергает;
+  - `hash_identifier`: имя с `#`;
+  - `call_result_member`: `xml.extract(...).getstringval()`, `f(x).y` -
+    ora2pg делает из этого `f[x].y`.
+
+  На utPLSQL ошибок, которые не объясняет ни один пробел, стало 15
+  вместо 28.
+
+### Исправлено
+
+- `--load-check` относит упавшую команду к `--fix`, только если
+  исправление меняет строку с ошибкой или строку чуть выше: TRIM,
+  исправленный в начале подпрограммы, больше не забирает синтаксическую
+  ошибку ниже.
+
 ## [0.18.1] - 2026-10-10
 
 ### Исправлено

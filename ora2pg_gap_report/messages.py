@@ -4187,6 +4187,120 @@ MESSAGES: dict[str, Message] = {
             "hours') for a day, date_trunc('month', d + interval '15 days') roughly for 'MM'."
         ),
     ),
+    "sequence_without_start": Message(
+        ru=(
+            'CREATE SEQUENCE без START WITH: CREATE SEQUENCE s; или CREATE SEQUENCE s CACHE 100;. Oracle начинает '
+            'такую последовательность с MINVALUE (1). ora2pg 25.0 в файловом режиме пишет пустой START - CREATE '
+            "SEQUENCE s INCREMENT 1 ... START  CACHE 100; - и PostgreSQL 16 его не разбирает ('syntax error at or "
+            'near "CACHE"\'), а без единой опции ещё и отрезает от имени последнюю цифру (s2 становится s). '
+            'Найдено во всех четырёх последовательностях utPLSQL. Подтверждено живым Oracle 23ai, реальным ora2pg '
+            '25.0 и PostgreSQL 16, docs/research/gap-143-sequence-without-start.md. Запустите --prepare: он '
+            'дописывает START WITH, который подразумевает Oracle.'
+        ),
+        en=(
+            'CREATE SEQUENCE without START WITH: CREATE SEQUENCE s; or CREATE SEQUENCE s CACHE 100;. Oracle '
+            'starts such a sequence at its MINVALUE (1). ora2pg 25.0 in file mode writes an empty START - CREATE '
+            "SEQUENCE s INCREMENT 1 ... START  CACHE 100; - which PostgreSQL 16 does not parse ('syntax error at "
+            'or near "CACHE"\'), and with no option at all it also cuts a trailing digit off the name (s2 becomes '
+            "s). Found in all four of utPLSQL's sequences. Confirmed against a live Oracle 23ai, a real ora2pg "
+            '25.0 run and PostgreSQL 16, docs/research/gap-143-sequence-without-start.md. Run --prepare: it '
+            'writes the START WITH Oracle implies.'
+        ),
+    ),
+    "param_default_spacing": Message(
+        ru=(
+            'Значение параметра по умолчанию через := без пробела с одной стороны: a_delimiter varchar2:= '
+            'chr(10), a_base integer :=0. ora2pg 25.0 переписывает := в DEFAULT, не добавляя пробел: a_delimiter '
+            'VARCHAR2DEFAULT chr(10), a_base integer DEFAULT0 - тип даже не конвертируется - и PostgreSQL 16 не '
+            'разбирает подпрограмму. В объявлении переменной v NUMBER:=0 копируется и загружается. Найдено в '
+            'utPLSQL (семь функций ut_utils). Подтверждено, docs/research/gap-144-param-default-spacing.md. '
+            'Запустите --prepare: он расставляет пробелы.'
+        ),
+        en=(
+            'A parameter default written with := and no space on one side: a_delimiter varchar2:= chr(10), a_base '
+            'integer :=0. ora2pg 25.0 rewrites the := as DEFAULT without adding the space: a_delimiter '
+            'VARCHAR2DEFAULT chr(10), a_base integer DEFAULT0 - the type is not even converted - and PostgreSQL '
+            "16 does not parse the routine. A variable's v NUMBER:=0 in a declaration is copied and loads. Found "
+            'in utPLSQL (seven functions of ut_utils). Confirmed, docs/research/gap-144-param-default-spacing.md. '
+            'Run --prepare: it puts the spaces in.'
+        ),
+    ),
+    "trim_leading_trailing": Message(
+        ru=(
+            'TRIM(LEADING x FROM y) и TRIM(TRAILING x FROM y). В PostgreSQL ровно такой же синтаксис, но ora2pg '
+            '25.0 ставит BOTH перед каждым TRIM: trim(both leading x from y), и это PostgreSQL 16 не разбирает '
+            '(\'syntax error at or near "leading"\') - подпрограмма не загружается. TRIM(BOTH ...) и TRIM(x) '
+            'переводятся верно. Найдено в utPLSQL (ut_utils). Подтверждено, '
+            'docs/research/gap-145-trim-leading-trailing.md. Запустите --fix: он убирает лишний BOTH.'
+        ),
+        en=(
+            'TRIM(LEADING x FROM y) and TRIM(TRAILING x FROM y). PostgreSQL has the very same syntax, but ora2pg '
+            '25.0 puts BOTH in front of every TRIM: trim(both leading x from y), which PostgreSQL 16 does not '
+            'parse (\'syntax error at or near "leading"\') - the routine does not load. TRIM(BOTH ...) and TRIM(x) '
+            'come out right. Found in utPLSQL (ut_utils). Confirmed, '
+            'docs/research/gap-145-trim-leading-trailing.md. Run --fix: it removes the extra BOTH.'
+        ),
+    ),
+    "param_after_default": Message(
+        ru=(
+            'Параметр без значения по умолчанию после параметра со значением: p_text VARCHAR2 DEFAULT NULL, p_id '
+            'OUT NUMBER в процедуре, a NUMBER := 1, b NUMBER где угодно. Oracle это разрешает - аргументы '
+            'передают по имени. ora2pg 25.0 сохраняет порядок, и PostgreSQL 16 отвергает подпрограмму: входной '
+            "параметр после значения по умолчанию тоже должен его иметь ('input parameters after one with a "
+            "default value must also have defaults'), как и OUT-параметр процедуры ('procedure OUT parameters "
+            "cannot appear after one with a default value'); OUT-параметр функции может идти следом. Найдено в "
+            'OraOpenSource Logger (ins_logger_logs). Подтверждено, docs/research/gap-146-param-after-default.md. '
+            'Перенесите параметры со значениями по умолчанию в конец (и поправьте вызовы с позиционными '
+            'аргументами) или дайте значения по умолчанию и следующим.'
+        ),
+        en=(
+            'A parameter without a default after one with a default: p_text VARCHAR2 DEFAULT NULL, p_id OUT '
+            'NUMBER in a procedure, a NUMBER := 1, b NUMBER anywhere. Oracle allows it - callers name the '
+            'arguments. ora2pg 25.0 keeps the order, and PostgreSQL 16 rejects the routine: an input parameter '
+            "after a default needs one too ('input parameters after one with a default value must also have "
+            "defaults'), and so does a procedure's OUT parameter ('procedure OUT parameters cannot appear after "
+            "one with a default value'); a function's OUT parameter may follow. Found in OraOpenSource Logger "
+            '(ins_logger_logs). Confirmed, docs/research/gap-146-param-after-default.md. Move the defaulted '
+            'parameters to the end (and fix calls that pass arguments by position), or give the later ones '
+            'defaults too.'
+        ),
+    ),
+    "hash_identifier": Message(
+        ru=(
+            'Имя с # внутри: переменная, столбец, псевдоним (n#count, emp#). Oracle разрешает # в именах без '
+            "кавычек. ora2pg 25.0 копирует их, а PostgreSQL 16 # в имени не принимает ('syntax error at or near "
+            '"#"\') - таблица, представление или подпрограмма не загружается. Найдено в демо-схемах Oracle (as '
+            '#_OF_PRODUCTS). Подтверждено, docs/research/gap-147-hash-identifier.md. Переименуйте или возьмите '
+            'имя в кавычки в выводе.'
+        ),
+        en=(
+            'A name with # in it: a variable, a column, an alias (n#count, emp#). Oracle allows # in unquoted '
+            "names. ora2pg 25.0 copies them, and PostgreSQL 16 does not take # in a name ('syntax error at or "
+            'near "#"\') - the table, view or routine does not load. Found in Oracle\'s sample schemas (as '
+            '#_OF_PRODUCTS). Confirmed, docs/research/gap-147-hash-identifier.md. Rename it, or quote it in the '
+            'output.'
+        ),
+    ),
+    "call_result_member": Message(
+        ru=(
+            "Обращение к члену результата вызова: p_xml.extract('/a').getstringval(), get_rec(1).name. ora2pg "
+            '25.0 переписывает name(args).field в name[args].field - это правило для поля элемента коллекции, '
+            "t(i).name, - и применяет его и к вызову: p_xml.extract['/a'].getstringval(), а это PostgreSQL 16 не "
+            'разбирает (\'syntax error at or near "("\') - подпрограмма не загружается. Oracle 23ai возвращает '
+            'текст. Найдено в библиотеке Alexandria PL/SQL (XMLTYPE extract(...).getstringval()). Подтверждено, '
+            'docs/research/gap-148-call-result-member.md. Сохраните результат вызова в переменную или перепишите '
+            'через функции PostgreSQL (для XML - xpath(...)).'
+        ),
+        en=(
+            "A member taken from a call's result: p_xml.extract('/a').getstringval(), get_rec(1).name. ora2pg "
+            "25.0 rewrites name(args).field into name[args].field - the rule for a collection element's field, "
+            "t(i).name - and applies it to a call as well: p_xml.extract['/a'].getstringval(), which PostgreSQL "
+            '16 does not parse (\'syntax error at or near "("\') - the routine does not load. Oracle 23ai returns '
+            'the text. Found in the Alexandria PL/SQL library (XMLTYPE extract(...).getstringval()). Confirmed, '
+            "docs/research/gap-148-call-result-member.md. Keep the call's result in a variable, or rewrite it "
+            "with PostgreSQL's functions (xpath(...) for XML)."
+        ),
+    ),
     "supplied_package_call": Message(
         ru=(
             'Процедура поставляемого пакета Oracle, вызванная как оператор: '
@@ -5624,6 +5738,30 @@ REMEDIATION_HINTS: dict[str, Message] = {
         ru="Переписать через date_trunc: date_trunc('day', d + interval '12 hours')",
         en="Rewrite it with date_trunc: date_trunc('day', d + interval '12 hours')",
     ),
+    "sequence_without_start": Message(
+        ru='Запустить --prepare: он дописывает START WITH',
+        en='Run --prepare: it writes the START WITH',
+    ),
+    "param_default_spacing": Message(
+        ru='Запустить --prepare: он расставляет пробелы вокруг :=',
+        en='Run --prepare: it puts spaces around the :=',
+    ),
+    "trim_leading_trailing": Message(
+        ru='Запустить --fix: он убирает лишний BOTH',
+        en='Run --fix: it removes the extra BOTH',
+    ),
+    "param_after_default": Message(
+        ru='Перенести параметры со значениями по умолчанию в конец или дать значения и следующим',
+        en='Move the defaulted parameters to the end, or give the later ones defaults too',
+    ),
+    "hash_identifier": Message(
+        ru='Переименовать или взять имя в кавычки в выводе',
+        en='Rename it, or quote it in the output',
+    ),
+    "call_result_member": Message(
+        ru='Сохранить результат вызова в переменную или переписать через функции PostgreSQL',
+        en="Keep the call's result in a variable, or rewrite it with PostgreSQL's functions",
+    ),
     "supplied_package_call": Message(
         ru='Заменить вызов аналогом PostgreSQL или убрать его - голый вызов не загружается',
         en='Replace the call with a PostgreSQL counterpart, or remove it - a bare call does not load',
@@ -6045,6 +6183,30 @@ TITLES: dict[str, Message] = {
     "round_date": Message(
         ru='`ROUND` от даты - копируется, `round(timestamp)` в PostgreSQL нет',
         en='`ROUND` of a date - copied, PostgreSQL has no `round(timestamp)`',
+    ),
+    "sequence_without_start": Message(
+        ru='`CREATE SEQUENCE` без `START WITH` - пустой `START`, не загружается',
+        en='`CREATE SEQUENCE` without `START WITH` - an empty `START`, does not load',
+    ),
+    "param_default_spacing": Message(
+        ru='Значение параметра через `:=` без пробела - склеенный `VARCHAR2DEFAULT`, не загружается',
+        en='A parameter default with `:=` and no space - a glued `VARCHAR2DEFAULT`, does not load',
+    ),
+    "trim_leading_trailing": Message(
+        ru='`TRIM(LEADING ... FROM ...)` - становится `trim(both leading ...)`, не загружается',
+        en='`TRIM(LEADING ... FROM ...)` - becomes `trim(both leading ...)`, does not load',
+    ),
+    "param_after_default": Message(
+        ru='Параметр без значения по умолчанию после параметра со значением - не загружается',
+        en='A parameter without a default after one with a default - does not load',
+    ),
+    "hash_identifier": Message(
+        ru='Имя с `#` (`n#count`) - копируется, PostgreSQL его не принимает',
+        en='A name with `#` (`n#count`) - copied, PostgreSQL does not take it',
+    ),
+    "call_result_member": Message(
+        ru='`f(x).y`, `xml.extract(...).getstringval()` - становится `f[x].y`, не загружается',
+        en='`f(x).y`, `xml.extract(...).getstringval()` - becomes `f[x].y`, does not load',
     ),
     "supplied_package_call": Message(
         ru='Процедура поставляемого пакета (`DBMS_*`, `UTL_*`, `HTP`) как оператор - копируется без `CALL`, не загружается',

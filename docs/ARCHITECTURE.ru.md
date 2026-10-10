@@ -14,9 +14,9 @@
 принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
 госсектор.
 
-Детекторов сейчас 143 (полная таблица — в README.md, «Детекторы»; 142 из
+Детекторов сейчас 149 (полная таблица — в README.md, «Детекторы»; 148 из
 них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
-README.md, «Почему почти всё high»), в трёх исходных диалектах: 94 Oracle,
+README.md, «Почему почти всё high»), в трёх исходных диалектах: 100 Oracle,
 27 MySQL/MariaDB (`ora2pg -m`) и 21 T-SQL/SQL Server (`ora2pg -M`). У
 каждого диалекта свой лексер (`plsql_lex.py`, `mysql_lex.py`,
 `mssql_lex.py`) и свой кортеж детекторов в `core.py`; они разделены
@@ -146,6 +146,12 @@ ora2pg_gap_report/
 │   ├── to_char_default_format.py  # TO_CHAR(дата или дробь) -> x::text, другой текст
 │   ├── char_semantics.py        # CHAR(n): хвостовые пробелы незначащие в PostgreSQL (один раз на файл)
 │   ├── round_date.py            # ROUND(d, 'MM'): round(timestamp) нет
+│   ├── sequence_without_start.py  # CREATE SEQUENCE без START WITH: пустой START (--prepare)
+│   ├── param_default_spacing.py # a varchar2:= x -> VARCHAR2DEFAULT x (--prepare)
+│   ├── trim_leading_trailing.py # TRIM(LEADING ...) -> trim(both leading ...) (--fix)
+│   ├── param_after_default.py   # параметр без значения по умолчанию после параметра со значением
+│   ├── hash_identifier.py       # имя с #
+│   ├── call_result_member.py    # f(x).y -> f[x].y
 │   ├── schema_qualified_name.py  # "HR"."EMP" -- схема остаётся, не создаётся, в триггерах пропадает
 │   │                             # -- диалект MySQL/MariaDB (ora2pg -m; см. mysql_lex.py) --
 │   ├── mysql_enum_type.py         # ENUM(...) -- нет CREATE TYPE для синтезированного типа

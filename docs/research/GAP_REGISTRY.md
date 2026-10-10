@@ -112,6 +112,12 @@ being after them.
 | GAP-140 | `TO_CHAR` of a date or a fraction without a format - `x::text`, different text | `to_char_default_format` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-140](gap-140-to-char-default-format.md) |
 | GAP-141 | `CHAR(n)` - trailing blanks are insignificant in PostgreSQL: `LENGTH`, concatenation and comparisons differ | `char_semantics` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-141](gap-141-char-semantics.md) |
 | GAP-142 | `ROUND` of a date - copied, PostgreSQL has no `round(timestamp)` | `round_date` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-142](gap-142-round-date.md) |
+| GAP-143 | `CREATE SEQUENCE` without `START WITH` - an empty `START`, does not load | `sequence_without_start` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-143](gap-143-sequence-without-start.md) |
+| GAP-144 | A parameter default with `:=` and no space - a glued `VARCHAR2DEFAULT`, does not load | `param_default_spacing` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-144](gap-144-param-default-spacing.md) |
+| GAP-145 | `TRIM(LEADING ... FROM ...)` - becomes `trim(both leading ...)`, does not load | `trim_leading_trailing` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-145](gap-145-trim-leading-trailing.md) |
+| GAP-146 | A parameter without a default after one with a default - does not load | `param_after_default` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-146](gap-146-param-after-default.md) |
+| GAP-147 | A name with `#` (`n#count`) - copied, PostgreSQL does not take it | `hash_identifier` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-147](gap-147-hash-identifier.md) |
+| GAP-148 | `f(x).y`, `xml.extract(...).getstringval()` - becomes `f[x].y`, does not load | `call_result_member` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-148](gap-148-call-result-member.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

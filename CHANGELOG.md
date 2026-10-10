@@ -9,6 +9,33 @@ patch for fixes to existing ones.
 
 ## [Unreleased]
 
+### Added
+
+- **GAP-143..148, found in what `--load-check` could not explain** on
+  other people's code (utPLSQL, OraOpenSource Logger, the Alexandria
+  PL/SQL library, Oracle's sample schemas). Each checked on a live
+  Oracle 23ai, ora2pg 25.0 and PostgreSQL 16:
+  - `sequence_without_start`: `CREATE SEQUENCE s CACHE 100` gets an
+    empty `START`, and a bare `CREATE SEQUENCE s2` loses its last digit;
+    `--prepare` writes the `START WITH` Oracle implies;
+  - `param_default_spacing`: a parameter default `varchar2:= chr(10)`
+    becomes `VARCHAR2DEFAULT chr(10)`; `--prepare` puts the spaces in;
+  - `trim_leading_trailing`: `TRIM(LEADING x FROM y)` becomes
+    `trim(both leading ...)`; `--fix` removes the extra BOTH;
+  - `param_after_default`: a parameter without a default after one with
+    a default, which PostgreSQL rejects;
+  - `hash_identifier`: a name with `#` in it;
+  - `call_result_member`: `xml.extract(...).getstringval()`,
+    `f(x).y` - ora2pg turns them into `f[x].y`.
+
+  On utPLSQL the errors no gap explains went from 28 to 15.
+
+### Fixed
+
+- `--load-check` ties a failed statement to a `--fix` only when the fix
+  changes the failing line or one just above it: a TRIM repaired at the
+  top of a routine no longer claims a syntax error further down.
+
 ## [0.18.1] - 2026-10-10
 
 ### Fixed

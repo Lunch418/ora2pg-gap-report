@@ -48,6 +48,7 @@ def test_scan_source_runs_all_detectors_on_logger():
         "integer_division",  # p_date_stop-p_date_start < 1/1440
         "instr_occurrence",  # instr(l_callstack, chr(10), 1, 5)
         "date_arithmetic",  # p_date_stop-p_date_start, eleven times
+        "param_after_default",  # ins_logger_logs (po_id OUT), purge (p_purge_min_level)
         "package_constant_default",
         "pragma_exception_init",
     }
@@ -89,7 +90,8 @@ def test_scan_source_runs_all_detectors_on_logger():
     # (GAP-130, GAP-132).
     # instr_occurrence, date_arithmetic: 3 and 11 in get_call_stack and
     # date_text_format_base (GAP-137, 138).
-    assert len(findings) == 8 + 13 + 1 + 229 + 5 + 25 + 1 + 2 + 11 + 5 + 1 + 2 + 3 + 11
+    # param_after_default: ins_logger_logs and purge (GAP-146).
+    assert len(findings) == 8 + 13 + 1 + 229 + 5 + 25 + 1 + 2 + 11 + 5 + 1 + 2 + 3 + 11 + 2
 
 
 def test_scan_source_sorts_high_severity_first():

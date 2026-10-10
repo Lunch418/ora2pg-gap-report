@@ -1,29 +1,12 @@
 import re
 
+from ..lex_common import call_arguments
 from ..models import Finding
 from ..plsql_lex import enclosing_object_name, enclosing_object_name_index, line_at, mask_strings_and_comments
 
 _SUBSTR_RE = re.compile(r"(?<![\w$#.])SUBSTR\s*\(", re.IGNORECASE)
 _ZERO_RE = re.compile(r"0+\Z")
 _NEGATIVE_RE = re.compile(r"-\s*\d+\Z")
-
-
-def _arguments(text: str, open_paren: int) -> list[str]:
-    """The top-level arguments of the call whose '(' is at `open_paren`."""
-    args, depth, start = [], 0, open_paren + 1
-    for i in range(open_paren, len(text)):
-        ch = text[i]
-        if ch == "(":
-            depth += 1
-        elif ch == ")":
-            depth -= 1
-            if depth == 0:
-                args.append(text[start:i])
-                return args
-        elif ch == "," and depth == 1:
-            args.append(text[start:i])
-            start = i + 1
-    return []
 
 
 def find_substr_start(source: str) -> list[Finding]:
@@ -43,7 +26,7 @@ def find_substr_start(source: str) -> list[Finding]:
     findings: list[Finding] = []
     index = None
     for m in _SUBSTR_RE.finditer(clean):
-        args = [a.strip() for a in _arguments(clean, m.end() - 1)]
+        args = [a.strip() for a in call_arguments(clean, m.end() - 1)]
         if len(args) not in (2, 3):
             continue
         start = args[1]

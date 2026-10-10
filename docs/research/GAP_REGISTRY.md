@@ -103,6 +103,11 @@ being after them.
 | GAP-131 | `NUMBER(p,s)` and `FLOAT` - become `real`/`double precision`, 0.1 + 0.2 is no longer 0.3 | `number_as_float` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-131](gap-131-number-as-float.md) |
 | GAP-132 | A division of integers (`7 / 2`, `i / 2`) - 3.5 in Oracle, 3 in PostgreSQL | `integer_division` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-132](gap-132-integer-division.md) |
 | GAP-133 | `SUBSTR` from position 0 or a negative one - returns another part of the string in PostgreSQL | `substr_start` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-133](gap-133-substr-start.md) |
+| GAP-134 | `TRUNC` of a number - becomes `date_trunc`, fails when called | `trunc_number` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-134](gap-134-trunc-number.md) |
+| GAP-135 | `FLOAT(n)` in PL/SQL - becomes `double precision(n)`, does not load | `float_precision` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-135](gap-135-float-precision.md) |
+| GAP-136 | `SIMPLE_INTEGER`, `NATURAL`, `POSITIVE`, `SIGNTYPE` - copied as they are, does not load | `plsql_integer_subtype` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-136](gap-136-plsql-integer-subtype.md) |
+| GAP-137 | `INSTR` with a position or an occurrence - PostgreSQL has no `instr`, fails when called | `instr_occurrence` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-137](gap-137-instr-occurrence.md) |
+| GAP-138 | Arithmetic on a `DATE` (`d + 1`, `d1 - d2`) - `timestamp + integer` and an `interval` for a number, fails when it runs | `date_arithmetic` | high | confirmed | 25.0 | 16 | 2026-10-10 | [gap-138](gap-138-date-arithmetic.md) |
 
 ### MySQL/MariaDB (`ora2pg -m`, `dialect="mysql"`)
 

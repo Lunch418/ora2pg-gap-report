@@ -1,7 +1,8 @@
-"""Where Oracle source declares a numeric type, and what ora2pg 25.0
-turns it into with its default configuration -- shared by the detectors
-for GAP-130..132 (number_without_precision, number_as_float,
-integer_division).
+"""Where Oracle source declares a numeric or date type, and what ora2pg
+25.0 turns it into with its default configuration -- shared by the
+detectors for GAP-130..132 (number_without_precision, number_as_float,
+integer_division) and GAP-134..138 (trunc_number, float_precision,
+plsql_integer_subtype, date_arithmetic).
 
 ora2pg's mapping (Ora2Pg/Oracle.pm, _sql_type, with the ora2pg.conf it
 ships: PG_NUMERIC_TYPE 1, PG_INTEGER_TYPE 1, DEFAULT_NUMERIC bigint):
@@ -12,8 +13,11 @@ ships: PG_NUMERIC_TYPE 1, PG_INTEGER_TYPE 1, DEFAULT_NUMERIC bigint):
   bigint (p <= 19), numeric(p) above that;
 - NUMBER(p, s) with 0 < s <= p: p <= 6 -> real in PL/SQL (a column gets
   decimal(p, s)), p <= 15 -> double precision, decimal(p, s) above that;
-- FLOAT -> double precision; INTEGER, INT, SMALLINT, PLS_INTEGER,
-  BINARY_INTEGER -> integer or smallint.
+- FLOAT -> double precision (FLOAT(n) in PL/SQL -> `double precision(n)`,
+  which does not parse); INTEGER, INT, SMALLINT, PLS_INTEGER,
+  BINARY_INTEGER -> integer or smallint; SIMPLE_INTEGER, NATURAL(N),
+  POSITIVE(N), SIGNTYPE -> copied as they are;
+- DATE -> timestamp(0), TIMESTAMP -> timestamp.
 
 Checked by running ora2pg 25.0 on the declarations, see
 docs/research/gap-130-number-without-precision.md and the two after it.
@@ -30,7 +34,9 @@ from .plsql_lex import IDENTIFIER, TABLE_HEAD, enclosing_object_name, enclosing_
 
 _TYPE = (
     r"(?P<type>NUMBER(?:\s*\(\s*(?P<precision>\d+|\*)\s*(?:,\s*(?P<scale>-?\d+)\s*)?\))?"
-    r"|FLOAT(?:\s*\(\s*\d+\s*\))?|INTEGER|INT|SMALLINT|BIGINT|PLS_INTEGER|BINARY_INTEGER)(?![\w$#])"
+    r"|FLOAT(?:\s*\(\s*\d+\s*\))?|INTEGER|INT|SMALLINT|BIGINT|PLS_INTEGER|BINARY_INTEGER"
+    r"|SIMPLE_INTEGER|NATURALN?|POSITIVEN?|SIGNTYPE"
+    r"|DATE|TIMESTAMP(?:\s*\(\s*\d+\s*\))?(?:\s+WITH\s+(?:LOCAL\s+)?TIME\s+ZONE)?)(?![\w$#])"
 )
 # Words that can stand before a type without naming what is declared.
 _NOT_A_NAME = (
@@ -65,8 +71,19 @@ class Declaration:
     pg_type: str  # what ora2pg 25.0 makes of it by default
 
 
+# PL/SQL's constrained integer subtypes: ora2pg copies them as they are,
+# and PostgreSQL has no such type (GAP-136).
+_COPIED_SUBTYPES = {"SIMPLE_INTEGER", "NATURAL", "NATURALN", "POSITIVE", "POSITIVEN", "SIGNTYPE"}
+
+
 def _pg_type(base: str, precision: str | None, scale: str | None, in_table: bool) -> str:
     base = base.upper()
+    if base == "DATE":
+        return "timestamp(0)"
+    if base == "TIMESTAMP":
+        return "timestamp"
+    if base in _COPIED_SUBTYPES:
+        return base.lower()
     if base.startswith("FLOAT"):
         return "double precision"
     if base in _INTEGER_WORDS:
@@ -104,7 +121,7 @@ def _table_spans(clean: str) -> list[tuple[int, int, str]]:
 
 def declarations(clean: str) -> Iterator[Declaration]:
     """Every numeric type declared in masked `clean`, in order."""
-    if not re.search(r"NUMBER|FLOAT|INT", clean, re.IGNORECASE):
+    if not re.search(r"NUMBER|FLOAT|INT|NATURAL|POSITIVE|SIGNTYPE|DATE|TIMESTAMP", clean, re.IGNORECASE):
         return
     tables = _table_spans(clean)
     index = enclosing_object_name_index(clean)
@@ -130,3 +147,34 @@ def declarations(clean: str) -> Iterator[Declaration]:
                 table is not None,
             ),
         )
+
+
+def typed_names(clean: str) -> dict[str, dict[str, str]]:
+    """object -> NAME -> the PostgreSQL type ora2pg gives it, for every
+    named declaration outside a CREATE TABLE (variables, parameters,
+    package-level variables)."""
+    names: dict[str, dict[str, str]] = {}
+    for d in declarations(clean):
+        if d.name and not d.in_table:
+            names.setdefault(d.object_name, {})[d.name.upper()] = d.pg_type
+    return names
+
+
+def type_of(names: dict[str, dict[str, str]], obj: str, name: str) -> str | None:
+    """The type `name` is declared with in `obj` or in an object that
+    contains it (PKG for PKG.PROC), or None."""
+    name = name.upper()
+    while True:
+        found = names.get(obj, {}).get(name)
+        if found is not None:
+            return found
+        if "." not in obj:
+            return None
+        obj = obj.rsplit(".", 1)[0]
+
+
+NUMERIC_TYPES = frozenset({"smallint", "integer", "bigint", "real", "double precision", "numeric"})
+
+
+def is_numeric(pg_type: str | None) -> bool:
+    return pg_type is not None and (pg_type in NUMERIC_TYPES or pg_type.startswith(("numeric(", "decimal(")))

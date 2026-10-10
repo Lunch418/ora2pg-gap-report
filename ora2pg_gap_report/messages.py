@@ -4014,6 +4014,99 @@ MESSAGES: dict[str, Message] = {
             'for counting from the end.'
         ),
     ),
+    "trunc_number": Message(
+        ru=(
+            'TRUNC от числа: TRUNC(n), TRUNC(n / 3), TRUNC(ABS(n)), TRUNC(x, 2). ora2pg 25.0 переписывает любой '
+            "TRUNC как TRUNC даты: TRUNC(n / 3) становится date_trunc('day', n / 3), TRUNC(n, 2) - date_trunc(2, "
+            "n). Подпрограмма загружается, а при первом вызове PostgreSQL 16 падает ('function "
+            "date_trunc(unknown, bigint) does not exist'); Oracle 23ai для TRUNC(10 / 3) возвращает 3. "
+            'Подтверждено, docs/research/gap-134-trunc-number.md. Замените date_trunc на trunc: trunc(n / 3), '
+            'trunc(n, 2).'
+        ),
+        en=(
+            'TRUNC of a number: TRUNC(n), TRUNC(n / 3), TRUNC(ABS(n)), TRUNC(x, 2). ora2pg 25.0 rewrites every '
+            "TRUNC as a date's: TRUNC(n / 3) becomes date_trunc('day', n / 3), TRUNC(n, 2) becomes date_trunc(2, "
+            "n). The routine loads, and its first call fails in PostgreSQL 16 ('function date_trunc(unknown, "
+            "bigint) does not exist'); Oracle 23ai returns 3 for TRUNC(10 / 3). Confirmed, "
+            'docs/research/gap-134-trunc-number.md. Replace date_trunc with trunc: trunc(n / 3), trunc(n, 2).'
+        ),
+    ),
+    "float_precision": Message(
+        ru=(
+            'FLOAT(n) в объявлении PL/SQL: f FLOAT(10) := n;. ora2pg 25.0 делает FLOAT типом double precision и '
+            "оставляет точность: f double precision(10) := n;, а это PostgreSQL 16 не разбирает ('syntax error at "
+            'or near "("\') - подпрограмма не загружается. Столбец FLOAT(n) становится просто double precision и '
+            'загружается. Oracle 23ai компилирует и выполняет исходник. Подтверждено, '
+            'docs/research/gap-135-float-precision.md. --fix убирает точность.'
+        ),
+        en=(
+            'FLOAT(n) declared in PL/SQL: f FLOAT(10) := n;. ora2pg 25.0 makes FLOAT double precision and keeps '
+            "the precision: f double precision(10) := n;, which PostgreSQL 16 does not parse ('syntax error at or "
+            'near "("\') - the routine does not load. A column FLOAT(n) becomes plain double precision and loads. '
+            'Oracle 23ai compiles and runs the original. Confirmed, docs/research/gap-135-float-precision.md. '
+            '--fix drops the precision.'
+        ),
+    ),
+    "plsql_integer_subtype": Message(
+        ru=(
+            'Переменная или параметр подтипа PL/SQL: SIMPLE_INTEGER, NATURAL, NATURALN, POSITIVE, POSITIVEN, '
+            'SIGNTYPE. PLS_INTEGER и BINARY_INTEGER ora2pg 25.0 делает integer, а эти копирует как есть, и в '
+            'PostgreSQL 16 такого типа нет (\'type "simple_integer" does not exist\') - подпрограмма не '
+            'загружается. Oracle 23ai компилирует и выполняет её. Подтверждено, '
+            'docs/research/gap-136-plsql-integer-subtype.md. --fix пишет integer (smallint для SIGNTYPE); '
+            'ограничение подтипа (не NULL, > 0, >= 0) не переносится - добавьте проверку, если код на него '
+            'полагается.'
+        ),
+        en=(
+            'A variable or parameter of a PL/SQL subtype: SIMPLE_INTEGER, NATURAL, NATURALN, POSITIVE, POSITIVEN, '
+            'SIGNTYPE. ora2pg 25.0 makes PLS_INTEGER and BINARY_INTEGER integer but copies these as they are, and '
+            'PostgreSQL 16 has no such type (\'type "simple_integer" does not exist\') - the routine does not load. '
+            'Oracle 23ai compiles and runs it. Confirmed, docs/research/gap-136-plsql-integer-subtype.md. --fix '
+            "writes integer (smallint for SIGNTYPE); the subtype's constraint (not null, > 0, >= 0) is not "
+            'carried over - add a check if the code relies on it.'
+        ),
+    ),
+    "instr_occurrence": Message(
+        ru=(
+            "INSTR с начальной позицией или номером вхождения: INSTR(s, '.', -1), INSTR(s, '.', 1, 2). INSTR с "
+            'двумя аргументами ora2pg 25.0 переписывает в position(sub in s), а длинные формы копирует, и в '
+            "PostgreSQL 16 нет instr ('function instr(text, unknown, integer) does not exist'), если не "
+            'установлено расширение orafce - подпрограмма загружается и падает при первом вызове. Oracle 23ai для '
+            "INSTR('a.b.c', '.', -1) возвращает 4. Подтверждено, docs/research/gap-137-instr-occurrence.md. "
+            'Установите orafce или напишите свою функцию instr.'
+        ),
+        en=(
+            "INSTR with a start position or an occurrence: INSTR(s, '.', -1), INSTR(s, '.', 1, 2). ora2pg 25.0 "
+            'rewrites two-argument INSTR as position(sub in s) and copies the longer forms, and PostgreSQL 16 has '
+            "no instr ('function instr(text, unknown, integer) does not exist') unless the orafce extension is "
+            "installed - the routine loads and fails on its first call. Oracle 23ai returns 4 for INSTR('a.b.c', "
+            "'.', -1). Confirmed, docs/research/gap-137-instr-occurrence.md. Install orafce or write an instr "
+            'function of your own.'
+        ),
+    ),
+    "date_arithmetic": Message(
+        ru=(
+            'Арифметика с переменной или параметром DATE: прибавить или вычесть число (d + 1, TRUNC(d) - 7, '
+            'TRUNC(SYSDATE) - 7) или вычесть одну дату из другой (d1 - d2, SYSDATE - d). В Oracle дата + n - это '
+            'дата через n дней, а разность дат - число дней. ora2pg 25.0 делает DATE типом timestamp и '
+            'переписывает SYSDATE + n в interval, а эти выражения копирует: в PostgreSQL 16 нет timestamp + '
+            "integer ('operator does not exist: timestamp without time zone + integer'), а разность timestamp - "
+            'это interval, который числовая переменная не принимает (\'invalid input syntax for type bigint: "2 '
+            'days"\'). Подпрограмма загружается и падает при выполнении. Подтверждено, '
+            "docs/research/gap-138-date-arithmetic.md. Пишите d + interval '1 day' и extract(epoch from (d1 - "
+            'd2)) / 86400.'
+        ),
+        en=(
+            'Arithmetic on a DATE variable or parameter: a number added or subtracted (d + 1, TRUNC(d) - 7, '
+            'TRUNC(SYSDATE) - 7) or two dates subtracted (d1 - d2, SYSDATE - d). In Oracle date + n is the date n '
+            'days later and date - date is a number of days. ora2pg 25.0 makes DATE timestamp and rewrites '
+            "SYSDATE + n into an interval, but copies these: PostgreSQL 16 has no timestamp + integer ('operator "
+            "does not exist: timestamp without time zone + integer'), and timestamp - timestamp is an interval, "
+            'which a numeric variable rejects (\'invalid input syntax for type bigint: "2 days"\'). The routine '
+            'loads and fails when it runs. Confirmed, docs/research/gap-138-date-arithmetic.md. Write d + '
+            "interval '1 day' and extract(epoch from (d1 - d2)) / 86400."
+        ),
+    ),
     "supplied_package_call": Message(
         ru=(
             'Процедура поставляемого пакета Oracle, вызванная как оператор: '
@@ -5415,6 +5508,26 @@ REMEDIATION_HINTS: dict[str, Message] = {
         ru='Писать 1 вместо 0, а с конца - right(s, n) или substr(s, length(s) - n + 1, ...)',
         en='Write 1 for 0, and right(s, n) or substr(s, length(s) - n + 1, ...) from the end',
     ),
+    "trunc_number": Message(
+        ru='Заменить date_trunc на trunc: trunc(n / 3), trunc(n, 2)',
+        en='Replace date_trunc with trunc: trunc(n / 3), trunc(n, 2)',
+    ),
+    "float_precision": Message(
+        ru='Запустить --fix: он убирает точность у double precision',
+        en='Run --fix: it drops the precision from double precision',
+    ),
+    "plsql_integer_subtype": Message(
+        ru='Запустить --fix: он пишет integer (smallint для SIGNTYPE)',
+        en='Run --fix: it writes integer (smallint for SIGNTYPE)',
+    ),
+    "instr_occurrence": Message(
+        ru='Установить orafce или написать свою функцию instr',
+        en='Install orafce or write an instr function of your own',
+    ),
+    "date_arithmetic": Message(
+        ru="Писать d + interval '1 day' и extract(epoch from (d1 - d2)) / 86400",
+        en="Write d + interval '1 day' and extract(epoch from (d1 - d2)) / 86400",
+    ),
     "supplied_package_call": Message(
         ru='Заменить вызов аналогом PostgreSQL или убрать его - голый вызов не загружается',
         en='Replace the call with a PostgreSQL counterpart, or remove it - a bare call does not load',
@@ -5800,6 +5913,26 @@ TITLES: dict[str, Message] = {
     "substr_start": Message(
         ru='`SUBSTR` с позиции 0 или отрицательной - в PostgreSQL возвращает другую часть строки',
         en='`SUBSTR` from position 0 or a negative one - returns another part of the string in PostgreSQL',
+    ),
+    "trunc_number": Message(
+        ru='`TRUNC` от числа - становится `date_trunc`, падает при вызове',
+        en='`TRUNC` of a number - becomes `date_trunc`, fails when called',
+    ),
+    "float_precision": Message(
+        ru='`FLOAT(n)` в PL/SQL - становится `double precision(n)`, не загружается',
+        en='`FLOAT(n)` in PL/SQL - becomes `double precision(n)`, does not load',
+    ),
+    "plsql_integer_subtype": Message(
+        ru='`SIMPLE_INTEGER`, `NATURAL`, `POSITIVE`, `SIGNTYPE` - копируются как есть, не загружается',
+        en='`SIMPLE_INTEGER`, `NATURAL`, `POSITIVE`, `SIGNTYPE` - copied as they are, does not load',
+    ),
+    "instr_occurrence": Message(
+        ru='`INSTR` с позицией или вхождением - `instr` в PostgreSQL нет, падает при вызове',
+        en='`INSTR` with a position or an occurrence - PostgreSQL has no `instr`, fails when called',
+    ),
+    "date_arithmetic": Message(
+        ru='Арифметика с `DATE` (`d + 1`, `d1 - d2`) - `timestamp + integer` и `interval` вместо числа, падает при выполнении',
+        en='Arithmetic on a `DATE` (`d + 1`, `d1 - d2`) - `timestamp + integer` and an `interval` for a number, fails when it runs',
     ),
     "supplied_package_call": Message(
         ru='Процедура поставляемого пакета (`DBMS_*`, `UTL_*`, `HTP`) как оператор - копируется без `CALL`, не загружается',

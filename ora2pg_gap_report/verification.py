@@ -240,7 +240,12 @@ VERIFICATION_MODE: dict[str, str] = {
     "number_without_precision": NOT_VERIFIABLE,  # NUMBER becomes bigint; the declaration the detector reads is gone
     "number_as_float": NOT_VERIFIABLE,  # NUMBER(p,s) becomes real/double precision; never NUMBER(p,s) again
     "integer_division": VERBATIM,  # the division is copied; the types become integer/bigint, which it reads too
-    "substr_start": VERBATIM,  # the SUBSTR call is copied unchanged  # copied unchanged; NVL(x, '') becomes coalesce(x, ''), also found
+    "substr_start": VERBATIM,  # the SUBSTR call is copied unchanged
+    "trunc_number": NOT_VERIFIABLE,  # TRUNC becomes date_trunc; TRUNC never survives
+    "float_precision": NOT_VERIFIABLE,  # FLOAT(n) becomes double precision(n); never FLOAT again
+    "plsql_integer_subtype": VERBATIM,  # the subtype is copied unchanged (until --fix)
+    "instr_occurrence": VERBATIM,  # INSTR with three or four arguments is copied unchanged
+    "date_arithmetic": NOT_VERIFIABLE,  # DATE becomes timestamp(0), no longer told apart from a TIMESTAMP  # copied unchanged; NVL(x, '') becomes coalesce(x, ''), also found
     "dbms_sleep": NOT_VERIFIABLE,  # DBMS_LOCK.SLEEP becomes a bare pg_sleep, which --fix repairs
     "package_constant_default": NOT_VERIFIABLE,  # the default survives, but outside any package the detector reads
     # GENERATED_ONLY -- already only ever analyzes generated output

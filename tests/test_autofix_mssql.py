@@ -9,6 +9,8 @@ every valid neighbouring construct alone.
 from ora2pg_gap_report.autofix import (
     FIXERS_BY_DIALECT,
     fix_bare_pg_sleep,
+    fix_double_precision_length,
+    fix_plsql_integer_subtypes,
     fix_identity_double_parens,
     fix_mssql_charindex_quotes,
     fix_recursive_with_keyword,
@@ -31,8 +33,14 @@ def test_mysql_has_only_its_one_syntax_fix_on_purpose():
     assert FIXERS_BY_DIALECT["mysql"] == (fix_mysql_limit_comma,)
 
 
-def test_oracle_has_exactly_its_three_fixers():
-    assert FIXERS_BY_DIALECT["oracle"] == (fix_identity_double_parens, fix_recursive_with_keyword, fix_bare_pg_sleep)
+def test_oracle_has_exactly_its_five_fixers():
+    assert FIXERS_BY_DIALECT["oracle"] == (
+        fix_identity_double_parens,
+        fix_recursive_with_keyword,
+        fix_bare_pg_sleep,
+        fix_double_precision_length,
+        fix_plsql_integer_subtypes,
+    )
 
 
 # --- CHARINDEX -> position(), with ora2pg's doubled quotes (GAP-100) ---

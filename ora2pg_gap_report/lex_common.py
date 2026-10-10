@@ -70,6 +70,27 @@ def skip_balanced_parens(text: str, start: int) -> int:
     return len(text)
 
 
+def call_arguments(text: str, open_paren: int) -> list[str]:
+    """The top-level arguments of the call whose '(' is at `open_paren`,
+    as written (not stripped); [] if the parenthesis is never closed. Meant
+    for masked text, where a comma or parenthesis inside a literal is
+    already blanked."""
+    args, depth, start = [], 0, open_paren + 1
+    for i in range(open_paren, len(text)):
+        ch = text[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                args.append(text[start:i])
+                return args
+        elif ch == "," and depth == 1:
+            args.append(text[start:i])
+            start = i + 1
+    return []
+
+
 def table_column_definition_list(text: str, table_name_end: int) -> tuple[int, int] | None:
     """Given the end of 'CREATE TABLE [schema.]name', the (open_paren_pos,
     close_paren_pos) span of the column-definition list's own '(...)' --

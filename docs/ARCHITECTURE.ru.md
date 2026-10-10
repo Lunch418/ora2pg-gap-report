@@ -14,9 +14,9 @@
 принципиально для целевой аудитории — закрытые контуры, air-gapped среды,
 госсектор.
 
-Детекторов сейчас 134 (полная таблица — в README.md, «Детекторы»; 133 из
+Детекторов сейчас 139 (полная таблица — в README.md, «Детекторы»; 138 из
 них привязаны к зарегистрированному GAP-NNN, `dbms_utl_calls` — нет, см.
-README.md, «Почему почти всё high»), в трёх исходных диалектах: 85 Oracle,
+README.md, «Почему почти всё high»), в трёх исходных диалектах: 90 Oracle,
 27 MySQL/MariaDB (`ora2pg -m`) и 21 T-SQL/SQL Server (`ora2pg -M`). У
 каждого диалекта свой лексер (`plsql_lex.py`, `mysql_lex.py`,
 `mssql_lex.py`) и свой кортеж детекторов в `core.py`; они разделены
@@ -137,6 +137,11 @@ ora2pg_gap_report/
 │   ├── number_as_float.py       # NUMBER(p,s), FLOAT -> real/double precision (один раз на файл)
 │   ├── integer_division.py      # 7 / 2, i / 2 целых типов: в Oracle 3.5, в PostgreSQL 3
 │   ├── substr_start.py          # SUBSTR(s, 0, n), SUBSTR(s, -n): другая часть строки
+│   ├── trunc_number.py          # TRUNC от числа -> date_trunc, падает при вызове
+│   ├── float_precision.py       # FLOAT(n) в PL/SQL -> double precision(n), не загружается (--fix)
+│   ├── plsql_integer_subtype.py # SIMPLE_INTEGER/NATURAL/POSITIVE/SIGNTYPE копируются, не загружается (--fix)
+│   ├── instr_occurrence.py      # INSTR с позицией или вхождением: без orafce instr нет
+│   ├── date_arithmetic.py       # d + 1, d1 - d2 с переменными DATE: timestamp + integer, interval
 │   ├── schema_qualified_name.py  # "HR"."EMP" -- схема остаётся, не создаётся, в триггерах пропадает
 │   │                             # -- диалект MySQL/MariaDB (ora2pg -m; см. mysql_lex.py) --
 │   ├── mysql_enum_type.py         # ENUM(...) -- нет CREATE TYPE для синтезированного типа

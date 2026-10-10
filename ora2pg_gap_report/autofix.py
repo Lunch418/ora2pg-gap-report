@@ -276,6 +276,51 @@ def fix_bare_pg_sleep(source: str) -> tuple[str, int]:
     return source, len(ends)
 
 
+_DOUBLE_PRECISION_LENGTH_RE = re.compile(r"\bdouble\s+precision\s*\(\s*\d+\s*\)", re.IGNORECASE)
+
+
+def fix_double_precision_length(source: str) -> tuple[str, int]:
+    """Drop the precision ora2pg keeps on a PL/SQL FLOAT(n) (GAP-135):
+    `f double precision(10) := n;` -> `f double precision := n;`.
+
+    Mechanical: PostgreSQL's double precision takes no length ('syntax
+    error at or near "("', ora2pg 25.0 output loaded into PostgreSQL 16),
+    and a column FLOAT(n) is converted to exactly this already."""
+    from .pg_script import mask_literals
+
+    masked = mask_literals(source)
+    spans = [m.span() for m in _DOUBLE_PRECISION_LENGTH_RE.finditer(masked)]
+    for start, end in reversed(spans):
+        source = source[:start] + "double precision" + source[end:]
+    return source, len(spans)
+
+
+# A declaration's type: after the name, before := ; , ) DEFAULT or NOT.
+_PLSQL_SUBTYPE_RE = re.compile(
+    r"(?<=[A-Za-z0-9_$\"]\s)(?:\s*)\b(SIMPLE_INTEGER|NATURALN?|POSITIVEN?|SIGNTYPE)\b"
+    r"(?=\s*(?::=|;|,|\)|\bDEFAULT\b|\bNOT\b))",
+    re.IGNORECASE,
+)
+
+
+def fix_plsql_integer_subtypes(source: str) -> tuple[str, int]:
+    """Write a PostgreSQL type for the PL/SQL integer subtypes ora2pg
+    copies (GAP-136): SIMPLE_INTEGER, NATURAL(N), POSITIVE(N) -> integer,
+    SIGNTYPE -> smallint, in declarations only.
+
+    PostgreSQL 16 has no such types ('type "simple_integer" does not
+    exist'). The subtype's own constraint (not null, >= 0, > 0, -1..1) is
+    not carried over: the values the code assigns still fit, but nothing
+    rejects one that does not."""
+    from .pg_script import mask_literals
+
+    masked = mask_literals(source)
+    spans = [(m.start(1), m.end(1), m.group(1).upper()) for m in _PLSQL_SUBTYPE_RE.finditer(masked)]
+    for start, end, word in reversed(spans):
+        source = source[:start] + ("smallint" if word == "SIGNTYPE" else "integer") + source[end:]
+    return source, len(spans)
+
+
 _PG_NAME = r'(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_$]*)'
 _PG_CREATE_QUALIFIED_RE = re.compile(
     r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:UNLOGGED\s+)?(?:TABLE|VIEW|SEQUENCE|PROCEDURE|FUNCTION)\s+"
@@ -337,7 +382,13 @@ def fix_mssql_missing_schema(source: str) -> tuple[str, int]:
 Fixer = Callable[[str], tuple[str, int]]
 
 FIXERS_BY_DIALECT: dict[str, tuple[Fixer, ...]] = {
-    "oracle": (fix_identity_double_parens, fix_recursive_with_keyword, fix_bare_pg_sleep),
+    "oracle": (
+        fix_identity_double_parens,
+        fix_recursive_with_keyword,
+        fix_bare_pg_sleep,
+        fix_double_precision_length,
+        fix_plsql_integer_subtypes,
+    ),
     "mysql": (fix_mysql_limit_comma,),
     "mssql": (fix_mssql_charindex_quotes, fix_mssql_empty_declare, fix_mssql_missing_schema),
 }
@@ -349,6 +400,8 @@ FIXER_DETECTOR: dict[Fixer, str] = {
     fix_identity_double_parens: "identity_column",
     fix_recursive_with_keyword: "recursive_with",
     fix_bare_pg_sleep: "dbms_sleep",
+    fix_double_precision_length: "float_precision",
+    fix_plsql_integer_subtypes: "plsql_integer_subtype",
     fix_mysql_limit_comma: "mysql_limit_comma",
     fix_mssql_charindex_quotes: "mssql_charindex",
     fix_mssql_empty_declare: "mssql_parameterless_procedure",

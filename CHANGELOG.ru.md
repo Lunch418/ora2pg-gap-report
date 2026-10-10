@@ -9,6 +9,27 @@ patch — исправления в существующих.
 
 ## [Не выпущено]
 
+### Добавлено
+
+- **GAP-134..138: пять конструкций, вывод которых падает.** Каждая
+  запущена в Oracle 23ai и, после ora2pg 25.0, в PostgreSQL 16:
+  - `trunc_number`: `TRUNC` от числа становится `date_trunc` (ora2pg
+    переписывает любой `TRUNC` как TRUNC даты) - вызов падает;
+  - `float_precision`: `FLOAT(n)` в PL/SQL становится `double
+    precision(n)` - подпрограмма не загружается; `--fix` убирает
+    точность;
+  - `plsql_integer_subtype`: `SIMPLE_INTEGER`, `NATURAL`, `POSITIVE`,
+    `SIGNTYPE` копируются - подпрограмма не загружается; `--fix` пишет
+    `integer` (`smallint`);
+  - `instr_occurrence`: `INSTR` с позицией или вхождением копируется, а
+    `instr` в PostgreSQL без orafce нет;
+  - `date_arithmetic`: `d + 1`, `d1 - d2`, `TRUNC(d) - 7` с переменными
+    DATE - `timestamp + integer` не существует, а разность - interval, а
+    не число дней.
+
+  Найдено и в OraOpenSource Logger и `file_util_pkg`: одиннадцать
+  разностей дат, `trunc(.../7)`, шесть вызовов `INSTR`.
+
 ## [0.17.0] - 2026-10-10
 
 ### Добавлено

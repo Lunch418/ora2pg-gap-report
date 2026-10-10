@@ -25,7 +25,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import IO
 
@@ -74,6 +74,9 @@ class Item:
     state: str  # "open" | "ticked" | "gone" | "kept"
     # "kept": not scanned this time; `checked` says what it was before
     checked: bool
+    # Found under another key last time -- the file renamed or moved, or
+    # the routine now in another package: that key, its tick carried over.
+    moved_from: ItemKey | None = None
 
 
 def read_previous(path: Path) -> dict[ItemKey, bool] | None:
@@ -111,13 +114,16 @@ def build_items(
         now.setdefault(key, []).append(f.line)
     previous = previous or {}
     scanned = {_normalized_source_file(s) for s in scanned_files}
+    moved = _moves(set(now), previous)
+    moved_away = set(moved.values())
 
     by_detector: dict[str, list[Item]] = {}
-    for key in now.keys() | previous.keys():
+    for key in (now.keys() | previous.keys()) - moved_away:
         if key in now:
-            ticked = previous.get(key, False)
+            source = moved.get(key)
+            ticked = previous.get(source if source is not None else key, False)
             state = "ticked" if ticked else "open"
-            item = Item(key, tuple(sorted(set(now[key]))), state, ticked)
+            item = Item(key, tuple(sorted(set(now[key]))), state, ticked, source)
         elif key.source_file in scanned:
             item = Item(key, (), "gone", True)
         else:
@@ -126,6 +132,40 @@ def build_items(
     for items in by_detector.values():
         items.sort(key=lambda i: (i.checked, i.key.source_file, i.key.object_name))
     return by_detector
+
+
+def _moves(now: set[ItemKey], previous: dict[ItemKey, bool]) -> dict[ItemKey, ItemKey]:
+    """Current item -> the previous item it is, for the items not found
+    under the same key: the same object in another file (the file renamed
+    or moved), or else the same routine under another package (the package
+    split or renamed). Only an unambiguous match counts -- one candidate
+    each way; anything less is left as it was, a new item and an old one,
+    rather than a tick carried to the wrong place."""
+    new = [k for k in now if k not in previous]
+    old = [k for k in previous if k not in now]
+
+    def match(sig: Callable[[ItemKey], tuple[str, ...]], new: list[ItemKey], old: list[ItemKey]) -> dict[ItemKey, ItemKey]:
+        olds: dict[tuple[str, ...], list[ItemKey]] = {}
+        for k in old:
+            olds.setdefault(sig(k), []).append(k)
+        news: dict[tuple[str, ...], list[ItemKey]] = {}
+        for k in new:
+            news.setdefault(sig(k), []).append(k)
+        return {ns[0]: olds[s][0] for s, ns in news.items() if len(ns) == 1 and len(olds.get(s, [])) == 1}
+
+    found = match(lambda k: (k.detector, k.object_name.upper()), new, old)
+    rest_new = [k for k in new if k not in found]
+    rest_old = [k for k in old if k not in found.values()]
+    # The routine without its package: PKG.PROC and NEW_PKG.PROC. A bare,
+    # unqualified name is no evidence, so only qualified names take part.
+    found.update(
+        match(
+            lambda k: (k.detector, k.object_name.upper().rsplit(".", 1)[-1]),
+            [k for k in rest_new if "." in k.object_name],
+            [k for k in rest_old if "." in k.object_name],
+        )
+    )
+    return found
 
 
 def _detector_order(findings: list[Finding], detectors: Iterable[str]) -> list[str]:
@@ -226,6 +266,10 @@ def write_checklist(
                 line += f" - {where}"
             if item.lines:
                 line += f" {_lines_text(item.lines, lang)}"
+            if item.moved_from is not None:
+                was = item.moved_from
+                where = was.source_file if was.object_name.upper() == item.key.object_name.upper() else was.object_name
+                line += f" - {i18n.t(lang, 'checklist_moved', where=_code(where))}"
             if item.state == "gone":
                 line += f" - {i18n.t(lang, 'checklist_gone')}"
             elif item.state == "kept":
